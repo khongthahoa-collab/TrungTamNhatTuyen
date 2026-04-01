@@ -34,14 +34,13 @@ class ProductionConfig(Config):
     DEBUG = False
     # REQUIRED: DATABASE_URL must be set in Railway environment variables
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
+    WTF_CSRF_SSL_STRICT = True
     
     # Validate critical configs in production
     if not SQLALCHEMY_DATABASE_URI:
         raise ValueError('DATABASE_URL environment variable is not set!')
-    if SECRET_KEY == 'dev-secret-key-change-in-production':
+    if os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production') == 'dev-secret-key-change-in-production':
         raise ValueError('SECRET_KEY must be set to a secure value in production!')
-    
-    WTF_CSRF_SSL_STRICT = True
 
 
 config = {
