@@ -1,0 +1,273 @@
+/* ══════════════════════════════════════════════
+   Nhật Tuyền — Custom styles
+   Soft, friendly educational interface
+   ══════════════════════════════════════════════ */
+
+:root {
+  /* Primary brand colors - soft and friendly */
+  --nt-primary: #7c5cdb;        /* Soft purple */
+  --nt-secondary: #f59e0b;      /* Warm amber/orange */
+  --nt-accent: #06b6d4;         /* Soft cyan/teal */
+  --nt-success: #10b981;        /* Soft green */
+  --nt-warning: #f59e0b;        /* Warm amber */
+  --nt-danger: #ef4444;         /* Soft red */
+  --nt-light: #f8fafc;          /* Very light gray */
+  --nt-lighter: #f1f5f9;        /* Lighter gray */
+  --nt-text: #334155;           /* Dark blue-gray */
+  --nt-border: #e2e8f0;         /* Soft border */
+}
+
+/* Override Bootstrap colors */
+.btn-primary { background-color: var(--nt-primary); border-color: var(--nt-primary); }
+.btn-primary:hover { background-color: #6d4dd4; border-color: #6d4dd4; }
+.text-primary { color: var(--nt-primary) !important; }
+.bg-primary { background-color: var(--nt-primary) !important; }
+.border-primary { border-color: var(--nt-primary) !important; }
+
+/* ── Typography ── */
+body { 
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  color: var(--nt-text);
+  background: var(--nt-light);
+}
+h1, h2, h3, h4, h5, h6 { color: var(--nt-text); }
+
+/* ── Admin sidebar ── */
+.sidebar {
+  background: linear-gradient(180deg, #6d4dd4 0%, #7c5cdb 100%);
+  box-shadow: 2px 0 8px rgba(125, 92, 219, 0.15);
+}
+.sidebar .nav-link { 
+  border-radius: 8px; 
+  padding: 10px 14px; 
+  transition: all .2s ease;
+  color: rgba(255, 255, 255, 0.85);
+}
+.sidebar .nav-link:hover { 
+  background: rgba(255,255,255,.15);
+  color: #fff;
+}
+.sidebar .nav-link.active { 
+  background: rgba(255,255,255,.2); 
+  color: #fff;
+  font-weight: 600; 
+}
+@media (max-width:991px) {
+  .sidebar { transform: translateX(-100%); }
+  #main-content { margin-left: 0 !important; }
+}
+
+/* ── Public schedule calendar ── */
+.schedule-card {
+  cursor: pointer;
+  transition: transform .15s, box-shadow .15s;
+  user-select: none;
+  border-radius: 12px;
+  background: var(--nt-light);
+  border: 1px solid var(--nt-border);
+}
+.schedule-card:hover { 
+  transform: translateY(-3px); 
+  box-shadow: 0 8px 16px rgba(125, 92, 219, 0.1);
+}
+.schedule-regular { 
+  background: #ede9fe; 
+  border-left: 3px solid var(--nt-primary);
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
+}
+.schedule-intensive { 
+  background: #fef3c7; 
+  border-left: 3px solid var(--nt-secondary);
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
+}
+
+/* ── Hall of Fame ── */
+.hall-card { 
+  transition: transform .15s, box-shadow .15s;
+  border-radius: 12px;
+  border: 1px solid var(--nt-border);
+  background: var(--nt-light);
+}
+.hall-card:hover { 
+  transform: translateY(-3px); 
+  box-shadow: 0 12px 24px rgba(125, 92, 219, 0.12);
+}
+.score-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--nt-primary) 0%, var(--nt-accent) 100%);
+  color: #fff;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(125, 92, 219, 0.3);
+}
+
+/* ── Attendance form (teacher mobile) ── */
+.attendance-student-card {
+  border: 2px solid var(--nt-border);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+  transition: all .2s ease;
+  background: #fff;
+}
+.attendance-student-card:has(input[value="absent"]:checked) { 
+  border-color: #fecaca; 
+  background: #fef2f2;
+}
+.attendance-student-card:has(input[value="late"]:checked) { 
+  border-color: #fde047; 
+  background: #fefce8;
+}
+.attendance-student-card:has(input[value="excused"]:checked) { 
+  border-color: #cbd5e1; 
+  background: #f8fafc;
+}
+.attendance-student-card:has(input[value="present"]:checked) { 
+  border-color: #86efac; 
+  background: #f0fdf4;
+}
+
+.att-btn-group .btn {
+  min-height: 48px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 8px;
+}
+
+/* ── Touch-friendly table actions ── */
+.btn-touch { min-height: 44px; min-width: 44px; }
+
+/* ── Status badges - soft colors ── */
+.badge-present { background-color: #d1fae5; color: #065f46; border-radius: 6px; }
+.badge-absent  { background-color: #fee2e2; color: #7f1d1d; border-radius: 6px; }
+.badge-late    { background-color: #fef3c7; color: #78350f; border-radius: 6px; }
+.badge-excused { background-color: #f3f4f6; color: #374151; border-radius: 6px; }
+
+/* ── Finance cards ── */
+.finance-card { 
+  border-left: 4px solid var(--nt-accent);
+  border-radius: 8px;
+  background: var(--nt-light);
+}
+.finance-card.income { border-color: var(--nt-success); }
+.finance-card.expense { border-color: var(--nt-danger); }
+.finance-card.profit  { border-color: var(--nt-secondary); }
+
+/* ── Parent bottom nav ── */
+.parent-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: #fff;
+  border-top: 1px solid var(--nt-border);
+  display: flex;
+  padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+}
+.parent-bottom-nav a {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 4px 8px;
+  text-decoration: none;
+  color: #94a3b8;
+  font-size: 0.65rem;
+  gap: 4px;
+  transition: all .2s ease;
+}
+.parent-bottom-nav a i { font-size: 1.3rem; }
+.parent-bottom-nav a.active, .parent-bottom-nav a:hover { 
+  color: var(--nt-primary);
+  font-weight: 600;
+}
+.parent-body-pad { padding-bottom: 70px; }
+
+/* ── Card styling - soft shadows ── */
+.card {
+  border: 1px solid var(--nt-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  transition: all .2s ease;
+}
+.card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+  background: var(--nt-lighter);
+  border-bottom: 1px solid var(--nt-border);
+  border-radius: 12px 12px 0 0;
+}
+
+/* ── Alert styling ── */
+.alert {
+  border-radius: 8px;
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+.alert-info {
+  background: #ecf0fe;
+  color: #3730a3;
+}
+.alert-success {
+  background: #dcfce7;
+  color: #166534;
+}
+.alert-warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+.alert-danger {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* ── Responsive table → card on mobile ── */
+@media (max-width: 576px) {
+  .table-card-mobile thead { display: none; }
+  .table-card-mobile tbody tr {
+    display: block;
+    border: 1px solid var(--nt-border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    padding: 12px;
+    background: var(--nt-light);
+  }
+  .table-card-mobile tbody td {
+    display: flex;
+    justify-content: space-between;
+    border: none;
+    padding: 6px 0;
+    font-size: 0.875rem;
+  }
+  .table-card-mobile tbody td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--nt-text);
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+}
+
+/* ── Flash messages auto-dismiss ── */
+#flash-container .alert { animation: slideIn .3s ease; }
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Report bars ── */
+.report-bar { height: 20px; border-radius: 4px; min-width: 4px; }
+
+/* ── Scrollable tables ── */
+.table-responsive { border-radius: 8px; }

@@ -1,0 +1,303 @@
+{% extends 'base.html' %}
+{% block title %}{{ center_name }}{% endblock %}
+{% block body %}
+
+<!-- ══ NAVBAR ══ -->
+<nav class="navbar navbar-expand-lg navbar-dark sticky-top" style="background:#d32f2f;">
+  <div class="container">
+    <a class="navbar-brand fw-bold" href="{{ url_for('public.index') }}">
+      <i class="bi bi-mortarboard-fill me-2"></i>{{ center_name }}
+    </a>
+    <div class="d-flex align-items-center gap-2 ms-auto">
+      {% if zalo_link %}
+        <a href="{{ zalo_link }}" target="_blank" class="btn btn-sm btn-success d-none d-sm-inline-flex align-items-center gap-1">
+          <i class="bi bi-chat-fill"></i> Chat Zalo
+        </a>
+      {% endif %}
+      <a href="{{ url_for('auth.login') }}" class="btn btn-sm btn-outline-light">
+        <i class="bi bi-box-arrow-in-right me-1"></i>Đăng nhập
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- ══ HERO ══ -->
+<section class="py-5 text-white text-center" style="background: linear-gradient(135deg, #7c5cdb 0%, #06b6d4 100%);">
+  <div class="container">
+    <h1 class="display-5 fw-bold mb-2">{{ center_name }}</h1>
+    <p class="lead mb-3 opacity-75">Dạy thêm chất lượng cao — Tiểu học · THCS · THPT</p>
+    {% if center_address %}
+      <p class="mb-3 opacity-75"><i class="bi bi-geo-alt me-1"></i>{{ center_address }}</p>
+    {% endif %}
+    <div class="d-flex justify-content-center gap-3 flex-wrap">
+      {% if zalo_link %}
+        <a href="{{ zalo_link }}" target="_blank" class="btn btn-success btn-lg px-4">
+          <i class="bi bi-chat-fill me-2"></i>Chat Zalo
+        </a>
+      {% endif %}
+      {% if messenger_link %}
+        <a href="{{ messenger_link }}" target="_blank" class="btn btn-primary btn-lg px-4">
+          <i class="bi bi-messenger me-2"></i>Messenger
+        </a>
+      {% endif %}
+      {% if center_phone %}
+        <a href="tel:{{ center_phone }}" class="btn btn-outline-light btn-lg px-4">
+          <i class="bi bi-telephone me-2"></i>{{ center_phone }}
+        </a>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+<!-- ══ SCHEDULE SECTION ══ -->
+<section id="lich-hoc" class="py-5 bg-light">
+  <div class="container">
+    <h2 class="fw-bold mb-4 text-center"><i class="bi bi-calendar3 me-2 text-primary"></i>Lịch học</h2>
+
+    <!-- Filters -->
+    <form method="GET" action="{{ url_for('public.index') }}#lich-hoc" class="mb-4">
+      <input type="hidden" name="week" value="{{ week_offset }}">
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-sm-auto">
+          <select name="course_id" class="form-select form-select-sm" onchange="this.form.submit()">
+            <option value="">Tất cả môn</option>
+            {% for c in courses %}
+              <option value="{{ c.id }}" {% if selected_course_id == c.id %}selected{% endif %}>
+                {{ c.name }} ({{ c.level_label }})
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12 col-sm-auto">
+          <select name="level" class="form-select form-select-sm" onchange="this.form.submit()">
+            <option value="">Tất cả cấp</option>
+            {% for k,v in levels.items() %}
+              <option value="{{ k }}" {% if selected_level == k %}selected{% endif %}>{{ v }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% if selected_course_id or selected_level %}
+          <div class="col-auto">
+            <a href="{{ url_for('public.index') }}#lich-hoc" class="btn btn-sm btn-outline-secondary">
+              <i class="bi bi-x"></i> Xóa lọc
+            </a>
+          </div>
+        {% endif %}
+      </div>
+    </form>
+
+    <!-- Week navigation -->
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <a href="{{ url_for('public.index', week=week_offset-1, course_id=selected_course_id or '', level=selected_level or '') }}#lich-hoc"
+         class="btn btn-outline-primary btn-sm">
+        <i class="bi bi-chevron-left"></i> Tuần trước
+      </a>
+      <div class="text-center">
+        <span class="fw-semibold">
+          {{ monday|date_vn }} — {{ sunday|date_vn }}
+        </span>
+        {% if week_offset != 0 %}
+          <a href="{{ url_for('public.index') }}#lich-hoc" class="btn btn-sm btn-link text-decoration-none py-0">Hôm nay</a>
+        {% endif %}
+      </div>
+      <a href="{{ url_for('public.index', week=week_offset+1, course_id=selected_course_id or '', level=selected_level or '') }}#lich-hoc"
+         class="btn btn-outline-primary btn-sm">
+        Tuần sau <i class="bi bi-chevron-right"></i>
+      </a>
+    </div>
+
+    <!-- Schedule grid (desktop) / list (mobile) -->
+    <div class="d-none d-md-block">
+      <div class="row g-3">
+        {% for d in week_days %}
+          <div class="col">
+            <div class="card h-100 border-0 shadow-sm">
+              <div class="card-header text-center py-2 {% if d == today %}bg-primary text-white{% else %}bg-white{% endif %} border-bottom">
+                <div class="small fw-semibold">{{ d|weekday_vn }}</div>
+                <div class="{% if d == today %}text-white{% else %}text-muted{% endif %} small">{{ d.strftime('%d/%m') }}</div>
+              </div>
+              <div class="card-body p-2">
+                {% if schedule_by_day[d] %}
+                  {% for s in schedule_by_day[d] %}
+                    <div class="schedule-card mb-2 p-2 rounded cursor-pointer {% if s.schedule_type == 'intensive' %}schedule-intensive{% else %}schedule-regular{% endif %}"
+                         onclick="showScheduleDetail({{ s.id }})" role="button">
+                      <div class="fw-semibold small">{{ s.class_.name }}</div>
+                      <div class="text-muted" style="font-size:0.75rem">
+                        {{ s.start_time.strftime('%H:%M') }}–{{ s.end_time.strftime('%H:%M') }}
+                      </div>
+                      <div style="font-size:0.72rem" class="text-muted">
+                        {{ s.class_.course.name }}
+                        {% if s.schedule_type == 'intensive' %}
+                          <span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem">TC</span>
+                        {% endif %}
+                      </div>
+                      <div style="font-size:0.7rem" class="text-muted">
+                        <i class="bi bi-people me-1"></i>{{ s.class_.current_enrollment }}/{{ s.class_.max_students }}
+                      </div>
+                    </div>
+                  {% endfor %}
+                {% else %}
+                  <p class="text-muted small text-center mt-2">—</p>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Mobile: list view -->
+    <div class="d-md-none">
+      {% for d in week_days %}
+        {% if schedule_by_day[d] %}
+          <div class="mb-3">
+            <div class="d-flex align-items-center mb-2">
+              <span class="badge {% if d == today %}bg-primary{% else %}bg-secondary{% endif %} me-2">
+                {{ d|weekday_vn }}
+              </span>
+              <span class="text-muted small">{{ d|date_vn }}</span>
+            </div>
+            {% for s in schedule_by_day[d] %}
+              <div class="card border-0 shadow-sm mb-2 {% if s.schedule_type == 'intensive' %}border-start border-warning border-3{% else %}border-start border-primary border-3{% endif %}"
+                   onclick="showScheduleDetail({{ s.id }})" role="button" style="cursor:pointer">
+                <div class="card-body py-2 px-3">
+                  <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                      <div class="fw-semibold">{{ s.class_.name }}</div>
+                      <div class="text-muted small">{{ s.class_.course.name }} · {{ s.start_time.strftime('%H:%M') }}–{{ s.end_time.strftime('%H:%M') }}</div>
+                    </div>
+                    <div class="text-end">
+                      {% if s.schedule_type == 'intensive' %}
+                        <span class="badge bg-warning text-dark small">Tăng cường</span>
+                      {% endif %}
+                      <div class="text-muted small"><i class="bi bi-people me-1"></i>{{ s.class_.current_enrollment }}/{{ s.class_.max_students }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endfor %}
+      {% set has_any = namespace(val=false) %}
+      {% for d in week_days %}{% if schedule_by_day[d] %}{% set has_any.val = true %}{% endif %}{% endfor %}
+      {% if not has_any.val %}
+        <p class="text-center text-muted py-4">Không có lịch học tuần này.</p>
+      {% endif %}
+    </div>
+
+    <!-- Legend -->
+    <div class="d-flex gap-3 mt-3 flex-wrap justify-content-center">
+      <span class="d-flex align-items-center gap-2 small">
+        <span class="badge bg-primary" style="width:14px;height:14px;border-radius:3px;">&nbsp;</span>Lịch thường
+      </span>
+      <span class="d-flex align-items-center gap-2 small">
+        <span class="badge bg-warning text-dark" style="width:14px;height:14px;border-radius:3px;">&nbsp;</span>Lịch tăng cường
+      </span>
+    </div>
+  </div>
+</section>
+
+<!-- ══ HALL OF FAME ══ -->
+{% if hall_of_fame %}
+<section id="thanh-tich" class="py-5">
+  <div class="container">
+    <h2 class="fw-bold mb-4 text-center"><i class="bi bi-trophy-fill text-warning me-2"></i>Bảng Thành Tích</h2>
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3">
+      {% for s in hall_of_fame %}
+        <div class="col">
+          <div class="card border-0 shadow-sm h-100 text-center p-3 hall-card">
+            <div class="mb-2">
+              {% if s.score_value == 10 %}
+                <i class="bi bi-star-fill text-warning fs-3"></i>
+              {% elif s.score_value >= 9 %}
+                <i class="bi bi-star-fill text-warning fs-4"></i>
+              {% else %}
+                <i class="bi bi-award-fill text-primary fs-4"></i>
+              {% endif %}
+            </div>
+            <h6 class="fw-bold mb-1">{{ s.student.full_name }}</h6>
+            <div class="text-muted small mb-1">{{ s.class_.course.name }} · {{ s.score_type_label }}</div>
+            <div class="score-badge mx-auto mb-1">{{ s.score_value }}<span class="small">/{{ s.max_score|int }}</span></div>
+            <div class="text-muted" style="font-size:0.75rem">
+              {{ s.score_source_label }}
+              {% if s.exam_date %} · {{ s.exam_date|date_vn }}{% endif %}
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- ══ FOOTER ══ -->
+<footer class="py-4 text-center text-muted small" style="background:#1e3a5f;color:#adb5bd!important;">
+  <div class="text-white-50">
+    &copy; {{ today.year }} {{ center_name }}
+    {% if center_address %} · {{ center_address }}{% endif %}
+    {% if center_phone %} · <a href="tel:{{ center_phone }}" class="text-white-50">{{ center_phone }}</a>{% endif %}
+  </div>
+</footer>
+
+<!-- Schedule detail modal -->
+<div class="modal fade" id="scheduleModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-4">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-bold" id="modalTitle">Thông tin lịch học</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body pt-0" id="modalBody">
+        <div class="text-center py-3"><div class="spinner-border text-primary"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const scheduleModal = new bootstrap.Modal(document.getElementById('scheduleModal'));
+function showScheduleDetail(id) {
+  document.getElementById('modalBody').innerHTML = '<div class="text-center py-3"><div class="spinner-border text-primary"></div></div>';
+  scheduleModal.show();
+  fetch('/api/lich/' + id)
+    .then(r => r.json())
+    .then(d => {
+      const badge = d.type === 'Lịch tăng cường'
+        ? '<span class="badge bg-warning text-dark">Tăng cường</span>'
+        : '<span class="badge bg-primary">Lịch thường</span>';
+      document.getElementById('modalTitle').textContent = d.class_name;
+      document.getElementById('modalBody').innerHTML = `
+        <div class="list-group list-group-flush">
+          <div class="list-group-item px-0 d-flex justify-content-between">
+            <span class="text-muted small">Môn học</span><strong>${d.course} · ${d.level}</strong>
+          </div>
+          ${d.grade_level ? `<div class="list-group-item px-0 d-flex justify-content-between"><span class="text-muted small">Khối</span><strong>${d.grade_level}</strong></div>` : ''}
+          <div class="list-group-item px-0 d-flex justify-content-between">
+            <span class="text-muted small">Ngày học</span><strong>${d.date}</strong>
+          </div>
+          <div class="list-group-item px-0 d-flex justify-content-between">
+            <span class="text-muted small">Giờ học</span><strong>${d.time}</strong>
+          </div>
+          <div class="list-group-item px-0 d-flex justify-content-between">
+            <span class="text-muted small">Phòng</span><strong>${d.room}</strong>
+          </div>
+          <div class="list-group-item px-0 d-flex justify-content-between">
+            <span class="text-muted small">Giáo viên</span><strong>${d.teacher}</strong>
+          </div>
+          <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
+            <span class="text-muted small">Sĩ số</span>
+            <div>
+              <strong>${d.enrolled}/${d.max_students}</strong>
+              <div class="progress mt-1" style="width:80px;height:6px">
+                <div class="progress-bar bg-primary" style="width:${Math.round(d.enrolled/d.max_students*100)}%"></div>
+              </div>
+            </div>
+          </div>
+          ${d.topic ? `<div class="list-group-item px-0"><span class="text-muted small">Nội dung: </span>${d.topic}</div>` : ''}
+          <div class="list-group-item px-0">${badge}</div>
+        </div>`;
+    });
+}
+</script>
+{% endblock %}

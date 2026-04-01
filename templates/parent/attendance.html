@@ -1,0 +1,98 @@
+{% extends 'parent/base.html' %}
+{% block title %}Điểm danh – {{ student.full_name }} – Nhật Tuyền{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <!-- Header -->
+  <div class="mb-3">
+    <h5 class="fw-bold mb-0">
+      <i class="bi bi-person-check text-success me-1"></i>Điểm danh
+    </h5>
+    <div class="text-muted">{{ student.full_name }}</div>
+  </div>
+
+  <!-- ===== SUMMARY STATS ===== -->
+  {% set present_count = records | selectattr('status', 'equalto', 'present') | list | length %}
+  {% set absent_count  = records | selectattr('status', 'equalto', 'absent')  | list | length %}
+  {% set late_count    = records | selectattr('status', 'equalto', 'late')    | list | length %}
+  {% set excused_count = records | selectattr('status', 'equalto', 'excused') | list | length %}
+
+  <div class="row g-2 mb-3">
+    <div class="col-3">
+      <div class="card border-0 shadow-sm text-center py-2">
+        <div class="fw-bold fs-5 text-success">{{ present_count }}</div>
+        <div class="small text-muted">Có mặt</div>
+      </div>
+    </div>
+    <div class="col-3">
+      <div class="card border-0 shadow-sm text-center py-2">
+        <div class="fw-bold fs-5 text-danger">{{ absent_count }}</div>
+        <div class="small text-muted">Vắng</div>
+      </div>
+    </div>
+    <div class="col-3">
+      <div class="card border-0 shadow-sm text-center py-2">
+        <div class="fw-bold fs-5 text-warning">{{ late_count }}</div>
+        <div class="small text-muted">Trễ</div>
+      </div>
+    </div>
+    <div class="col-3">
+      <div class="card border-0 shadow-sm text-center py-2">
+        <div class="fw-bold fs-5 text-secondary">{{ excused_count }}</div>
+        <div class="small text-muted">V.phép</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== FULL ATTENDANCE HISTORY ===== -->
+  <h6 class="text-uppercase text-muted fw-bold mb-2">
+    <i class="bi bi-list-ul me-1"></i>Lịch sử điểm danh ({{ records | length }} buổi)
+  </h6>
+
+  {% if records %}
+  <div class="card shadow-sm border-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Ngày</th>
+            <th>Lớp</th>
+            <th>Trạng thái</th>
+            <th>Ghi chú GV</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for att in records %}
+          <tr>
+            <td class="text-muted small text-nowrap">{{ att.schedule.date | date_vn }}</td>
+            <td class="fw-semibold small">{{ att.schedule.class_.name }}</td>
+            <td>
+              {% if att.status == 'present' %}
+                <span class="badge bg-success">Có mặt</span>
+              {% elif att.status == 'absent' %}
+                <span class="badge bg-danger">Vắng</span>
+              {% elif att.status == 'late' %}
+                <span class="badge bg-warning text-dark">Trễ</span>
+              {% elif att.status == 'excused' %}
+                <span class="badge bg-secondary">Vắng phép</span>
+              {% else %}
+                <span class="badge bg-light text-dark border">{{ att.status }}</span>
+              {% endif %}
+            </td>
+            <td class="text-muted small">{{ att.note or '–' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+    <div class="alert alert-light border text-center text-muted">
+      <i class="bi bi-calendar-x fs-4 d-block mb-1"></i>
+      Chưa có dữ liệu điểm danh
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

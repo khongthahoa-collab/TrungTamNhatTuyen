@@ -1,0 +1,97 @@
+{% extends 'parent/base.html' %}
+{% block title %}Học phí – {{ student.full_name }} – Nhật Tuyền{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <!-- Header -->
+  <div class="mb-3">
+    <h5 class="fw-bold mb-0">
+      <i class="bi bi-cash-stack text-success me-1"></i>Học phí
+    </h5>
+    <div class="text-muted">{{ student.full_name }}</div>
+  </div>
+
+  <!-- Summary: unpaid amount -->
+  {% set unpaid_records = records | rejectattr('is_paid') | list %}
+  {% if unpaid_records %}
+  <div class="alert alert-danger shadow-sm mb-3">
+    <div class="d-flex align-items-center gap-2">
+      <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+      <div>
+        <div class="fw-bold">{{ unpaid_records | length }} khoản chưa đóng</div>
+        <div class="small">
+          Tổng: <strong>{{ unpaid_records | sum(attribute='amount') | vnd }}</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Tuition table -->
+  {% if records %}
+  <div class="card shadow-sm border-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Tháng/Năm</th>
+            <th>Lớp</th>
+            <th class="text-end">Số tiền</th>
+            <th>Trạng thái</th>
+            <th>Hình thức</th>
+            <th>Ngày đóng</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in records %}
+          <tr>
+            <td class="fw-semibold text-nowrap">{{ t.month }}/{{ t.year }}</td>
+            <td class="small">{{ t.class_.name if t.class_ else '–' }}</td>
+            <td class="text-end fw-semibold">{{ t.amount | vnd }}</td>
+            <td>
+              {% if t.is_paid %}
+                <span class="badge bg-success">Đã đóng</span>
+              {% else %}
+                <span class="badge bg-danger">Chưa đóng</span>
+              {% endif %}
+            </td>
+            <td class="small text-muted">
+              {% if t.method %}
+                {% if t.method == 'cash' %}
+                  <i class="bi bi-cash me-1"></i>Tiền mặt
+                {% elif t.method == 'transfer' %}
+                  <i class="bi bi-bank me-1"></i>Chuyển khoản
+                {% else %}
+                  {{ t.method }}
+                {% endif %}
+              {% else %}
+                –
+              {% endif %}
+            </td>
+            <td class="small text-muted text-nowrap">
+              {{ t.paid_at | date_vn if t.paid_at else '–' }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+    <div class="alert alert-light border text-center text-muted">
+      <i class="bi bi-cash-stack fs-4 d-block mb-1"></i>
+      Chưa có thông tin học phí
+    </div>
+  {% endif %}
+
+  <!-- Payment info note -->
+  <div class="card border-0 bg-light mt-3 shadow-sm">
+    <div class="card-body py-2 small text-muted">
+      <i class="bi bi-info-circle me-1"></i>
+      Nếu có thắc mắc về học phí, vui lòng liên hệ trực tiếp với trung tâm.
+    </div>
+  </div>
+
+</div>
+{% endblock %}

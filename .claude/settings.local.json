@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls /Users/linh/trung-tam-nhat-tuyen/templates/admin/*.html)",
+      "Bash(python3 -m venv venv)",
+      "Bash(source venv/bin/activate)",
+      "Bash(pip install:*)",
+      "Bash(python init_db.py)",
+      "Bash(timeout 8 python run.py)",
+      "Bash(python -c \":*)",
+      "Bash(/Users/linh/trung-tam-nhat-tuyen/templates/admin/reports/index.html:*)",
+      "Bash(grep -v \"^$\")"
+    ]
+  }
+}

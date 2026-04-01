@@ -1,0 +1,254 @@
+{% extends 'admin/base.html' %}
+{% block title %}Tài khoản – Admin – Nhật Tuyền{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Tài khoản</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <h4 class="fw-bold mb-0">
+    <i class="bi bi-person-gear text-secondary me-2"></i>Quản lý tài khoản
+  </h4>
+  <button class="btn btn-primary" data-bs-toggle="collapse" data-bs-target="#addUserForm">
+    <i class="bi bi-person-plus me-1"></i>Thêm tài khoản
+  </button>
+</div>
+
+<!-- ===== ADD USER FORM ===== -->
+<div class="collapse mb-4" id="addUserForm">
+  <div class="card shadow-sm border-0">
+    <div class="card-header fw-semibold bg-light">
+      <i class="bi bi-person-plus me-1"></i>Thêm tài khoản mới
+    </div>
+    <div class="card-body">
+      <form method="post" action="{{ url_for('admin.user_add') }}" id="addUserFormEl">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-semibold" for="new_full_name">Họ tên <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" name="full_name" id="new_full_name"
+                   placeholder="Nguyễn Văn A" required>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-semibold" for="new_phone">Số điện thoại</label>
+            <input type="tel" class="form-control" name="phone" id="new_phone"
+                   placeholder="0xxx xxx xxx">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-semibold" for="new_username">Tên đăng nhập <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" name="username" id="new_username"
+                   placeholder="username" required autocomplete="off">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-semibold" for="new_role">Vai trò <span class="text-danger">*</span></label>
+            <select class="form-select" name="role" id="new_role" required onchange="toggleTeacherFields()">
+              <option value="">-- Chọn vai trò --</option>
+              <option value="admin">Admin</option>
+              <option value="teacher">Giáo viên</option>
+              <option value="parent">Phụ huynh</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-semibold" for="new_password">Mật khẩu <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <input type="password" class="form-control" name="password" id="new_password"
+                     placeholder="••••••••" required autocomplete="new-password">
+              <button class="btn btn-outline-secondary" type="button"
+                      onclick="togglePwd('new_password', this)">
+                <i class="bi bi-eye"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Teacher-specific fields (shown via JS) -->
+        <div id="teacherFields" style="display:none;">
+          <hr>
+          <div class="row g-3">
+            <div class="col-12">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="is_staff" id="new_is_staff">
+                <label class="form-check-label fw-semibold" for="new_is_staff">Là nhân viên cơ hữu</label>
+              </div>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold" for="new_base_salary">Lương cơ bản (VND/tháng)</label>
+              <input type="number" class="form-control" name="base_salary" id="new_base_salary"
+                     placeholder="0" min="0" step="100000">
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold" for="new_specialty">Chuyên môn</label>
+              <input type="text" class="form-control" name="specialty" id="new_specialty"
+                     placeholder="Toán, Văn, Tiếng Anh...">
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-3 d-flex gap-2">
+          <button type="submit" class="btn btn-primary px-4">
+            <i class="bi bi-person-plus me-1"></i>Thêm tài khoản
+          </button>
+          <button type="button" class="btn btn-outline-secondary"
+                  data-bs-toggle="collapse" data-bs-target="#addUserForm">
+            Hủy
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ===== USERS TABLE ===== -->
+<div class="card shadow-sm border-0">
+  <div class="card-header bg-light d-flex align-items-center justify-content-between py-2">
+    <span class="fw-semibold"><i class="bi bi-people me-1"></i>Danh sách tài khoản</span>
+    <span class="badge bg-secondary">{{ users | length }}</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover table-sm mb-0 align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Họ tên</th>
+          <th>Username</th>
+          <th>SĐT</th>
+          <th>Vai trò</th>
+          <th>Trạng thái</th>
+          <th>Đăng nhập cuối</th>
+          <th class="text-end">Thao tác</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td class="fw-semibold">{{ u.full_name }}</td>
+          <td class="text-muted small">{{ u.username }}</td>
+          <td class="small">{{ u.phone or '–' }}</td>
+          <td>
+            {% if u.role == 'admin' %}
+              <span class="badge bg-danger">Admin</span>
+            {% elif u.role == 'teacher' %}
+              <span class="badge bg-primary">Giáo viên</span>
+            {% elif u.role == 'parent' %}
+              <span class="badge bg-success">Phụ huynh</span>
+            {% else %}
+              <span class="badge bg-secondary">{{ u.role }}</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if u.is_active %}
+              <span class="badge bg-success bg-opacity-75">Hoạt động</span>
+            {% else %}
+              <span class="badge bg-danger bg-opacity-75">Vô hiệu</span>
+            {% endif %}
+          </td>
+          <td class="text-muted small">
+            {{ u.last_login | date_vn if u.last_login else '–' }}
+          </td>
+          <td class="text-end">
+            <div class="btn-group btn-group-sm">
+              <!-- Reset password -->
+              <button class="btn btn-outline-warning"
+                      title="Đặt lại mật khẩu"
+                      data-bs-toggle="modal"
+                      data-bs-target="#resetPwdModal"
+                      data-user-id="{{ u.id }}"
+                      data-user-name="{{ u.full_name }}">
+                <i class="bi bi-key"></i>
+              </button>
+              <!-- Toggle active -->
+              <form method="post"
+                    action="{{ url_for('admin.user_toggle_active', user_id=u.id) }}"
+                    class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit"
+                        class="btn {% if u.is_active %}btn-outline-danger{% else %}btn-outline-success{% endif %}"
+                        title="{% if u.is_active %}Vô hiệu hóa{% else %}Kích hoạt{% endif %}"
+                        onclick="return confirm('{{ 'Vô hiệu hóa' if u.is_active else 'Kích hoạt' }} tài khoản {{ u.full_name }}?')">
+                  <i class="bi {% if u.is_active %}bi-person-x{% else %}bi-person-check{% endif %}"></i>
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="text-center text-muted py-4">Chưa có tài khoản nào</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ===== RESET PASSWORD MODAL ===== -->
+<div class="modal fade" id="resetPwdModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="bi bi-key me-1"></i>Đặt lại mật khẩu
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="/quan-tri/tai-khoan/0/doi-mat-khau" id-placeholder="true" id="resetPwdForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="user_id" id="resetUserId">
+        <div class="modal-body">
+          <p>Đặt lại mật khẩu cho: <strong id="resetUserName"></strong></p>
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="new_password_reset">Mật khẩu mới <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <input type="password" class="form-control" name="new_password"
+                     id="new_password_reset" placeholder="••••••••" required
+                     autocomplete="new-password">
+              <button class="btn btn-outline-secondary" type="button"
+                      onclick="togglePwd('new_password_reset', this)">
+                <i class="bi bi-eye"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="submit" class="btn btn-warning">
+            <i class="bi bi-key me-1"></i>Đặt lại
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleTeacherFields() {
+  const role = document.getElementById('new_role').value;
+  const fields = document.getElementById('teacherFields');
+  fields.style.display = (role === 'teacher') ? '' : 'none';
+}
+
+function togglePwd(inputId, btn) {
+  const input = document.getElementById(inputId);
+  const icon = btn.querySelector('i');
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.className = 'bi bi-eye-slash';
+  } else {
+    input.type = 'password';
+    icon.className = 'bi bi-eye';
+  }
+}
+
+// Populate reset password modal
+document.getElementById('resetPwdModal')?.addEventListener('show.bs.modal', function(e) {
+  const btn = e.relatedTarget;
+  document.getElementById('resetUserId').value = btn.dataset.userId;
+  document.getElementById('resetUserName').textContent = btn.dataset.userName;
+  document.getElementById('new_password_reset').value = '';
+});
+</script>
+{% endblock %}

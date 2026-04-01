@@ -1,0 +1,118 @@
+{% extends 'admin/base.html' %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Lớp học</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h5 class="mb-0 fw-bold"><i class="bi bi-journal-bookmark me-2 text-primary"></i>Danh sách lớp học</h5>
+  <a href="{{ url_for('admin.class_add') }}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-lg me-1"></i>Thêm lớp học
+  </a>
+</div>
+
+<!-- Bộ lọc -->
+<div class="card mb-3 border-0 shadow-sm">
+  <div class="card-body py-2">
+    <form method="get" class="row g-2 align-items-center">
+      <div class="col-12 col-md-5">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+          <input type="text" name="q" class="form-control" placeholder="Tìm tên lớp, môn học..." value="{{ q or '' }}">
+        </div>
+      </div>
+      <div class="col-6 col-md-4">
+        <div class="form-check form-switch ms-2 mb-0">
+          <input class="form-check-input" type="checkbox" name="active_only" id="activeOnly" value="1" {% if active_only %}checked{% endif %}>
+          <label class="form-check-label small" for="activeOnly">Chỉ lớp đang hoạt động</label>
+        </div>
+      </div>
+      <div class="col-6 col-md-3 d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-sm flex-grow-1">Lọc</button>
+        <a href="{{ url_for('admin.classes') }}" class="btn btn-outline-secondary btn-sm">Xóa</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Bảng lớp học -->
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Tên lớp</th>
+            <th>Môn học</th>
+            <th>Cấp</th>
+            <th>GV chính</th>
+            <th class="text-center">Sĩ số</th>
+            <th class="text-center">Trạng thái</th>
+            <th class="text-center">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cls in classes %}
+          <tr>
+            <td class="ps-3">
+              <a href="{{ url_for('admin.class_detail', class_id=cls.id) }}" class="fw-semibold text-decoration-none">
+                {{ cls.name }}
+              </a>
+              {% if cls.start_date %}
+              <div class="small text-muted">{{ cls.start_date | date_vn }}{% if cls.end_date %} – {{ cls.end_date | date_vn }}{% endif %}</div>
+              {% endif %}
+            </td>
+            <td class="small">{{ cls.course.name if cls.course else '—' }}</td>
+            <td class="small">
+              {% if cls.grade_level %}
+              <span class="badge bg-info-subtle text-info border border-info-subtle">{{ cls.grade_level }}</span>
+              {% else %}
+              <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td class="small">{{ cls.primary_teacher.full_name if cls.primary_teacher else '—' }}</td>
+            <td class="text-center small">
+              {% set active_enrollments = cls.enrollments | selectattr('is_active', 'equalto', true) | list | length %}
+              <span class="fw-semibold {% if cls.max_students and active_enrollments >= cls.max_students %}text-danger{% else %}text-success{% endif %}">
+                {{ active_enrollments }}
+              </span>
+              {% if cls.max_students %}<span class="text-muted">/{{ cls.max_students }}</span>{% endif %}
+            </td>
+            <td class="text-center">
+              {% if cls.is_active %}
+              <span class="badge bg-success-subtle text-success border border-success-subtle">Đang mở</span>
+              {% else %}
+              <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Đã đóng</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              <div class="d-flex justify-content-center gap-1">
+                <a href="{{ url_for('admin.class_detail', class_id=cls.id) }}" class="btn btn-outline-primary btn-sm" title="Xem chi tiết">
+                  <i class="bi bi-eye"></i>
+                </a>
+                <a href="{{ url_for('admin.class_edit', class_id=cls.id) }}" class="btn btn-outline-secondary btn-sm" title="Sửa">
+                  <i class="bi bi-pencil"></i>
+                </a>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="7" class="text-center text-muted py-4">
+              <i class="bi bi-inbox fs-4 d-block mb-2"></i>
+              Không tìm thấy lớp học nào
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% if classes %}
+  <div class="card-footer text-muted small bg-white">
+    Hiển thị {{ classes | length }} lớp học
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

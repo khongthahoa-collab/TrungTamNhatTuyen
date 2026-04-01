@@ -1,0 +1,193 @@
+{% extends 'parent/base.html' %}
+{% block title %}Tổng quan – Nhật Tuyền{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <!-- ===== STUDENT INFO CARD ===== -->
+  {% if student %}
+  <div class="card shadow-sm border-0 mb-3" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); color: white;">
+    <div class="card-body text-white">
+      <div class="d-flex align-items-center gap-3">
+        <div class="rounded-circle bg-white bg-opacity-25 d-flex align-items-center justify-content-center fw-bold flex-shrink-0"
+             style="width:54px;height:54px;font-size:1.4rem;">
+          {{ student.full_name[0] }}
+        </div>
+        <div class="flex-grow-1">
+          <h5 class="mb-1 fw-bold">{{ student.full_name }}</h5>
+          <div class="d-flex flex-wrap gap-2 align-items-center">
+            {% if student.level %}
+              <span class="badge bg-white text-success fw-semibold">{{ student.level }}</span>
+            {% endif %}
+            {% if student.school %}
+              <span class="small opacity-75">
+                <i class="bi bi-building me-1"></i>{{ student.school }}
+              </span>
+            {% endif %}
+            {% if student.grade %}
+              <span class="small opacity-75">
+                <i class="bi bi-bookmark me-1"></i>Lớp {{ student.grade }}
+              </span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ===== HỌC PHÍ CHƯA ĐÓNG ===== -->
+  {% if unpaid %}
+  <div class="alert alert-danger d-flex align-items-start gap-2 shadow-sm mb-3">
+    <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0 mt-1"></i>
+    <div>
+      <div class="fw-bold">Học phí chưa đóng</div>
+      {% for t in unpaid %}
+      <div class="small">
+        {{ t.class_.name if t.class_ else 'N/A' }} –
+        Tháng {{ t.month }}/{{ t.year }}:
+        <span class="fw-semibold">{{ t.amount | vnd }}</span>
+      </div>
+      {% endfor %}
+      {% if student %}
+      <a href="{{ url_for('parent.tuition', student_id=student.id) }}"
+         class="btn btn-sm btn-danger mt-1">
+        Xem chi tiết
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ===== LỊCH HỌC TUẦN NÀY ===== -->
+  <h6 class="text-uppercase text-muted fw-bold mb-2">
+    <i class="bi bi-calendar3 me-1"></i>Lịch học tuần này
+  </h6>
+
+  {% if upcoming %}
+    {% for s in upcoming %}
+    <div class="card mb-2 shadow-sm border-0 border-start border-success border-3">
+      <div class="card-body py-2 d-flex align-items-center gap-3">
+        <div class="text-center flex-shrink-0" style="min-width:42px;">
+          <div class="text-success fw-bold" style="font-size:1.1rem;">{{ s.date.day }}</div>
+          <div class="text-muted" style="font-size:0.7rem;">
+            {% set vn_days = ['T2','T3','T4','T5','T6','T7','CN'] %}
+            {{ vn_days[s.date.weekday()] }}
+          </div>
+        </div>
+        <div class="flex-grow-1">
+          <div class="fw-semibold">{{ s.class_.name }}</div>
+          <div class="text-muted small">
+            <i class="bi bi-clock me-1"></i>{{ s.start_time.strftime('%H:%M') }} – {{ s.end_time.strftime('%H:%M') }}
+            {% if s.room %}
+              &nbsp;·&nbsp;<i class="bi bi-door-open me-1"></i>{{ s.room }}
+            {% endif %}
+          </div>
+        </div>
+        {% if s.date == today %}
+          <span class="badge bg-success">Hôm nay</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="alert alert-light border text-center text-muted small mb-3">
+      Không có lịch học trong tuần này
+    </div>
+  {% endif %}
+
+  <!-- ===== ĐIỂM DANH GẦN ĐÂY ===== -->
+  <h6 class="text-uppercase text-muted fw-bold mb-2 mt-3">
+    <i class="bi bi-person-check me-1"></i>Điểm danh gần đây
+  </h6>
+
+  {% if recent_att %}
+  <div class="card shadow-sm border-0 mb-3">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Ngày</th>
+            <th>Lớp</th>
+            <th>Trạng thái</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for att in recent_att %}
+          <tr>
+            <td class="text-muted small">{{ att.schedule.date | date_vn }}</td>
+            <td class="fw-semibold small">{{ att.schedule.class_.name }}</td>
+            <td>
+              {% if att.status == 'present' %}
+                <span class="badge bg-success">Có mặt</span>
+              {% elif att.status == 'absent' %}
+                <span class="badge bg-danger">Vắng</span>
+              {% elif att.status == 'late' %}
+                <span class="badge bg-warning text-dark">Trễ</span>
+              {% elif att.status == 'excused' %}
+                <span class="badge bg-secondary">Vắng phép</span>
+              {% else %}
+                <span class="badge bg-light text-dark">{{ att.status }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if student %}
+    <div class="card-footer text-center py-2">
+      <a href="{{ url_for('parent.attendance', student_id=student.id) }}" class="small text-success fw-semibold">
+        Xem tất cả <i class="bi bi-arrow-right"></i>
+      </a>
+    </div>
+    {% endif %}
+  </div>
+  {% else %}
+    <div class="alert alert-light border text-center text-muted small mb-3">
+      Chưa có dữ liệu điểm danh
+    </div>
+  {% endif %}
+
+  <!-- ===== THƯỞNG GẦN ĐÂY ===== -->
+  {% if recent_rewards %}
+  <h6 class="text-uppercase text-muted fw-bold mb-2 mt-3">
+    <i class="bi bi-trophy me-1 text-warning"></i>Khen thưởng gần đây
+  </h6>
+  <div class="card shadow-sm border-0 mb-3">
+    <ul class="list-group list-group-flush">
+      {% for r in recent_rewards %}
+      <li class="list-group-item d-flex align-items-center gap-2 py-2">
+        <div class="flex-shrink-0">
+          {% if r.reward_type == 'cash' %}
+            <span class="badge bg-warning text-dark fs-6 px-2">
+              <i class="bi bi-cash"></i>
+            </span>
+          {% else %}
+            <span class="badge bg-info text-dark fs-6 px-2">
+              <i class="bi bi-gift"></i>
+            </span>
+          {% endif %}
+        </div>
+        <div class="flex-grow-1">
+          <div class="small fw-semibold">{{ r.reason }}</div>
+          <div class="text-muted" style="font-size:0.72rem;">{{ r.reward_date | date_vn }}</div>
+        </div>
+        {% if r.amount %}
+          <span class="badge bg-success">{{ r.amount | vnd }}</span>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% if student %}
+    <div class="card-footer text-center py-2">
+      <a href="{{ url_for('parent.rewards', student_id=student.id) }}" class="small text-success fw-semibold">
+        Xem tất cả <i class="bi bi-arrow-right"></i>
+      </a>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -1,0 +1,144 @@
+{% extends 'teacher/base.html' %}
+{% block title %}Lịch dạy – Nhật Tuyền{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <!-- Header & Week navigation -->
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h5 class="mb-0 fw-bold">
+      <i class="bi bi-calendar-week me-1 text-primary"></i>Lịch dạy
+    </h5>
+  </div>
+
+  <!-- Week navigation bar -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2 d-flex align-items-center justify-content-between">
+      <a href="{{ url_for('teacher.schedule', week_offset=week_offset - 1) }}"
+         class="btn btn-outline-secondary btn-sm px-3">
+        <i class="bi bi-chevron-left"></i>
+      </a>
+
+      <div class="text-center">
+        {% if week_offset == 0 %}
+          <div class="fw-semibold text-primary">Tuần này</div>
+        {% elif week_offset == -1 %}
+          <div class="fw-semibold text-secondary">Tuần trước</div>
+        {% elif week_offset == 1 %}
+          <div class="fw-semibold text-success">Tuần sau</div>
+        {% else %}
+          <div class="fw-semibold">Tuần {{ week_offset | abs }}</div>
+        {% endif %}
+        <div class="text-muted small">
+          {{ monday | date_vn }} – {{ (monday + timedelta(days=6)) | date_vn }}
+        </div>
+      </div>
+
+      <a href="{{ url_for('teacher.schedule', week_offset=week_offset + 1) }}"
+         class="btn btn-outline-secondary btn-sm px-3">
+        <i class="bi bi-chevron-right"></i>
+      </a>
+    </div>
+  </div>
+
+  <!-- Jump to current week -->
+  {% if week_offset != 0 %}
+  <div class="text-center mb-3">
+    <a href="{{ url_for('teacher.schedule', week_offset=0) }}" class="btn btn-sm btn-outline-primary">
+      <i class="bi bi-calendar-check me-1"></i>Về tuần hiện tại
+    </a>
+  </div>
+  {% endif %}
+
+  <!-- Days list -->
+  {% set day_names = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'] %}
+
+  {% for day in week_days %}
+    {% set schedules_today = by_day.get(day, []) %}
+    {% set is_today = (day == today) %}
+    <div class="mb-3">
+      <!-- Day header -->
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <span class="badge {% if is_today %}bg-primary{% else %}bg-secondary bg-opacity-25 text-dark{% endif %} px-3 py-2 fs-6">
+          {{ day_names[day.weekday()] }}
+        </span>
+        <span class="text-muted small">{{ day | date_vn }}</span>
+        {% if is_today %}
+          <span class="badge bg-primary bg-opacity-10 text-primary small">Hôm nay</span>
+        {% endif %}
+      </div>
+
+      {% if schedules_today %}
+        {% for s in schedules_today %}
+        <div class="card mb-2 shadow-sm border-0 {% if is_today %}border-start border-primary border-3{% endif %}">
+          <div class="card-body py-3">
+            <!-- Class & type -->
+            <div class="d-flex align-items-start justify-content-between mb-1">
+              <div class="fw-semibold fs-6">{{ s.class_.name }}</div>
+              <div class="d-flex gap-1 flex-wrap justify-content-end">
+                {% if s.schedule_type == 'regular' %}
+                  <span class="badge bg-primary">Thường</span>
+                {% elif s.schedule_type == 'makeup' %}
+                  <span class="badge bg-warning text-dark">Bù</span>
+                {% elif s.schedule_type == 'exam' %}
+                  <span class="badge bg-danger">Kiểm tra</span>
+                {% else %}
+                  <span class="badge bg-secondary">{{ s.schedule_type }}</span>
+                {% endif %}
+
+                <!-- Check-in status badge -->
+                {% if s.teacher_checked_in %}
+                  <span class="badge bg-success">
+                    <i class="bi bi-check-circle me-1"></i>Check-in
+                  </span>
+                {% endif %}
+
+                <!-- Attendance status badge -->
+                {% if s.attendance_taken %}
+                  <span class="badge bg-info text-dark">
+                    <i class="bi bi-person-check me-1"></i>Đã ĐD
+                  </span>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Time & room -->
+            <div class="text-muted small mb-3">
+              <i class="bi bi-clock me-1"></i>{{ s.start_time.strftime('%H:%M') }} – {{ s.end_time.strftime('%H:%M') }}
+              &nbsp;|&nbsp;
+              <i class="bi bi-door-open me-1"></i>{{ s.room or 'Chưa xếp phòng' }}
+            </div>
+
+            <!-- Action buttons -->
+            <div class="d-flex gap-2 flex-wrap">
+              {% if not s.teacher_checked_in %}
+              <form method="post" action="{{ url_for('teacher.checkin', schedule_id=s.id) }}" class="flex-fill">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-outline-success w-100" style="min-height:44px;">
+                  <i class="bi bi-box-arrow-in-right me-1"></i>Check-in
+                </button>
+              </form>
+              {% else %}
+              <button class="btn btn-success flex-fill" disabled style="min-height:44px;">
+                <i class="bi bi-check-circle-fill me-1"></i>Đã check-in
+              </button>
+              {% endif %}
+
+              <a href="{{ url_for('teacher.attendance', schedule_id=s.id) }}"
+                 class="btn {% if s.attendance_taken %}btn-outline-info{% else %}btn-primary{% endif %} flex-fill"
+                 style="min-height:44px;">
+                <i class="bi bi-person-check me-1"></i>
+                {% if s.attendance_taken %}Xem ĐD{% else %}Điểm danh{% endif %}
+              </a>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="text-muted small fst-italic ps-2 py-1">Không có lịch</div>
+      {% endif %}
+    </div>
+  {% endfor %}
+
+</div>
+{% endblock %}

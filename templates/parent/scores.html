@@ -1,0 +1,89 @@
+{% extends 'parent/base.html' %}
+{% block title %}Điểm số – {{ student.full_name }} – Nhật Tuyền{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <!-- Header -->
+  <div class="mb-3">
+    <h5 class="fw-bold mb-0">
+      <i class="bi bi-bar-chart-fill text-success me-1"></i>Điểm số
+    </h5>
+    <div class="text-muted">{{ student.full_name }}</div>
+  </div>
+
+  {% if by_class %}
+    {% for class_name, scores in by_class.items() %}
+    <div class="mb-4">
+      <!-- Class section header -->
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <div class="rounded bg-success bg-opacity-10 px-2 py-1">
+          <span class="fw-bold text-success">
+            <i class="bi bi-journal-bookmark me-1"></i>{{ class_name }}
+          </span>
+        </div>
+        <span class="badge bg-secondary">{{ scores | length }} điểm</span>
+      </div>
+
+      <!-- Scores table -->
+      <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Ngày</th>
+                <th>Loại điểm</th>
+                <th>Nguồn</th>
+                <th class="text-end">Điểm/Max</th>
+                <th>Ghi chú</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for score in scores %}
+              <tr>
+                <td class="text-muted small text-nowrap">{{ score.exam_date | date_vn }}</td>
+                <td>
+                  <span class="badge bg-primary bg-opacity-75 small">{{ score.score_type_label or score.score_type }}</span>
+                </td>
+                <td>
+                  <span class="badge bg-secondary bg-opacity-75 small">{{ score.score_source_label or score.score_source }}</span>
+                </td>
+                <td class="text-end">
+                  {% set pct = ((score.score_value / score.max_score * 100) | round | int) if score.max_score and score.max_score > 0 else None %}
+                  <span class="fw-bold
+                    {% if pct is not none %}
+                      {% if pct >= 80 %}text-success
+                      {% elif pct >= 60 %}text-warning
+                      {% else %}text-danger{% endif %}
+                    {% endif %}">
+                    {{ score.score_value }}
+                  </span>
+                  {% if score.max_score %}
+                    <span class="text-muted small">/{{ score.max_score }}</span>
+                  {% endif %}
+                  {% if pct is not none %}
+                    <div class="progress mt-1" style="height:3px;">
+                      <div class="progress-bar
+                                  {% if pct >= 80 %}bg-success{% elif pct >= 60 %}bg-warning{% else %}bg-danger{% endif %}"
+                           style="width:{{ pct }}%"></div>
+                    </div>
+                  {% endif %}
+                </td>
+                <td class="text-muted small">{{ score.note or '–' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="alert alert-light border text-center text-muted">
+      <i class="bi bi-bar-chart fs-4 d-block mb-1"></i>
+      Chưa có điểm nào được nhập
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

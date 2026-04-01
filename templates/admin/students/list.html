@@ -1,0 +1,124 @@
+{% extends 'admin/base.html' %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Học sinh</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h5 class="mb-0 fw-bold"><i class="bi bi-people me-2 text-primary"></i>Danh sách học sinh</h5>
+  <a href="{{ url_for('admin.student_add') }}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-lg me-1"></i>Thêm học sinh
+  </a>
+</div>
+
+<!-- Bộ lọc tìm kiếm -->
+<div class="card mb-3 border-0 shadow-sm">
+  <div class="card-body py-2">
+    <form method="get" class="row g-2 align-items-center">
+      <div class="col-12 col-md-4">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+          <input type="text" name="q" class="form-control" placeholder="Tìm tên học sinh, phụ huynh..." value="{{ q or '' }}">
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <select name="level" class="form-select form-select-sm">
+          <option value="">-- Tất cả cấp --</option>
+          {% for key, label in levels.items() %}
+          <option value="{{ key }}" {% if level == key %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="form-check form-switch ms-2 mb-0">
+          <input class="form-check-input" type="checkbox" name="active_only" id="activeOnly" value="1" {% if active_only %}checked{% endif %}>
+          <label class="form-check-label small" for="activeOnly">Chỉ học sinh đang học</label>
+        </div>
+      </div>
+      <div class="col-12 col-md-2 d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-sm flex-grow-1">Lọc</button>
+        <a href="{{ url_for('admin.students') }}" class="btn btn-outline-secondary btn-sm">Xóa</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Bảng học sinh -->
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3" style="width:50px">STT</th>
+            <th>Họ tên</th>
+            <th>Cấp</th>
+            <th>Trường</th>
+            <th>Lớp</th>
+            <th>SĐT phụ huynh</th>
+            <th class="text-center">Số lớp đang học</th>
+            <th class="text-center">Trạng thái</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for student in students %}
+          <tr>
+            <td class="ps-3 text-muted small">{{ loop.index }}</td>
+            <td>
+              <a href="{{ url_for('admin.student_detail', student_id=student.id) }}" class="fw-semibold text-decoration-none">
+                {{ student.full_name }}
+              </a>
+              {% if student.parent_name %}
+              <div class="small text-muted">PH: {{ student.parent_name }}</div>
+              {% endif %}
+            </td>
+            <td>
+              <span class="badge bg-info-subtle text-info border border-info-subtle">{{ levels.get(student.level, student.level) }}</span>
+            </td>
+            <td class="small">{{ student.school or '—' }}</td>
+            <td class="small">{{ student.grade or '—' }}</td>
+            <td class="small">
+              {% if student.parent_phone %}
+              <a href="tel:{{ student.parent_phone }}" class="text-decoration-none">
+                <i class="bi bi-telephone me-1"></i>{{ student.parent_phone }}
+              </a>
+              {% else %}
+              <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% set enrolled_count = student.enrollments | selectattr('is_active', 'equalto', true) | list | length %}
+              {% if enrolled_count > 0 %}
+              <span class="badge bg-primary rounded-pill">{{ enrolled_count }}</span>
+              {% else %}
+              <span class="text-muted small">0</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% if student.is_active %}
+              <span class="badge bg-success-subtle text-success border border-success-subtle">Đang học</span>
+              {% else %}
+              <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Nghỉ học</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="8" class="text-center text-muted py-4">
+              <i class="bi bi-inbox fs-4 d-block mb-2"></i>
+              Không tìm thấy học sinh nào
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% if students %}
+  <div class="card-footer text-muted small bg-white">
+    Hiển thị {{ students | length }} học sinh
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

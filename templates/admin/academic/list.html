@@ -1,0 +1,151 @@
+{% extends 'admin/base.html' %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Năm học</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h5 class="mb-0 fw-bold"><i class="bi bi-calendar3 me-2 text-primary"></i>Quản lý năm học</h5>
+</div>
+
+<!-- Form thêm năm học -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-semibold">
+    <i class="bi bi-plus-circle me-2 text-primary"></i>Thêm năm học mới
+  </div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('admin.academic_year_add') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="row g-3 align-items-end">
+        <div class="col-12 col-md-4">
+          <label class="form-label fw-semibold">Tên năm học <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" name="name" placeholder="VD: 2024-2025" required>
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label fw-semibold">Ngày bắt đầu</label>
+          <input type="date" class="form-control" name="start_date">
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label fw-semibold">Ngày kết thúc</label>
+          <input type="date" class="form-control" name="end_date">
+        </div>
+        <div class="col-12 col-md-2">
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-plus-lg me-1"></i>Thêm
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Danh sách năm học -->
+{% for year in years %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white d-flex align-items-center justify-content-between">
+    <div class="d-flex align-items-center gap-2">
+      <i class="bi bi-calendar3 text-primary"></i>
+      <span class="fw-bold">{{ year.name }}</span>
+      {% if year.is_active %}
+      <span class="badge bg-success-subtle text-success border border-success-subtle">Đang hoạt động</span>
+      {% else %}
+      <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Không hoạt động</span>
+      {% endif %}
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+      {% if year.start_date %}
+      <span class="small text-muted">{{ year.start_date | date_vn }}{% if year.end_date %} – {{ year.end_date | date_vn }}{% endif %}</span>
+      {% endif %}
+      {% if not year.is_active %}
+      <form method="post" action="{{ url_for('admin.academic_year_activate', year_id=year.id) }}" class="d-inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-outline-success btn-sm"
+                onclick="return confirm('Kích hoạt năm học {{ year.name }}? Năm học hiện tại sẽ bị hủy kích hoạt.')">
+          <i class="bi bi-check-circle me-1"></i>Kích hoạt
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card-body">
+    <!-- Danh sách học kỳ -->
+    {% if year.semesters %}
+    <div class="row g-3 mb-4">
+      {% for semester in year.semesters %}
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card border {% if semester.is_active %}border-primary{% else %}border-light{% endif %} h-100">
+          <div class="card-body py-2 px-3">
+            <div class="d-flex align-items-center justify-content-between mb-1">
+              <span class="fw-semibold small">{{ semester.name }}</span>
+              {% if semester.is_active %}
+              <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size:0.65rem">Hiện tại</span>
+              {% endif %}
+            </div>
+            <div class="small text-muted">
+              {% if semester.semester_type %}
+              <span class="badge bg-info-subtle text-info border border-info-subtle me-1" style="font-size:0.65rem">
+                {% if semester.semester_type == 'he' %}Hè{% elif semester.semester_type == 'hk1' %}HK1{% elif semester.semester_type == 'hk2' %}HK2{% else %}{{ semester.semester_type }}{% endif %}
+              </span>
+              {% endif %}
+              {% if semester.start_date %}{{ semester.start_date | date_vn }}{% endif %}{% if semester.end_date %} – {{ semester.end_date | date_vn }}{% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted small mb-3">Chưa có học kỳ nào. Thêm học kỳ bên dưới.</p>
+    {% endif %}
+
+    <!-- Form thêm học kỳ -->
+    <div class="border rounded p-3 bg-light">
+      <div class="fw-semibold small mb-2 text-muted">
+        <i class="bi bi-plus me-1"></i>Thêm học kỳ cho {{ year.name }}
+      </div>
+      <form method="post" action="{{ url_for('admin.semester_add') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="academic_year_id" value="{{ year.id }}">
+        <div class="row g-2 align-items-end">
+          <div class="col-12 col-sm-4">
+            <label class="form-label form-label-sm fw-semibold">Tên học kỳ <span class="text-danger">*</span></label>
+            <input type="text" class="form-control form-control-sm" name="name" placeholder="VD: Học kỳ 1" required>
+          </div>
+          <div class="col-12 col-sm-3">
+            <label class="form-label form-label-sm fw-semibold">Loại học kỳ</label>
+            <select class="form-select form-select-sm" name="semester_type">
+              <option value="">-- Chọn --</option>
+              {% for key, label in semester_types.items() %}
+              <option value="{{ key }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-6 col-sm-2">
+            <label class="form-label form-label-sm fw-semibold">Bắt đầu</label>
+            <input type="date" class="form-control form-control-sm" name="start_date">
+          </div>
+          <div class="col-6 col-sm-2">
+            <label class="form-label form-label-sm fw-semibold">Kết thúc</label>
+            <input type="date" class="form-control form-control-sm" name="end_date">
+          </div>
+          <div class="col-12 col-sm-1">
+            <button type="submit" class="btn btn-primary btn-sm w-100">
+              <i class="bi bi-plus"></i>
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="card border-0 shadow-sm">
+  <div class="card-body text-center text-muted py-5">
+    <i class="bi bi-calendar-x fs-3 d-block mb-3"></i>
+    <p class="mb-0">Chưa có năm học nào. Thêm năm học đầu tiên bên trên.</p>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

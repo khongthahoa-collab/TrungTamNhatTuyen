@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% block body %}
+<div class="d-flex" id="admin-wrapper">
+
+  <!-- Sidebar -->
+  <nav class="sidebar d-flex flex-column flex-shrink-0 p-3 text-white" id="sidebar"
+       style="background: linear-gradient(180deg, #6d4dd4 0%, #7c5cdb 100%); width:240px; min-height:100vh; position:fixed; top:0; left:0; z-index:100; transition:transform .3s;">
+    <a href="{{ url_for('admin.dashboard') }}" class="d-flex align-items-center mb-3 text-white text-decoration-none">
+      <i class="bi bi-mortarboard-fill fs-5 me-2"></i>
+      <span class="fw-bold">Nhật Tuyền</span>
+    </a>
+    <hr class="text-secondary">
+    <ul class="nav nav-pills flex-column mb-auto">
+      <li class="nav-item mb-1">
+        <a href="{{ url_for('admin.dashboard') }}" class="nav-link text-white {% if request.endpoint == 'admin.dashboard' %}active{% endif %}">
+          <i class="bi bi-speedometer2 me-2"></i>Tổng quan
+        </a>
+      </li>
+      <li class="nav-item mb-1">
+        <a href="{{ url_for('admin.students') }}" class="nav-link text-white {% if 'student' in request.endpoint %}active{% endif %}">
+          <i class="bi bi-people me-2"></i>Học sinh
+        </a>
+      </li>
+      <li class="nav-item mb-1">
+        <a href="{{ url_for('admin.classes') }}" class="nav-link text-white {% if 'class' in request.endpoint %}active{% endif %}">
+          <i class="bi bi-journal-bookmark me-2"></i>Lớp học
+        </a>
+      </li>
+      <li class="nav-item mb-1">
+        <a href="{{ url_for('admin.academic_years') }}" class="nav-link text-white {% if 'academic' in request.endpoint or 'semester' in request.endpoint %}active{% endif %}">
+          <i class="bi bi-calendar3 me-2"></i>Năm học
+        </a>
+      </li>
+      <li class="nav-item mb-1">
+        <a href="{{ url_for('admin.rewards') }}" class="nav-link text-white {% if 'reward' in request.endpoint %}active{% endif %}">
+          <i class="bi bi-trophy me-2"></i>Khen thưởng
+          {% set pending_count = namespace(n=0) %}
+          {# Use Python logic from context #}
+        </a>
+      </li>
+      <li class="nav-item mb-1">
+        <a href="{{ url_for('admin.tuition') }}" class="nav-link text-white {% if 'tuition' in request.endpoint %}active{% endif %}">
+          <i class="bi bi-cash-stack me-2"></i>Học phí
+        </a>
+      </li>
+      <li class="nav-item mb-1">
+        <a href="{{ url_for('admin.expenses') }}" class="nav-link text-white {% if 'expense' in request.endpoint %}active{% endif %}">
+          <i class="bi bi-receipt me-2"></i>Chi phí
+        </a>
+      </li>
+      <li class="nav-item mb-1">
+        <a href="{{ url_for('admin.salary') }}" class="nav-link text-white {% if 'salary' in request.endpoint %}active{% endif %}">
+          <i class="bi bi-wallet2 me-2"></i>Lương GV
+        </a>
+      </li>
+      <li class="nav-item mb-1">
+        <a href="{{ url_for('admin.documents') }}" class="nav-link text-white {% if 'document' in request.endpoint %}active{% endif %}">
+          <i class="bi bi-folder2 me-2"></i>Tài liệu
+        </a>
+      </li>
+      <li class="nav-item mb-1">
+        <a href="{{ url_for('admin.reports') }}" class="nav-link text-white {% if 'report' in request.endpoint %}active{% endif %}">
+          <i class="bi bi-bar-chart-line me-2"></i>Báo cáo
+        </a>
+      </li>
+      <hr class="text-secondary">
+      <li class="nav-item mb-1">
+        <a href="{{ url_for('admin.courses') }}" class="nav-link text-white {% if 'course' in request.endpoint %}active{% endif %}">
+          <i class="bi bi-book me-2"></i>Môn học
+        </a>
+      </li>
+      <li class="nav-item mb-1">
+        <a href="{{ url_for('admin.users') }}" class="nav-link text-white {% if 'user' in request.endpoint %}active{% endif %}">
+          <i class="bi bi-person-gear me-2"></i>Tài khoản
+        </a>
+      </li>
+      <li class="nav-item mb-1">
+        <a href="{{ url_for('admin.settings') }}" class="nav-link text-white {% if 'setting' in request.endpoint %}active{% endif %}">
+          <i class="bi bi-gear me-2"></i>Cài đặt
+        </a>
+      </li>
+    </ul>
+    <hr class="text-secondary">
+    <div class="d-flex align-items-center gap-2">
+      <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
+           style="width:32px;height:32px;font-size:0.8rem;">
+        {{ current_user.full_name[0] }}
+      </div>
+      <div class="flex-grow-1 overflow-hidden">
+        <div class="small fw-semibold text-truncate">{{ current_user.full_name }}</div>
+        <div class="text-white-50" style="font-size:0.7rem">Admin</div>
+      </div>
+      <a href="{{ url_for('auth.logout') }}" class="text-white-50" title="Đăng xuất">
+        <i class="bi bi-box-arrow-right"></i>
+      </a>
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <div class="flex-grow-1" id="main-content" style="margin-left:240px;">
+    <!-- Top bar -->
+    <div class="d-flex align-items-center px-3 py-2 border-bottom bg-white sticky-top" style="z-index:50;">
+      <button class="btn btn-sm btn-outline-secondary d-lg-none me-3" id="sidebarToggle">
+        <i class="bi bi-list"></i>
+      </button>
+      <nav aria-label="breadcrumb" class="flex-grow-1">
+        <ol class="breadcrumb mb-0 small">
+          <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Admin</a></li>
+          {% block breadcrumb %}{% endblock %}
+        </ol>
+      </nav>
+      <a href="{{ url_for('public.index') }}" target="_blank" class="btn btn-sm btn-outline-secondary ms-2" title="Xem trang công khai">
+        <i class="bi bi-box-arrow-up-right"></i>
+      </a>
+    </div>
+
+    <div class="p-3 p-md-4">
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+
+<script>
+const sidebar = document.getElementById('sidebar');
+const mainContent = document.getElementById('main-content');
+document.getElementById('sidebarToggle')?.addEventListener('click', () => {
+  const hidden = sidebar.style.transform === 'translateX(-100%)';
+  sidebar.style.transform = hidden ? '' : 'translateX(-100%)';
+});
+// Close sidebar when clicking outside on mobile
+document.addEventListener('click', e => {
+  if (window.innerWidth < 992 &&
+      !sidebar.contains(e.target) &&
+      !document.getElementById('sidebarToggle')?.contains(e.target)) {
+    sidebar.style.transform = 'translateX(-100%)';
+  }
+});
+</script>
+{% endblock %}

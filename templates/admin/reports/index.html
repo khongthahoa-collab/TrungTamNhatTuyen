@@ -1,0 +1,163 @@
+{% extends 'admin/base.html' %}
+{% block title %}Báo cáo — Admin{% endblock %}
+{% block breadcrumb %}<li class="breadcrumb-item active">Báo cáo</li>{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+  <h4 class="fw-bold mb-0">Báo cáo tài chính</h4>
+  <form method="GET" class="d-flex align-items-center gap-2">
+    <label class="text-muted small mb-0">Năm:</label>
+    <select name="year" class="form-select form-select-sm" style="width:100px" onchange="this.form.submit()">
+      {% for y in range(today.year, today.year - 5, -1) %}
+        <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="card border-0 shadow-sm finance-card income">
+      <div class="card-body">
+        <div class="text-muted small">Tổng thu {{ year }}</div>
+        <div class="fs-5 fw-bold text-success">{{ total_revenue|vnd }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card border-0 shadow-sm finance-card expense">
+      <div class="card-body">
+        <div class="text-muted small">Tổng chi {{ year }}</div>
+        <div class="fs-5 fw-bold text-danger">{{ total_expenses|vnd }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card border-0 shadow-sm finance-card profit">
+      <div class="card-body">
+        <div class="text-muted small">Lợi nhuận</div>
+        <div class="fs-5 fw-bold {% if profit >= 0 %}text-success{% else %}text-danger{% endif %}">{{ profit|vnd }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card border-0 shadow-sm finance-card">
+      <div class="card-body">
+        <div class="text-muted small">CP khấu trừ thuế</div>
+        <div class="fs-5 fw-bold text-primary">{{ tax_expenses|vnd }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-12 col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold border-0">
+        <i class="bi bi-table me-2 text-primary"></i>Thu chi theo tháng — {{ year }}
+      </div>
+      <div class="card-body p-0">
+        {% set max_val = ([monthly_revenue|max, monthly_expenses|max]|max) %}
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Tháng</th>
+                <th class="text-end">Thu (₫)</th>
+                <th class="text-end">Chi (₫)</th>
+                <th class="text-end">Lợi nhuận (₫)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for i in range(12) %}
+                {% set rev = monthly_revenue[i] %}
+                {% set exp = monthly_expenses[i] %}
+                {% set pnl = rev - exp %}
+                <tr>
+                  <td class="fw-semibold">
+                    Tháng {{ i+1 }}
+                    {% set max_for_bar = max_val if max_val > 0 else 1 %}
+                    <div class="mt-1 d-flex flex-column gap-1" style="width:80px">
+                      <div style="width:{{ [(rev/max_for_bar*100)|int,100]|min }}%;height:4px;background:#27ae60;border-radius:2px;min-width:2px"></div>
+                      <div style="width:{{ [(exp/max_for_bar*100)|int,100]|min }}%;height:4px;background:#e74c3c;border-radius:2px;min-width:2px"></div>
+                    </div>
+                  </td>
+                  <td class="text-end {% if rev %}text-success{% else %}text-muted{% endif %}">{{ rev|vnd if rev else '—' }}</td>
+                  <td class="text-end {% if exp %}text-danger{% else %}text-muted{% endif %}">{{ exp|vnd if exp else '—' }}</td>
+                  <td class="text-end fw-semibold {% if pnl > 0 %}text-success{% elif pnl < 0 %}text-danger{% else %}text-muted{% endif %}">
+                    {{ pnl|vnd if (rev or exp) else '—' }}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot class="table-light fw-bold">
+              <tr>
+                <td>Tổng năm</td>
+                <td class="text-end text-success">{{ total_revenue|vnd }}</td>
+                <td class="text-end text-danger">{{ total_expenses|vnd }}</td>
+                <td class="text-end {% if profit >= 0 %}text-success{% else %}text-danger{% endif %}">{{ profit|vnd }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-4">
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white fw-semibold border-0">
+        <i class="bi bi-people me-2 text-primary"></i>Thống kê học sinh
+      </div>
+      <div class="card-body">
+        <div class="d-flex justify-content-between py-2 border-bottom">
+          <span class="text-muted">Đang học</span>
+          <strong>{{ total_students }}</strong>
+        </div>
+        <div class="d-flex justify-content-between py-2">
+          <span class="text-muted">Mới năm {{ year }}</span>
+          <span class="badge bg-success">{{ new_this_year }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold border-0">
+        <i class="bi bi-bar-chart me-2 text-primary"></i>Hiệu quả lớp học
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light">
+            <tr><th>Lớp</th><th class="text-center">Sĩ số</th><th class="text-center">Vắng%</th></tr>
+          </thead>
+          <tbody>
+            {% for cs in class_stats %}
+              <tr>
+                <td class="small">{{ cs.class.name }}</td>
+                <td class="text-center small">{{ cs.enrollment }}/{{ cs.class.max_students }}</td>
+                <td class="text-center">
+                  <span class="badge {% if cs.absence_rate > 20 %}bg-danger{% elif cs.absence_rate > 10 %}bg-warning text-dark{% else %}bg-success{% endif %} small">
+                    {{ cs.absence_rate }}%
+                  </span>
+                </td>
+              </tr>
+            {% else %}
+              <tr><td colspan="3" class="text-muted text-center py-2 small">Chưa có dữ liệu</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="alert alert-info mt-4 d-flex gap-3 align-items-start">
+  <i class="bi bi-info-circle-fill fs-5 mt-1 flex-shrink-0"></i>
+  <div>
+    <strong>Báo cáo thuế {{ year }}:</strong>
+    Tổng thu <strong>{{ total_revenue|vnd }}</strong> —
+    Tổng chi <strong>{{ total_expenses|vnd }}</strong> —
+    CP khấu trừ thuế: <strong>{{ tax_expenses|vnd }}</strong>.
+    Liên hệ kế toán để hoàn thiện hồ sơ khai thuế.
+  </div>
+</div>
+{% endblock %}

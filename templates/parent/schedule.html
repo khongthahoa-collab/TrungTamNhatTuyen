@@ -1,0 +1,107 @@
+{% extends 'parent/base.html' %}
+{% block title %}Lịch học – {{ student.full_name }} – Nhật Tuyền{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <!-- Header -->
+  <div class="mb-3">
+    <h5 class="fw-bold mb-0">
+      <i class="bi bi-calendar3 text-info me-1"></i>Lịch học
+    </h5>
+    <div class="text-muted">{{ student.full_name }}</div>
+  </div>
+
+  <!-- Summary -->
+  {% if not schedules %}
+    <div class="alert alert-info text-center py-4">
+      <i class="bi bi-info-circle me-2"></i>
+      <div>Không có lịch học sắp tới</div>
+    </div>
+  {% else %}
+  {% set upcoming_count = schedules | selectattr('date', 'ge', today) | list | length %}
+  {% set today_count = schedules | selectattr('date', 'equalto', today) | list | length %}
+
+  <div class="row g-2 mb-3">
+    <div class="col-6">
+      <div class="card border-0 shadow-sm text-center py-2">
+        <div class="fw-bold fs-5 text-info">{{ today_count }}</div>
+        <div class="small text-muted">Hôm nay</div>
+      </div>
+    </div>
+    <div class="col-6">
+      <div class="card border-0 shadow-sm text-center py-2">
+        <div class="fw-bold fs-5 text-primary">{{ upcoming_count }}</div>
+        <div class="small text-muted">30 ngày tới</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Schedule List by Date -->
+  <h6 class="text-uppercase text-muted fw-bold mb-2">
+    <i class="bi bi-calendar-event me-1"></i>Lịch học chi tiết
+  </h6>
+
+  {% if schedules %}
+    {% for date_key in by_date | dictsort %}
+      {% set date_schedules = by_date[date_key[0]] %}
+      <div class="card border-0 shadow-sm mb-2">
+        <div class="card-header bg-info bg-opacity-10 border-bottom">
+          <div class="d-flex justify-content-between align-items-center">
+            <h6 class="mb-0 fw-bold">
+              {% if date_key[0] == today %}
+                <i class="bi bi-star-fill text-warning me-1"></i>Hôm nay – {{ date_key[0].strftime('%A') }}
+              {% elif date_key[0] == tomorrow %}
+                <i class="bi bi-arrow-right-short me-1"></i>Ngày mai
+              {% else %}
+                {{ date_key[0].strftime('%d/%m/%Y – %A') }}
+              {% endif %}
+            </h6>
+            <span class="badge bg-info">{{ date_schedules | length }} buổi</span>
+          </div>
+        </div>
+        <div class="card-body p-2">
+          {% for schedule in date_schedules %}
+            <div class="mb-2 pb-2 {% if not loop.last %}border-bottom{% endif %}">
+              <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                  <div class="fw-bold text-primary">
+                    {{ schedule.class_.name }}
+                  </div>
+                  <div class="small text-muted">
+                    <i class="bi bi-clock me-1"></i>{{ schedule.start_time.strftime('%H:%M') }} – {{ schedule.end_time.strftime('%H:%M') }}
+                  </div>
+                  {% if schedule.room %}
+                    <div class="small text-muted">
+                      <i class="bi bi-door-closed me-1"></i>Phòng: {{ schedule.room }}
+                    </div>
+                  {% endif %}
+                  {% if schedule.topic %}
+                    <div class="small text-muted">
+                      <i class="bi bi-book me-1"></i>Chủ đề: {{ schedule.topic }}
+                    </div>
+                  {% endif %}
+                  {% if schedule.teacher %}
+                    <div class="small text-muted">
+                      <i class="bi bi-person me-1"></i>Giáo viên: {{ schedule.teacher.full_name }}
+                    </div>
+                  {% endif %}
+                </div>
+                {% if schedule.date == today %}
+                  <span class="badge bg-success">Hôm nay</span>
+                {% elif schedule.date < today %}
+                  <span class="badge bg-secondary">Đã học</span>
+                {% else %}
+                  <span class="badge bg-info">Sắp học</span>
+                {% endif %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  {% endif %}
+  {% endif %}
+
+</div>
+{% endblock %}
