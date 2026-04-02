@@ -6,7 +6,7 @@ from app import create_app
 from extensions import db
 from models import (
     User, Teacher, Course, Class, Student, Enrollment,
-    AcademicYear, Semester, Schedule, SystemConfig,
+    AcademicYear, Semester, Schedule, SystemConfig, School,
     Score, Reward, TuitionPayment,
     UserRole, StudentLevel, ScheduleType, ScoreSource, ScoreType, SemesterType, TuitionMethod
 )
@@ -145,19 +145,37 @@ def seed():
             db.session.flush()
             classes.append((cl, primary_teacher))
 
+        # ── Schools
+        school_data = [
+            # (name, grade_from, grade_to)
+            ('Tiểu học Lê Lợi',         1,  5),
+            ('Tiểu học Nguyễn Trãi',     1,  5),
+            ('THCS Lê Văn Tám',          6,  9),
+            ('THCS Nguyễn Du',           6,  9),
+            ('THPT Nguyễn Trãi',        10, 12),
+            ('THPT Trần Phú',           10, 12),
+        ]
+        seed_schools = {}
+        for sname, gf, gt in school_data:
+            sc = School(name=sname, grade_from=gf, grade_to=gt)
+            db.session.add(sc)
+            db.session.flush()
+            seed_schools[sname] = sc
+        print(f"✓ {len(seed_schools)} trường học đã được thêm")
+
         # ── Students
         students_data = [
-            # (full_name, dob, gender, current_school, current_grade, level, parent_name, parent_phone)
-            ('Nguyen Van Anh', date(2010, 3, 15), 'male', 'Secondary Le Van Tam', '8A', StudentLevel.SECONDARY, 'Nguyen Van Binh', '0901111111'),
-            ('Tran Thi Bao', date(2010, 7, 22), 'female', 'Secondary Le Van Tam', '8A', StudentLevel.SECONDARY, 'Tran Van Cuong', '0902222222'),
-            ('Le Minh Chien', date(2009, 11, 5), 'male', 'Secondary Nguyen Du', '9B', StudentLevel.SECONDARY, 'Le Thi Dung', '0903333333'),
-            ('Pham Thi Dieu', date(2008, 5, 18), 'female', 'HS Nguyen Trai', '10A', StudentLevel.HIGH_SCHOOL, 'Pham Van Em', '0904444444'),
-            ('Hoang Van Em', date(2008, 9, 30), 'male', 'HS Nguyen Trai', '10B', StudentLevel.HIGH_SCHOOL, 'Hoang Thi Phuong', '0905555555'),
-            ('Vo Thi Phuong', date(2007, 1, 12), 'female', 'HS Tran Phu', '11C', StudentLevel.HIGH_SCHOOL, 'Vo Van Giang', '0906666666'),
-            ('Dang Quoc Hung', date(2014, 6, 8), 'male', 'Primary Le Loi', '4A', StudentLevel.PRIMARY, 'Dang Van Hai', '0907777777'),
-            ('Bui Thi Lan', date(2014, 2, 25), 'female', 'Primary Le Loi', '4B', StudentLevel.PRIMARY, 'Bui Van Kien', '0908888888'),
-            ('Ngo Van Manh', date(2010, 8, 14), 'male', 'Secondary Le Van Tam', '8B', StudentLevel.SECONDARY, 'Ngo Thi Ngoc', '0909999999'),
-            ('Dinh Thi Ngoc', date(2009, 4, 3), 'female', 'Secondary Nguyen Du', '9A', StudentLevel.SECONDARY, 'Dinh Van Phuc', '0910101010'),
+            # (full_name, dob, gender, school_key, current_grade, level, parent_name, parent_phone)
+            ('Nguyễn Văn Anh',  date(2010, 3, 15), 'male',   'THCS Lê Văn Tám',     '8A',  StudentLevel.SECONDARY,   'Nguyễn Văn Bình',   '0901111111'),
+            ('Trần Thị Bảo',    date(2010, 7, 22), 'female', 'THCS Lê Văn Tám',     '8A',  StudentLevel.SECONDARY,   'Trần Văn Cường',    '0902222222'),
+            ('Lê Minh Chiến',   date(2009, 11, 5), 'male',   'THCS Nguyễn Du',      '9B',  StudentLevel.SECONDARY,   'Lê Thị Dung',       '0903333333'),
+            ('Phạm Thị Diệu',   date(2008, 5, 18), 'female', 'THPT Nguyễn Trãi',    '10A', StudentLevel.HIGH_SCHOOL, 'Phạm Văn Em',       '0904444444'),
+            ('Hoàng Văn Em',    date(2008, 9, 30), 'male',   'THPT Nguyễn Trãi',    '10B', StudentLevel.HIGH_SCHOOL, 'Hoàng Thị Phương',  '0905555555'),
+            ('Võ Thị Phương',   date(2007, 1, 12), 'female', 'THPT Trần Phú',       '11C', StudentLevel.HIGH_SCHOOL, 'Võ Văn Giang',      '0906666666'),
+            ('Đặng Quốc Hùng',  date(2014, 6,  8), 'male',   'Tiểu học Lê Lợi',     '4A',  StudentLevel.PRIMARY,     'Đặng Văn Hải',      '0907777777'),
+            ('Bùi Thị Lan',     date(2014, 2, 25), 'female', 'Tiểu học Lê Lợi',     '4B',  StudentLevel.PRIMARY,     'Bùi Văn Kiên',      '0908888888'),
+            ('Ngô Văn Mạnh',    date(2010, 8, 14), 'male',   'THCS Lê Văn Tám',     '8B',  StudentLevel.SECONDARY,   'Ngô Thị Ngọc',      '0909999999'),
+            ('Đinh Thị Ngọc',   date(2009, 4,  3), 'female', 'THCS Nguyễn Du',      '9A',  StudentLevel.SECONDARY,   'Đinh Văn Phúc',     '0910101010'),
         ]
 
         # ── Parent accounts (for some students)
@@ -178,13 +196,15 @@ def seed():
         # ── Create students
         students = []
         for sdata in students_data:
-            fname, dob, gender, school, grade, level, pname, pphone = sdata
+            fname, dob, gender, school_key, grade, level, pname, pphone = sdata
             pu = parent_users.get(pphone)
+            school_obj = seed_schools.get(school_key)
             s = Student(
                 full_name=fname,
                 date_of_birth=dob,
                 gender=gender,
-                current_school=school,
+                current_school=school_key,
+                school_id=school_obj.id if school_obj else None,
                 current_grade=grade,
                 level=level,
                 parent_name=pname,

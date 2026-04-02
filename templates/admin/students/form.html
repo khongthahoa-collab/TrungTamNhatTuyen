@@ -80,9 +80,24 @@
 
             <!-- Trường -->
             <div class="col-12 col-md-8">
-              <label for="school" class="form-label fw-semibold">Trường</label>
-              <input type="text" class="form-control" id="school" name="school"
-                     value="{{ form.current_school if form else '' }}" placeholder="Tên trường đang học">
+              <label class="form-label fw-semibold">Trường</label>
+              {% set cur_school_id = form.school_id if form and form.school_id else '' %}
+              {% set cur_school_name = form.current_school if form and form.current_school else '' %}
+              {% set known_ids = schools | map(attribute='id') | list %}
+              {% set is_custom = cur_school_id == '' or cur_school_id not in known_ids %}
+              <select class="form-select" name="school_id" id="schoolSelect">
+                <option value="">-- Trường khác (tự nhập) --</option>
+                {% for s in schools %}
+                <option value="{{ s.id }}"
+                  {% if cur_school_id and cur_school_id == s.id %}selected{% endif %}>
+                  {{ s.name }}{% if s.grade_range_label %} ({{ s.grade_range_label }}){% endif %}
+                </option>
+                {% endfor %}
+              </select>
+              <input type="text" class="form-control mt-2 {% if not is_custom or cur_school_id %}d-none{% endif %}"
+                     id="schoolCustom" name="school_custom"
+                     placeholder="Nhập tên trường..."
+                     value="{{ cur_school_name if is_custom else '' }}">
             </div>
           </div>
 
@@ -162,4 +177,18 @@
     </div>
   </div>
 </div>
+<script>
+(function() {
+  const sel = document.getElementById('schoolSelect');
+  const custom = document.getElementById('schoolCustom');
+  if (!sel || !custom) return;
+  function sync() {
+    const hide = sel.value !== '';
+    custom.classList.toggle('d-none', hide);
+    custom.required = !hide;
+  }
+  sel.addEventListener('change', sync);
+  sync();
+})();
+</script>
 {% endblock %}

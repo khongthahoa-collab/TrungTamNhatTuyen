@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, jsonify
 from datetime import date, timedelta
-from models import Schedule, Class, Course, Score, SystemConfig, StudentLevel, ContactInquiry, Student
+from models import Schedule, Class, Course, Score, SystemConfig, StudentLevel, ContactInquiry, Student, School
 from extensions import db
 
 public_bp = Blueprint('public', __name__)
@@ -42,11 +42,15 @@ def index():
     # Courses for filter
     courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
 
-    # Distinct schools for contact form dropdown
-    school_rows = (db.session.query(Student.current_school)
-                   .filter(Student.current_school != None, Student.current_school != '')
-                   .distinct().order_by(Student.current_school).all())
-    distinct_schools = [r[0] for r in school_rows]
+    # Schools for contact form dropdown (from School model, fall back to distinct student schools)
+    school_objs = School.query.filter_by(is_active=True).order_by(School.name).all()
+    if school_objs:
+        distinct_schools = [{'name': s.name, 'range': s.grade_range_label} for s in school_objs]
+    else:
+        rows = (db.session.query(Student.current_school)
+                .filter(Student.current_school.isnot(None), Student.current_school != '')
+                .distinct().order_by(Student.current_school).all())
+        distinct_schools = [{'name': r[0], 'range': ''} for r in rows]
 
     # Hall of Fame
     min_score_val = float(SystemConfig.get('hall_of_fame_min_score', '8'))

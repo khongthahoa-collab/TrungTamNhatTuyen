@@ -360,6 +360,41 @@ class Room(db.Model):
         return f'<Room {self.name}>'
 
 
+class School(db.Model):
+    """School entity for managing schools that students come from"""
+    __tablename__ = 'schools'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), unique=True, nullable=False)
+    grade_from = db.Column(db.Integer, nullable=True)  # 0=Tiền TH, 1-12=Lớp 1-12
+    grade_to = db.Column(db.Integer, nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
+    students = db.relationship('Student', backref='school_obj', lazy='dynamic',
+                               foreign_keys='Student.school_id')
+
+    @staticmethod
+    def grade_name(n):
+        if n is None:
+            return ''
+        return 'Tiền tiểu học' if n == 0 else f'Lớp {n}'
+
+    @property
+    def grade_range_label(self):
+        if self.grade_from is not None and self.grade_to is not None:
+            return f'{self.grade_name(self.grade_from)} – {self.grade_name(self.grade_to)}'
+        elif self.grade_from is not None:
+            return f'Từ {self.grade_name(self.grade_from)}'
+        elif self.grade_to is not None:
+            return f'Đến {self.grade_name(self.grade_to)}'
+        return ''
+
+    def __repr__(self):
+        return f'<School {self.name}>'
+
+
 class Class(db.Model):
     """Class offering with schedule and students"""
     __tablename__ = 'classes'
@@ -433,7 +468,8 @@ class Student(db.Model):
     full_name = db.Column(db.String(100), nullable=False)
     date_of_birth = db.Column(db.Date)
     gender = db.Column(db.String(10))  # male/female
-    current_school = db.Column(db.String(100))  # Current school name
+    current_school = db.Column(db.String(200))  # School name (free text, kept for legacy/custom)
+    school_id = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=True)
     current_grade = db.Column(db.String(20))    # e.g., "6A1", "10B"
     level = db.Column(db.String(20), nullable=False)  # primary/secondary/high_school
     parent_name = db.Column(db.String(100))

@@ -123,7 +123,7 @@
             <select class="form-select" id="ci_school" name="school" required onchange="toggleSchoolOther(this)">
               <option value="">-- Chọn trường --</option>
               {% for s in distinct_schools %}
-              <option value="{{ s }}">{{ s }}</option>
+              <option value="{{ s.name }}">{{ s.name }}{% if s.range %} ({{ s.range }}){% endif %}</option>
               {% endfor %}
               <option value="__other__">Khác (gõ tên trường)</option>
             </select>

@@ -7,7 +7,7 @@ from datetime import date, datetime
 from sqlalchemy import func
 from extensions import db
 from models import (Student, User, Enrollment, Class, TuitionPayment, Score, Reward,
-                    StudentLevel, UserRole, Attendance, AttendanceStatus, Teacher, Schedule)
+                    StudentLevel, UserRole, Attendance, AttendanceStatus, Teacher, Schedule, School)
 from blueprints.admin import admin_bp, require_admin
 
 PHOTO_EXTS = {'jpg', 'jpeg', 'png', 'webp', 'gif'}
@@ -186,11 +186,14 @@ def import_students():
 @login_required
 @require_admin
 def student_add():
+    schools = School.query.filter_by(is_active=True).order_by(School.name).all()
+
     if request.method == 'POST':
         full_name = request.form.get('full_name', '').strip()
         dob_str = request.form.get('dob', '')
         gender = request.form.get('gender', 'male')
-        school = request.form.get('school', '').strip()
+        school_id = request.form.get('school_id', type=int) or None
+        school_custom = request.form.get('school_custom', '').strip()
         grade = request.form.get('grade', '').strip()
         level = request.form.get('level', StudentLevel.SECONDARY)
         parent_name = request.form.get('parent_name', '').strip()
@@ -198,10 +201,18 @@ def student_add():
         note = request.form.get('note', '').strip()
         create_parent_account = request.form.get('create_parent_account') == '1'
 
+        # Resolve school name
+        if school_id:
+            school_obj = School.query.get(school_id)
+            school = school_obj.name if school_obj else school_custom
+        else:
+            school = school_custom
+
         if not full_name or not level:
             flash('Vui lòng nhập họ tên và cấp học.', 'danger')
             return render_template('admin/students/form.html',
-                                   action='add', levels=StudentLevel.LABELS, form=request.form)
+                                   action='add', levels=StudentLevel.LABELS,
+                                   schools=schools, form=request.form)
 
         try:
             dob = date.fromisoformat(dob_str) if dob_str else None
@@ -242,6 +253,7 @@ def student_add():
             date_of_birth=dob,
             gender=gender,
             current_school=school,
+            school_id=school_id,
             current_grade=grade,
             level=level,
             parent_name=parent_name,
@@ -255,7 +267,8 @@ def student_add():
         return redirect(url_for('admin.student_detail', student_id=student.id))
 
     return render_template('admin/students/form.html',
-                           action='add', levels=StudentLevel.LABELS, form={})
+                           action='add', levels=StudentLevel.LABELS,
+                           schools=schools, form={})
 
 
 @admin_bp.route('/hoc-sinh/<int:student_id>')
@@ -287,6 +300,8 @@ def student_detail(student_id):
 def student_edit(student_id):
     student = Student.query.get_or_404(student_id)
 
+    schools = School.query.filter_by(is_active=True).order_by(School.name).all()
+
     if request.method == 'POST':
         student.full_name = request.form.get('full_name', student.full_name).strip()
         dob_str = request.form.get('dob', '')
@@ -295,7 +310,15 @@ def student_edit(student_id):
         except ValueError:
             pass
         student.gender = request.form.get('gender', student.gender)
-        student.current_school = request.form.get('school', '').strip()
+        school_id = request.form.get('school_id', type=int) or None
+        school_custom = request.form.get('school_custom', '').strip()
+        if school_id:
+            school_obj = School.query.get(school_id)
+            student.current_school = school_obj.name if school_obj else school_custom
+            student.school_id = school_id
+        else:
+            student.current_school = school_custom
+            student.school_id = None
         student.current_grade = request.form.get('grade', '').strip()
         student.level = request.form.get('level', student.level)
         student.parent_name = request.form.get('parent_name', '').strip()
@@ -308,7 +331,7 @@ def student_edit(student_id):
 
     return render_template('admin/students/form.html',
                            action='edit', student=student,
-                           levels=StudentLevel.LABELS, form=student)
+                           levels=StudentLevel.LABELS, schools=schools, form=student)
 
 
 @admin_bp.route('/hoc-sinh/<int:student_id>/ghi-danh', methods=['POST'])
