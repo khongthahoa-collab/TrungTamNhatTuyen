@@ -41,13 +41,29 @@ def create_app(config_name=None):
     app.register_blueprint(admin_bp, url_prefix='/quan-tri')
 
     # Jinja2 global helpers
-    from models import SystemConfig
+    from models import SystemConfig, ContactInquiry, Notification
+    from flask_login import current_user
     import models as m
 
     @app.context_processor
     def inject_globals():
+        try:
+            unread_inquiries = ContactInquiry.query.filter_by(is_read=False).count()
+        except Exception:
+            unread_inquiries = 0
+        try:
+            if current_user.is_authenticated:
+                unread_notifications = Notification.query.filter_by(
+                    user_id=current_user.id, is_read=False
+                ).count()
+            else:
+                unread_notifications = 0
+        except Exception:
+            unread_notifications = 0
         return {
             'SystemConfig': SystemConfig,
+            'unread_inquiries': unread_inquiries,
+            'unread_notifications': unread_notifications,
             'UserRole': m.UserRole,
             'StudentLevel': m.StudentLevel,
             'ScheduleType': m.ScheduleType,

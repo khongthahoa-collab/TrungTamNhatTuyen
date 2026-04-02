@@ -62,7 +62,7 @@
 
   {% if docs %}
     {% for doc in docs %}
-    {% set ext = doc.filename.rsplit('.', 1)[-1].lower() if '.' in doc.filename else '' %}
+    {% set ext = doc.original_filename.rsplit('.', 1)[-1].lower() if '.' in doc.original_filename else '' %}
 
     <div class="card mb-2 shadow-sm border-0">
       <div class="card-body py-3 d-flex align-items-start gap-3">

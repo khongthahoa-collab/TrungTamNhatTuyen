@@ -107,9 +107,10 @@
     <i class="bi bi-journal-bookmark me-1"></i>Lớp tôi dạy
   </h6>
 
-  {% if teacher.classes %}
+  {% set my_classes = teacher.classes.all() %}
+  {% if my_classes %}
     <div class="list-group shadow-sm mb-3">
-      {% for cls in teacher.classes %}
+      {% for cls in my_classes %}
       <a href="{{ url_for('teacher.scores', class_id=cls.id) }}"
          class="list-group-item list-group-item-action d-flex align-items-center gap-3 py-3">
         <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center text-primary fw-bold flex-shrink-0"
@@ -119,7 +120,7 @@
         <div class="flex-grow-1">
           <div class="fw-semibold">{{ cls.name }}</div>
           <div class="text-muted small">
-            {{ cls.students | length }} học sinh
+            {{ cls.current_enrollment }} học sinh
             {% if cls.course %}&nbsp;·&nbsp;{{ cls.course.name }}{% endif %}
           </div>
         </div>

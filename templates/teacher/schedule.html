@@ -30,7 +30,7 @@
           <div class="fw-semibold">Tuần {{ week_offset | abs }}</div>
         {% endif %}
         <div class="text-muted small">
-          {{ monday | date_vn }} – {{ (monday + timedelta(days=6)) | date_vn }}
+          {{ monday | date_vn }} – {{ sunday | date_vn }}
         </div>
       </div>
 

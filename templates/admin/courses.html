@@ -7,41 +7,41 @@
 
 {% block content %}
 <div class="d-flex align-items-center justify-content-between mb-4">
-  <h4 class="fw-bold mb-0">
-    <i class="bi bi-book text-secondary me-2"></i>Quản lý môn học
-  </h4>
-  <button class="btn btn-primary" data-bs-toggle="collapse" data-bs-target="#addCourseForm">
+  <h5 class="fw-bold mb-0">
+    <i class="bi bi-book text-primary me-2"></i>Quản lý môn học
+    <span class="badge bg-secondary ms-1 fs-6">{{ courses | length }}</span>
+  </h5>
+  <button class="btn btn-primary btn-sm" data-bs-toggle="collapse" data-bs-target="#addCourseForm">
     <i class="bi bi-plus-lg me-1"></i>Thêm môn học
   </button>
 </div>
 
-<!-- ===== ADD COURSE FORM ===== -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% for cat, msg in messages %}
+<div class="alert alert-{{ cat }} alert-dismissible fade show" role="alert">
+  {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endfor %}
+{% endwith %}
+
+<!-- Thêm môn học -->
 <div class="collapse mb-4" id="addCourseForm">
-  <div class="card shadow-sm border-0">
-    <div class="card-header fw-semibold bg-light">
-      <i class="bi bi-plus-lg me-1"></i>Thêm môn học mới
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-white fw-semibold">
+      <i class="bi bi-plus-lg me-1 text-primary"></i>Thêm môn học mới
     </div>
     <div class="card-body">
       <form method="post" action="{{ url_for('admin.course_add') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="row g-3">
           <div class="col-12 col-md-5">
-            <label class="form-label fw-semibold" for="course_name">Tên môn học <span class="text-danger">*</span></label>
-            <input type="text" class="form-control" name="name" id="course_name"
-                   placeholder="Toán, Văn, Tiếng Anh..." required>
+            <label class="form-label fw-semibold">Tên môn học <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" name="name"
+                   placeholder="Toán, Anh Văn, Vật lý..." required>
           </div>
-          <div class="col-12 col-md-3">
-            <label class="form-label fw-semibold" for="course_level">Cấp độ</label>
-            <select class="form-select" name="level" id="course_level">
-              <option value="">-- Tất cả cấp độ --</option>
-              {% for key, label in levels.items() %}
-              <option value="{{ key }}">{{ label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="col-12 col-md-4">
-            <label class="form-label fw-semibold" for="course_desc">Mô tả</label>
-            <input type="text" class="form-control" name="description" id="course_desc"
+          <div class="col-12 col-md-7">
+            <label class="form-label fw-semibold">Mô tả</label>
+            <input type="text" class="form-control" name="description"
                    placeholder="Mô tả ngắn (tùy chọn)">
           </div>
         </div>
@@ -50,60 +50,44 @@
             <i class="bi bi-plus-lg me-1"></i>Thêm
           </button>
           <button type="button" class="btn btn-outline-secondary"
-                  data-bs-toggle="collapse" data-bs-target="#addCourseForm">
-            Hủy
-          </button>
+                  data-bs-toggle="collapse" data-bs-target="#addCourseForm">Hủy</button>
         </div>
       </form>
     </div>
   </div>
 </div>
 
-<!-- ===== COURSES TABLE ===== -->
-<div class="card shadow-sm border-0">
-  <div class="card-header bg-light d-flex align-items-center justify-content-between py-2">
-    <span class="fw-semibold"><i class="bi bi-book me-1"></i>Danh sách môn học</span>
-    <span class="badge bg-secondary">{{ courses | length }}</span>
-  </div>
+<!-- Danh sách môn học -->
+<div class="card border-0 shadow-sm">
   <div class="table-responsive">
-    <table class="table table-hover table-sm mb-0 align-middle">
+    <table class="table table-hover align-middle mb-0">
       <thead class="table-light">
         <tr>
-          <th>Tên môn</th>
-          <th>Cấp độ</th>
+          <th class="ps-3">Tên môn học</th>
           <th>Mô tả</th>
-          <th>Trạng thái</th>
-          <th class="text-end">Thao tác</th>
+          <th class="text-center">Trạng thái</th>
+          <th class="text-center">Thao tác</th>
         </tr>
       </thead>
       <tbody>
         {% for course in courses %}
-        <tr>
-          <td class="fw-semibold">{{ course.name }}</td>
-          <td>
-            {% if course.level %}
-              <span class="badge bg-info text-dark">{{ levels.get(course.level, course.level) }}</span>
-            {% else %}
-              <span class="text-muted small">–</span>
-            {% endif %}
-          </td>
-          <td class="text-muted small">{{ course.description or '–' }}</td>
-          <td>
+        <tr {% if not course.is_active %}class="table-secondary"{% endif %}>
+          <td class="ps-3 fw-semibold">{{ course.name }}</td>
+          <td class="text-muted small">{{ course.description or '—' }}</td>
+          <td class="text-center">
             {% if course.is_active %}
-              <span class="badge bg-success">Hoạt động</span>
+            <span class="badge bg-success-subtle text-success border border-success-subtle">Hoạt động</span>
             {% else %}
-              <span class="badge bg-secondary">Ẩn</span>
+            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Ẩn</span>
             {% endif %}
           </td>
-          <td class="text-end">
-            <div class="d-flex gap-1 justify-content-end">
+          <td class="text-center">
+            <div class="d-flex justify-content-center gap-1">
               <!-- Toggle active -->
-              <form method="post"
-                    action="{{ url_for('admin.course_edit', course_id=course.id) }}"
-                    class="d-inline">
+              <form method="post" action="{{ url_for('admin.course_edit', course_id=course.id) }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="name" value="{{ course.name }}">
-                <input type="hidden" name="level" value="{{ course.level }}">
+                <input type="hidden" name="description" value="{{ course.description or '' }}">
                 <input type="hidden" name="is_active" value="{{ '0' if course.is_active else '1' }}">
                 <button type="submit"
                         class="btn btn-sm {% if course.is_active %}btn-outline-secondary{% else %}btn-outline-success{% endif %}"
@@ -111,8 +95,7 @@
                   <i class="bi {% if course.is_active %}bi-eye-slash{% else %}bi-eye{% endif %}"></i>
                 </button>
               </form>
-
-              <!-- Edit toggle -->
+              <!-- Edit -->
               <button class="btn btn-sm btn-outline-primary"
                       data-bs-toggle="collapse"
                       data-bs-target="#editCourse{{ course.id }}"
@@ -121,24 +104,16 @@
               </button>
             </div>
 
-            <!-- Inline edit form -->
-            <div class="collapse mt-2" id="editCourse{{ course.id }}">
-              <div class="card card-body text-start p-2 bg-light border">
+            <!-- Inline edit -->
+            <div class="collapse mt-2 text-start" id="editCourse{{ course.id }}">
+              <div class="card card-body p-2 bg-light border">
                 <form method="post" action="{{ url_for('admin.course_edit', course_id=course.id) }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="is_active" value="{{ '1' if course.is_active else '0' }}">
                   <div class="mb-2">
                     <label class="form-label small fw-semibold mb-1">Tên môn</label>
                     <input type="text" class="form-control form-control-sm" name="name"
                            value="{{ course.name }}" required>
-                  </div>
-                  <div class="mb-2">
-                    <label class="form-label small fw-semibold mb-1">Cấp độ</label>
-                    <select class="form-select form-select-sm" name="level">
-                      <option value="">-- Không chọn --</option>
-                      {% for key, label in levels.items() %}
-                      <option value="{{ key }}" {% if course.level == key %}selected{% endif %}>{{ label }}</option>
-                      {% endfor %}
-                    </select>
                   </div>
                   <div class="mb-2">
                     <label class="form-label small fw-semibold mb-1">Mô tả</label>
@@ -155,12 +130,14 @@
         </tr>
         {% else %}
         <tr>
-          <td colspan="5" class="text-center text-muted py-4">Chưa có môn học nào</td>
+          <td colspan="4" class="text-center text-muted py-5">
+            <i class="bi bi-book fs-3 d-block mb-2"></i>
+            Chưa có môn học nào.
+          </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
-
 {% endblock %}

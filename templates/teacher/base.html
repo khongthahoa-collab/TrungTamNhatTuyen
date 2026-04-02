@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% block body %}
+
 <!-- Top Navbar -->
 <nav class="navbar navbar-dark sticky-top" style="background: linear-gradient(90deg, #7c5cdb 0%, #6d4dd4 100%); z-index:200;">
   <div class="container-fluid">
@@ -7,119 +8,93 @@
       <i class="bi bi-mortarboard-fill"></i>
       <span>Nhật Tuyền</span>
     </a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#teacherMenu" aria-controls="teacherMenu">
-      <span class="navbar-toggler-icon"></span>
-    </button>
+
+    <div class="d-flex align-items-center gap-2">
+      <!-- Bell notification -->
+      <a href="{{ url_for('teacher.notifications') }}"
+         class="btn btn-sm btn-outline-light position-relative" title="Thông báo">
+        <i class="bi bi-bell{% if unread_notifications %}-fill{% endif %}"></i>
+        {% if unread_notifications %}
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+              style="font-size:0.6rem;">
+          {{ unread_notifications if unread_notifications < 100 else '99+' }}
+        </span>
+        {% endif %}
+      </a>
+
+      <!-- Teacher name -->
+      <span class="text-light small d-none d-sm-flex align-items-center gap-1">
+        <i class="bi bi-person-circle"></i>
+        {{ current_user.full_name }}
+      </span>
+
+      <!-- Logout -->
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-light d-flex align-items-center gap-1" title="Đăng xuất">
+        <i class="bi bi-box-arrow-right"></i>
+        <span class="d-none d-sm-inline" style="font-size:0.8rem;">Đăng xuất</span>
+      </a>
+    </div>
   </div>
 </nav>
 
-<!-- Offcanvas Menu -->
-<div class="offcanvas offcanvas-end text-bg-dark" tabindex="-1" id="teacherMenu" style="background: linear-gradient(180deg, #6d4dd4 0%, #7c5cdb 100%) !important; max-width:280px;">
-  <div class="offcanvas-header border-bottom border-secondary">
-    <h5 class="offcanvas-title fw-bold">
-      <i class="bi bi-mortarboard-fill me-2"></i>Nhật Tuyền
-    </h5>
-    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
-  </div>
-  <div class="offcanvas-body d-flex flex-column p-0">
-    <ul class="nav nav-pills flex-column px-3 pt-3 flex-grow-1">
-
-      <!-- Tổng quan -->
-      <li class="nav-item mb-1">
-        <a href="{{ url_for('teacher.dashboard') }}"
-           class="nav-link text-white {% if request.endpoint == 'teacher.dashboard' %}active{% endif %}"
-           data-bs-dismiss="offcanvas">
-          <i class="bi bi-speedometer2 me-2"></i>Tổng quan
-        </a>
-      </li>
-
-      <!-- Lịch dạy -->
-      <li class="nav-item mb-1">
-        <a href="{{ url_for('teacher.schedule') }}"
-           class="nav-link text-white {% if request.endpoint == 'teacher.schedule' %}active{% endif %}"
-           data-bs-dismiss="offcanvas">
-          <i class="bi bi-calendar-week me-2"></i>Lịch dạy
-        </a>
-      </li>
-
-      <!-- Điểm danh dropdown -->
-      <li class="nav-item mb-1">
-        <a class="nav-link text-white d-flex justify-content-between align-items-center"
-           data-bs-toggle="collapse" href="#menuAttendance" role="button">
-          <span><i class="bi bi-person-check me-2"></i>Điểm danh</span>
-          <i class="bi bi-chevron-down small"></i>
-        </a>
-        <div class="collapse {% if 'attendance' in request.endpoint %}show{% endif %}" id="menuAttendance">
-          <ul class="nav flex-column ps-3">
-            {% if today_schedules %}
-              {% for s in today_schedules %}
-              <li class="nav-item">
-                <a href="{{ url_for('teacher.attendance', schedule_id=s.id) }}"
-                   class="nav-link text-white-50 py-1 small" data-bs-dismiss="offcanvas">
-                  <i class="bi bi-dot me-1"></i>{{ s.class_.name }} – {{ s.start_time.strftime('%H:%M') }}
-                </a>
-              </li>
-              {% endfor %}
-            {% else %}
-              <li class="nav-item">
-                <span class="nav-link text-white-50 py-1 small fst-italic">Không có lớp hôm nay</span>
-              </li>
-            {% endif %}
-          </ul>
-        </div>
-      </li>
-
-      <!-- Nhập điểm dropdown -->
-      <li class="nav-item mb-1">
-        <a class="nav-link text-white d-flex justify-content-between align-items-center"
-           data-bs-toggle="collapse" href="#menuScores" role="button">
-          <span><i class="bi bi-pencil-square me-2"></i>Nhập điểm</span>
-          <i class="bi bi-chevron-down small"></i>
-        </a>
-        <div class="collapse {% if 'scores' in request.endpoint %}show{% endif %}" id="menuScores">
-          <ul class="nav flex-column ps-3">
-            {% if current_user.teacher_profile and current_user.teacher_profile.classes %}
-              {% for cls in current_user.teacher_profile.classes %}
-              <li class="nav-item">
-                <a href="{{ url_for('teacher.scores', class_id=cls.id) }}"
-                   class="nav-link text-white-50 py-1 small" data-bs-dismiss="offcanvas">
-                  <i class="bi bi-dot me-1"></i>{{ cls.name }}
-                </a>
-              </li>
-              {% endfor %}
-            {% else %}
-              <li class="nav-item">
-                <span class="nav-link text-white-50 py-1 small fst-italic">Chưa có lớp</span>
-              </li>
-            {% endif %}
-          </ul>
-        </div>
-      </li>
-
-    </ul>
-
-    <!-- Bottom user info -->
-    <div class="border-top border-secondary mx-3 pt-3 pb-3 mt-auto">
-      <div class="d-flex align-items-center gap-2">
-        <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0"
-             style="width:38px;height:38px;font-size:0.9rem;">
-          {{ current_user.full_name[0] }}
-        </div>
-        <div class="flex-grow-1 overflow-hidden">
-          <div class="fw-semibold text-white text-truncate">{{ current_user.full_name }}</div>
-          <div class="text-white-50 small">Giáo viên</div>
-        </div>
-        <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-danger" title="Đăng xuất">
-          <i class="bi bi-box-arrow-right"></i>
-        </a>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Page content -->
-<div style="padding-bottom:1rem;">
+<!-- Page content with bottom padding for nav bar -->
+<div style="padding-bottom:72px;">
   {% block content %}{% endblock %}
 </div>
+
+<!-- Bottom Navigation Bar -->
+<nav class="navbar fixed-bottom border-top bg-white py-0" style="z-index:150;">
+  <div class="container-fluid p-0">
+    <div class="d-flex w-100">
+
+      <a href="{{ url_for('teacher.dashboard') }}"
+         class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none
+                {% if request.endpoint == 'teacher.dashboard' %}text-success border-top border-success border-2{% else %}text-muted{% endif %}"
+         style="font-size:0.65rem;">
+        <i class="bi bi-house{% if request.endpoint == 'teacher.dashboard' %}-fill{% endif %} fs-5"></i>
+        <span>Tổng quan</span>
+      </a>
+
+      <a href="{{ url_for('teacher.schedule') }}"
+         class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none
+                {% if request.endpoint == 'teacher.schedule' %}text-success border-top border-success border-2{% else %}text-muted{% endif %}"
+         style="font-size:0.65rem;">
+        <i class="bi bi-calendar3{% if request.endpoint == 'teacher.schedule' %}-fill{% endif %} fs-5"></i>
+        <span>Lịch dạy</span>
+      </a>
+
+      <a href="{{ url_for('teacher.create_intensive') }}"
+         class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none
+                {% if request.endpoint == 'teacher.create_intensive' %}text-warning border-top border-warning border-2{% else %}text-muted{% endif %}"
+         style="font-size:0.65rem;">
+        <i class="bi bi-calendar-plus{% if request.endpoint == 'teacher.create_intensive' %}-fill{% else %}{% endif %} fs-5"></i>
+        <span>Tăng cường</span>
+      </a>
+
+      <a href="{{ url_for('teacher.scores_list') }}"
+         class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none
+                {% if 'scores' in request.endpoint %}text-success border-top border-success border-2{% else %}text-muted{% endif %}"
+         style="font-size:0.65rem;">
+        <i class="bi bi-pencil-square fs-5"></i>
+        <span>Điểm số</span>
+      </a>
+
+      <a href="{{ url_for('teacher.notifications') }}"
+         class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none position-relative
+                {% if request.endpoint == 'teacher.notifications' %}text-success border-top border-success border-2{% else %}text-muted{% endif %}"
+         style="font-size:0.65rem;">
+        <span class="position-relative d-inline-block">
+          <i class="bi bi-bell{% if request.endpoint == 'teacher.notifications' %}-fill{% endif %} fs-5"></i>
+          {% if unread_notifications %}
+          <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                style="font-size:0.55rem;">{{ unread_notifications if unread_notifications < 10 else '9+' }}</span>
+          {% endif %}
+        </span>
+        <span>Thông báo</span>
+      </a>
+
+    </div>
+  </div>
+</nav>
 
 {% endblock %}

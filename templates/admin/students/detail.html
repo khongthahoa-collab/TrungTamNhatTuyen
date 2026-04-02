@@ -12,30 +12,64 @@
     <div class="row align-items-start">
       <div class="col-12 col-md-8">
         <div class="d-flex align-items-center gap-3 mb-3">
-          <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold fs-4"
-               style="width:56px;height:56px;flex-shrink:0;">
-            {{ student.full_name[0] }}
+          <!-- Avatar / photo -->
+          <div class="position-relative flex-shrink-0" style="width:72px;height:72px;">
+            {% if student.photo_path %}
+            <img src="{{ url_for('static', filename=student.photo_path) }}"
+                 class="rounded-circle object-fit-cover border border-2 border-primary-subtle"
+                 style="width:72px;height:72px;" alt="{{ student.full_name }}">
+            {% else %}
+            <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
+                 style="width:72px;height:72px;font-size:1.6rem;">
+              {{ student.full_name[0] }}
+            </div>
+            {% endif %}
+            <!-- Upload trigger -->
+            <label for="photoInput" class="position-absolute bottom-0 end-0 bg-white rounded-circle shadow-sm d-flex align-items-center justify-content-center"
+                   style="width:24px;height:24px;cursor:pointer;border:1px solid #dee2e6;" title="Cập nhật ảnh">
+              <i class="bi bi-camera-fill text-primary" style="font-size:0.7rem;"></i>
+            </label>
           </div>
+
+          <!-- Hidden upload form -->
+          <form id="photoForm" method="post" action="{{ url_for('admin.student_photo_upload', student_id=student.id) }}"
+                enctype="multipart/form-data" class="d-none">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="file" id="photoInput" name="photo" accept="image/*"
+                   onchange="document.getElementById('photoForm').submit()">
+          </form>
+
           <div>
             <h5 class="mb-0 fw-bold">{{ student.full_name }}</h5>
             <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
               {% if student.level %}
-              <span class="badge bg-info-subtle text-info border border-info-subtle">{{ student.level }}</span>
+              <span class="badge bg-info-subtle text-info border border-info-subtle">{{ student.level_label }}</span>
               {% endif %}
-              {% if student.is_active %}
+              {% if student.status == 'pending_confirmation' %}
+              <span class="badge" style="background:#f59e0b;color:#fff;">Đang xác nhận</span>
+              {% elif student.is_active %}
               <span class="badge bg-success-subtle text-success border border-success-subtle">Đang học</span>
               {% else %}
               <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Nghỉ học</span>
               {% endif %}
             </div>
+            {% if student.photo_path %}
+            <form method="post" action="{{ url_for('admin.student_photo_delete', student_id=student.id) }}"
+                  onsubmit="return confirm('Xóa ảnh này?')" class="mt-1">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-link btn-sm text-danger p-0" style="font-size:0.75rem;">
+                <i class="bi bi-trash me-1"></i>Xóa ảnh
+              </button>
+            </form>
+            {% endif %}
           </div>
         </div>
 
         <div class="row g-2">
-          {% if student.dob %}
+          {% if student.date_of_birth %}
           <div class="col-6 col-md-4">
             <div class="small text-muted">Ngày sinh</div>
-            <div class="fw-semibold small">{{ student.dob | date_vn }}</div>
+            <div class="fw-semibold small">{{ student.date_of_birth | date_vn }}</div>
           </div>
           {% endif %}
           {% if student.gender %}
@@ -44,16 +78,16 @@
             <div class="fw-semibold small">{{ 'Nam' if student.gender == 'male' else 'Nữ' }}</div>
           </div>
           {% endif %}
-          {% if student.school %}
+          {% if student.current_school %}
           <div class="col-6 col-md-4">
             <div class="small text-muted">Trường</div>
-            <div class="fw-semibold small">{{ student.school }}</div>
+            <div class="fw-semibold small">{{ student.current_school }}</div>
           </div>
           {% endif %}
-          {% if student.grade %}
+          {% if student.current_grade %}
           <div class="col-6 col-md-4">
             <div class="small text-muted">Lớp</div>
-            <div class="fw-semibold small">{{ student.grade }}</div>
+            <div class="fw-semibold small">{{ student.current_grade }}</div>
           </div>
           {% endif %}
           {% if student.parent_name %}

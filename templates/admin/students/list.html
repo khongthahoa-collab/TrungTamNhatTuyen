@@ -7,38 +7,89 @@
 {% block content %}
 <div class="d-flex align-items-center justify-content-between mb-3">
   <h5 class="mb-0 fw-bold"><i class="bi bi-people me-2 text-primary"></i>Danh sách học sinh</h5>
-  <a href="{{ url_for('admin.student_add') }}" class="btn btn-primary btn-sm">
-    <i class="bi bi-plus-lg me-1"></i>Thêm học sinh
-  </a>
+  <div class="d-flex gap-2">
+    <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#importModal">
+      <i class="bi bi-upload me-1"></i>Import CSV
+    </button>
+    <a href="{{ url_for('admin.export_students') }}" class="btn btn-outline-success btn-sm">
+      <i class="bi bi-download me-1"></i>Export CSV
+    </a>
+    <a href="{{ url_for('admin.student_add') }}" class="btn btn-primary btn-sm">
+      <i class="bi bi-plus-lg me-1"></i>Thêm học sinh
+    </a>
+  </div>
 </div>
 
-<!-- Bộ lọc tìm kiếm -->
+<!-- Thống kê nhanh -->
+<div class="d-flex align-items-center gap-3 mb-3 flex-wrap small">
+  <span class="fw-semibold text-muted">
+    Hiển thị <strong>{{ pagination.total }}</strong> học sinh
+    {% if pagination.pages > 1 %}· trang {{ pagination.page }}/{{ pagination.pages }}{% endif %}
+  </span>
+  <span class="d-flex align-items-center gap-1">
+    <span class="badge bg-danger rounded-pill">≥5</span><span class="text-muted">ngày nghỉ — đáng lo</span>
+  </span>
+  <span class="d-flex align-items-center gap-1">
+    <span class="badge bg-warning text-dark rounded-pill">3–4</span><span class="text-muted">cần theo dõi</span>
+  </span>
+  <span class="d-flex align-items-center gap-1">
+    <span class="badge" style="background:#f59e0b;">Đang xác nhận</span><span class="text-muted">— đăng ký qua form liên hệ</span>
+  </span>
+</div>
+
+<!-- Bộ lọc -->
 <div class="card mb-3 border-0 shadow-sm">
-  <div class="card-body py-2">
-    <form method="get" class="row g-2 align-items-center">
-      <div class="col-12 col-md-4">
+  <div class="card-body py-3">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-12 col-md-3">
+        <label class="form-label small fw-semibold mb-1">Tìm kiếm</label>
         <div class="input-group input-group-sm">
           <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-          <input type="text" name="q" class="form-control" placeholder="Tìm tên học sinh, phụ huynh..." value="{{ q or '' }}">
+          <input type="text" name="q" class="form-control" placeholder="Tên, SĐT phụ huynh..." value="{{ q or '' }}">
         </div>
       </div>
-      <div class="col-6 col-md-3">
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold mb-1">Lớp học</label>
+        <select name="class_id" class="form-select form-select-sm">
+          <option value="">Tất cả lớp</option>
+          {% for cls in all_classes %}
+          <option value="{{ cls.id }}" {% if class_id == cls.id %}selected{% endif %}>{{ cls.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold mb-1">Trường</label>
+        <input type="text" name="school_q" class="form-control form-control-sm"
+               placeholder="Tên trường..." value="{{ school_q or '' }}">
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold mb-1">Giáo viên</label>
+        <select name="teacher_id" class="form-select form-select-sm">
+          <option value="">Tất cả GV</option>
+          {% for t in all_teachers %}
+          <option value="{{ t.id }}" {% if teacher_id == t.id %}selected{% endif %}>{{ t.user.full_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold mb-1">Cấp học</label>
         <select name="level" class="form-select form-select-sm">
-          <option value="">-- Tất cả cấp --</option>
+          <option value="">Tất cả cấp</option>
           {% for key, label in levels.items() %}
           <option value="{{ key }}" {% if level == key %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
       </div>
-      <div class="col-6 col-md-3">
-        <div class="form-check form-switch ms-2 mb-0">
-          <input class="form-check-input" type="checkbox" name="active_only" id="activeOnly" value="1" {% if active_only %}checked{% endif %}>
-          <label class="form-check-label small" for="activeOnly">Chỉ học sinh đang học</label>
-        </div>
-      </div>
-      <div class="col-12 col-md-2 d-flex gap-2">
+      <div class="col-12 col-md-1 d-flex gap-1 align-items-end">
         <button type="submit" class="btn btn-primary btn-sm flex-grow-1">Lọc</button>
-        <a href="{{ url_for('admin.students') }}" class="btn btn-outline-secondary btn-sm">Xóa</a>
+        <a href="{{ url_for('admin.students') }}" class="btn btn-outline-secondary btn-sm" title="Xóa lọc"><i class="bi bi-x"></i></a>
+      </div>
+      <div class="col-12">
+        <div class="form-check form-switch mb-0">
+          <input class="form-check-input" type="checkbox" name="active" id="activeOnly" value="1"
+                 {% if active_only == '1' %}checked{% endif %} onchange="this.form.submit()">
+          <label class="form-check-label small" for="activeOnly">Chỉ học sinh đang học / đang xác nhận</label>
+        </div>
       </div>
     </form>
   </div>
@@ -51,63 +102,86 @@
       <table class="table table-hover align-middle mb-0">
         <thead class="table-light">
           <tr>
-            <th class="ps-3" style="width:50px">STT</th>
+            <th class="ps-3" style="width:40px">STT</th>
             <th>Họ tên</th>
             <th>Cấp</th>
             <th>Trường</th>
             <th>Lớp</th>
             <th>SĐT phụ huynh</th>
-            <th class="text-center">Số lớp đang học</th>
+            <th class="text-center">Lớp đang học</th>
+            <th class="text-center">Ngày nghỉ</th>
             <th class="text-center">Trạng thái</th>
           </tr>
         </thead>
         <tbody>
+          {% set offset = (pagination.page - 1) * 30 %}
           {% for student in students %}
-          <tr>
-            <td class="ps-3 text-muted small">{{ loop.index }}</td>
+          <tr {% if student.status == 'pending_confirmation' %}class="table-warning"{% endif %}>
+            <td class="ps-3 text-muted small">{{ offset + loop.index }}</td>
             <td>
-              <a href="{{ url_for('admin.student_detail', student_id=student.id) }}" class="fw-semibold text-decoration-none">
-                {{ student.full_name }}
-              </a>
-              {% if student.parent_name %}
-              <div class="small text-muted">PH: {{ student.parent_name }}</div>
-              {% endif %}
+              <div class="d-flex align-items-center gap-2">
+                {% if student.photo_path %}
+                <img src="{{ url_for('static', filename=student.photo_path) }}"
+                     class="rounded-circle object-fit-cover flex-shrink-0"
+                     style="width:32px;height:32px;" alt="">
+                {% else %}
+                <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0"
+                     style="width:32px;height:32px;font-size:0.8rem;">
+                  {{ student.full_name[0] }}
+                </div>
+                {% endif %}
+                <div>
+                  <a href="{{ url_for('admin.student_detail', student_id=student.id) }}" class="fw-semibold text-decoration-none">
+                    {{ student.full_name }}
+                  </a>
+                  {% if student.parent_name %}<div class="small text-muted">PH: {{ student.parent_name }}</div>{% endif %}
+                </div>
+              </div>
             </td>
             <td>
               <span class="badge bg-info-subtle text-info border border-info-subtle">{{ levels.get(student.level, student.level) }}</span>
             </td>
-            <td class="small">{{ student.school or '—' }}</td>
-            <td class="small">{{ student.grade or '—' }}</td>
+            <td class="small">{{ student.current_school or '—' }}</td>
+            <td class="small">{{ student.current_grade or '—' }}</td>
             <td class="small">
               {% if student.parent_phone %}
               <a href="tel:{{ student.parent_phone }}" class="text-decoration-none">
                 <i class="bi bi-telephone me-1"></i>{{ student.parent_phone }}
               </a>
-              {% else %}
-              <span class="text-muted">—</span>
-              {% endif %}
+              {% else %}<span class="text-muted">—</span>{% endif %}
             </td>
             <td class="text-center">
               {% set enrolled_count = student.enrollments | selectattr('is_active', 'equalto', true) | list | length %}
               {% if enrolled_count > 0 %}
               <span class="badge bg-primary rounded-pill">{{ enrolled_count }}</span>
+              {% else %}<span class="text-muted small">0</span>{% endif %}
+            </td>
+            <td class="text-center">
+              {% set absent = absent_counts.get(student.id, 0) %}
+              {% if absent >= 5 %}
+                <span class="badge bg-danger rounded-pill">{{ absent }}</span>
+              {% elif absent >= 3 %}
+                <span class="badge bg-warning text-dark rounded-pill">{{ absent }}</span>
+              {% elif absent > 0 %}
+                <span class="badge bg-secondary rounded-pill">{{ absent }}</span>
               {% else %}
-              <span class="text-muted small">0</span>
+                <span class="text-muted small">0</span>
               {% endif %}
             </td>
             <td class="text-center">
-              {% if student.is_active %}
-              <span class="badge bg-success-subtle text-success border border-success-subtle">Đang học</span>
+              {% if student.status == 'pending_confirmation' %}
+                <span class="badge" style="background:#f59e0b;color:#fff;">Đang xác nhận</span>
+              {% elif student.is_active %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle">Đang học</span>
               {% else %}
-              <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Nghỉ học</span>
+                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Nghỉ học</span>
               {% endif %}
             </td>
           </tr>
           {% else %}
           <tr>
-            <td colspan="8" class="text-center text-muted py-4">
-              <i class="bi bi-inbox fs-4 d-block mb-2"></i>
-              Không tìm thấy học sinh nào
+            <td colspan="9" class="text-center text-muted py-4">
+              <i class="bi bi-inbox fs-4 d-block mb-2"></i>Không tìm thấy học sinh nào
             </td>
           </tr>
           {% endfor %}
@@ -115,10 +189,65 @@
       </table>
     </div>
   </div>
-  {% if students %}
-  <div class="card-footer text-muted small bg-white">
-    Hiển thị {{ students | length }} học sinh
+</div>
+
+<!-- Phân trang -->
+{% if pagination.pages > 1 %}
+<nav class="mt-3 d-flex justify-content-center" aria-label="Phân trang">
+  <ul class="pagination pagination-sm mb-0">
+    <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+      <a class="page-link" href="{{ url_for('admin.students', page=pagination.prev_num, q=q, level=level, active=active_only, class_id=class_id or '', school_q=school_q, teacher_id=teacher_id or '') }}">
+        <i class="bi bi-chevron-left"></i>
+      </a>
+    </li>
+    {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+      {% if p %}
+        <li class="page-item {% if p == pagination.page %}active{% endif %}">
+          <a class="page-link" href="{{ url_for('admin.students', page=p, q=q, level=level, active=active_only, class_id=class_id or '', school_q=school_q, teacher_id=teacher_id or '') }}">{{ p }}</a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">…</span></li>
+      {% endif %}
+    {% endfor %}
+    <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+      <a class="page-link" href="{{ url_for('admin.students', page=pagination.next_num, q=q, level=level, active=active_only, class_id=class_id or '', school_q=school_q, teacher_id=teacher_id or '') }}">
+        <i class="bi bi-chevron-right"></i>
+      </a>
+    </li>
+  </ul>
+</nav>
+{% endif %}
+
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-4 border-0 shadow">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-bold"><i class="bi bi-upload me-2 text-primary"></i>Import học sinh từ CSV</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small mb-3">
+          File CSV cần có các cột:<br>
+          <code>Họ tên, Cấp học, Trường, Lớp tại trường, Tên phụ huynh, SĐT phụ huynh</code><br>
+          Cột <strong>Họ tên</strong> bắt buộc. Mã hoá <strong>UTF-8</strong>.
+        </p>
+        <a href="{{ url_for('admin.export_students') }}" class="btn btn-sm btn-outline-secondary mb-3">
+          <i class="bi bi-download me-1"></i>Tải file mẫu
+        </a>
+        <form method="post" action="{{ url_for('admin.import_students') }}" enctype="multipart/form-data">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="csv_file">Chọn file CSV</label>
+            <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required>
+          </div>
+          <div class="d-flex gap-2 justify-content-end">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-upload me-1"></i>Import</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
-  {% endif %}
 </div>
 {% endblock %}

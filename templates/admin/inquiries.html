@@ -1,0 +1,78 @@
+{% extends 'admin/base.html' %}
+{% block title %}Yêu cầu liên hệ – Admin{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Yêu cầu liên hệ</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <h4 class="fw-bold mb-0">
+    <i class="bi bi-envelope text-primary me-2"></i>Yêu cầu liên hệ
+  </h4>
+  <span class="badge bg-secondary">{{ inquiries|length }} yêu cầu</span>
+</div>
+
+{% if inquiries %}
+<div class="card shadow-sm border-0">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th class="ps-3">Học sinh</th>
+          <th>Lớp</th>
+          <th>Môn học</th>
+          <th>Trường</th>
+          <th>SĐT phụ huynh</th>
+          <th class="text-center">Xác nhận HP</th>
+          <th>Thời gian</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inq in inquiries %}
+        <tr {% if inq.confirm_tuition %}class="table-warning"{% endif %}>
+          <td class="ps-3 fw-semibold">{{ inq.student_name }}</td>
+          <td>{{ inq.grade or '—' }}</td>
+          <td>{{ inq.subject or '—' }}</td>
+          <td>{{ inq.school or '—' }}</td>
+          <td>
+            <a href="tel:{{ inq.parent_phone }}" class="text-decoration-none fw-semibold">
+              <i class="bi bi-telephone me-1 text-success"></i>{{ inq.parent_phone }}
+            </a>
+          </td>
+          <td class="text-center">
+            {% if inq.confirm_tuition %}
+              <span class="badge bg-warning text-dark"><i class="bi bi-exclamation-circle me-1"></i>Cần xác nhận</span>
+            {% else %}
+              <span class="text-muted small">—</span>
+            {% endif %}
+          </td>
+          <td class="text-muted small">{{ inq.created_at | datetime_vn }}</td>
+          <td class="text-end pe-3">
+            <form method="post" action="{{ url_for('admin.inquiry_delete', inquiry_id=inq.id) }}"
+                  onsubmit="return confirm('Xóa yêu cầu này?')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+            </form>
+          </td>
+        </tr>
+        {% if inq.note %}
+        <tr class="table-light">
+          <td colspan="8" class="ps-3 small text-muted pb-2">
+            <i class="bi bi-chat-left-text me-1"></i>{{ inq.note }}
+          </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-inbox fs-1 d-block mb-3 opacity-25"></i>
+  Chưa có yêu cầu liên hệ nào.
+</div>
+{% endif %}
+{% endblock %}

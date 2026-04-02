@@ -28,14 +28,20 @@
           {% endif %}
           {% if class_.grade_level %}
           <div class="col-auto">
-            <span class="small text-muted">Cấp:</span>
-            <span class="small fw-semibold ms-1">{{ class_.grade_level }}</span>
+            <span class="small text-muted">Lớp:</span>
+            <span class="small fw-semibold ms-1">{{ grade_label or class_.grade_level }}</span>
           </div>
           {% endif %}
           {% if class_.primary_teacher %}
           <div class="col-auto">
             <span class="small text-muted">GV chính:</span>
-            <span class="small fw-semibold ms-1">{{ class_.primary_teacher.full_name }}</span>
+            <span class="small fw-semibold ms-1 text-primary">{{ class_.primary_teacher.full_name }}</span>
+          </div>
+          {% endif %}
+          {% if class_.assistant_teacher %}
+          <div class="col-auto">
+            <span class="small text-muted">Trợ giảng:</span>
+            <span class="small fw-semibold ms-1 text-secondary">{{ class_.assistant_teacher.full_name }}</span>
           </div>
           {% endif %}
           {% if class_.max_students %}
@@ -85,15 +91,15 @@
               </tr>
             </thead>
             <tbody>
-              {% for enrollment in class_.enrollments %}
-              {% if enrollment.is_active %}
+              {% set active_enrollments = class_.enrollments | selectattr('is_active', 'equalto', true) | list %}
+              {% for enrollment in active_enrollments %}
               <tr>
                 <td class="ps-3">
                   <a href="{{ url_for('admin.student_detail', student_id=enrollment.student.id) }}" class="fw-semibold text-decoration-none small">
                     {{ enrollment.student.full_name }}
                   </a>
-                  {% if enrollment.student.grade %}
-                  <div class="small text-muted">{{ enrollment.student.grade }}</div>
+                  {% if enrollment.student.current_grade %}
+                  <div class="small text-muted">{{ enrollment.student.current_grade }}</div>
                   {% endif %}
                 </td>
                 <td class="small">
@@ -113,10 +119,11 @@
                   </form>
                 </td>
               </tr>
-              {% endif %}
               {% else %}
               <tr>
-                <td colspan="4" class="text-center text-muted py-3 ps-3 small">Chưa có học sinh nào</td>
+                <td colspan="4" class="text-center text-muted py-3 ps-3 small">
+                  <i class="bi bi-people d-block mb-1 fs-5"></i>Chưa có học sinh nào
+                </td>
               </tr>
               {% endfor %}
             </tbody>
@@ -136,13 +143,13 @@
         </a>
       </div>
       <div class="card-body">
-        {% if class_.documents %}
+        {% set active_docs = class_.documents | selectattr('is_active', 'equalto', true) | list %}
+        {% if active_docs %}
         <ul class="list-group list-group-flush">
-          {% for doc in class_.documents[-10:] %}
+          {% for doc in (active_docs | list)[-10:] %}
           <li class="list-group-item px-0 d-flex align-items-center justify-content-between">
             <div class="d-flex align-items-center gap-2">
-              {% set ext = doc.filename.rsplit('.', 1)[-1].lower() if doc.filename else '' %}
-              <i class="bi bi-{% if ext == 'pdf' %}file-earmark-pdf text-danger{% elif ext in ('doc','docx') %}file-earmark-word text-primary{% elif ext in ('xls','xlsx') %}file-earmark-excel text-success{% elif ext in ('jpg','jpeg','png','gif') %}file-earmark-image text-warning{% else %}file-earmark text-secondary{% endif %} fs-5"></i>
+              <i class="bi {{ doc.file_icon }} fs-5"></i>
               <div>
                 <div class="small fw-semibold">{{ doc.title }}</div>
                 <div class="small text-muted">{{ doc.uploaded_at | date_vn if doc.uploaded_at else '' }}</div>
@@ -206,17 +213,23 @@
                 <td class="ps-3 small fw-semibold">{{ schedule.date | date_vn }}</td>
                 <td class="small">{{ weekdays[schedule.date.weekday()] if schedule.date else '—' }}</td>
                 <td class="small">{{ schedule.start_time.strftime('%H:%M') if schedule.start_time else '—' }}{% if schedule.end_time %} – {{ schedule.end_time.strftime('%H:%M') }}{% endif %}</td>
-                <td class="small">{{ schedule.room or '—' }}</td>
+                <td class="small">
+                  {% if schedule.room_obj %}
+                  <span title="{{ schedule.room_obj.display_name }}">{{ schedule.room_obj.name }}</span>
+                  {% elif schedule.room %}
+                  {{ schedule.room }}
+                  {% else %}—{% endif %}
+                </td>
                 <td class="small">{{ schedule.teacher.full_name if schedule.teacher else '—' }}</td>
                 <td>
                   {% if schedule.schedule_type == 'intensive' %}
-                  <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Cường độ cao</span>
+                  <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Tăng cường</span>
                   {% else %}
                   <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Thường</span>
                   {% endif %}
                 </td>
                 <td class="text-center">
-                  {% if schedule.check_in_done %}
+                  {% if schedule.attendance_taken %}
                   <span class="badge bg-success-subtle text-success border border-success-subtle">Đã điểm danh</span>
                   {% else %}
                   <span class="badge bg-light text-muted border">Chưa</span>
@@ -231,7 +244,7 @@
                             title="Hủy buổi học">
                       <i class="bi bi-x-circle"></i>
                     </button>
-                    <form method="post" action="{{ url_for('admin.delete_schedule', class_id=class_.id, schedule_id=schedule.id) }}"
+                    <form method="post" action="{{ url_for('admin.delete_schedule', schedule_id=schedule.id) }}"
                           onsubmit="return confirm('Bạn có chắc muốn xóa buổi học này?')">
                       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                       <button type="submit" class="btn btn-outline-danger btn-sm" title="Xóa buổi học">
@@ -283,27 +296,31 @@
                 <td class="ps-3 small fw-semibold">{{ schedule.date | date_vn }}</td>
                 <td class="small">{{ weekdays[schedule.date.weekday()] if schedule.date else '—' }}</td>
                 <td class="small">{{ schedule.start_time.strftime('%H:%M') if schedule.start_time else '—' }}{% if schedule.end_time %} – {{ schedule.end_time.strftime('%H:%M') }}{% endif %}</td>
-                <td class="small">{{ schedule.room or '—' }}</td>
+                <td class="small">
+                  {% if schedule.room_obj %}{{ schedule.room_obj.name }}
+                  {% elif schedule.room %}{{ schedule.room }}
+                  {% else %}—{% endif %}
+                </td>
                 <td class="small">{{ schedule.teacher.full_name if schedule.teacher else '—' }}</td>
                 <td>
                   {% if schedule.is_cancelled %}
                   <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Đã hủy</span>
                   {% elif schedule.schedule_type == 'intensive' %}
-                  <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Cường độ cao</span>
+                  <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Tăng cường</span>
                   {% else %}
                   <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Thường</span>
                   {% endif %}
                 </td>
                 <td class="text-center">
-                  {% if schedule.check_in_done %}
+                  {% if schedule.attendance_taken %}
                   <span class="badge bg-success-subtle text-success border border-success-subtle">Đã điểm danh</span>
                   {% else %}
                   <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Chưa</span>
                   {% endif %}
                 </td>
                 <td class="text-center small">
-                  {% if schedule.attendance_records %}
-                  {% set absent = schedule.attendance_records | selectattr('status', 'equalto', 'absent') | list | length %}
+                  {% set absent = schedule.attendances | selectattr('status', 'equalto', 'absent') | list | length %}
+                  {% if schedule.attendance_taken %}
                   {% if absent > 0 %}
                   <span class="badge bg-danger rounded-pill">{{ absent }}</span>
                   {% else %}
@@ -370,15 +387,20 @@
         </div>
         <div class="col-6 col-md-3">
           <label class="form-label fw-semibold">Giờ bắt đầu <span class="text-danger">*</span></label>
-          <input type="time" class="form-control" name="start_time" required>
+          <input type="time" class="form-control" name="start_time" id="gen_start" required>
         </div>
         <div class="col-6 col-md-3">
           <label class="form-label fw-semibold">Giờ kết thúc <span class="text-danger">*</span></label>
-          <input type="time" class="form-control" name="end_time" required>
+          <input type="time" class="form-control" name="end_time" id="gen_end" required>
         </div>
         <div class="col-12 col-md-6">
           <label class="form-label fw-semibold">Phòng học</label>
-          <input type="text" class="form-control" name="room" placeholder="VD: Phòng A1, Online...">
+          <select class="form-select" name="room_id" id="gen_room_id">
+            <option value="">-- Không chọn phòng --</option>
+            {% for room in rooms %}
+            <option value="{{ room.id }}">{{ room.display_name }}</option>
+            {% endfor %}
+          </select>
         </div>
         <div class="col-12">
           <button type="submit" class="btn btn-primary">
@@ -401,19 +423,25 @@
       <div class="row g-3">
         <div class="col-12 col-md-4">
           <label class="form-label fw-semibold">Ngày học <span class="text-danger">*</span></label>
-          <input type="date" class="form-control" name="date" required value="{{ today | string }}">
+          <input type="date" class="form-control" name="date" id="single_date" required value="{{ today | string }}">
         </div>
         <div class="col-6 col-md-2">
           <label class="form-label fw-semibold">Giờ bắt đầu</label>
-          <input type="time" class="form-control" name="start_time">
+          <input type="time" class="form-control" name="start_time" id="single_start">
         </div>
         <div class="col-6 col-md-2">
           <label class="form-label fw-semibold">Giờ kết thúc</label>
-          <input type="time" class="form-control" name="end_time">
+          <input type="time" class="form-control" name="end_time" id="single_end">
         </div>
         <div class="col-12 col-md-4">
           <label class="form-label fw-semibold">Phòng học</label>
-          <input type="text" class="form-control" name="room" placeholder="Phòng học...">
+          <select class="form-select" name="room_id" id="single_room_id">
+            <option value="">-- Không chọn phòng --</option>
+            {% for room in rooms %}
+            <option value="{{ room.id }}">{{ room.display_name }}</option>
+            {% endfor %}
+          </select>
+          <div class="form-text" id="room_availability_hint"></div>
         </div>
         <div class="col-12 col-md-4">
           <label class="form-label fw-semibold">Chủ đề buổi học</label>
@@ -423,7 +451,7 @@
           <label class="form-label fw-semibold">Loại buổi học</label>
           <select class="form-select" name="schedule_type">
             <option value="regular">Thường</option>
-            <option value="intensive">Cường độ cao</option>
+            <option value="intensive">Tăng cường</option>
           </select>
         </div>
         <div class="col-12 col-md-4">
@@ -457,14 +485,14 @@
 </div>
 
 <!-- Modal hủy buổi học -->
-<div class="modal fade" id="cancelModal" tabindex="-1" aria-labelledby="cancelModalLabel" aria-hidden="true">
+<div class="modal fade" id="cancelModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h6 class="modal-title fw-bold" id="cancelModalLabel">
+        <h6 class="modal-title fw-bold">
           <i class="bi bi-x-circle me-2 text-warning"></i>Hủy buổi học
         </h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <form method="post" id="cancelScheduleForm" action="">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -487,12 +515,33 @@
 </div>
 
 <script>
-// Gán action cho modal hủy buổi học
+// Cancel modal
 document.getElementById('cancelModal').addEventListener('show.bs.modal', function(event) {
-  const button = event.relatedTarget;
-  const scheduleId = button.getAttribute('data-schedule-id');
-  const form = document.getElementById('cancelScheduleForm');
-  form.action = "{{ url_for('admin.cancel_schedule', class_id=class_.id, schedule_id=0) }}".replace('/0/', '/' + scheduleId + '/');
+  const scheduleId = event.relatedTarget.getAttribute('data-schedule-id');
+  document.getElementById('cancelScheduleForm').action =
+    "{{ url_for('admin.cancel_schedule', schedule_id=0) }}".replace('/0/', '/' + scheduleId + '/');
 });
+
+// Live room availability check
+const dateEl = document.getElementById('single_date');
+const startEl = document.getElementById('single_start');
+const endEl = document.getElementById('single_end');
+const roomEl = document.getElementById('single_room_id');
+const hint = document.getElementById('room_availability_hint');
+
+function checkRoomAvailability() {
+  const d = dateEl.value, s = startEl.value, e = endEl.value, r = roomEl.value;
+  if (!d || !s || !e || !r) { hint.textContent = ''; return; }
+  fetch(`{{ url_for('admin.rooms_available') }}?date=${d}&start=${s}&end=${e}`)
+    .then(res => res.json())
+    .then(data => {
+      const available = data.rooms.some(rm => rm.id == r);
+      hint.textContent = available ? '✓ Phòng trống' : '✗ Phòng đã được đặt!';
+      hint.className = available ? 'form-text text-success' : 'form-text text-danger fw-semibold';
+    })
+    .catch(() => { hint.textContent = ''; });
+}
+
+[dateEl, startEl, endEl, roomEl].forEach(el => el?.addEventListener('change', checkRoomAvailability));
 </script>
 {% endblock %}

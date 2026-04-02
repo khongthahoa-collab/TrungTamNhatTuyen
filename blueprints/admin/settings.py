@@ -1,7 +1,7 @@
 from flask import render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from extensions import db
-from models import SystemConfig, User, Teacher, Course, UserRole, StudentLevel
+from models import SystemConfig, User, Teacher, Course, UserRole, ContactInquiry
 from blueprints.admin import admin_bp, require_admin
 
 
@@ -19,12 +19,36 @@ def settings():
 def settings_save():
     keys = ['center_name', 'center_address', 'center_phone',
             'zalo_link', 'messenger_link', 'bank_account',
-            'hall_of_fame_min_score']
+            'hall_of_fame_min_score',
+            'hero_bg', 'hero_badge', 'hero_headline1', 'hero_headline2',
+            'hero_sub', 'hero_note']
     for key in keys:
         val = request.form.get(key, '').strip()
         SystemConfig.set(key, val)
     flash('Đã lưu cài đặt.', 'success')
     return redirect(url_for('admin.settings'))
+
+
+@admin_bp.route('/lien-he')
+@login_required
+@require_admin
+def inquiries():
+    items = ContactInquiry.query.order_by(ContactInquiry.created_at.desc()).all()
+    # Mark all as read when admin opens the page
+    ContactInquiry.query.filter_by(is_read=False).update({'is_read': True})
+    db.session.commit()
+    return render_template('admin/inquiries.html', inquiries=items)
+
+
+@admin_bp.route('/lien-he/<int:inquiry_id>/xoa', methods=['POST'])
+@login_required
+@require_admin
+def inquiry_delete(inquiry_id):
+    inquiry = ContactInquiry.query.get_or_404(inquiry_id)
+    db.session.delete(inquiry)
+    db.session.commit()
+    flash('Đã xóa yêu cầu liên hệ.', 'success')
+    return redirect(url_for('admin.inquiries'))
 
 
 @admin_bp.route('/tai-khoan')
@@ -46,7 +70,7 @@ def user_add():
     password = request.form.get('password', '').strip()
     is_staff = request.form.get('is_staff') == '1'
     base_salary = request.form.get('base_salary', 0, type=float)
-    specialty = request.form.get('specialty', '').strip()
+    note = request.form.get('specialty', '').strip()
 
     if not all([full_name, phone, username, password]):
         flash('Vui lòng điền đầy đủ thông tin.', 'danger')
@@ -62,7 +86,7 @@ def user_add():
     db.session.flush()
 
     if role == UserRole.TEACHER:
-        teacher = Teacher(user_id=user.id, specialty=specialty,
+        teacher = Teacher(user_id=user.id, note=note,
                           is_staff=is_staff, base_salary=base_salary)
         db.session.add(teacher)
 
@@ -105,10 +129,24 @@ def user_toggle_active(user_id):
 @login_required
 @require_admin
 def courses():
-    items = Course.query.order_by(Course.name).all()
-    from models import StudentLevel
-    return render_template('admin/courses.html', courses=items,
-                           levels=StudentLevel.LABELS)
+    # Auto-deduplicate: keep oldest course per name, reassign classes, delete duplicates
+    from models import Class
+    all_items = Course.query.order_by(Course.name, Course.id).all()
+    seen = {}
+    to_delete = []
+    for c in all_items:
+        if c.name not in seen:
+            seen[c.name] = c
+        else:
+            # Reassign any classes referencing the duplicate to the kept course
+            Class.query.filter_by(course_id=c.id).update({'course_id': seen[c.name].id})
+            to_delete.append(c)
+    if to_delete:
+        for c in to_delete:
+            db.session.delete(c)
+        db.session.commit()
+    items = sorted(seen.values(), key=lambda c: c.name)
+    return render_template('admin/courses.html', courses=items)
 
 
 @admin_bp.route('/mon-hoc/them', methods=['POST'])
@@ -116,13 +154,13 @@ def courses():
 @require_admin
 def course_add():
     name = request.form.get('name', '').strip()
-    level = request.form.get('level', StudentLevel.SECONDARY)
     description = request.form.get('description', '').strip()
     if not name:
         flash('Vui lòng nhập tên môn học.', 'danger')
+    elif Course.query.filter_by(name=name).first():
+        flash(f'Môn "{name}" đã tồn tại.', 'warning')
     else:
-        c = Course(name=name, level=level, description=description)
-        db.session.add(c)
+        db.session.add(Course(name=name, description=description))
         db.session.commit()
         flash(f'Đã thêm môn {name}.', 'success')
     return redirect(url_for('admin.courses'))
@@ -134,7 +172,6 @@ def course_add():
 def course_edit(course_id):
     c = Course.query.get_or_404(course_id)
     c.name = request.form.get('name', c.name).strip()
-    c.level = request.form.get('level', c.level)
     c.description = request.form.get('description', '').strip()
     c.is_active = request.form.get('is_active') == '1'
     db.session.commit()

@@ -1,36 +1,185 @@
-from flask import render_template, redirect, url_for, flash, request, abort
+import io
+import csv
+import os
+from flask import render_template, redirect, url_for, flash, request, abort, Response, current_app
 from flask_login import login_required, current_user
 from datetime import date, datetime
+from sqlalchemy import func
 from extensions import db
-from models import Student, User, Enrollment, Class, TuitionPayment, Score, Reward, StudentLevel, UserRole
+from models import (Student, User, Enrollment, Class, TuitionPayment, Score, Reward,
+                    StudentLevel, UserRole, Attendance, AttendanceStatus, Teacher, Schedule)
 from blueprints.admin import admin_bp, require_admin
+
+PHOTO_EXTS = {'jpg', 'jpeg', 'png', 'webp', 'gif'}
 
 
 @admin_bp.route('/hoc-sinh')
 @login_required
 @require_admin
 def students():
-    q = request.args.get('q', '').strip()
-    level = request.args.get('level', '')
-    active_only = request.args.get('active', '1')
+    q            = request.args.get('q', '').strip()
+    level        = request.args.get('level', '')
+    active_only  = request.args.get('active', '1')
+    class_id     = request.args.get('class_id', type=int)
+    school_q     = request.args.get('school_q', '').strip()
+    teacher_id   = request.args.get('teacher_id', type=int)
 
     query = Student.query
+
     if q:
         query = query.filter(
             Student.full_name.ilike(f'%{q}%') |
             Student.parent_phone.ilike(f'%{q}%') |
-            Student.school.ilike(f'%{q}%')
+            Student.current_school.ilike(f'%{q}%')
         )
     if level:
         query = query.filter_by(level=level)
     if active_only == '1':
         query = query.filter_by(is_active=True)
+    if school_q:
+        query = query.filter(Student.current_school.ilike(f'%{school_q}%'))
+    if class_id:
+        query = query.join(Student.enrollments).filter(
+            Enrollment.class_id == class_id,
+            Enrollment.is_active == True
+        ).distinct()
+    if teacher_id:
+        teacher_class_ids = (
+            db.session.query(Schedule.class_id)
+            .filter(Schedule.teacher_id == teacher_id)
+            .distinct()
+            .subquery()
+        )
+        query = query.join(Student.enrollments).filter(
+            Enrollment.class_id.in_(teacher_class_ids),
+            Enrollment.is_active == True
+        ).distinct()
 
-    students = query.order_by(Student.full_name).all()
+    page     = request.args.get('page', 1, type=int)
+    per_page = 30
+    pagination = query.order_by(Student.full_name).paginate(page=page, per_page=per_page, error_out=False)
+    students   = pagination.items
+
+    # Absent counts (single query for current page only)
+    student_ids = [s.id for s in students]
+    absent_counts = {}
+    if student_ids:
+        rows = (
+            db.session.query(Attendance.student_id, func.count(Attendance.id))
+            .filter(Attendance.student_id.in_(student_ids))
+            .filter(Attendance.status == AttendanceStatus.ABSENT)
+            .group_by(Attendance.student_id)
+            .all()
+        )
+        absent_counts = dict(rows)
+
+    all_classes  = Class.query.filter_by(is_active=True).order_by(Class.name).all()
+    all_teachers = Teacher.query.join(Teacher.user).order_by(User.full_name).all()
+
     return render_template('admin/students/list.html',
-                           students=students, q=q, level=level,
-                           active_only=active_only,
-                           levels=StudentLevel.LABELS)
+                           students=students,
+                           pagination=pagination,
+                           absent_counts=absent_counts,
+                           q=q, level=level, active_only=active_only,
+                           class_id=class_id, school_q=school_q, teacher_id=teacher_id,
+                           levels=StudentLevel.LABELS,
+                           all_classes=all_classes,
+                           all_teachers=all_teachers)
+
+
+@admin_bp.route('/hoc-sinh/xuat-excel')
+@login_required
+@require_admin
+def export_students():
+    students = Student.query.order_by(Student.full_name).all()
+
+    student_ids = [s.id for s in students]
+    absent_counts = {}
+    if student_ids:
+        rows = (
+            db.session.query(Attendance.student_id, func.count(Attendance.id))
+            .filter(Attendance.student_id.in_(student_ids))
+            .filter(Attendance.status == AttendanceStatus.ABSENT)
+            .group_by(Attendance.student_id)
+            .all()
+        )
+        absent_counts = dict(rows)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['ID', 'Họ tên', 'Cấp học', 'Trường', 'Lớp tại trường',
+                     'Tên phụ huynh', 'SĐT phụ huynh', 'Số lớp đang học',
+                     'Ngày nghỉ', 'Trạng thái'])
+    for s in students:
+        enrolled = s.enrollments.filter_by(is_active=True).count()
+        writer.writerow([
+            s.id, s.full_name,
+            StudentLevel.LABELS.get(s.level, s.level),
+            s.current_school or '',
+            s.current_grade or '',
+            s.parent_name or '',
+            s.parent_phone or '',
+            enrolled,
+            absent_counts.get(s.id, 0),
+            'Đang học' if s.is_active else 'Nghỉ học',
+        ])
+
+    output.seek(0)
+    return Response(
+        '\ufeff' + output.getvalue(),
+        mimetype='text/csv; charset=utf-8',
+        headers={'Content-Disposition': 'attachment; filename=hoc-sinh.csv'}
+    )
+
+
+@admin_bp.route('/hoc-sinh/nhap-excel', methods=['POST'])
+@login_required
+@require_admin
+def import_students():
+    file = request.files.get('csv_file')
+    if not file or not file.filename.endswith('.csv'):
+        flash('Vui lòng chọn file CSV hợp lệ.', 'danger')
+        return redirect(url_for('admin.students'))
+
+    try:
+        content = file.read().decode('utf-8-sig')
+        reader = csv.DictReader(io.StringIO(content))
+        added = skipped = errors = 0
+        for row in reader:
+            full_name = (row.get('Họ tên') or row.get('full_name') or '').strip()
+            level_raw = (row.get('Cấp học') or row.get('level') or '').strip()
+            # Map Vietnamese level labels back to keys
+            level_map = {v: k for k, v in StudentLevel.LABELS.items()}
+            level = level_map.get(level_raw, level_raw if level_raw in StudentLevel.LABELS else StudentLevel.SECONDARY)
+
+            if not full_name:
+                skipped += 1
+                continue
+
+            parent_phone = (row.get('SĐT phụ huynh') or row.get('parent_phone') or '').strip()
+            # Skip duplicate by name + parent_phone
+            if parent_phone and Student.query.filter_by(full_name=full_name, parent_phone=parent_phone).first():
+                skipped += 1
+                continue
+
+            student = Student(
+                full_name=full_name,
+                level=level,
+                current_school=(row.get('Trường') or row.get('current_school') or '').strip(),
+                current_grade=(row.get('Lớp tại trường') or row.get('current_grade') or '').strip(),
+                parent_name=(row.get('Tên phụ huynh') or row.get('parent_name') or '').strip(),
+                parent_phone=parent_phone,
+            )
+            db.session.add(student)
+            added += 1
+
+        db.session.commit()
+        flash(f'Import thành công: {added} học sinh mới, bỏ qua {skipped} trùng/thiếu thông tin.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Lỗi khi đọc file: {e}', 'danger')
+
+    return redirect(url_for('admin.students'))
 
 
 @admin_bp.route('/hoc-sinh/them', methods=['GET', 'POST'])
@@ -69,9 +218,7 @@ def student_add():
                 else:
                     flash(f'SĐT {parent_phone} đã được dùng cho tài khoản khác.', 'warning')
             else:
-                # Create parent user
                 username = f'ph_{parent_phone[-4:]}'
-                # Ensure unique username
                 base_username = username
                 counter = 1
                 while User.query.filter_by(username=username).first():
@@ -84,7 +231,7 @@ def student_add():
                     phone=parent_phone,
                     role=UserRole.PARENT,
                 )
-                new_user.set_password(parent_phone[-6:])  # Default: last 6 digits of phone
+                new_user.set_password(parent_phone[-6:])
                 db.session.add(new_user)
                 db.session.flush()
                 parent_user_id = new_user.id
@@ -92,10 +239,10 @@ def student_add():
 
         student = Student(
             full_name=full_name,
-            dob=dob,
+            date_of_birth=dob,
             gender=gender,
-            school=school,
-            grade=grade,
+            current_school=school,
+            current_grade=grade,
             level=level,
             parent_name=parent_name,
             parent_phone=parent_phone,
@@ -144,12 +291,12 @@ def student_edit(student_id):
         student.full_name = request.form.get('full_name', student.full_name).strip()
         dob_str = request.form.get('dob', '')
         try:
-            student.dob = date.fromisoformat(dob_str) if dob_str else student.dob
+            student.date_of_birth = date.fromisoformat(dob_str) if dob_str else student.date_of_birth
         except ValueError:
             pass
         student.gender = request.form.get('gender', student.gender)
-        student.school = request.form.get('school', '').strip()
-        student.grade = request.form.get('grade', '').strip()
+        student.current_school = request.form.get('school', '').strip()
+        student.current_grade = request.form.get('grade', '').strip()
         student.level = request.form.get('level', student.level)
         student.parent_name = request.form.get('parent_name', '').strip()
         student.parent_phone = request.form.get('parent_phone', '').strip()
@@ -205,4 +352,47 @@ def student_unenroll(student_id, class_id):
     e.is_active = False
     db.session.commit()
     flash('Đã hủy ghi danh.', 'success')
+    return redirect(url_for('admin.student_detail', student_id=student_id))
+
+
+@admin_bp.route('/hoc-sinh/<int:student_id>/anh', methods=['POST'])
+@login_required
+@require_admin
+def student_photo_upload(student_id):
+    student = Student.query.get_or_404(student_id)
+    photo = request.files.get('photo')
+    if not photo or photo.filename == '':
+        flash('Vui lòng chọn ảnh.', 'danger')
+        return redirect(url_for('admin.student_detail', student_id=student_id))
+    ext = photo.filename.rsplit('.', 1)[-1].lower() if '.' in photo.filename else ''
+    if ext not in PHOTO_EXTS:
+        flash('Chỉ chấp nhận ảnh JPG, PNG, WEBP, GIF.', 'danger')
+        return redirect(url_for('admin.student_detail', student_id=student_id))
+    photo_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'students')
+    os.makedirs(photo_dir, exist_ok=True)
+    filename = f'student_{student_id}.{ext}'
+    # Remove old photo files for this student
+    for old_ext in PHOTO_EXTS:
+        old = os.path.join(photo_dir, f'student_{student_id}.{old_ext}')
+        if os.path.exists(old):
+            os.remove(old)
+    photo.save(os.path.join(photo_dir, filename))
+    student.photo_path = f'uploads/students/{filename}'
+    db.session.commit()
+    flash('Đã cập nhật ảnh học sinh.', 'success')
+    return redirect(url_for('admin.student_detail', student_id=student_id))
+
+
+@admin_bp.route('/hoc-sinh/<int:student_id>/xoa-anh', methods=['POST'])
+@login_required
+@require_admin
+def student_photo_delete(student_id):
+    student = Student.query.get_or_404(student_id)
+    if student.photo_path:
+        full_path = os.path.join(current_app.root_path, 'static', student.photo_path)
+        if os.path.exists(full_path):
+            os.remove(full_path)
+        student.photo_path = None
+        db.session.commit()
+        flash('Đã xóa ảnh.', 'success')
     return redirect(url_for('admin.student_detail', student_id=student_id))

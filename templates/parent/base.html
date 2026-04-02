@@ -45,9 +45,21 @@
         </span>
       {% endif %}
 
+      <!-- Bell notification -->
+      <a href="#" class="btn btn-sm btn-outline-light position-relative" title="Thông báo">
+        <i class="bi bi-bell{% if unread_notifications %}-fill{% endif %}"></i>
+        {% if unread_notifications %}
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+              style="font-size:0.6rem;">
+          {{ unread_notifications if unread_notifications < 100 else '99+' }}
+        </span>
+        {% endif %}
+      </a>
+
       <!-- Logout -->
-      <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-light" title="Đăng xuất">
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-light d-flex align-items-center gap-1" title="Đăng xuất">
         <i class="bi bi-box-arrow-right"></i>
+        <span class="d-none d-sm-inline" style="font-size:0.8rem;">Đăng xuất</span>
       </a>
     </div>
   </div>

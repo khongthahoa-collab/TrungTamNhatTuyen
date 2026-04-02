@@ -132,6 +132,23 @@ class ExpenseCategory:
 
 
 # ============================================================
+# Association Tables (Many-to-Many relationships)
+# ============================================================
+
+teacher_courses = db.Table(
+    'teacher_courses',
+    db.Column('teacher_id', db.Integer, db.ForeignKey('teachers.id'), primary_key=True),
+    db.Column('course_id', db.Integer, db.ForeignKey('courses.id'), primary_key=True)
+)
+
+teacher_classes = db.Table(
+    'teacher_classes',
+    db.Column('teacher_id', db.Integer, db.ForeignKey('teachers.id'), primary_key=True),
+    db.Column('class_id', db.Integer, db.ForeignKey('classes.id'), primary_key=True)
+)
+
+
+# ============================================================
 # Database Models - Core entities
 # ============================================================
 
@@ -260,15 +277,18 @@ class User(UserMixin, db.Model):
 class Teacher(db.Model):
     """Teacher profile extending User"""
     __tablename__ = 'teachers'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False)
-    specialty = db.Column(db.String(100))  # Subject expertise
     is_staff = db.Column(db.Boolean, default=True)  # True = full-time staff receiving salary
     base_salary = db.Column(db.Float, default=0)
     note = db.Column(db.Text)
 
-    # Relationships
+    # Relationships - Teacher can teach multiple courses and classes
+    courses = db.relationship('Course', secondary=teacher_courses, backref='teachers',
+                            lazy='dynamic')
+    classes = db.relationship('Class', secondary=teacher_classes, backref='teachers',
+                             lazy='dynamic')
     schedules = db.relationship('Schedule', backref='teacher', lazy='dynamic')
     salaries = db.relationship('Salary', backref='teacher', lazy='dynamic')
 
@@ -279,6 +299,11 @@ class Teacher(db.Model):
     @property
     def phone(self):
         return self.user.phone if self.user else ''
+
+    @property
+    def specialties(self):
+        """Get list of courses this teacher teaches"""
+        return [c.name for c in self.courses.all()]
 
     def __repr__(self):
         return f'<Teacher {self.full_name}>'
@@ -307,10 +332,38 @@ class Course(db.Model):
         return f'<Course {self.name}>'
 
 
+class Room(db.Model):
+    """Classroom/room entity (supports multi-branch)"""
+    __tablename__ = 'rooms'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    branch = db.Column(db.String(200))       # chi nhánh / địa chỉ
+    floor = db.Column(db.String(20))          # tầng
+    room_number = db.Column(db.String(20))    # số phòng
+    capacity = db.Column(db.Integer, default=20)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    @property
+    def display_name(self):
+        parts = []
+        if self.room_number:
+            parts.append(f'Phòng {self.room_number}')
+        if self.floor:
+            parts.append(f'Tầng {self.floor}')
+        if self.branch:
+            parts.append(self.branch)
+        return ' – '.join(parts) if parts else self.name
+
+    def __repr__(self):
+        return f'<Room {self.name}>'
+
+
 class Class(db.Model):
     """Class offering with schedule and students"""
     __tablename__ = 'classes'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     course_id = db.Column(db.Integer, db.ForeignKey('courses.id'), nullable=False)
@@ -320,6 +373,8 @@ class Class(db.Model):
     end_date = db.Column(db.Date)
     is_active = db.Column(db.Boolean, default=True)
     description = db.Column(db.Text)
+    primary_teacher_id = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=True)
+    assistant_teacher_id = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -329,6 +384,10 @@ class Class(db.Model):
                                 order_by='Schedule.date')
     documents = db.relationship('ClassDocument', backref='class_', lazy='dynamic',
                                 cascade='all, delete-orphan')
+    primary_teacher = db.relationship('Teacher', foreign_keys=[primary_teacher_id],
+                                      backref='primary_classes')
+    assistant_teacher = db.relationship('Teacher', foreign_keys=[assistant_teacher_id],
+                                        backref='assistant_classes')
 
     @property
     def current_enrollment(self):
@@ -381,7 +440,9 @@ class Student(db.Model):
     parent_phone = db.Column(db.String(15))
     parent_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     note = db.Column(db.Text)
+    photo_path = db.Column(db.String(255))
     is_active = db.Column(db.Boolean, default=True)
+    status = db.Column(db.String(20), default='active', server_default='active')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -416,6 +477,7 @@ class Schedule(db.Model):
     start_time = db.Column(db.Time, nullable=False)
     end_time = db.Column(db.Time, nullable=False)
     room = db.Column(db.String(50))
+    room_id = db.Column(db.Integer, db.ForeignKey('rooms.id'), nullable=True)
     topic = db.Column(db.String(255))
     schedule_type = db.Column(db.String(20), default=ScheduleType.REGULAR)
     semester_id = db.Column(db.Integer, db.ForeignKey('semesters.id'), nullable=True)
@@ -429,6 +491,7 @@ class Schedule(db.Model):
     attendances = db.relationship('Attendance', backref='schedule', lazy='dynamic',
                                   cascade='all, delete-orphan')
     semester = db.relationship('Semester', backref='schedules')
+    room_obj = db.relationship('Room', foreign_keys=[room_id], backref='schedules')
 
     @property
     def is_today(self):
@@ -688,3 +751,41 @@ class ClassDocument(db.Model):
 
     def __repr__(self):
         return f'<ClassDocument title={self.title}>'
+
+
+class Notification(db.Model):
+    """In-app notification for users (admin, teacher, parent)"""
+    __tablename__ = 'notifications'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    body = db.Column(db.Text)
+    notif_type = db.Column(db.String(50), default='info')  # info/warning/success/danger
+    link = db.Column(db.String(255))           # optional URL to navigate to
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', foreign_keys=[user_id], backref='notifications')
+
+    def __repr__(self):
+        return f'<Notification user={self.user_id} title={self.title}>'
+
+
+class ContactInquiry(db.Model):
+    """Public contact/enrollment request from prospective parents"""
+    __tablename__ = 'contact_inquiries'
+
+    id           = db.Column(db.Integer, primary_key=True)
+    student_name = db.Column(db.String(100), nullable=False)
+    grade        = db.Column(db.String(50))    # e.g. "Lớp 6A"
+    subject      = db.Column(db.String(100))   # môn học muốn học
+    school       = db.Column(db.String(150))   # trường của học sinh
+    parent_phone = db.Column(db.String(20), nullable=False)
+    note         = db.Column(db.Text)
+    confirm_tuition = db.Column(db.Boolean, default=False)  # Parent wants tuition confirmed before starting
+    is_read      = db.Column(db.Boolean, default=False)
+    created_at   = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<ContactInquiry student={self.student_name}>'

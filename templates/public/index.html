@@ -3,51 +3,165 @@
 {% block body %}
 
 <!-- ══ NAVBAR ══ -->
-<nav class="navbar navbar-expand-lg navbar-dark sticky-top" style="background:#d32f2f;">
+<nav class="navbar navbar-expand-lg navbar-dark sticky-top navbar-public">
   <div class="container">
     <a class="navbar-brand fw-bold" href="{{ url_for('public.index') }}">
       <i class="bi bi-mortarboard-fill me-2"></i>{{ center_name }}
     </a>
-    <div class="d-flex align-items-center gap-2 ms-auto">
-      {% if zalo_link %}
-        <a href="{{ zalo_link }}" target="_blank" class="btn btn-sm btn-success d-none d-sm-inline-flex align-items-center gap-1">
-          <i class="bi bi-chat-fill"></i> Chat Zalo
-        </a>
-      {% endif %}
-      <a href="{{ url_for('auth.login') }}" class="btn btn-sm btn-outline-light">
-        <i class="bi bi-box-arrow-in-right me-1"></i>Đăng nhập
-      </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item">
+          <a class="nav-link" href="#lich-hoc">
+            <i class="bi bi-calendar3 me-1"></i>Lịch học
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="#thanh-tich">
+            <i class="bi bi-trophy me-1"></i>Thành tích
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="#gioi-thieu">
+            <i class="bi bi-info-circle me-1"></i>Thông tin
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="{{ url_for('auth.login') }}" class="nav-link btn btn-sm btn-outline-light ms-2">
+            <i class="bi bi-box-arrow-in-right me-1"></i>Đăng nhập
+          </a>
+        </li>
+      </ul>
     </div>
   </div>
 </nav>
 
 <!-- ══ HERO ══ -->
-<section class="py-5 text-white text-center" style="background: linear-gradient(135deg, #7c5cdb 0%, #06b6d4 100%);">
-  <div class="container">
-    <h1 class="display-5 fw-bold mb-2">{{ center_name }}</h1>
-    <p class="lead mb-3 opacity-75">Dạy thêm chất lượng cao — Tiểu học · THCS · THPT</p>
-    {% if center_address %}
-      <p class="mb-3 opacity-75"><i class="bi bi-geo-alt me-1"></i>{{ center_address }}</p>
+<section class="hero-section-v2 text-center" id="heroV2" data-bg="{{ hero_bg }}">
+  <!-- Decorative background icons -->
+  <span class="hero-deco hero-deco-1"><i class="bi bi-mortarboard"></i></span>
+  <span class="hero-deco hero-deco-2"><i class="bi bi-book"></i></span>
+  <span class="hero-deco hero-deco-3"><i class="bi bi-pencil"></i></span>
+  <span class="hero-deco hero-deco-4"><i class="bi bi-award"></i></span>
+
+  <div class="container hero-v2-inner">
+    {% if hero_badge %}
+    <div class="hero-badge-pill mb-4">
+      <i class="bi bi-stars me-2"></i>{{ hero_badge }}
+    </div>
     {% endif %}
-    <div class="d-flex justify-content-center gap-3 flex-wrap">
-      {% if zalo_link %}
-        <a href="{{ zalo_link }}" target="_blank" class="btn btn-success btn-lg px-4">
-          <i class="bi bi-chat-fill me-2"></i>Chat Zalo
+
+    <h1 class="hero-v2-h1 mb-0">
+      {% if hero_headline1 %}{{ hero_headline1 }}{% else %}{{ center_name }}{% endif %}
+    </h1>
+    {% if hero_headline2 %}
+    <h1 class="hero-v2-h1 hero-v2-gradient mb-0">{{ hero_headline2 }}</h1>
+    {% endif %}
+
+    {% if hero_sub %}
+    <p class="hero-v2-sub mt-4 mx-auto">{{ hero_sub }}</p>
+    {% endif %}
+
+    <div class="mt-5 d-flex flex-column align-items-center gap-3">
+      <!-- CTA row -->
+      <div class="d-flex flex-wrap gap-3 justify-content-center">
+        <a href="#lich-hoc" class="hero-cta-btn">
+          <i class="bi bi-search me-1"></i>Tìm Lớp Học
         </a>
-      {% endif %}
-      {% if messenger_link %}
-        <a href="{{ messenger_link }}" target="_blank" class="btn btn-primary btn-lg px-4">
-          <i class="bi bi-messenger me-2"></i>Messenger
-        </a>
-      {% endif %}
-      {% if center_phone %}
-        <a href="tel:{{ center_phone }}" class="btn btn-outline-light btn-lg px-4">
-          <i class="bi bi-telephone me-2"></i>{{ center_phone }}
-        </a>
+        <button type="button" class="hero-cta-btn hero-cta-secondary" data-bs-toggle="modal" data-bs-target="#contactModal">
+          <i class="bi bi-telephone-fill me-1"></i>Liên hệ với cô Tuyền
+        </button>
+      </div>
+      {% if hero_note %}
+      <span class="hero-v2-note">
+        <span class="hero-note-dot"></span>{{ hero_note }}
+      </span>
       {% endif %}
     </div>
   </div>
 </section>
+
+<!-- ══ CONTACT MODAL ══ -->
+<div class="modal fade" id="contactModal" tabindex="-1" aria-labelledby="contactModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-4 border-0 shadow-lg">
+      <div class="modal-header border-0 pb-0">
+        <div>
+          <h5 class="modal-title fw-bold" id="contactModalLabel">
+            <i class="bi bi-telephone-fill text-primary me-2"></i>Liên hệ với cô Tuyền
+          </h5>
+          <p class="text-muted small mb-0 mt-1">
+            Nếu gọi cô Tuyền không nghe máy nhờ phụ huynh điền vào mẫu này để cô Tuyền thêm vào lớp học nhé!
+          </p>
+        </div>
+        <button type="button" class="btn-close ms-3" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body pt-3" id="contactFormWrap">
+        <form id="contactForm">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="ci_student_name">Tên học sinh <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="ci_student_name" name="student_name"
+                   placeholder="Ví dụ: Nguyễn Văn An" required>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-6">
+              <label class="form-label fw-semibold" for="ci_grade">Lớp học</label>
+              <input type="text" class="form-control" id="ci_grade" name="grade"
+                     placeholder="Ví dụ: Lớp 6A" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" for="ci_subject">Môn học</label>
+              <input type="text" class="form-control" id="ci_subject" name="subject"
+                     placeholder="Ví dụ: Toán, Văn" required>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="ci_school">Trường <span class="text-danger">*</span></label>
+            <select class="form-select" id="ci_school" name="school" required onchange="toggleSchoolOther(this)">
+              <option value="">-- Chọn trường --</option>
+              {% for s in distinct_schools %}
+              <option value="{{ s }}">{{ s }}</option>
+              {% endfor %}
+              <option value="__other__">Khác (gõ tên trường)</option>
+            </select>
+            <input type="text" class="form-control mt-2 d-none" id="ci_school_other" name="school_other"
+                   placeholder="Nhập tên trường...">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="ci_phone">Số điện thoại phụ huynh <span class="text-danger">*</span></label>
+            <input type="tel" class="form-control" id="ci_phone" name="parent_phone"
+                   placeholder="0901 234 567" required>
+          </div>
+          <div class="mb-0">
+            <label class="form-label fw-semibold" for="ci_note">Ghi chú thêm</label>
+            <textarea class="form-control" id="ci_note" name="note" rows="2"
+                      placeholder="Thời gian có thể học, yêu cầu đặc biệt…"></textarea>
+          </div>
+          <div class="mt-3 p-3 rounded-3" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="ci_confirm_tuition" name="confirm_tuition" value="1">
+              <label class="form-check-label fw-semibold" for="ci_confirm_tuition">
+                Xác nhận học phí trước khi học
+              </label>
+            </div>
+            <p class="text-muted small mb-0 mt-1">
+              Nếu chọn, cô Tuyền sẽ liên hệ lại để xác nhận và thông báo học phí trước khi bắt đầu học.
+            </p>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+        <button type="button" class="btn btn-primary px-4" id="contactSubmitBtn" onclick="submitContact()">
+          <i class="bi bi-send me-1"></i>Gửi yêu cầu
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ══ SCHEDULE SECTION ══ -->
 <section id="lich-hoc" class="py-5 bg-light">
@@ -63,7 +177,7 @@
             <option value="">Tất cả môn</option>
             {% for c in courses %}
               <option value="{{ c.id }}" {% if selected_course_id == c.id %}selected{% endif %}>
-                {{ c.name }} ({{ c.level_label }})
+                {{ c.name }}
               </option>
             {% endfor %}
           </select>
@@ -199,46 +313,433 @@
 </section>
 
 <!-- ══ HALL OF FAME ══ -->
-{% if hall_of_fame %}
+{% if hall_of_fame_by_class %}
 <section id="thanh-tich" class="py-5">
   <div class="container">
     <h2 class="fw-bold mb-4 text-center"><i class="bi bi-trophy-fill text-warning me-2"></i>Bảng Thành Tích</h2>
-    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3">
-      {% for s in hall_of_fame %}
-        <div class="col">
-          <div class="card border-0 shadow-sm h-100 text-center p-3 hall-card">
-            <div class="mb-2">
-              {% if s.score_value == 10 %}
-                <i class="bi bi-star-fill text-warning fs-3"></i>
-              {% elif s.score_value >= 9 %}
-                <i class="bi bi-star-fill text-warning fs-4"></i>
-              {% else %}
-                <i class="bi bi-award-fill text-primary fs-4"></i>
-              {% endif %}
-            </div>
-            <h6 class="fw-bold mb-1">{{ s.student.full_name }}</h6>
-            <div class="text-muted small mb-1">{{ s.class_.course.name }} · {{ s.score_type_label }}</div>
-            <div class="score-badge mx-auto mb-1">{{ s.score_value }}<span class="small">/{{ s.max_score|int }}</span></div>
-            <div class="text-muted" style="font-size:0.75rem">
-              {{ s.score_source_label }}
-              {% if s.exam_date %} · {{ s.exam_date|date_vn }}{% endif %}
-            </div>
+
+    <!-- Class tabs -->
+    <ul class="nav nav-pills hof-tabs mb-4 justify-content-center flex-wrap gap-2" id="hofTabs">
+      {% for class_name, entries in hall_of_fame_by_class.items() %}
+        <li class="nav-item">
+          <button class="nav-link {% if loop.first %}active{% endif %}"
+                  type="button"
+                  data-bs-toggle="pill"
+                  data-bs-target="#hof-pane-{{ loop.index }}">
+            {{ class_name }}
+            <span class="badge bg-white text-primary ms-1" style="font-size:0.7rem;">{{ entries|length }}</span>
+          </button>
+        </li>
+      {% endfor %}
+    </ul>
+
+    <!-- Tab panes -->
+    <div class="tab-content">
+      {% for class_name, entries in hall_of_fame_by_class.items() %}
+        <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="hof-pane-{{ loop.index }}">
+          <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 g-3">
+            {% for s in entries %}
+              {% set reward = s.rewards.filter_by(is_confirmed=True).first() %}
+              <div class="col">
+                <div class="card border-0 shadow-sm h-100 text-center p-3 hall-card">
+                  <div class="mb-2">
+                    {% if s.score_value == 10 %}
+                      <i class="bi bi-star-fill text-warning fs-3"></i>
+                    {% elif s.score_value >= 9 %}
+                      <i class="bi bi-star-fill text-warning fs-4"></i>
+                    {% else %}
+                      <i class="bi bi-award-fill text-primary fs-4"></i>
+                    {% endif %}
+                  </div>
+                  <h6 class="fw-bold mb-1" style="font-size:0.9rem;">{{ s.student.full_name }}</h6>
+                  <div class="text-muted small mb-1">{{ s.score_type_label }}</div>
+                  <div class="score-badge mx-auto mb-1">{{ s.score_value }}</div>
+                  {% if reward and reward.amount %}
+                    <div class="hof-prize mt-1">
+                      <i class="bi bi-gift-fill me-1"></i>{{ "{:,.0f}".format(reward.amount).replace(',', '.') }}đ
+                    </div>
+                  {% endif %}
+                  {% if s.exam_date %}
+                    <div class="text-muted" style="font-size:0.72rem;">{{ s.exam_date|date_vn }}</div>
+                  {% endif %}
+                </div>
+              </div>
+            {% endfor %}
           </div>
         </div>
       {% endfor %}
     </div>
+
   </div>
 </section>
 {% endif %}
 
+<!-- ══ GIỚI THIỆU ══ -->
+<section id="gioi-thieu" class="py-5 section-intro">
+  <div class="container">
+    <div class="text-center mb-5">
+      <h2 class="fw-bold mb-2">
+        <i class="bi bi-building-fill-check text-primary me-2"></i>Về {{ center_name }}
+      </h2>
+      <p class="lead text-muted mx-auto" style="max-width:600px;">
+        Trung tâm dạy thêm chất lượng cao — đồng hành cùng học sinh Tiểu học, THCS và THPT trên con đường học vấn.
+      </p>
+    </div>
+
+    <div class="row align-items-start g-5">
+      <!-- Left: intro text + contact -->
+      <div class="col-lg-6">
+        <p class="text-muted mb-4" style="font-size:1.05rem; line-height:1.8;">
+          Với đội ngũ giáo viên tâm huyết và chương trình học được biên soạn bài bản,
+          {{ center_name }} cam kết mang lại kết quả học tập tốt nhất cho từng học sinh.
+          Lớp học sĩ số nhỏ giúp giáo viên quan tâm sát sao từng em.
+        </p>
+
+        <div class="d-flex flex-column gap-3 mb-4">
+          {% if center_address %}
+          <div class="d-flex align-items-center gap-3">
+            <div class="intro-icon-box"><i class="bi bi-geo-alt-fill"></i></div>
+            <span class="text-muted">{{ center_address }}</span>
+          </div>
+          {% endif %}
+          {% if center_phone %}
+          <div class="d-flex align-items-center gap-3">
+            <div class="intro-icon-box"><i class="bi bi-telephone-fill"></i></div>
+            <a href="tel:{{ center_phone }}" class="text-muted text-decoration-none">{{ center_phone }}</a>
+          </div>
+          {% endif %}
+        </div>
+
+        {% if zalo_link or messenger_link or center_phone %}
+        <div class="d-flex gap-3 flex-wrap">
+          {% if zalo_link %}
+          <a href="{{ zalo_link }}" target="_blank" class="btn btn-success px-4">
+            <i class="bi bi-chat-fill me-2"></i>Chat Zalo
+          </a>
+          {% endif %}
+          {% if messenger_link %}
+          <a href="{{ messenger_link }}" target="_blank" class="btn btn-primary px-4">
+            <i class="bi bi-messenger me-2"></i>Messenger
+          </a>
+          {% endif %}
+          {% if center_phone %}
+          <a href="tel:{{ center_phone }}" class="btn btn-outline-secondary px-4">
+            <i class="bi bi-telephone me-2"></i>Gọi ngay
+          </a>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Right: stat cards -->
+      <div class="col-lg-6">
+        <div class="row g-3">
+          <div class="col-6">
+            <div class="intro-stat-card text-center">
+              <div class="intro-stat-icon"><i class="bi bi-mortarboard-fill"></i></div>
+              <div class="intro-stat-number">{{ courses|length }}+</div>
+              <div class="intro-stat-label">Môn học</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="intro-stat-card text-center">
+              <div class="intro-stat-icon"><i class="bi bi-people-fill"></i></div>
+              <div class="intro-stat-number">100+</div>
+              <div class="intro-stat-label">Học sinh</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="intro-stat-card text-center">
+              <div class="intro-stat-icon"><i class="bi bi-award-fill"></i></div>
+              <div class="intro-stat-number">{{ hall_of_fame|length if hall_of_fame else 0 }}+</div>
+              <div class="intro-stat-label">Thành tích nổi bật</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="intro-stat-card text-center">
+              <div class="intro-stat-icon"><i class="bi bi-calendar-check-fill"></i></div>
+              <div class="intro-stat-number">7</div>
+              <div class="intro-stat-label">Ngày học/tuần</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ WHY CHOOSE US ══ -->
+<section id="why-choose-us" class="py-5 bg-white">
+  <div class="container">
+    <h2 class="fw-bold mb-5 text-center">
+      <i class="bi bi-star-fill text-warning me-2"></i>Tại Sao Chọn {{ center_name }}?
+    </h2>
+
+    <div class="row g-4">
+      <!-- Feature 1 -->
+      <div class="col-12 col-md-6">
+        <div class="feature-card h-100">
+          <div class="feature-icon">
+            <i class="bi bi-book-fill"></i>
+          </div>
+          <div class="feature-content">
+            <h5 class="fw-bold mb-2">Chương Trình Học Tập</h5>
+            <p class="text-muted">Chương trình bài biên soạn theo chuẩn giáo dục, phù hợp từng cấp độ học sinh. Được cập nhật liên tục theo nhu cầu thực tế.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 2 -->
+      <div class="col-12 col-md-6">
+        <div class="feature-card h-100">
+          <div class="feature-icon">
+            <i class="bi bi-people-fill"></i>
+          </div>
+          <div class="feature-content">
+            <h5 class="fw-bold mb-2">Giáo Viên Giỏi</h5>
+            <p class="text-muted">Đội ngũ giáo viên có kinh nghiệm, tâm huyết với dạy học. Có năng lực chuyên môn cao và phương pháp giảng dạy hiệu quả.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 3 -->
+      <div class="col-12 col-md-6">
+        <div class="feature-card h-100">
+          <div class="feature-icon">
+            <i class="bi bi-graph-up-arrow"></i>
+          </div>
+          <div class="feature-content">
+            <h5 class="fw-bold mb-2">Kết Quả Thực Tế</h5>
+            <p class="text-muted">Học sinh cải thiện điểm số tập trung, tự tin phía trước các kỳ thi. Nhiều em đạt thành tích xuất sắc.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 4 -->
+      <div class="col-12 col-md-6">
+        <div class="feature-card h-100">
+          <div class="feature-icon">
+            <i class="bi bi-lightning-fill"></i>
+          </div>
+          <div class="feature-content">
+            <h5 class="fw-bold mb-2">Lớp Nhỏ, Chất Lượng Cao</h5>
+            <p class="text-muted">Sĩ số nhỏ đảm bảo giáo viên chú ý từng học sinh. Tạo môi trường học tập tập trung, hiệu quả nhất.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ══ FOOTER ══ -->
-<footer class="py-4 text-center text-muted small" style="background:#1e3a5f;color:#adb5bd!important;">
-  <div class="text-white-50">
-    &copy; {{ today.year }} {{ center_name }}
-    {% if center_address %} · {{ center_address }}{% endif %}
-    {% if center_phone %} · <a href="tel:{{ center_phone }}" class="text-white-50">{{ center_phone }}</a>{% endif %}
+<footer class="pt-5 pb-4 text-center text-muted small" style="background:#1a3a2a;color:#adb5bd!important;">
+  <div class="container">
+
+    {% if center_address %}
+    <!-- Map + khoảng cách -->
+    <div class="footer-map-wrap mx-auto mb-4">
+      <!-- Iframe Google Maps -->
+      <div class="footer-map-frame rounded-3 overflow-hidden mb-3">
+        <iframe id="gmapFrame" width="100%" height="220" frameborder="0"
+                style="border:0;display:block;" allowfullscreen loading="lazy"
+                referrerpolicy="no-referrer-when-downgrade" src="about:blank"></iframe>
+      </div>
+
+      <!-- Khoảng cách (hiện khi có GPS) -->
+      <div id="distanceBox" class="footer-distance-box d-none mb-3">
+        <i class="bi bi-geo-alt-fill me-1" style="color:#4ade80;"></i>
+        <span id="distanceText" class="text-white-50"></span>
+      </div>
+
+      <!-- Nút chỉ đường -->
+      <a id="directionsBtn"
+         href="https://www.google.com/maps/search/?api=1&query={{ center_address | urlencode }}"
+         target="_blank" rel="noopener"
+         class="btn btn-sm btn-success px-4"
+         data-address="{{ center_address }}">
+        <i class="bi bi-signpost-2-fill me-2"></i>Xem đường đi
+      </a>
+    </div>
+    {% endif %}
+
+    <!-- Copyright -->
+    <div class="text-white-50">
+      &copy; {{ today.year }} {{ center_name }}
+      {% if center_address %} · {{ center_address }}{% endif %}
+      {% if center_phone %} · <a href="tel:{{ center_phone }}" class="text-white-50">{{ center_phone }}</a>{% endif %}
+    </div>
   </div>
 </footer>
+
+<script>
+(function () {
+  var hero = document.getElementById('heroV2');
+  if (hero && hero.dataset.bg) hero.style.background = hero.dataset.bg;
+})();
+</script>
+
+<script>
+(function () {
+  var dirBtn = document.getElementById('directionsBtn');
+  var address = dirBtn ? dirBtn.dataset.address : null;
+  if (!address) return;
+
+  // Hiển thị bản đồ Google Maps
+  var frame = document.getElementById('gmapFrame');
+  if (frame) {
+    frame.src = 'https://maps.google.com/maps?q=' + encodeURIComponent(address)
+              + '&output=embed&hl=vi&t=m&z=16';
+  }
+
+  // Geocode địa chỉ trung tâm bằng Nominatim (OpenStreetMap, free)
+  fetch('https://nominatim.openstreetmap.org/search?q='
+        + encodeURIComponent(address)
+        + '&format=json&limit=1&countrycodes=vn',
+        { headers: { 'Accept-Language': 'vi' } })
+    .then(function (r) { return r.json(); })
+    .then(function (results) {
+      if (!results || !results[0]) return;
+      var cLat = parseFloat(results[0].lat);
+      var cLon = parseFloat(results[0].lon);
+
+      if (!navigator.geolocation) return;
+
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        var uLat = pos.coords.latitude;
+        var uLon = pos.coords.longitude;
+
+        // Haversine formula → khoảng cách thẳng (km)
+        var R = 6371;
+        var dLat = (cLat - uLat) * Math.PI / 180;
+        var dLon = (cLon - uLon) * Math.PI / 180;
+        var a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+              + Math.cos(uLat * Math.PI / 180) * Math.cos(cLat * Math.PI / 180)
+              * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        var dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        var label = dist < 1
+          ? 'Cách bạn khoảng ' + Math.round(dist * 1000) + ' m (đường thẳng)'
+          : 'Cách bạn khoảng ' + dist.toFixed(1) + ' km (đường thẳng)';
+
+        var box = document.getElementById('distanceBox');
+        var txt = document.getElementById('distanceText');
+        if (box && txt) { txt.textContent = label; box.classList.remove('d-none'); }
+
+        // Cập nhật nút chỉ đường với điểm xuất phát
+        if (dirBtn) {
+          dirBtn.href = 'https://www.google.com/maps/dir/?api=1'
+            + '&origin=' + uLat + ',' + uLon
+            + '&destination=' + encodeURIComponent(address);
+        }
+      }, null, { timeout: 6000 });
+    })
+    .catch(function () {}); // silent fail
+})();
+</script>
+
+<!-- Social Popup Widget (Right Side) -->
+<div class="social-widget-container">
+  <div class="social-widget-toggle" onclick="toggleSocialWidget()" id="socialWidgetToggle">
+    <i class="bi bi-chat-dots-fill"></i>
+  </div>
+  <div class="social-widget-popup" id="socialWidgetPopup">
+    <div class="social-widget-header">
+      <h6 class="mb-0">Liên hệ với chúng tôi</h6>
+      <button class="btn-close btn-close-white btn-sm" onclick="toggleSocialWidget()"></button>
+    </div>
+    <div class="social-widget-body">
+      {% if zalo_link %}
+        <a href="{{ zalo_link }}" target="_blank" class="social-widget-link zalo-link">
+          <i class="bi bi-chat-fill"></i>
+          <span>Chat Zalo</span>
+        </a>
+      {% endif %}
+      {% if messenger_link %}
+        <a href="{{ messenger_link }}" target="_blank" class="social-widget-link messenger-link">
+          <i class="bi bi-messenger"></i>
+          <span>Messenger</span>
+        </a>
+      {% endif %}
+      {% if center_phone %}
+        <a href="tel:{{ center_phone }}" class="social-widget-link phone-link">
+          <i class="bi bi-telephone-fill"></i>
+          <span>{{ center_phone }}</span>
+        </a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleSocialWidget() {
+  const popup = document.getElementById('socialWidgetPopup');
+  const toggle = document.getElementById('socialWidgetToggle');
+  popup.classList.toggle('active');
+  toggle.classList.toggle('active');
+}
+
+// Close widget when clicking outside
+document.addEventListener('click', function(event) {
+  const widget = document.querySelector('.social-widget-container');
+  if (widget && !widget.contains(event.target)) {
+    const popup = document.getElementById('socialWidgetPopup');
+    const toggle = document.getElementById('socialWidgetToggle');
+    popup.classList.remove('active');
+    toggle.classList.remove('active');
+  }
+});
+</script>
+
+<!-- Scroll-to-top button -->
+<button id="scrollTopBtn" class="scroll-top-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Lên đầu trang" aria-label="Lên đầu trang">
+  <i class="bi bi-arrow-up"></i>
+</button>
+
+<script>
+// Show/hide scroll-to-top button
+(function () {
+  var btn = document.getElementById('scrollTopBtn');
+  window.addEventListener('scroll', function () {
+    btn.classList.toggle('visible', window.scrollY > 300);
+  }, { passive: true });
+})();
+
+// School "Khác" toggle
+function toggleSchoolOther(sel) {
+  var other = document.getElementById('ci_school_other');
+  var isOther = sel.value === '__other__';
+  other.classList.toggle('d-none', !isOther);
+  other.required = isOther;
+  if (isOther) other.focus();
+}
+
+// Contact form submit
+function submitContact() {
+  var form = document.getElementById('contactForm');
+  var btn  = document.getElementById('contactSubmitBtn');
+  if (!form.reportValidity()) return;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Đang gửi…';
+  var data = new FormData(form);
+  fetch('/lien-he', { method: 'POST', body: data })
+    .then(function (r) { return r.json(); })
+    .then(function (res) {
+      document.getElementById('contactFormWrap').innerHTML =
+        '<div class="text-center py-4">' +
+        '<i class="bi bi-check-circle-fill text-success" style="font-size:3rem;"></i>' +
+        '<h5 class="fw-bold mt-3 mb-2">Gửi thành công!</h5>' +
+        '<p class="text-muted">' + res.msg + '</p>' +
+        '</div>';
+      document.querySelector('#contactModal .modal-footer').innerHTML =
+        '<button type="button" class="btn btn-primary px-4" data-bs-dismiss="modal">Đóng</button>';
+    })
+    .catch(function () {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-send me-1"></i>Gửi yêu cầu';
+      alert('Có lỗi xảy ra. Vui lòng thử lại.');
+    });
+}
+</script>
 
 <!-- Schedule detail modal -->
 <div class="modal fade" id="scheduleModal" tabindex="-1">

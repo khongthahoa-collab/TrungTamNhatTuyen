@@ -57,7 +57,7 @@
             <div class="col-12 col-md-4">
               <label for="dob" class="form-label fw-semibold">Ngày sinh</label>
               <input type="date" class="form-control" id="dob" name="dob"
-                     value="{{ form.dob | string if form and form.dob else '' }}">
+                     value="{{ form.date_of_birth | string if form and form.date_of_birth else '' }}">
             </div>
 
             <!-- Cấp học -->
@@ -75,14 +75,14 @@
             <div class="col-12 col-md-4">
               <label for="grade" class="form-label fw-semibold">Lớp</label>
               <input type="text" class="form-control" id="grade" name="grade"
-                     value="{{ form.grade if form else '' }}" placeholder="VD: 10A1, Lớp 5...">
+                     value="{{ form.current_grade if form else '' }}" placeholder="VD: 10A1, Lớp 5...">
             </div>
 
             <!-- Trường -->
             <div class="col-12 col-md-8">
               <label for="school" class="form-label fw-semibold">Trường</label>
               <input type="text" class="form-control" id="school" name="school"
-                     value="{{ form.school if form else '' }}" placeholder="Tên trường đang học">
+                     value="{{ form.current_school if form else '' }}" placeholder="Tên trường đang học">
             </div>
           </div>
 

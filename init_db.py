@@ -22,13 +22,19 @@ def seed():
 
         # ── System configuration
         configs = [
-            ('center_name', 'Nhat Tuyen Tutoring Center', 'Center name'),
-            ('center_address', '159 Le Hong Phong, Kon Tum Ward, Quang Ngai', 'Center address'),
+            ('center_name', 'Học thêm Nhật Tuyền', 'Center name'),
+            ('center_address', '159 Lê Hồng Phong, Phường Kon Tum, Quảng Ngãi', 'Center address'),
             ('center_phone', '0901901891', 'Center phone number'),
             ('zalo_link', 'https://zalo.me/0901901891', 'Zalo chat link'),
             ('messenger_link', 'https://m.me/nhattuyenedu', 'Messenger link'),
             ('bank_account', '1234567890 - Vietcombank - Nguyen Trinh Thu Phuong', 'Bank account'),
             ('hall_of_fame_min_score', '8', 'Minimum score for hall of fame'),
+            ('hero_bg',         '#f8fdf9',                                      'Hero background color'),
+            ('hero_badge',      'TRUNG TÂM DẠY THÊM UY TÍN',                   'Hero badge text'),
+            ('hero_headline1',  'Học Thêm Chất Lượng',                          'Hero headline line 1'),
+            ('hero_headline2',  'Tại Nhật Tuyền',                               'Hero headline line 2 (gradient)'),
+            ('hero_sub',        'Lớp học sĩ số nhỏ, giáo viên tâm huyết — đồng hành cùng học sinh Tiểu học, THCS và THPT trên con đường học vấn.', 'Hero subtitle'),
+            ('hero_note',       'Tư vấn miễn phí – Liên hệ ngay hôm nay',       'Hero note below CTA button'),
         ]
         for key, val, desc in configs:
             db.session.add(SystemConfig(key=key, value=val, description=desc))
@@ -44,53 +50,40 @@ def seed():
         db.session.add(admin)
         db.session.flush()
 
+        # ── Courses (fixed list, no level field)
+        course_names_list = [
+            'Toán', 'Tiếng Việt', 'Ngữ Văn', 'Anh Văn',
+            'Lịch Sử', 'Địa Lý', 'KHTN',
+            'Vật lý', 'Hóa học', 'Sinh học', 'Tiếng Trung',
+        ]
+        courses = {}
+        for cname in course_names_list:
+            c = Course(name=cname)
+            db.session.add(c)
+            db.session.flush()
+            courses[cname] = c
+        print(f"✓ {len(courses)} môn học đã được thêm")
+
         # ── Teachers
         teacher_data = [
-            # (full_name, username, phone, specialty, is_staff, base_salary)
-            ('Tran Van An', 'gvtoan', '0912345678', 'Mathematics', True, 8000000),
-            ('Le Thi Binh', 'gvly', '0923456789', 'Physics', True, 7000000),
-            ('Pham Quoc Cuong', 'gvhoa', '0934567890', 'Chemistry', True, 7500000),
-            ('Nguyen Minh Dung', 'gvvan', '0945678901', 'Literature', False, 0),  # Part-time
+            # (full_name, username, phone, is_staff, base_salary)
+            ('Trần Văn An', 'gvtoan', '0912345678', True, 8000000),
+            ('Lê Thị Bình', 'gvly', '0923456789', True, 7000000),
+            ('Phạm Quốc Cường', 'gvhoa', '0934567890', True, 7500000),
+            ('Nguyễn Minh Dũng', 'gvvan', '0945678901', False, 0),
         ]
         teachers = []
-        for fname, uname, phone, spec, is_staff, salary in teacher_data:
-            u = User(
-                full_name=fname,
-                username=uname,
-                phone=phone,
-                role=UserRole.TEACHER
-            )
+        for fname, uname, phone, is_staff, salary in teacher_data:
+            u = User(full_name=fname, username=uname, phone=phone, role=UserRole.TEACHER)
             u.set_password('teacher123')
             db.session.add(u)
             db.session.flush()
-            t = Teacher(
-                user_id=u.id,
-                specialty=spec,
-                is_staff=is_staff,
-                base_salary=salary
-            )
+            t = Teacher(user_id=u.id, is_staff=is_staff, base_salary=salary)
             db.session.add(t)
             db.session.flush()
             teachers.append(t)
 
-        # ── Courses
-        course_data = [
-            # (name, level)
-            ('Mathematics', StudentLevel.SECONDARY),
-            ('Mathematics', StudentLevel.HIGH_SCHOOL),
-            ('Physics', StudentLevel.SECONDARY),
-            ('Physics', StudentLevel.HIGH_SCHOOL),
-            ('Chemistry', StudentLevel.SECONDARY),
-            ('Chemistry', StudentLevel.HIGH_SCHOOL),
-            ('Literature', StudentLevel.SECONDARY),
-            ('Mathematics', StudentLevel.PRIMARY),
-        ]
-        courses = {}
-        for cname, level in course_data:
-            c = Course(name=cname, level=level)
-            db.session.add(c)
-            db.session.flush()
-            courses[f'{cname}_{level}'] = c
+        db.session.flush()
 
         # ── Academic year
         ay = AcademicYear(
@@ -105,21 +98,21 @@ def seed():
         # ── Semesters
         sem_summer = Semester(
             academic_year_id=ay.id,
-            name='Summer 2025',
+            name='Học hè 2025',
             semester_type=SemesterType.SUMMER,
             start_date=date(2025, 6, 1),
             end_date=date(2025, 8, 31)
         )
         sem_1 = Semester(
             academic_year_id=ay.id,
-            name='Semester 1 (2025-2026)',
+            name='Học kỳ 1 (2025-2026)',
             semester_type=SemesterType.SEMESTER_1,
             start_date=date(2025, 9, 1),
             end_date=date(2026, 1, 31)
         )
         sem_2 = Semester(
             academic_year_id=ay.id,
-            name='Semester 2 (2025-2026)',
+            name='Học kỳ 2 (2025-2026)',
             semester_type=SemesterType.SEMESTER_2,
             start_date=date(2026, 2, 1),
             end_date=date(2026, 5, 31)
@@ -129,26 +122,28 @@ def seed():
 
         # ── Classes
         class_data = [
-            # (name, course, grade_level, teacher, max_students)
-            ('Math 8A', courses['Mathematics_secondary'], 'Class 8', teachers[0], 15),
-            ('Math 10B', courses['Mathematics_high_school'], 'Class 10', teachers[0], 15),
-            ('Physics 10A', courses['Physics_high_school'], 'Class 10', teachers[1], 12),
-            ('Chemistry 9A', courses['Chemistry_secondary'], 'Class 9', teachers[2], 12),
-            ('Math Primary 4', courses['Mathematics_primary'], 'Class 4', teachers[0], 10),
+            # (name, course_key, grade_level, primary_teacher_idx, max_students)
+            ('Lớp 8A - Toán',     'Toán',    'Lớp 8',  0, 15),
+            ('Lớp 10A - Toán',    'Toán',    'Lớp 10', 0, 15),
+            ('Lớp 10A - Vật lý',  'Vật lý',  'Lớp 10', 1, 12),
+            ('Lớp 9A - Hóa học',  'Hóa học', 'Lớp 9',  2, 12),
+            ('Lớp 4A - Toán',     'Toán',    'Lớp 4',  0, 10),
         ]
         classes = []
-        for cname, course, grade, teacher, max_s in class_data:
+        for cname, course_key, grade, primary_idx, max_s in class_data:
+            primary_teacher = teachers[primary_idx]
             cl = Class(
                 name=cname,
-                course_id=course.id,
+                course_id=courses[course_key].id,
                 grade_level=grade,
                 max_students=max_s,
+                primary_teacher_id=primary_teacher.id,
                 start_date=date(2025, 9, 1),
                 end_date=date(2026, 5, 31)
             )
             db.session.add(cl)
             db.session.flush()
-            classes.append((cl, teacher))
+            classes.append((cl, primary_teacher))
 
         # ── Students
         students_data = [
@@ -362,7 +357,7 @@ def seed():
         print("✓ Sample data seeded successfully!")
         print("\n--- SAMPLE ACCOUNTS ---")
         print("Admin:  admin / admin123")
-        print("Teacher: gvtoan / teacher123")
+        print("Teacher: phuonglinh / teacher123")
         print("Parent: parent01 / parent123")
         print("-" * 40)
 

@@ -1,0 +1,105 @@
+{% extends 'admin/base.html' %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ url_for('admin.teachers') }}">Giáo viên</a></li>
+<li class="breadcrumb-item active">{% if action == 'add' %}Thêm mới{% else %}Chỉnh sửa{% endif %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-7">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+    <div class="alert alert-{{ cat }} alert-dismissible fade show" role="alert">
+      {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+    {% endwith %}
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold">
+        <i class="bi bi-person-badge me-2 text-primary"></i>
+        {% if action == 'add' %}Thêm giáo viên mới{% else %}Chỉnh sửa giáo viên{% endif %}
+      </div>
+      <div class="card-body">
+
+        {% if action == 'add' %}
+        <form method="post" action="{{ url_for('admin.teacher_add') }}">
+        {% else %}
+        <form method="post" action="{{ url_for('admin.teacher_edit', teacher_id=teacher.id) }}">
+        {% endif %}
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <h6 class="text-muted fw-semibold mb-3 text-uppercase small">Thông tin tài khoản</h6>
+          <div class="row g-3 mb-4">
+            <div class="col-12">
+              <label class="form-label fw-semibold">Họ và tên <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" name="full_name" required
+                     value="{{ teacher.full_name if action == 'edit' else (form.get('full_name','') if form is mapping else '') }}">
+            </div>
+            {% if action == 'add' %}
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Tên đăng nhập <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" name="username" required
+                     value="{{ form.get('username','') if form is mapping else '' }}">
+            </div>
+            {% endif %}
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Số điện thoại <span class="text-danger">*</span></label>
+              <input type="tel" class="form-control" name="phone" required
+                     value="{{ teacher.phone if action == 'edit' else (form.get('phone','') if form is mapping else '') }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">
+                Mật khẩu {% if action == 'add' %}<span class="text-danger">*</span>{% else %}<span class="text-muted small">(để trống = giữ nguyên)</span>{% endif %}
+              </label>
+              <input type="password" class="form-control" name="password" {% if action == 'add' %}required{% endif %}
+                     autocomplete="new-password">
+            </div>
+            {% if action == 'edit' %}
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Trạng thái tài khoản</label>
+              <select class="form-select" name="is_active">
+                <option value="1" {% if teacher.user.is_active %}selected{% endif %}>Hoạt động</option>
+                <option value="0" {% if not teacher.user.is_active %}selected{% endif %}>Đã vô hiệu hóa</option>
+              </select>
+            </div>
+            {% endif %}
+          </div>
+
+          <h6 class="text-muted fw-semibold mb-3 text-uppercase small">Thông tin giảng dạy</h6>
+          <div class="row g-3 mb-4">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Loại hợp đồng</label>
+              <select class="form-select" name="is_staff">
+                <option value="1" {% if (action == 'edit' and teacher.is_staff) or action == 'add' %}selected{% endif %}>Hợp đồng (full-time)</option>
+                <option value="0" {% if action == 'edit' and not teacher.is_staff %}selected{% endif %}>Trợ giảng (part-time)</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Lương cơ bản (VNĐ/tháng)</label>
+              <input type="number" class="form-control" name="base_salary" min="0" step="100000"
+                     value="{{ teacher.base_salary | int if action == 'edit' else 0 }}">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Ghi chú</label>
+              <textarea class="form-control" name="note" rows="2"
+                        placeholder="Chuyên môn, kinh nghiệm...">{{ teacher.note or '' if action == 'edit' else '' }}</textarea>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary px-4">
+              <i class="bi bi-check-lg me-1"></i>
+              {% if action == 'add' %}Thêm giáo viên{% else %}Lưu thay đổi{% endif %}
+            </button>
+            <a href="{{ url_for('admin.teachers') }}" class="btn btn-outline-secondary">Hủy</a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

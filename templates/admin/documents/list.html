@@ -89,7 +89,7 @@
         </thead>
         <tbody>
           {% for doc in docs %}
-          {% set ext = doc.filename.rsplit('.', 1)[-1].lower() if doc.filename else '' %}
+          {% set ext = doc.original_filename.rsplit('.', 1)[-1].lower() if doc.original_filename else '' %}
           <tr>
             <td class="ps-3 text-center">
               {% if ext == 'pdf' %}
@@ -117,7 +117,7 @@
               {% if doc.description %}
               <div class="small text-muted">{{ doc.description }}</div>
               {% endif %}
-              <div class="small text-muted font-monospace">{{ doc.filename }}</div>
+              <div class="small text-muted font-monospace">{{ doc.original_filename }}</div>
             </td>
             <td class="small">
               {% if doc.class_ %}

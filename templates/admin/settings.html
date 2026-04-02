@@ -93,6 +93,70 @@
         </div>
       </div>
 
+      <!-- Hero section -->
+      <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header fw-semibold py-2 bg-light">
+          <i class="bi bi-layout-text-window me-1"></i>Trang chủ — Hero
+        </div>
+        <div class="card-body">
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="hero_badge">Nhãn badge</label>
+            <input type="text" class="form-control" name="hero_badge" id="hero_badge"
+                   value="{{ configs.get('hero_badge', '') }}"
+                   placeholder="TRUNG TÂM DẠY THÊM UY TÍN">
+            <div class="form-text">Dòng chữ nhỏ phía trên tiêu đề (viết hoa nổi bật).</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="hero_headline1">Tiêu đề dòng 1</label>
+            <input type="text" class="form-control" name="hero_headline1" id="hero_headline1"
+                   value="{{ configs.get('hero_headline1', '') }}"
+                   placeholder="Học Thêm Chất Lượng">
+            <div class="form-text">Dòng chữ lớn, màu tối.</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="hero_headline2">Tiêu đề dòng 2 (gradient màu)</label>
+            <input type="text" class="form-control" name="hero_headline2" id="hero_headline2"
+                   value="{{ configs.get('hero_headline2', '') }}"
+                   placeholder="Tại Nhật Tuyền">
+            <div class="form-text">Dòng chữ lớn màu gradient xanh-vàng. Để trống nếu không dùng.</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="hero_sub">Mô tả ngắn</label>
+            <textarea class="form-control" name="hero_sub" id="hero_sub" rows="2"
+                      placeholder="Lớp học sĩ số nhỏ, giáo viên tâm huyết…">{{ configs.get('hero_sub', '') }}</textarea>
+            <div class="form-text">Đoạn văn giới thiệu bên dưới tiêu đề.</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="hero_note">Ghi chú dưới nút CTA</label>
+            <input type="text" class="form-control" name="hero_note" id="hero_note"
+                   value="{{ configs.get('hero_note', '') }}"
+                   placeholder="Tư vấn miễn phí – Liên hệ ngay hôm nay">
+            <div class="form-text">Dòng nhỏ hiển thị bên dưới nút "Tìm Lớp Học".</div>
+          </div>
+
+          <div class="mb-0">
+            <label class="form-label fw-semibold" for="hero_bg">Màu nền Hero</label>
+            <div class="input-group">
+              <input type="color" class="form-control form-control-color" id="hero_bg_picker"
+                     value="{{ configs.get('hero_bg', '#f8fdf9') }}"
+                     title="Chọn màu nền"
+                     oninput="document.getElementById('hero_bg').value=this.value">
+              <input type="text" class="form-control" name="hero_bg" id="hero_bg"
+                     value="{{ configs.get('hero_bg', '#f8fdf9') }}"
+                     placeholder="#f8fdf9 hoặc linear-gradient(…)"
+                     oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))document.getElementById('hero_bg_picker').value=this.value">
+            </div>
+            <div class="form-text">Nhập mã hex (ví dụ <code>#f0fdf4</code>) hoặc CSS gradient. Chọn màu từ bộ chọn bên trái.</div>
+          </div>
+
+        </div>
+      </div>
+
       <!-- Bảng danh dự -->
       <div class="card shadow-sm border-0 mb-4">
         <div class="card-header fw-semibold py-2 bg-light">

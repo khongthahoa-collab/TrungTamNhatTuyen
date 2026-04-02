@@ -49,8 +49,13 @@
         </a>
       </li>
       <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.salary') }}" class="nav-link text-white {% if 'salary' in request.endpoint %}active{% endif %}">
-          <i class="bi bi-wallet2 me-2"></i>Lương GV
+        <a href="{{ url_for('admin.teachers') }}" class="nav-link text-white {% if 'teacher' in request.endpoint %}active{% endif %}">
+          <i class="bi bi-person-badge me-2"></i>Giáo viên
+        </a>
+      </li>
+      <li class="nav-item mb-1">
+        <a href="{{ url_for('admin.rooms') }}" class="nav-link text-white {% if 'room' in request.endpoint %}active{% endif %}">
+          <i class="bi bi-door-open me-2"></i>Phòng học
         </a>
       </li>
       <li class="nav-item mb-1">
@@ -75,6 +80,14 @@
         </a>
       </li>
       <li class="nav-item mb-1">
+        <a href="{{ url_for('admin.inquiries') }}" class="nav-link text-white {% if 'inquir' in request.endpoint %}active{% endif %}">
+          <i class="bi bi-envelope me-2"></i>Liên hệ
+          {% if unread_inquiries > 0 %}
+            <span class="badge bg-danger ms-1">{{ unread_inquiries }}</span>
+          {% endif %}
+        </a>
+      </li>
+      <li class="nav-item mb-1">
         <a href="{{ url_for('admin.settings') }}" class="nav-link text-white {% if 'setting' in request.endpoint %}active{% endif %}">
           <i class="bi bi-gear me-2"></i>Cài đặt
         </a>
@@ -90,8 +103,8 @@
         <div class="small fw-semibold text-truncate">{{ current_user.full_name }}</div>
         <div class="text-white-50" style="font-size:0.7rem">Admin</div>
       </div>
-      <a href="{{ url_for('auth.logout') }}" class="text-white-50" title="Đăng xuất">
-        <i class="bi bi-box-arrow-right"></i>
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-danger" title="Đăng xuất">
+        <i class="bi bi-box-arrow-right me-1"></i><span style="font-size:0.75rem;">Xuất</span>
       </a>
     </div>
   </nav>
@@ -111,6 +124,19 @@
       </nav>
       <a href="{{ url_for('public.index') }}" target="_blank" class="btn btn-sm btn-outline-secondary ms-2" title="Xem trang công khai">
         <i class="bi bi-box-arrow-up-right"></i>
+      </a>
+      <!-- Bell notification (admin) -->
+      <a href="#" class="btn btn-sm btn-outline-secondary ms-2 position-relative" title="Thông báo">
+        <i class="bi bi-bell{% if unread_notifications %}-fill{% endif %}"></i>
+        {% if unread_notifications %}
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+              style="font-size:0.6rem;">
+          {{ unread_notifications if unread_notifications < 100 else '99+' }}
+        </span>
+        {% endif %}
+      </a>
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-danger ms-2">
+        <i class="bi bi-box-arrow-right me-1"></i>Đăng xuất
       </a>
     </div>
 

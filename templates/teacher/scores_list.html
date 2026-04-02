@@ -1,0 +1,40 @@
+{% extends 'teacher/base.html' %}
+{% block title %}Điểm số – Nhật Tuyền{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <div class="mb-3">
+    <h5 class="fw-bold mb-0"><i class="bi bi-pencil-square text-primary me-1"></i>Nhập điểm</h5>
+    <div class="text-muted small">Chọn lớp để nhập điểm học sinh</div>
+  </div>
+
+  {% if classes %}
+  <div class="list-group shadow-sm">
+    {% for cls in classes %}
+    <a href="{{ url_for('teacher.scores', class_id=cls.id) }}"
+       class="list-group-item list-group-item-action d-flex align-items-center gap-3 py-3">
+      <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center text-primary fw-bold flex-shrink-0"
+           style="width:44px;height:44px;font-size:0.85rem;">
+        {{ cls.name[:2] }}
+      </div>
+      <div class="flex-grow-1">
+        <div class="fw-semibold">{{ cls.name }}</div>
+        <div class="text-muted small">
+          {% if cls.course %}{{ cls.course.name }} · {% endif %}
+          {{ cls.current_enrollment }} học sinh
+        </div>
+      </div>
+      <i class="bi bi-chevron-right text-muted"></i>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="alert alert-light border text-center text-muted py-5">
+    <i class="bi bi-journal-x fs-3 d-block mb-2"></i>
+    Chưa có lớp nào được phân công
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

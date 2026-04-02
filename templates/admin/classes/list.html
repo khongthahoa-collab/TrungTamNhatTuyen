@@ -45,7 +45,7 @@
           <tr>
             <th class="ps-3">Tên lớp</th>
             <th>Môn học</th>
-            <th>Cấp</th>
+            <th>Lớp</th>
             <th>GV chính</th>
             <th class="text-center">Sĩ số</th>
             <th class="text-center">Trạng thái</th>
@@ -66,7 +66,9 @@
             <td class="small">{{ cls.course.name if cls.course else '—' }}</td>
             <td class="small">
               {% if cls.grade_level %}
-              <span class="badge bg-info-subtle text-info border border-info-subtle">{{ cls.grade_level }}</span>
+              <span class="badge bg-info-subtle text-info border border-info-subtle">
+                {{ grade_labels.get(cls.grade_level, cls.grade_level) }}
+              </span>
               {% else %}
               <span class="text-muted">—</span>
               {% endif %}

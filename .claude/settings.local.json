@@ -9,7 +9,9 @@
       "Bash(timeout 8 python run.py)",
       "Bash(python -c \":*)",
       "Bash(/Users/linh/trung-tam-nhat-tuyen/templates/admin/reports/index.html:*)",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(python -c ':*)",
+      "Bash(python3 -c ':*)"
     ]
   }
 }

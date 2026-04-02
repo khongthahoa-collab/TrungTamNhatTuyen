@@ -15,7 +15,7 @@ def require_admin(f):
 
 
 # Import sub-modules to register routes
-from blueprints.admin import students, classes, academic, finance, rewards, documents, reports, settings  # noqa
+from blueprints.admin import students, classes, academic, finance, rewards, documents, reports, settings, teachers, rooms  # noqa
 
 
 @admin_bp.route('/')
