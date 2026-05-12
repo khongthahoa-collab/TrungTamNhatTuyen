@@ -7,13 +7,15 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
 def _fix_db_url(url):
-    """Normalize database URL for SQLAlchemy.
-    - postgres:// (Supabase/Heroku) → postgresql:// (required by SQLAlchemy 2.x)
+    """Normalize database URL for SQLAlchemy + psycopg3.
+    - postgres://    → postgresql+psycopg://  (Supabase/Heroku old scheme)
+    - postgresql://  → postgresql+psycopg://  (force psycopg3 driver)
     """
     if not url:
         return url
-    if url.startswith('postgres://'):
-        return 'postgresql://' + url[len('postgres://'):]
+    for prefix in ('postgres://', 'postgresql://', 'postgresql+psycopg2://'):
+        if url.startswith(prefix):
+            return 'postgresql+psycopg://' + url.split('://', 1)[1]
     return url
 
 
@@ -41,6 +43,11 @@ class ProductionConfig(Config):
     # REQUIRED: Set DATABASE_URL in Render.com environment variables
     SQLALCHEMY_DATABASE_URI = _fix_db_url(os.environ.get('DATABASE_URL'))
     WTF_CSRF_SSL_STRICT = True
+    # Supabase dùng pgbouncer transaction mode — phải tắt prepared statements
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_pre_ping': True,
+        'connect_args': {'prepare_threshold': 0},
+    }
 
     def __init__(self):
         if not self.SQLALCHEMY_DATABASE_URI:
