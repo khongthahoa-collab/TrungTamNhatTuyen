@@ -46,10 +46,11 @@ class ProductionConfig(Config):
     # REQUIRED: Set DATABASE_URL in Render.com environment variables
     SQLALCHEMY_DATABASE_URI = _fix_db_url(os.environ.get('DATABASE_URL'))
     WTF_CSRF_SSL_STRICT = True
-    # Supabase dùng pgbouncer transaction mode — phải tắt prepared statements
+    # Supabase pgbouncer transaction mode: prepare_threshold=None tắt hoàn toàn prepared statements
+    # (prepare_threshold=0 là "prepare ngay lập tức" — SAI; None mới là "không bao giờ prepare")
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_pre_ping': True,
-        'connect_args': {'prepare_threshold': 0},
+        'connect_args': {'prepare_threshold': None},
     }
 
     def __init__(self):
