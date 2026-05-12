@@ -8,11 +8,14 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 def _fix_db_url(url):
     """Normalize database URL for SQLAlchemy + psycopg3.
-    - postgres://    → postgresql+psycopg://  (Supabase/Heroku old scheme)
-    - postgresql://  → postgresql+psycopg://  (force psycopg3 driver)
+    - Xoá ?pgbouncer=true  — psycopg3 không nhận param này (dùng prepare_threshold=0 thay)
+    - postgres://           → postgresql+psycopg://
+    - postgresql://         → postgresql+psycopg://  (force psycopg3 driver)
     """
     if not url:
         return url
+    # Strip pgbouncer query param — psycopg3 rejects unknown libpq params
+    url = url.replace('?pgbouncer=true', '').replace('&pgbouncer=true', '')
     for prefix in ('postgres://', 'postgresql://', 'postgresql+psycopg2://'):
         if url.startswith(prefix):
             return 'postgresql+psycopg://' + url.split('://', 1)[1]
