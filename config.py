@@ -6,6 +6,16 @@ load_dotenv()
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
+def _fix_db_url(url):
+    """Ensure PyMySQL driver is used — mysql:// and mysql+mysqldb:// both require
+    the mysqlclient C extension which is not available in native environments."""
+    if not url:
+        return url
+    if url.startswith('mysql://') or url.startswith('mysql+mysqldb://'):
+        return 'mysql+pymysql://' + url.split('://', 1)[1]
+    return url
+
+
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -22,18 +32,16 @@ class Config:
 
 class DevelopmentConfig(Config):
     DEBUG = True
-    # MySQL database URI
-    # Format: mysql+pymysql://user:password@host:port/database
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
+    SQLALCHEMY_DATABASE_URI = _fix_db_url(os.environ.get(
         'DATABASE_URL',
         'mysql+pymysql://nhat_tuyen_user:nhat_tuyen_pass@localhost:3306/nhat_tuyen_db'
-    )
+    ))
 
 
 class ProductionConfig(Config):
     DEBUG = False
     # REQUIRED: Set DATABASE_URL in Render.com environment variables
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
+    SQLALCHEMY_DATABASE_URI = _fix_db_url(os.environ.get('DATABASE_URL'))
     WTF_CSRF_SSL_STRICT = True
 
     def __init__(self):
