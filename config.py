@@ -1,6 +1,5 @@
 import os
 from dotenv import load_dotenv
-from sqlalchemy.pool import NullPool
 
 load_dotenv()
 
@@ -47,13 +46,8 @@ class ProductionConfig(Config):
     # REQUIRED: Set DATABASE_URL in Render.com environment variables
     SQLALCHEMY_DATABASE_URI = _fix_db_url(os.environ.get('DATABASE_URL'))
     WTF_CSRF_SSL_STRICT = True
-    # NullPool + prepare_threshold=None: giải pháp dứt điểm cho Supabase pgbouncer
-    # - NullPool: không cache connections, tránh stale prepared statement state
-    # - prepare_threshold=None: psycopg3 không bao giờ tạo server-side prepared statement
-    SQLALCHEMY_ENGINE_OPTIONS = {
-        'poolclass': NullPool,
-        'connect_args': {'prepare_threshold': None},
-    }
+    # pool_pre_ping: reconnect tự động nếu connection bị drop
+    SQLALCHEMY_ENGINE_OPTIONS = {'pool_pre_ping': True}
 
     def __init__(self):
         if not self.SQLALCHEMY_DATABASE_URI:
