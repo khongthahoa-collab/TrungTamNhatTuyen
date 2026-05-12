@@ -58,7 +58,7 @@ def dashboard():
                            pending_attendance=pending_attendance)
 
 
-@teacher_bp.route('/lich-day')
+@teacher_bp.route('/schedule')
 @login_required
 @require_teacher
 def schedule():
@@ -112,56 +112,9 @@ def checkin(schedule_id):
     return redirect(next_url)
 
 
-@teacher_bp.route('/diem-danh/<int:schedule_id>', methods=['GET', 'POST'])
-@login_required
-@require_teacher
-def attendance(schedule_id):
-    teacher = current_user.teacher_profile
-    schedule = Schedule.query.get_or_404(schedule_id)
-
-    if schedule.teacher_id != teacher.id and not current_user.is_admin:
-        abort(403)
-
-    students = schedule.class_.active_students
-    existing = {a.student_id: a for a in schedule.attendances.all()}
-
-    if request.method == 'POST':
-        for student in students:
-            status = request.form.get(f'status_{student.id}', 'present')
-            note = request.form.get(f'note_{student.id}', '').strip()
-
-            if student.id in existing:
-                att = existing[student.id]
-                att.status = status
-                att.note = note
-            else:
-                att = Attendance(
-                    schedule_id=schedule.id,
-                    student_id=student.id,
-                    status=status,
-                    note=note,
-                    recorded_by=current_user.id,
-                )
-                db.session.add(att)
-
-            # Zalo notification for absent/late
-            if status in ('absent', 'late') and not att.zalo_notified:
-                ZaloService.send_absence_notification(student, schedule, status, note)
-                att.zalo_notified = True
-
-        db.session.commit()
-        flash('Đã lưu điểm danh thành công.', 'success')
-        return redirect(url_for('teacher.dashboard'))
-
-    # Pre-fill: all present by default
-    prefill = {s.id: existing.get(s.id) for s in students}
-    return render_template('teacher/attendance.html',
-                           schedule=schedule,
-                           students=students,
-                           existing=prefill)
 
 
-@teacher_bp.route('/nhap-diem/<int:class_id>', methods=['GET', 'POST'])
+@teacher_bp.route('/scores/<int:class_id>', methods=['GET', 'POST'])
 @login_required
 @require_teacher
 def scores(class_id):
@@ -249,7 +202,7 @@ def scores(class_id):
                            today=date.today())
 
 
-@teacher_bp.route('/tai-lieu/<int:class_id>', methods=['GET', 'POST'])
+@teacher_bp.route('/documents/<int:class_id>', methods=['GET', 'POST'])
 @login_required
 @require_teacher
 def documents(class_id):
@@ -306,7 +259,7 @@ def documents(class_id):
                            class_=class_, docs=docs, allowed_ext=allowed_ext)
 
 
-@teacher_bp.route('/tai-lieu/xoa/<int:doc_id>', methods=['POST'])
+@teacher_bp.route('/documents/<int:doc_id>/delete', methods=['POST'])
 @login_required
 @require_teacher
 def delete_document(doc_id):
@@ -320,7 +273,7 @@ def delete_document(doc_id):
     return redirect(request.referrer or url_for('teacher.dashboard'))
 
 
-@teacher_bp.route('/tao-lich-tang-cuong', methods=['GET', 'POST'])
+@teacher_bp.route('/intensive/create', methods=['GET', 'POST'])
 @login_required
 @require_teacher
 def create_intensive():
@@ -432,7 +385,7 @@ def create_intensive():
                            teacher=teacher, classes=my_classes, rooms=rooms)
 
 
-@teacher_bp.route('/phong-trong')
+@teacher_bp.route('/rooms/available')
 @login_required
 @require_teacher
 def available_rooms():
@@ -472,7 +425,7 @@ def available_rooms():
     ]})
 
 
-@teacher_bp.route('/diem-so')
+@teacher_bp.route('/scores')
 @login_required
 @require_teacher
 def scores_list():
@@ -488,7 +441,7 @@ def scores_list():
     return render_template('teacher/scores_list.html', teacher=teacher, classes=classes)
 
 
-@teacher_bp.route('/thong-bao')
+@teacher_bp.route('/notifications')
 @login_required
 @require_teacher
 def notifications():
@@ -500,3 +453,202 @@ def notifications():
     Notification.query.filter_by(user_id=current_user.id, is_read=False).update({'is_read': True})
     db.session.commit()
     return render_template('teacher/notifications.html', notifs=notifs)
+
+
+# ============================================================
+# Attendance Management Routes
+# ============================================================
+
+@teacher_bp.route('/attendance')
+@login_required
+@require_teacher
+def attendance_list():
+    """List all schedules needing attendance"""
+    from models import AttendanceSummary
+    teacher = current_user.teacher_profile
+    today = date.today()
+    
+    # Get schedules for this teacher that need attendance
+    schedules = Schedule.query.filter_by(
+        teacher_id=teacher.id, is_cancelled=False
+    ).filter(Schedule.date <= today).all()
+    
+    # Load attendance summaries
+    summaries = AttendanceSummary.query.filter(
+        AttendanceSummary.schedule_id.in_([s.id for s in schedules])
+    ).all()
+    summary_dict = {s.schedule_id: s for s in summaries}
+    
+    return render_template('teacher/attendance_list.html',
+                         schedules=schedules,
+                         summaries=summary_dict,
+                         today=today)
+
+
+@teacher_bp.route('/attendance/<int:schedule_id>')
+@login_required
+@require_teacher
+def attendance_session(schedule_id):
+    """Attendance taking for a specific session"""
+    from models import AttendanceSummary
+    schedule = Schedule.query.get_or_404(schedule_id)
+
+    # Allow access: teacher assigned to this schedule, or admin
+    teacher = current_user.teacher_profile
+    if not current_user.is_admin and (not teacher or schedule.teacher_id != teacher.id):
+        abort(403)
+    
+    # Get enrolled students
+    enrollments = Enrollment.query.filter_by(class_id=schedule.class_id, is_active=True).all()
+    
+    # Get existing attendance records
+    attendances = Attendance.query.filter_by(schedule_id=schedule_id).all()
+    attendance_dict = {a.student_id: a for a in attendances}
+    
+    # Get or create summary
+    summary = AttendanceSummary.query.filter_by(schedule_id=schedule_id).first()
+    if not summary:
+        summary = AttendanceSummary(
+            schedule_id=schedule_id,
+            class_id=schedule.class_id,
+            total_enrolled=len(enrollments)
+        )
+        db.session.add(summary)
+        db.session.commit()
+    
+    from models import SystemConfig
+    center_name = SystemConfig.get('center_name', 'Trung tâm học thêm Nhật Tuyền')
+    center_phone = SystemConfig.get('center_phone', '')
+
+    return render_template('teacher/attendance_session.html',
+                         schedule=schedule,
+                         enrollments=enrollments,
+                         attendance_dict=attendance_dict,
+                         summary=summary,
+                         center_name=center_name,
+                         center_phone=center_phone,
+                         attendance_status=dict(
+                             PRESENT='Có mặt',
+                             ABSENT='Vắng',
+                             LATE='Trễ',
+                             EXCUSED='Vắng có phép'
+                         ))
+
+
+@teacher_bp.route('/api/attendance/<int:schedule_id>/save', methods=['POST'])
+@login_required
+def save_attendance(schedule_id):
+    """Save attendance records for a session (teacher or admin)"""
+    from models import AttendanceSummary
+    if not current_user.is_teacher and not current_user.is_admin:
+        return jsonify({'error': 'Forbidden'}), 403
+    schedule = Schedule.query.get_or_404(schedule_id)
+
+    # Teachers can only save attendance for their own schedules
+    teacher = current_user.teacher_profile
+    if current_user.is_teacher and not current_user.is_admin:
+        if not teacher or schedule.teacher_id != teacher.id:
+            return jsonify({'error': 'Unauthorized'}), 403
+    
+    data = request.get_json()
+    attendance_records = data.get('attendance', [])
+    
+    # Update or create attendance records
+    present_count = 0
+    absent_count = 0
+    late_count = 0
+    excused_count = 0
+    
+    for record in attendance_records:
+        student_id = record['student_id']
+        status = record['status']
+        reason = record.get('reason', '')
+        
+        att = Attendance.query.filter_by(
+            schedule_id=schedule_id,
+            student_id=student_id
+        ).first()
+        
+        if not att:
+            att = Attendance(
+                schedule_id=schedule_id,
+                student_id=student_id
+            )
+            db.session.add(att)
+        
+        att.status = status
+        att.reason = reason
+        att.recorded_by = current_user.id
+        att.recorded_at = datetime.utcnow()
+        
+        # Count stats
+        if status == 'present':
+            present_count += 1
+        elif status == 'absent':
+            absent_count += 1
+        elif status == 'late':
+            late_count += 1
+        elif status == 'excused':
+            excused_count += 1
+    
+    # Update or create summary
+    summary = AttendanceSummary.query.filter_by(schedule_id=schedule_id).first()
+    if not summary:
+        summary = AttendanceSummary(
+            schedule_id=schedule_id,
+            class_id=schedule.class_id
+        )
+        db.session.add(summary)
+    
+    summary.present_count = present_count
+    summary.absent_count = absent_count
+    summary.late_count = late_count
+    summary.excused_count = excused_count
+    summary.total_enrolled = len(attendance_records)
+    
+    db.session.commit()
+
+    # Build absent/late student list with names
+    student_ids = [r['student_id'] for r in attendance_records if r['status'] in ('absent', 'excused', 'late')]
+    students_by_id = {s.id: s for s in Student.query.filter(Student.id.in_(student_ids)).all()}
+    absent_students = []
+    for record in attendance_records:
+        if record['status'] in ('absent', 'excused', 'late'):
+            s = students_by_id.get(record['student_id'])
+            if s:
+                label = {'absent': 'Vắng không phép', 'excused': 'Vắng có phép', 'late': 'Đi trễ'}.get(record['status'], record['status'])
+                absent_students.append({'name': s.full_name, 'status': record['status'], 'status_label': label, 'reason': record.get('reason', '')})
+
+    teacher_display = schedule.teacher.display_name if schedule.teacher else ''
+
+    total = len(attendance_records)
+    summary_data = {
+        'class_name': schedule.class_.name,
+        'date': schedule.date.strftime('%d/%m/%Y'),
+        'teacher_display': teacher_display,
+        'total': total,
+        'present': present_count + late_count,
+        'excused': excused_count,
+        'absent': absent_count,
+        'late': late_count,
+        'absent_students': absent_students,
+        'zalo_sent': False,
+    }
+
+    # Option to send to Zalo group
+    send_zalo = data.get('send_zalo', False)
+    if send_zalo:
+        zalo_group = schedule.class_.zalo_group
+        zalo_target = zalo_group.zalo_group_id if zalo_group and zalo_group.is_active else schedule.class_.zalo_group_id
+        if zalo_target:
+            ZaloService.send_attendance_summary_to_group(schedule, summary_data, zalo_target)
+            summary.is_sent_zalo = True
+            summary.zalo_sent_at = datetime.utcnow()
+            db.session.commit()
+            summary_data['zalo_sent'] = True
+    
+    return jsonify({
+        'success': True,
+        'message': 'Lưu điểm danh thành công',
+        'summary': summary_data
+    })

@@ -232,6 +232,7 @@ class User(UserMixin, db.Model):
     phone = db.Column(db.String(15), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), nullable=False, default=UserRole.PARENT)
+    gender = db.Column(db.String(10))  # male/female
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime)
@@ -299,6 +300,29 @@ class Teacher(db.Model):
     @property
     def phone(self):
         return self.user.phone if self.user else ''
+
+    @property
+    def title(self):
+        """Thầy for male, Cô for female, Thầy/Cô if unknown"""
+        if not self.user:
+            return 'Thầy/Cô'
+        if self.user.gender == 'male':
+            return 'Thầy'
+        if self.user.gender == 'female':
+            return 'Cô'
+        return 'Thầy/Cô'
+
+    @property
+    def display_name(self):
+        """'Thầy Nguyễn Văn A', 'Cô Trần Thị B', hoặc chỉ 'Nguyễn Văn C' nếu chưa đặt giới tính"""
+        if not self.full_name:
+            return ''
+        gender = self.user.gender if self.user else None
+        if gender == 'male':
+            return f'Thầy {self.full_name}'
+        if gender == 'female':
+            return f'Cô {self.full_name}'
+        return self.full_name
 
     @property
     def specialties(self):
@@ -404,12 +428,15 @@ class Class(db.Model):
     course_id = db.Column(db.Integer, db.ForeignKey('courses.id'), nullable=False)
     grade_level = db.Column(db.String(20))  # e.g., "Class 10", "Class 6A"
     max_students = db.Column(db.Integer, default=20)
+    monthly_fee = db.Column(db.Float, default=0)       # Học phí cơ bản mỗi tháng (đủ 4 tuần)
+    sessions_per_week = db.Column(db.Integer, default=1)  # Số buổi học trong 1 tuần
     start_date = db.Column(db.Date)
     end_date = db.Column(db.Date)
     is_active = db.Column(db.Boolean, default=True)
     description = db.Column(db.Text)
     primary_teacher_id = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=True)
     assistant_teacher_id = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=True)
+    zalo_group_id = db.Column(db.String(100))  # Zalo group ID for class notifications
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -513,7 +540,6 @@ class Schedule(db.Model):
     start_time = db.Column(db.Time, nullable=False)
     end_time = db.Column(db.Time, nullable=False)
     room = db.Column(db.String(50))
-    room_id = db.Column(db.Integer, db.ForeignKey('rooms.id'), nullable=True)
     topic = db.Column(db.String(255))
     schedule_type = db.Column(db.String(20), default=ScheduleType.REGULAR)
     semester_id = db.Column(db.Integer, db.ForeignKey('semesters.id'), nullable=True)
@@ -527,7 +553,6 @@ class Schedule(db.Model):
     attendances = db.relationship('Attendance', backref='schedule', lazy='dynamic',
                                   cascade='all, delete-orphan')
     semester = db.relationship('Semester', backref='schedules')
-    room_obj = db.relationship('Room', foreign_keys=[room_id], backref='schedules')
 
     @property
     def is_today(self):
@@ -557,6 +582,8 @@ class Attendance(db.Model):
     student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
     status = db.Column(db.String(20), nullable=False, default=AttendanceStatus.PRESENT)
     note = db.Column(db.String(255))
+    reason = db.Column(db.String(255))  # Reason for absence (if excused)
+    is_late_approval = db.Column(db.Boolean, default=False)  # Approved for being late
     recorded_at = db.Column(db.DateTime, default=datetime.utcnow)
     recorded_by = db.Column(db.Integer, db.ForeignKey('users.id'))
     zalo_notified = db.Column(db.Boolean, default=False)  # Whether parent was notified via Zalo
@@ -648,13 +675,21 @@ class TuitionPayment(db.Model):
     student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
     class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False)
     amount = db.Column(db.Float, nullable=False)
+    payment_stage = db.Column(db.String(50), default='100')  # 25, 50, 75, 100
+    amount_25pct = db.Column(db.Float, default=0)
+    amount_50pct = db.Column(db.Float, default=0)
+    amount_75pct = db.Column(db.Float, default=0)
+    amount_100pct = db.Column(db.Float, default=0)
     month = db.Column(db.Integer, nullable=False)
     year = db.Column(db.Integer, nullable=False)
+    school_name = db.Column(db.String(200))  # Student's school name
+    note_special = db.Column(db.String(500))  # Special note
     paid_at = db.Column(db.DateTime)
     method = db.Column(db.String(20), default=TuitionMethod.CASH)  # cash/transfer
     received_by = db.Column(db.Integer, db.ForeignKey('users.id'))
     note = db.Column(db.String(255))
     is_paid = db.Column(db.Boolean, default=False)
+    is_finalized = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -664,6 +699,19 @@ class TuitionPayment(db.Model):
     def method_label(self):
         """Get human-readable payment method"""
         return TuitionMethod.LABELS.get(self.method, self.method)
+
+    @property
+    def payment_status(self):
+        """Calculate payment status based on amounts"""
+        if self.amount_100pct > 0 and self.is_paid:
+            return '100%'
+        elif self.amount_75pct > 0:
+            return '75%'
+        elif self.amount_50pct > 0:
+            return '50%'
+        elif self.amount_25pct > 0:
+            return '25%'
+        return 'Chưa thanh toán'
 
     def __repr__(self):
         return f'<TuitionPayment student={self.student_id} month_year={self.month}/{self.year}>'
@@ -825,3 +873,144 @@ class ContactInquiry(db.Model):
 
     def __repr__(self):
         return f'<ContactInquiry student={self.student_name}>'
+
+
+class ClassZaloGroup(db.Model):
+    """Zalo group management for class notifications"""
+    __tablename__ = 'class_zalo_groups'
+
+    id = db.Column(db.Integer, primary_key=True)
+    class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False)
+    zalo_group_id = db.Column(db.String(100), unique=True)
+    zalo_group_name = db.Column(db.String(255))
+    zalo_group_link = db.Column(db.String(500))
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    class_ = db.relationship('Class', backref='zalo_group', uselist=False)
+
+    def __repr__(self):
+        return f'<ClassZaloGroup class={self.class_id} group={self.zalo_group_name}>'
+
+
+class AttendanceSummary(db.Model):
+    """Summary of attendance for a class session"""
+    __tablename__ = 'attendance_summaries'
+
+    id = db.Column(db.Integer, primary_key=True)
+    schedule_id = db.Column(db.Integer, db.ForeignKey('schedules.id'), nullable=False, unique=True)
+    class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False)
+    total_enrolled = db.Column(db.Integer, default=0)
+    present_count = db.Column(db.Integer, default=0)
+    absent_count = db.Column(db.Integer, default=0)
+    late_count = db.Column(db.Integer, default=0)
+    excused_count = db.Column(db.Integer, default=0)
+    is_sent_zalo = db.Column(db.Boolean, default=False)
+    zalo_sent_at = db.Column(db.DateTime)
+    summary_note = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
+    schedule = db.relationship('Schedule', backref='attendance_summary', uselist=False)
+    class_ = db.relationship('Class', backref='attendance_summaries')
+
+    @property
+    def attendance_rate(self):
+        """Calculate attendance rate percentage"""
+        if self.total_enrolled == 0:
+            return 0
+        return round((self.present_count / self.total_enrolled) * 100, 1)
+
+    def __repr__(self):
+        return f'<AttendanceSummary schedule={self.schedule_id} present={self.present_count}>'
+
+
+class TuitionReport(db.Model):
+    """Monthly tuition summary report per class"""
+    __tablename__ = 'tuition_reports'
+
+    id = db.Column(db.Integer, primary_key=True)
+    class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False)
+    month = db.Column(db.Integer, nullable=False)
+    year = db.Column(db.Integer, nullable=False)
+    total_students = db.Column(db.Integer, default=0)
+    total_amount = db.Column(db.Float, default=0)
+    amount_25pct_total = db.Column(db.Float, default=0)
+    amount_50pct_total = db.Column(db.Float, default=0)
+    amount_75pct_total = db.Column(db.Float, default=0)
+    amount_100pct_total = db.Column(db.Float, default=0)
+    fully_paid_count = db.Column(db.Integer, default=0)
+    partial_paid_count = db.Column(db.Integer, default=0)
+    unpaid_count = db.Column(db.Integer, default=0)
+    is_finalized = db.Column(db.Boolean, default=False)
+    finalized_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint('class_id', 'month', 'year', name='uq_tuition_report'),)
+
+    # Relationships
+    class_ = db.relationship('Class', backref='tuition_reports')
+
+    @property
+    def collection_rate(self):
+        """Calculate tuition collection rate"""
+        if self.total_students == 0:
+            return 0
+        paid = self.fully_paid_count + self.partial_paid_count
+        return round((paid / self.total_students) * 100, 1)
+
+    @property
+    def month_year_label(self):
+        """Format month/year display"""
+        months = ['', 'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
+                 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12']
+        return f"{months[self.month]}/{self.year}"
+
+    def __repr__(self):
+        return f'<TuitionReport class={self.class_id} {self.month_year_label}>'
+
+
+class MonthlyClassFee(db.Model):
+    """Per-class per-month billing config — admin adjusts weeks to bill"""
+    __tablename__ = 'monthly_class_fees'
+
+    id = db.Column(db.Integer, primary_key=True)
+    class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False)
+    month = db.Column(db.Integer, nullable=False)
+    year = db.Column(db.Integer, nullable=False)
+    standard_weeks = db.Column(db.Integer, default=4)   # Số tuần chuẩn của tháng (thường là 4)
+    weeks_billed = db.Column(db.Float, default=4.0)     # Số tuần thực tế tính phí (admin điều chỉnh)
+    base_fee = db.Column(db.Float, default=0)           # Snapshot học phí gốc của lớp
+    adjusted_fee = db.Column(db.Float, default=0)       # = base_fee × weeks_billed / standard_weeks
+    note = db.Column(db.String(255))                    # Lý do điều chỉnh
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint('class_id', 'month', 'year', name='uq_monthly_class_fee'),)
+
+    class_ = db.relationship('Class', backref='monthly_fees')
+
+    def recalculate(self):
+        """Tính lại adjusted_fee từ base_fee và số tuần"""
+        if self.standard_weeks and self.standard_weeks > 0:
+            self.adjusted_fee = round(self.base_fee * self.weeks_billed / self.standard_weeks, 0)
+        else:
+            self.adjusted_fee = self.base_fee
+
+    @property
+    def billing_ratio(self):
+        if not self.standard_weeks:
+            return 1.0
+        return round(self.weeks_billed / self.standard_weeks, 2)
+
+    @property
+    def month_year_label(self):
+        months = ['', 'T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12']
+        return f"{months[self.month]}/{self.year}"
+
+    def __repr__(self):
+        return f'<MonthlyClassFee class={self.class_id} {self.month_year_label} weeks={self.weeks_billed}/{self.standard_weeks}>'

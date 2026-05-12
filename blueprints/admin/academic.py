@@ -6,7 +6,7 @@ from models import AcademicYear, Semester, SemesterType
 from blueprints.admin import admin_bp, require_admin
 
 
-@admin_bp.route('/nam-hoc')
+@admin_bp.route('/academic-years')
 @login_required
 @require_admin
 def academic_years():
@@ -15,7 +15,7 @@ def academic_years():
                            semester_types=SemesterType.LABELS)
 
 
-@admin_bp.route('/nam-hoc/them', methods=['POST'])
+@admin_bp.route('/academic-years/add', methods=['POST'])
 @login_required
 @require_admin
 def academic_year_add():
@@ -38,7 +38,7 @@ def academic_year_add():
     return redirect(url_for('admin.academic_years'))
 
 
-@admin_bp.route('/nam-hoc/<int:year_id>/kich-hoat', methods=['POST'])
+@admin_bp.route('/academic-years/<int:year_id>/activate', methods=['POST'])
 @login_required
 @require_admin
 def academic_year_activate(year_id):
@@ -51,7 +51,7 @@ def academic_year_activate(year_id):
     return redirect(url_for('admin.academic_years'))
 
 
-@admin_bp.route('/hoc-ky/them', methods=['POST'])
+@admin_bp.route('/semesters/add', methods=['POST'])
 @login_required
 @require_admin
 def semester_add():
@@ -78,7 +78,7 @@ def semester_add():
     return redirect(url_for('admin.academic_years'))
 
 
-@admin_bp.route('/hoc-ky/<int:sem_id>/xoa', methods=['POST'])
+@admin_bp.route('/semesters/<int:sem_id>/delete', methods=['POST'])
 @login_required
 @require_admin
 def semester_delete(sem_id):

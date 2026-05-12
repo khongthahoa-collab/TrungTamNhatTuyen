@@ -212,7 +212,7 @@ def _form_context(action, courses, teachers, rooms, semesters, default_semester,
     )
 
 
-@admin_bp.route('/lop-hoc')
+@admin_bp.route('/classes')
 @login_required
 @require_admin
 def classes():
@@ -229,7 +229,7 @@ def classes():
                            grade_labels=GRADE_LEVEL_LABELS)
 
 
-@admin_bp.route('/lop-hoc/them', methods=['GET', 'POST'])
+@admin_bp.route('/classes/add', methods=['GET', 'POST'])
 @login_required
 @require_admin
 def class_add():
@@ -249,10 +249,13 @@ def class_add():
         primary_teacher_id = request.form.get('primary_teacher_id', type=int) or None
         assistant_teacher_id = request.form.get('assistant_teacher_id', type=int) or None
         max_students = request.form.get('max_students', type=int) or None
+        monthly_fee = request.form.get('monthly_fee', 0, type=float)
         description = request.form.get('description', '').strip()
         semester_id = request.form.get('semester_id', type=int)
 
         sched_rows = _parse_sched_rows({t.id: t for t in teachers}, primary_teacher_id)
+        # sessions_per_week: from form override, else auto from schedule row count
+        sessions_per_week = request.form.get('sessions_per_week', type=int) or len(sched_rows) or 1
 
         errors = []
         if not grade_level:
@@ -291,6 +294,8 @@ def class_add():
             course_id=course_id,
             grade_level=grade_level,
             max_students=max_students,
+            monthly_fee=monthly_fee,
+            sessions_per_week=sessions_per_week,
             description=description,
             primary_teacher_id=primary_teacher_id,
             assistant_teacher_id=assistant_teacher_id,
@@ -316,7 +321,7 @@ def class_add():
                                            form={}))
 
 
-@admin_bp.route('/lop-hoc/<int:class_id>')
+@admin_bp.route('/classes/<int:class_id>')
 @login_required
 @require_admin
 def class_detail(class_id):
@@ -341,7 +346,7 @@ def class_detail(class_id):
                            upcoming=upcoming, past=past, today=today)
 
 
-@admin_bp.route('/lop-hoc/<int:class_id>/sua', methods=['GET', 'POST'])
+@admin_bp.route('/classes/<int:class_id>/edit', methods=['GET', 'POST'])
 @login_required
 @require_admin
 def class_edit(class_id):
@@ -368,6 +373,8 @@ def class_edit(class_id):
         class_.course_id = new_course_id
         class_.grade_level = grade_level or class_.grade_level
         class_.max_students = request.form.get('max_students', type=int) or class_.max_students
+        class_.monthly_fee = request.form.get('monthly_fee', type=float, default=class_.monthly_fee or 0)
+        class_.sessions_per_week = request.form.get('sessions_per_week', type=int) or class_.sessions_per_week or 1
         class_.description = request.form.get('description', '').strip()
         class_.is_active = request.form.get('is_active') == '1'
         class_.primary_teacher_id = new_primary_id
@@ -395,7 +402,7 @@ def class_edit(class_id):
                                            class_=class_))
 
 
-@admin_bp.route('/lop-hoc/<int:class_id>/tao-lich', methods=['POST'])
+@admin_bp.route('/classes/<int:class_id>/generate-schedule', methods=['POST'])
 @login_required
 @require_admin
 def generate_schedule(class_id):
@@ -457,7 +464,7 @@ def generate_schedule(class_id):
     return redirect(url_for('admin.class_detail', class_id=class_id))
 
 
-@admin_bp.route('/lop-hoc/<int:class_id>/them-lich', methods=['POST'])
+@admin_bp.route('/classes/<int:class_id>/add-schedule', methods=['POST'])
 @login_required
 @require_admin
 def add_schedule(class_id):
@@ -515,7 +522,7 @@ def add_schedule(class_id):
     return redirect(url_for('admin.class_detail', class_id=class_id))
 
 
-@admin_bp.route('/lich/<int:schedule_id>/huy', methods=['POST'])
+@admin_bp.route('/schedule/<int:schedule_id>/cancel', methods=['POST'])
 @login_required
 @require_admin
 def cancel_schedule(schedule_id):
@@ -531,7 +538,7 @@ def cancel_schedule(schedule_id):
     return redirect(request.referrer or url_for('admin.class_detail', class_id=schedule.class_id))
 
 
-@admin_bp.route('/lich/<int:schedule_id>/xoa', methods=['POST'])
+@admin_bp.route('/schedule/<int:schedule_id>/delete', methods=['POST'])
 @login_required
 @require_admin
 def delete_schedule(schedule_id):

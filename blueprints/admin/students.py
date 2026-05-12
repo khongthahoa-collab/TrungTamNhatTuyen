@@ -13,7 +13,7 @@ from blueprints.admin import admin_bp, require_admin
 PHOTO_EXTS = {'jpg', 'jpeg', 'png', 'webp', 'gif'}
 
 
-@admin_bp.route('/hoc-sinh')
+@admin_bp.route('/students')
 @login_required
 @require_admin
 def students():
@@ -87,7 +87,7 @@ def students():
                            all_teachers=all_teachers)
 
 
-@admin_bp.route('/hoc-sinh/xuat-excel')
+@admin_bp.route('/students/export')
 @login_required
 @require_admin
 def export_students():
@@ -132,7 +132,7 @@ def export_students():
     )
 
 
-@admin_bp.route('/hoc-sinh/nhap-excel', methods=['POST'])
+@admin_bp.route('/students/import', methods=['POST'])
 @login_required
 @require_admin
 def import_students():
@@ -182,7 +182,7 @@ def import_students():
     return redirect(url_for('admin.students'))
 
 
-@admin_bp.route('/hoc-sinh/them', methods=['GET', 'POST'])
+@admin_bp.route('/students/add', methods=['GET', 'POST'])
 @login_required
 @require_admin
 def student_add():
@@ -271,7 +271,7 @@ def student_add():
                            schools=schools, form={})
 
 
-@admin_bp.route('/hoc-sinh/<int:student_id>')
+@admin_bp.route('/students/<int:student_id>')
 @login_required
 @require_admin
 def student_detail(student_id):
@@ -284,6 +284,14 @@ def student_detail(student_id):
     tuition_records = student.tuition_payments.order_by(
         TuitionPayment.year.desc(), TuitionPayment.month.desc()
     ).limit(12).all()
+
+    # Học phí tháng hiện tại: tổng hợp theo lớp đang học
+    current_month_tuition = student.tuition_payments.filter_by(
+        month=today.month, year=today.year
+    ).all()
+    current_total = sum(t.amount for t in current_month_tuition)
+    current_unpaid = sum(t.amount for t in current_month_tuition if not t.is_paid)
+
     return render_template('admin/students/detail.html',
                            student=student,
                            today=today,
@@ -291,10 +299,13 @@ def student_detail(student_id):
                            enrolled_class_ids=enrolled_class_ids,
                            recent_scores=recent_scores,
                            recent_rewards=recent_rewards,
-                           tuition_records=tuition_records)
+                           tuition_records=tuition_records,
+                           current_month_tuition=current_month_tuition,
+                           current_total=current_total,
+                           current_unpaid=current_unpaid)
 
 
-@admin_bp.route('/hoc-sinh/<int:student_id>/sua', methods=['GET', 'POST'])
+@admin_bp.route('/students/<int:student_id>/edit', methods=['GET', 'POST'])
 @login_required
 @require_admin
 def student_edit(student_id):
@@ -334,7 +345,7 @@ def student_edit(student_id):
                            levels=StudentLevel.LABELS, schools=schools, form=student)
 
 
-@admin_bp.route('/hoc-sinh/<int:student_id>/ghi-danh', methods=['POST'])
+@admin_bp.route('/students/<int:student_id>/enroll', methods=['POST'])
 @login_required
 @require_admin
 def student_enroll(student_id):
@@ -367,7 +378,7 @@ def student_enroll(student_id):
     return redirect(url_for('admin.student_detail', student_id=student_id))
 
 
-@admin_bp.route('/hoc-sinh/<int:student_id>/huy-ghi-danh/<int:class_id>', methods=['POST'])
+@admin_bp.route('/students/<int:student_id>/unenroll/<int:class_id>', methods=['POST'])
 @login_required
 @require_admin
 def student_unenroll(student_id, class_id):
@@ -378,7 +389,7 @@ def student_unenroll(student_id, class_id):
     return redirect(url_for('admin.student_detail', student_id=student_id))
 
 
-@admin_bp.route('/hoc-sinh/<int:student_id>/anh', methods=['POST'])
+@admin_bp.route('/students/<int:student_id>/photo', methods=['POST'])
 @login_required
 @require_admin
 def student_photo_upload(student_id):
@@ -406,7 +417,7 @@ def student_photo_upload(student_id):
     return redirect(url_for('admin.student_detail', student_id=student_id))
 
 
-@admin_bp.route('/hoc-sinh/<int:student_id>/xoa-anh', methods=['POST'])
+@admin_bp.route('/students/<int:student_id>/photo/delete', methods=['POST'])
 @login_required
 @require_admin
 def student_photo_delete(student_id):

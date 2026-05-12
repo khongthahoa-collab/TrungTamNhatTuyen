@@ -7,7 +7,7 @@ from models import ClassDocument, Class
 from blueprints.admin import admin_bp, require_admin
 
 
-@admin_bp.route('/tai-lieu')
+@admin_bp.route('/documents')
 @login_required
 @require_admin
 def documents():
@@ -21,7 +21,7 @@ def documents():
                            docs=docs, classes=classes, selected_class_id=class_id)
 
 
-@admin_bp.route('/tai-lieu/upload', methods=['POST'])
+@admin_bp.route('/documents/upload', methods=['POST'])
 @login_required
 @require_admin
 def document_upload():
@@ -63,7 +63,7 @@ def document_upload():
     return redirect(url_for('admin.documents', class_id=class_id))
 
 
-@admin_bp.route('/tai-lieu/<int:doc_id>/xoa', methods=['POST'])
+@admin_bp.route('/documents/<int:doc_id>/delete', methods=['POST'])
 @login_required
 @require_admin
 def document_delete(doc_id):
@@ -74,7 +74,7 @@ def document_delete(doc_id):
     return redirect(request.referrer or url_for('admin.documents'))
 
 
-@admin_bp.route('/tai-lieu/<int:doc_id>/tai')
+@admin_bp.route('/documents/<int:doc_id>/download')
 @login_required
 def admin_download_document(doc_id):
     doc = ClassDocument.query.get_or_404(doc_id)

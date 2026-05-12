@@ -63,12 +63,12 @@
         <span>Lịch dạy</span>
       </a>
 
-      <a href="{{ url_for('teacher.create_intensive') }}"
+      <a href="{{ url_for('teacher.attendance_list') }}"
          class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none
-                {% if request.endpoint == 'teacher.create_intensive' %}text-warning border-top border-warning border-2{% else %}text-muted{% endif %}"
+                {% if 'attendance' in request.endpoint %}text-primary border-top border-primary border-2{% else %}text-muted{% endif %}"
          style="font-size:0.65rem;">
-        <i class="bi bi-calendar-plus{% if request.endpoint == 'teacher.create_intensive' %}-fill{% else %}{% endif %} fs-5"></i>
-        <span>Tăng cường</span>
+        <i class="bi bi-person-check{% if 'attendance' in request.endpoint %}-fill{% endif %} fs-5"></i>
+        <span>Điểm danh</span>
       </a>
 
       <a href="{{ url_for('teacher.scores_list') }}"

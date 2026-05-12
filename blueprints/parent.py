@@ -73,7 +73,7 @@ def dashboard():
     )
 
 
-@parent_bp.route('/hoc-sinh/<int:student_id>')
+@parent_bp.route('/students/<int:student_id>')
 @login_required
 def student_detail(student_id):
     if not current_user.is_parent:
@@ -114,7 +114,7 @@ def student_detail(student_id):
     )
 
 
-@parent_bp.route('/chon-hoc-sinh/<int:student_id>')
+@parent_bp.route('/students/<int:student_id>/switch')
 @login_required
 def switch_student(student_id):
     if not current_user.is_parent:
@@ -123,7 +123,7 @@ def switch_student(student_id):
     return redirect(url_for('parent.student_detail', student_id=student_id))
 
 
-@parent_bp.route('/hoc-sinh/<int:student_id>/diem-danh')
+@parent_bp.route('/students/<int:student_id>/attendance')
 @login_required
 def attendance(student_id):
     if not current_user.is_parent:
@@ -141,7 +141,7 @@ def attendance(student_id):
                            student=student, children=children, records=records)
 
 
-@parent_bp.route('/hoc-sinh/<int:student_id>/diem-so')
+@parent_bp.route('/students/<int:student_id>/scores')
 @login_required
 def scores(student_id):
     if not current_user.is_parent:
@@ -171,7 +171,7 @@ def scores(student_id):
                            active_classes=active_classes)
 
 
-@parent_bp.route('/hoc-sinh/<int:student_id>/bao-cao-diem', methods=['POST'])
+@parent_bp.route('/students/<int:student_id>/scores/report', methods=['POST'])
 @login_required
 def score_report(student_id):
     """Parent reports an external/school score for their child."""
@@ -226,7 +226,7 @@ def score_report(student_id):
     return redirect(url_for('parent.scores', student_id=student_id))
 
 
-@parent_bp.route('/hoc-sinh/<int:student_id>/dang-ky-lop', methods=['POST'])
+@parent_bp.route('/students/<int:student_id>/enroll', methods=['POST'])
 @login_required
 def enroll_request(student_id):
     """Parent submits a new class enrollment request."""
@@ -263,7 +263,7 @@ def enroll_request(student_id):
     return redirect(url_for('parent.student_detail', student_id=student_id))
 
 
-@parent_bp.route('/hoc-sinh/<int:student_id>/lich-hoc')
+@parent_bp.route('/students/<int:student_id>/schedule')
 @login_required
 def schedule(student_id):
     if not current_user.is_parent:
@@ -294,7 +294,7 @@ def schedule(student_id):
                            today=today, tomorrow=today + timedelta(days=1))
 
 
-@parent_bp.route('/hoc-sinh/<int:student_id>/khen-thuong')
+@parent_bp.route('/students/<int:student_id>/rewards')
 @login_required
 def rewards(student_id):
     if not current_user.is_parent:
@@ -309,7 +309,7 @@ def rewards(student_id):
                            student=student, children=children, records=records, total=total)
 
 
-@parent_bp.route('/hoc-sinh/<int:student_id>/hoc-phi')
+@parent_bp.route('/students/<int:student_id>/tuition')
 @login_required
 def tuition(student_id):
     if not current_user.is_parent:
@@ -317,14 +317,32 @@ def tuition(student_id):
     student = _get_student_or_403(student_id)
     children = current_user.children.filter_by(is_active=True).all()
 
+    today = date.today()
     records = student.tuition_payments.order_by(
         TuitionPayment.year.desc(), TuitionPayment.month.desc()
     ).all()
+
+    # Nhóm theo tháng/năm để hiển thị tổng
+    from collections import defaultdict
+    by_month = defaultdict(list)
+    for r in records:
+        by_month[(r.year, r.month)].append(r)
+
+    # Học phí tháng hiện tại
+    current_records = by_month.get((today.year, today.month), [])
+    current_total = sum(r.amount for r in current_records)
+    current_unpaid = sum(r.amount for r in current_records if not r.is_paid)
+
     return render_template('parent/tuition.html',
-                           student=student, children=children, records=records)
+                           student=student, children=children,
+                           records=records, by_month=by_month,
+                           current_records=current_records,
+                           current_total=current_total,
+                           current_unpaid=current_unpaid,
+                           today=today)
 
 
-@parent_bp.route('/hoc-sinh/<int:student_id>/tai-lieu')
+@parent_bp.route('/students/<int:student_id>/documents')
 @login_required
 def documents(student_id):
     if not current_user.is_parent:
@@ -344,7 +362,7 @@ def documents(student_id):
                            student=student, children=children, docs_by_class=docs_by_class)
 
 
-@parent_bp.route('/tai-lieu/<int:doc_id>/tai')
+@parent_bp.route('/documents/<int:doc_id>/download')
 @login_required
 def download_document(doc_id):
     doc = ClassDocument.query.get_or_404(doc_id)

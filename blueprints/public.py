@@ -42,15 +42,12 @@ def index():
     # Courses for filter
     courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
 
-    # Schools for contact form dropdown (from School model, fall back to distinct student schools)
-    school_objs = School.query.filter_by(is_active=True).order_by(School.name).all()
-    if school_objs:
-        distinct_schools = [{'name': s.name, 'range': s.grade_range_label} for s in school_objs]
-    else:
-        rows = (db.session.query(Student.current_school)
-                .filter(Student.current_school.isnot(None), Student.current_school != '')
-                .distinct().order_by(Student.current_school).all())
-        distinct_schools = [{'name': r[0], 'range': ''} for r in rows]
+    # Schools for contact form dropdown (from distinct student schools)
+    # Note: School table may not exist, so we use student.current_school directly
+    rows = (db.session.query(Student.current_school)
+            .filter(Student.current_school.isnot(None), Student.current_school != '')
+            .distinct().order_by(Student.current_school).all())
+    distinct_schools = [{'name': r[0], 'range': ''} for r in rows]
 
     # Hall of Fame
     min_score_val = float(SystemConfig.get('hall_of_fame_min_score', '8'))
@@ -110,7 +107,7 @@ def index():
     )
 
 
-@public_bp.route('/lien-he', methods=['POST'])
+@public_bp.route('/contact', methods=['POST'])
 def contact_inquiry():
     """Save contact inquiry and auto-create pending student record."""
     student_name = request.form.get('student_name', '').strip()
@@ -159,7 +156,7 @@ def contact_inquiry():
     return jsonify({'ok': True, 'msg': 'Cảm ơn! Cô Tuyền sẽ liên hệ lại với bạn sớm nhất có thể.'})
 
 
-@public_bp.route('/api/lich/<int:schedule_id>')
+@public_bp.route('/api/schedule/<int:schedule_id>')
 def schedule_detail(schedule_id):
     """API trả về chi tiết buổi học (không hiện học phí)."""
     s = Schedule.query.get_or_404(schedule_id)

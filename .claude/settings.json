@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python migrate_user_gender.py)",
+      "Bash(python -c ' *)",
+      "Bash(python -c \"from app import create_app; app = create_app\\('development'\\); print\\('OK'\\)\")",
+      "Bash(python migrate_class_monthly_fee.py)",
+      "Bash(sed -i '' \"s|route\\('/tai-lieu/<int:doc_id>/tai'\\)|route\\('/documents/<int:doc_id>/download'\\)|\" /Users/linh/trung-tam-nhat-tuyen/blueprints/parent.py)",
+      "Bash(sed -i '' \"s|route\\('/api/lich/<int:schedule_id>'\\)|route\\('/api/schedule/<int:schedule_id>'\\)|\" /Users/linh/trung-tam-nhat-tuyen/blueprints/public.py)",
+      "Bash(python run.py)",
+      "Bash(flask --app app:create_app run --port 5001 --debug)"
+    ]
+  }
+}

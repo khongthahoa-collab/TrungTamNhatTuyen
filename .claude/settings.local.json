@@ -14,7 +14,12 @@
       "Bash(python3 -c ':*)",
       "Bash(ls -la /Users/linh/trung-tam-nhat-tuyen/.env*)",
       "Bash(git commit -m ':*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(python -c \"from blueprints.teacher import teacher_bp; print\\('teacher OK'\\)\")",
+      "Bash(python -c \"from blueprints.admin import admin_bp; print\\('admin OK'\\)\")",
+      "Bash(python -c \"from app import create_app; app = create_app\\('development'\\); print\\('App created OK'\\); [print\\(f'  {r.endpoint}'\\) for r in app.url_map.iter_rules\\(\\) if 'attendance' in r.endpoint]\")",
+      "Bash(python -c ' *)",
+      "Bash(python -c \"from app import create_app; app = create_app\\('development'\\); print\\('App OK'\\)\")"
     ]
   }
 }

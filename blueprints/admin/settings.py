@@ -5,7 +5,7 @@ from models import SystemConfig, User, Teacher, Course, UserRole, ContactInquiry
 from blueprints.admin import admin_bp, require_admin
 
 
-@admin_bp.route('/cai-dat')
+@admin_bp.route('/settings')
 @login_required
 @require_admin
 def settings():
@@ -13,7 +13,7 @@ def settings():
     return render_template('admin/settings.html', configs=configs)
 
 
-@admin_bp.route('/cai-dat/luu', methods=['POST'])
+@admin_bp.route('/settings/save', methods=['POST'])
 @login_required
 @require_admin
 def settings_save():
@@ -29,7 +29,7 @@ def settings_save():
     return redirect(url_for('admin.settings'))
 
 
-@admin_bp.route('/lien-he')
+@admin_bp.route('/inquiries')
 @login_required
 @require_admin
 def inquiries():
@@ -40,7 +40,7 @@ def inquiries():
     return render_template('admin/inquiries.html', inquiries=items)
 
 
-@admin_bp.route('/lien-he/<int:inquiry_id>/xoa', methods=['POST'])
+@admin_bp.route('/inquiries/<int:inquiry_id>/delete', methods=['POST'])
 @login_required
 @require_admin
 def inquiry_delete(inquiry_id):
@@ -51,7 +51,7 @@ def inquiry_delete(inquiry_id):
     return redirect(url_for('admin.inquiries'))
 
 
-@admin_bp.route('/tai-khoan')
+@admin_bp.route('/accounts')
 @login_required
 @require_admin
 def users():
@@ -59,7 +59,7 @@ def users():
     return render_template('admin/users.html', users=users)
 
 
-@admin_bp.route('/tai-khoan/them', methods=['POST'])
+@admin_bp.route('/accounts/add', methods=['POST'])
 @login_required
 @require_admin
 def user_add():
@@ -95,7 +95,7 @@ def user_add():
     return redirect(url_for('admin.users'))
 
 
-@admin_bp.route('/tai-khoan/<int:user_id>/doi-mat-khau', methods=['POST'])
+@admin_bp.route('/accounts/<int:user_id>/change-password', methods=['POST'])
 @login_required
 @require_admin
 def user_reset_password(user_id):
@@ -110,7 +110,7 @@ def user_reset_password(user_id):
     return redirect(url_for('admin.users'))
 
 
-@admin_bp.route('/tai-khoan/<int:user_id>/khoa', methods=['POST'])
+@admin_bp.route('/accounts/<int:user_id>/lock', methods=['POST'])
 @login_required
 @require_admin
 def user_toggle_active(user_id):
@@ -125,7 +125,7 @@ def user_toggle_active(user_id):
     return redirect(url_for('admin.users'))
 
 
-@admin_bp.route('/mon-hoc')
+@admin_bp.route('/courses')
 @login_required
 @require_admin
 def courses():
@@ -149,7 +149,7 @@ def courses():
     return render_template('admin/courses.html', courses=items)
 
 
-@admin_bp.route('/mon-hoc/them', methods=['POST'])
+@admin_bp.route('/courses/add', methods=['POST'])
 @login_required
 @require_admin
 def course_add():
@@ -166,7 +166,7 @@ def course_add():
     return redirect(url_for('admin.courses'))
 
 
-@admin_bp.route('/mon-hoc/<int:course_id>/sua', methods=['POST'])
+@admin_bp.route('/courses/<int:course_id>/edit', methods=['POST'])
 @login_required
 @require_admin
 def course_edit(course_id):

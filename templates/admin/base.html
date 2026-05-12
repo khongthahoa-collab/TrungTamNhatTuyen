@@ -39,8 +39,18 @@
         </a>
       </li>
       <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.tuition') }}" class="nav-link text-white {% if 'tuition' in request.endpoint %}active{% endif %}">
+        <a href="{{ url_for('admin.attendance_list') }}" class="nav-link text-white {% if 'attendance' in request.endpoint %}active{% endif %}">
+          <i class="bi bi-person-check me-2"></i>Điểm danh
+        </a>
+      </li>
+      <li class="nav-item mb-1">
+        <a href="{{ url_for('admin.tuition') }}" class="nav-link text-white {% if 'tuition' in request.endpoint or 'monthly_fee' in request.endpoint %}active{% endif %}">
           <i class="bi bi-cash-stack me-2"></i>Học phí
+        </a>
+      </li>
+      <li class="nav-item mb-1">
+        <a href="{{ url_for('admin.tuition_report') }}" class="nav-link text-white {% if 'tuition_report' in request.endpoint %}active{% endif %}">
+          <i class="bi bi-bar-chart me-2"></i>Thống kê HP
         </a>
       </li>
       <li class="nav-item mb-1">

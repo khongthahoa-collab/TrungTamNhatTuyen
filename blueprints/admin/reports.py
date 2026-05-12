@@ -7,7 +7,7 @@ from models import TuitionPayment, Expense, Student, Class, Attendance, Schedule
 from blueprints.admin import admin_bp, require_admin
 
 
-@admin_bp.route('/bao-cao')
+@admin_bp.route('/reports')
 @login_required
 @require_admin
 def reports():

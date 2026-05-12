@@ -1,0 +1,107 @@
+{% extends "teacher/base.html" %}
+
+{% block title %}Điểm Danh{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h5 class="fw-bold mb-0">
+      <i class="bi bi-check-circle text-primary me-1"></i>Điểm Danh
+    </h5>
+    {% set pending_count = schedules | selectattr('attendance_taken', 'equalto', false) | list | length %}
+    {% if pending_count > 0 %}
+    <span class="badge bg-warning text-dark">{{ pending_count }} chưa điểm danh</span>
+    {% endif %}
+  </div>
+
+  {% if schedules %}
+  <!-- Chưa điểm danh -->
+  {% set pending = [] %}
+  {% set done = [] %}
+  {% for s in schedules | sort(attribute='date', reverse=True) %}
+    {% if not s.attendance_taken %}{% set _ = pending.append(s) %}{% else %}{% set _ = done.append(s) %}{% endif %}
+  {% endfor %}
+
+  {% if pending %}
+  <h6 class="text-warning fw-semibold mb-2">
+    <i class="bi bi-exclamation-circle me-1"></i>Chưa điểm danh ({{ pending|length }})
+  </h6>
+  {% for schedule in pending %}
+  <div class="card border-0 shadow-sm mb-2 border-start border-warning border-3">
+    <div class="card-body py-2 px-3">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="fw-semibold">{{ schedule.class_.name }}</div>
+          <div class="text-muted small">
+            {{ schedule.date.strftime('%d/%m/%Y') }}
+            {% if schedule.date == today %}
+            <span class="badge bg-warning text-dark ms-1">Hôm nay</span>
+            {% elif schedule.date < today %}
+            <span class="badge bg-secondary ms-1">Đã qua</span>
+            {% endif %}
+            · {{ schedule.start_time.strftime('%H:%M') }}–{{ schedule.end_time.strftime('%H:%M') }}
+            {% if schedule.room %}· {{ schedule.room }}{% endif %}
+          </div>
+          <div class="small text-muted mt-1">
+            <i class="bi bi-people"></i> Sĩ số: {{ schedule.class_.current_enrollment }}
+          </div>
+        </div>
+        <a href="{{ url_for('teacher.attendance_session', schedule_id=schedule.id) }}"
+           class="btn btn-warning btn-sm ms-2 flex-shrink-0">
+          <i class="bi bi-pencil"></i> Điểm danh
+        </a>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if done %}
+  <h6 class="text-success fw-semibold mb-2 {% if pending %}mt-4{% endif %}">
+    <i class="bi bi-check-circle me-1"></i>Đã điểm danh ({{ done|length }})
+  </h6>
+  {% for schedule in done %}
+  {% set summary = summaries.get(schedule.id) %}
+  <div class="card border-0 shadow-sm mb-2 border-start border-success border-3">
+    <div class="card-body py-2 px-3">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="fw-semibold">{{ schedule.class_.name }}</div>
+          <div class="text-muted small">
+            {{ schedule.date.strftime('%d/%m/%Y') }}
+            · {{ schedule.start_time.strftime('%H:%M') }}–{{ schedule.end_time.strftime('%H:%M') }}
+          </div>
+          {% if summary %}
+          <div class="small mt-1">
+            <span class="text-success me-2"><i class="bi bi-check-circle"></i> {{ summary.present_count }} có mặt</span>
+            {% if summary.absent_count %}
+            <span class="text-danger me-2"><i class="bi bi-x-circle"></i> {{ summary.absent_count }} vắng</span>
+            {% endif %}
+            {% if summary.excused_count %}
+            <span class="text-info me-2"><i class="bi bi-file-earmark-check"></i> {{ summary.excused_count }} vắng phép</span>
+            {% endif %}
+            {% if summary.late_count %}
+            <span class="text-warning"><i class="bi bi-clock-history"></i> {{ summary.late_count }} trễ</span>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+        <a href="{{ url_for('teacher.attendance_session', schedule_id=schedule.id) }}"
+           class="btn btn-outline-secondary btn-sm ms-2 flex-shrink-0">
+          <i class="bi bi-pencil"></i> Sửa
+        </a>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% else %}
+  <div class="alert alert-info">
+    <i class="bi bi-info-circle me-2"></i>Không có buổi học nào trong danh sách.
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

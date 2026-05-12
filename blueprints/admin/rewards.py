@@ -6,7 +6,7 @@ from models import Reward, Student
 from blueprints.admin import admin_bp, require_admin
 
 
-@admin_bp.route('/khen-thuong')
+@admin_bp.route('/rewards')
 @login_required
 @require_admin
 def rewards():
@@ -25,7 +25,7 @@ def rewards():
                            records=records, show=show, total_confirmed=total_confirmed)
 
 
-@admin_bp.route('/khen-thuong/<int:reward_id>/xac-nhan', methods=['POST'])
+@admin_bp.route('/rewards/<int:reward_id>/confirm', methods=['POST'])
 @login_required
 @require_admin
 def reward_confirm(reward_id):
@@ -51,7 +51,7 @@ def reward_confirm(reward_id):
     return redirect(url_for('admin.rewards', show='pending'))
 
 
-@admin_bp.route('/khen-thuong/<int:reward_id>/huy', methods=['POST'])
+@admin_bp.route('/rewards/<int:reward_id>/cancel', methods=['POST'])
 @login_required
 @require_admin
 def reward_cancel(reward_id):
@@ -62,7 +62,7 @@ def reward_cancel(reward_id):
     return redirect(url_for('admin.rewards', show='pending'))
 
 
-@admin_bp.route('/khen-thuong/them', methods=['POST'])
+@admin_bp.route('/rewards/add', methods=['POST'])
 @login_required
 @require_admin
 def reward_add():

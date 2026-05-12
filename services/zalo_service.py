@@ -91,6 +91,27 @@ class ZaloService:
         return cls._log(phone, name, 'score', msg)
 
     @classmethod
+    def send_attendance_summary_to_group(cls, schedule, summary_data, group_id):
+        """Gửi tổng kết điểm danh lên nhóm Zalo lớp."""
+        teacher_part = f" – {summary_data['teacher_display']}" if summary_data.get('teacher_display') else ''
+        absent_lines = ''
+        if summary_data.get('absent_students'):
+            absent_lines = '\nHọc sinh vắng:\n' + '\n'.join(
+                f"  {i+1}. {s['name']} – {s['status_label']}"
+                + (f" ({s['reason']})" if s.get('reason') else '')
+                for i, s in enumerate(summary_data['absent_students'])
+            )
+        msg = (
+            f"[Nhật Tuyền] Điểm danh lớp {schedule.class_.name} – "
+            f"Ngày {schedule.date.strftime('%d/%m/%Y')}{teacher_part}\n"
+            f"Sĩ số: {summary_data.get('total', 0)} | "
+            f"Có mặt: {summary_data.get('present', 0)} | "
+            f"Vắng phép/không phép: {summary_data.get('excused', 0)}/{summary_data.get('absent', 0)}"
+            f"{absent_lines}"
+        )
+        return cls._log(group_id, f"Nhóm {schedule.class_.name}", 'attendance_group', msg)
+
+    @classmethod
     def send_bulk(cls, message, phones_names):
         """Gửi thông báo hàng loạt."""
         logs = []

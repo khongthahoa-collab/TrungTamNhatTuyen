@@ -71,6 +71,22 @@
           <h6 class="text-muted fw-semibold mb-3 text-uppercase small">Thông tin giảng dạy</h6>
           <div class="row g-3 mb-4">
             <div class="col-md-6">
+              <label class="form-label fw-semibold">Giới tính</label>
+              <select class="form-select" name="gender">
+                <option value="">-- Chưa chọn --</option>
+                <option value="male"
+                  {% if action == 'edit' and teacher.user.gender == 'male' %}selected
+                  {% elif form is mapping and form.get('gender') == 'male' %}selected{% endif %}>
+                  Nam (Thầy)
+                </option>
+                <option value="female"
+                  {% if action == 'edit' and teacher.user.gender == 'female' %}selected
+                  {% elif form is mapping and form.get('gender') == 'female' %}selected{% endif %}>
+                  Nữ (Cô)
+                </option>
+              </select>
+            </div>
+            <div class="col-md-6">
               <label class="form-label fw-semibold">Loại hợp đồng</label>
               <select class="form-select" name="is_staff">
                 <option value="1" {% if (action == 'edit' and teacher.is_staff) or action == 'add' %}selected{% endif %}>Hợp đồng (full-time)</option>

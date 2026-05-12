@@ -7,7 +7,7 @@ from models import User
 auth_bp = Blueprint('auth', __name__)
 
 
-@auth_bp.route('/dang-nhap', methods=['GET', 'POST'])
+@auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
         return redirect(_dashboard_for(current_user))
@@ -36,7 +36,7 @@ def login():
     return render_template('auth/login.html', error=error)
 
 
-@auth_bp.route('/dang-xuat')
+@auth_bp.route('/logout')
 @login_required
 def logout():
     logout_user()

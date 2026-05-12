@@ -12,7 +12,7 @@ GRADE_CHOICES = [
 ]
 
 
-@admin_bp.route('/truong-hoc')
+@admin_bp.route('/schools')
 @login_required
 @require_admin
 def schools():
@@ -30,7 +30,7 @@ def schools():
                            grade_choices=GRADE_CHOICES)
 
 
-@admin_bp.route('/truong-hoc/them', methods=['POST'])
+@admin_bp.route('/schools/add', methods=['POST'])
 @login_required
 @require_admin
 def school_add():
@@ -55,7 +55,7 @@ def school_add():
     return redirect(url_for('admin.schools'))
 
 
-@admin_bp.route('/truong-hoc/<int:school_id>/sua', methods=['POST'])
+@admin_bp.route('/schools/<int:school_id>/edit', methods=['POST'])
 @login_required
 @require_admin
 def school_edit(school_id):
@@ -93,7 +93,7 @@ def school_edit(school_id):
     return redirect(url_for('admin.schools'))
 
 
-@admin_bp.route('/truong-hoc/<int:school_id>/xoa', methods=['POST'])
+@admin_bp.route('/schools/<int:school_id>/delete', methods=['POST'])
 @login_required
 @require_admin
 def school_delete(school_id):

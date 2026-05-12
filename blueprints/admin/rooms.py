@@ -6,7 +6,7 @@ from blueprints.admin import admin_bp, require_admin
 from datetime import date, time as time_type
 
 
-@admin_bp.route('/phong-hoc')
+@admin_bp.route('/rooms')
 @login_required
 @require_admin
 def rooms():
@@ -14,7 +14,7 @@ def rooms():
     return render_template('admin/rooms/list.html', rooms=rooms)
 
 
-@admin_bp.route('/phong-hoc/them', methods=['GET', 'POST'])
+@admin_bp.route('/rooms/add', methods=['GET', 'POST'])
 @login_required
 @require_admin
 def room_add():
@@ -44,7 +44,7 @@ def room_add():
     return render_template('admin/rooms/form.html', action='add', form={})
 
 
-@admin_bp.route('/phong-hoc/<int:room_id>/sua', methods=['GET', 'POST'])
+@admin_bp.route('/rooms/<int:room_id>/edit', methods=['GET', 'POST'])
 @login_required
 @require_admin
 def room_edit(room_id):
@@ -64,7 +64,7 @@ def room_edit(room_id):
     return render_template('admin/rooms/form.html', action='edit', room=room, form=room)
 
 
-@admin_bp.route('/phong-hoc/<int:room_id>/xoa', methods=['POST'])
+@admin_bp.route('/rooms/<int:room_id>/delete', methods=['POST'])
 @login_required
 @require_admin
 def room_delete(room_id):
@@ -76,7 +76,7 @@ def room_delete(room_id):
     return redirect(url_for('admin.rooms'))
 
 
-@admin_bp.route('/phong-hoc/trong')
+@admin_bp.route('/rooms/available')
 @login_required
 @require_admin
 def rooms_available():

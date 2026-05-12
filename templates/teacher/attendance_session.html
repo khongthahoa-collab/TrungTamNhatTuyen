@@ -1,0 +1,323 @@
+{% extends "teacher/base.html" %}
+
+{% block title %}Điểm Danh – {{ schedule.class_.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <!-- Header -->
+  <div class="mb-3">
+    <a href="{{ url_for('teacher.attendance_list') }}" class="btn btn-sm btn-outline-secondary mb-2">
+      <i class="bi bi-arrow-left me-1"></i>Quay lại
+    </a>
+    <h5 class="fw-bold mb-0">
+      <i class="bi bi-person-check text-primary me-1"></i>Điểm Danh
+    </h5>
+    <div class="text-muted small">
+      <span class="fw-semibold text-dark">{{ schedule.class_.name }}</span>
+      &nbsp;–&nbsp;{{ schedule.date.strftime('%d/%m/%Y') }}
+      &nbsp;·&nbsp;{{ schedule.start_time.strftime('%H:%M') }}–{{ schedule.end_time.strftime('%H:%M') }}
+      {% if schedule.room %}
+      &nbsp;·&nbsp;<i class="bi bi-door-open"></i> {{ schedule.room }}
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Live counter badge -->
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <span class="badge bg-secondary fs-6">Sĩ số: <span id="cntTotal">{{ enrollments|length }}</span></span>
+    <span class="badge bg-success fs-6">Có mặt: <span id="cntPresent">0</span></span>
+    <span class="badge bg-danger fs-6">Vắng: <span id="cntAbsent">0</span></span>
+    <span class="badge bg-warning text-dark fs-6">Trễ: <span id="cntLate">0</span></span>
+    <span class="badge bg-info text-dark fs-6">Vắng phép: <span id="cntExcused">0</span></span>
+  </div>
+
+  <!-- Mark All Present -->
+  <button type="button" class="btn btn-success btn-lg w-100 mb-4 shadow-sm" id="btnAllPresent"
+          style="min-height:52px;font-size:1.05rem;">
+    <i class="bi bi-check-all me-2"></i>Tất Cả Có Mặt
+  </button>
+
+  <!-- Student cards -->
+  {% for enrollment in enrollments %}
+  {% set student = enrollment.student %}
+  {% set att = attendance_dict.get(student.id) %}
+  <div class="card mb-3 shadow-sm border-0 student-card" id="card-{{ student.id }}"
+       data-student-id="{{ student.id }}">
+    <div class="card-body pb-2">
+
+      <!-- Name row -->
+      <div class="d-flex align-items-center mb-3 gap-2">
+        <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center
+                    text-primary fw-bold flex-shrink-0"
+             style="width:40px;height:40px;font-size:1.1rem;">
+          {{ student.full_name[0] }}
+        </div>
+        <div>
+          <div class="fw-bold">{{ student.full_name }}</div>
+          {% if student.current_grade %}
+          <div class="text-muted small">{{ student.current_grade }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Status buttons -->
+      <div class="row g-2 mb-2">
+        <div class="col-6">
+          <input type="radio" class="btn-check status-radio" name="status_{{ student.id }}"
+                 id="present_{{ student.id }}" value="present"
+                 {% if att %}{% if att.status == 'present' %}checked{% endif %}{% else %}checked{% endif %}>
+          <label class="btn btn-outline-success w-100 d-flex align-items-center justify-content-center gap-1"
+                 for="present_{{ student.id }}" style="min-height:50px;">
+            <i class="bi bi-check-circle"></i>Có mặt
+          </label>
+        </div>
+        <div class="col-6">
+          <input type="radio" class="btn-check status-radio" name="status_{{ student.id }}"
+                 id="absent_{{ student.id }}" value="absent"
+                 {% if att and att.status == 'absent' %}checked{% endif %}>
+          <label class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-1"
+                 for="absent_{{ student.id }}" style="min-height:50px;">
+            <i class="bi bi-x-circle"></i>Vắng
+          </label>
+        </div>
+        <div class="col-6">
+          <input type="radio" class="btn-check status-radio" name="status_{{ student.id }}"
+                 id="late_{{ student.id }}" value="late"
+                 {% if att and att.status == 'late' %}checked{% endif %}>
+          <label class="btn btn-outline-warning w-100 d-flex align-items-center justify-content-center gap-1"
+                 for="late_{{ student.id }}" style="min-height:50px;">
+            <i class="bi bi-clock-history"></i>Trễ
+          </label>
+        </div>
+        <div class="col-6">
+          <input type="radio" class="btn-check status-radio" name="status_{{ student.id }}"
+                 id="excused_{{ student.id }}" value="excused"
+                 {% if att and att.status == 'excused' %}checked{% endif %}>
+          <label class="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center gap-1"
+                 for="excused_{{ student.id }}" style="min-height:50px;">
+            <i class="bi bi-file-earmark-check"></i>Vắng phép
+          </label>
+        </div>
+      </div>
+
+      <!-- Reason input -->
+      <input type="text" class="form-control form-control-sm reason-input"
+             id="reason_{{ student.id }}"
+             placeholder="Lý do / Ghi chú (nếu có)"
+             value="{{ att.reason or '' if att else '' }}"
+             style="min-height:40px;">
+    </div>
+  </div>
+  {% else %}
+  <div class="alert alert-light border text-center text-muted">
+    <i class="bi bi-people fs-4 d-block mb-1"></i>Lớp chưa có học sinh đăng ký
+  </div>
+  {% endfor %}
+
+  {% if enrollments %}
+  <!-- Zalo option -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="sendZaloCheck">
+        <label class="form-check-label fw-semibold" for="sendZaloCheck">
+          <i class="bi bi-chat-dots text-success me-1"></i>Gửi tổng kết điểm danh lên nhóm Zalo lớp
+        </label>
+        {% if not schedule.class_.zalo_group_id and not schedule.class_.zalo_group %}
+        <div class="text-muted small mt-1">
+          <i class="bi bi-info-circle"></i> Lớp chưa thiết lập nhóm Zalo
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Sticky save button -->
+  <div class="sticky-bottom bg-white border-top py-3 px-0" style="z-index:10;">
+    <button type="button" class="btn btn-primary btn-lg w-100 shadow" id="saveBtn"
+            style="min-height:52px;font-size:1.05rem;">
+      <i class="bi bi-save me-2"></i>Lưu Điểm Danh
+    </button>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- Summary Modal -->
+<div class="modal fade" id="summaryModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h6 class="modal-title fw-semibold" id="smTitle">
+          <i class="bi bi-check-circle me-2"></i>Điểm danh
+        </h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+
+        <!-- Bảng tóm tắt -->
+        <div class="table-responsive mb-3">
+          <table class="table table-bordered text-center align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Sĩ số</th>
+                <th class="text-success">Có mặt</th>
+                <th>Vắng có phép / không phép</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="fw-semibold fs-5" id="smTotal"></td>
+                <td class="fw-semibold fs-5 text-success" id="smPresent"></td>
+                <td class="fw-semibold fs-5" id="smExcusedAbsent"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Danh sách học sinh vắng -->
+        <div id="smAbsentSection">
+          <div class="fw-semibold mb-2">Tên học sinh vắng:</div>
+          <ol id="smAbsentList" class="mb-0 ps-3"></ol>
+        </div>
+
+        <div id="smNoAbsent" class="text-success d-none">
+          <i class="bi bi-check-circle me-1"></i>Tất cả học sinh có mặt!
+        </div>
+
+        <div id="smZaloAlert" class="alert alert-success small d-none mt-3 mb-0">
+          <i class="bi bi-check-circle me-1"></i>Đã gửi thông báo lên nhóm Zalo
+        </div>
+
+        <hr class="my-3">
+        <div class="text-center text-muted small">
+          <strong>Trung tâm học thêm Nhật Tuyền</strong>
+          {% if center_phone %} – {{ center_phone }}{% endif %}
+        </div>
+      </div>
+      <div class="modal-footer">
+        <a href="{{ url_for('teacher.attendance_list') }}" class="btn btn-outline-secondary">
+          <i class="bi bi-list"></i> Danh sách
+        </a>
+        <a href="{{ url_for('teacher.dashboard') }}" class="btn btn-primary">
+          <i class="bi bi-house"></i> Về tổng quan
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% block extra_js %}
+<script>
+const SAVE_URL = '{{ url_for("teacher.save_attendance", schedule_id=schedule.id) }}';
+const CSRF = '{{ csrf_token() }}';
+
+// Live counter update
+function updateCounters() {
+  let present = 0, absent = 0, late = 0, excused = 0;
+  document.querySelectorAll('.student-card').forEach(card => {
+    const sid = card.dataset.studentId;
+    const checked = card.querySelector(`input[name="status_${sid}"]:checked`);
+    if (!checked) return;
+    if (checked.value === 'present') present++;
+    else if (checked.value === 'absent') absent++;
+    else if (checked.value === 'late') late++;
+    else if (checked.value === 'excused') excused++;
+  });
+  document.getElementById('cntPresent').textContent = present;
+  document.getElementById('cntAbsent').textContent = absent;
+  document.getElementById('cntLate').textContent = late;
+  document.getElementById('cntExcused').textContent = excused;
+}
+
+// Initial counter
+updateCounters();
+document.querySelectorAll('.status-radio').forEach(r => r.addEventListener('change', updateCounters));
+
+// Mark all present
+document.getElementById('btnAllPresent')?.addEventListener('click', function () {
+  document.querySelectorAll('.student-card').forEach(card => {
+    const sid = card.dataset.studentId;
+    const radio = card.querySelector(`#present_${sid}`);
+    if (radio) radio.checked = true;
+  });
+  updateCounters();
+});
+
+// Save
+document.getElementById('saveBtn')?.addEventListener('click', async function () {
+  const btn = this;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Đang lưu...';
+
+  const attendance = [];
+  document.querySelectorAll('.student-card').forEach(card => {
+    const sid = parseInt(card.dataset.studentId);
+    const checked = card.querySelector(`input[name="status_${sid}"]:checked`);
+    const reason = card.querySelector(`#reason_${sid}`)?.value || '';
+    if (checked) {
+      attendance.push({ student_id: sid, status: checked.value, reason });
+    }
+  });
+
+  if (attendance.length === 0) {
+    alert('Vui lòng chọn trạng thái cho ít nhất một học sinh!');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-save me-2"></i>Lưu Điểm Danh';
+    return;
+  }
+
+  const sendZalo = document.getElementById('sendZaloCheck')?.checked || false;
+
+  try {
+    const res = await fetch(SAVE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify({ attendance, send_zalo: sendZalo })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      const s = data.summary;
+      // Modal title
+      const teacherPart = s.teacher_display ? ` – ${s.teacher_display}` : '';
+      document.getElementById('smTitle').innerHTML =
+        `<i class="bi bi-check-circle me-2"></i>Điểm danh lớp ${s.class_name} – Ngày ${s.date}${teacherPart}`;
+      // Summary table
+      document.getElementById('smTotal').textContent = s.total;
+      document.getElementById('smPresent').textContent = s.present;
+      document.getElementById('smExcusedAbsent').textContent = `${s.excused}/${s.absent}`;
+      // Absent list
+      const absentList = document.getElementById('smAbsentList');
+      absentList.innerHTML = '';
+      if (s.absent_students && s.absent_students.length > 0) {
+        s.absent_students.forEach(st => {
+          const li = document.createElement('li');
+          li.className = 'mb-1';
+          const reasonTxt = st.reason ? ` (${st.reason})` : '';
+          const badgeClass = st.status === 'excused' ? 'bg-info text-dark' : (st.status === 'late' ? 'bg-warning text-dark' : 'bg-danger');
+          li.innerHTML = `<span class="fw-semibold">${st.name}</span> – <span class="badge ${badgeClass}">${st.status_label}</span>${reasonTxt}`;
+          absentList.appendChild(li);
+        });
+        document.getElementById('smAbsentSection').classList.remove('d-none');
+        document.getElementById('smNoAbsent').classList.add('d-none');
+      } else {
+        document.getElementById('smAbsentSection').classList.add('d-none');
+        document.getElementById('smNoAbsent').classList.remove('d-none');
+      }
+      if (s.zalo_sent) document.getElementById('smZaloAlert').classList.remove('d-none');
+      new bootstrap.Modal(document.getElementById('summaryModal')).show();
+    } else {
+      alert('Lỗi: ' + (data.error || 'Không xác định'));
+    }
+  } catch (err) {
+    alert('Lỗi kết nối, vui lòng thử lại.');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-save me-2"></i>Lưu Điểm Danh';
+  }
+});
+</script>
+{% endblock %}
+{% endblock %}

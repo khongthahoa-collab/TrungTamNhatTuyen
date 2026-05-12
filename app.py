@@ -36,9 +36,9 @@ def create_app(config_name=None):
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(public_bp, url_prefix='/')
-    app.register_blueprint(parent_bp, url_prefix='/phu-huynh')
-    app.register_blueprint(teacher_bp, url_prefix='/giao-vien')
-    app.register_blueprint(admin_bp, url_prefix='/quan-tri')
+    app.register_blueprint(parent_bp, url_prefix='/parent')
+    app.register_blueprint(teacher_bp, url_prefix='/teacher')
+    app.register_blueprint(admin_bp, url_prefix='/admin')
 
     # Jinja2 global helpers
     from models import SystemConfig, ContactInquiry, Notification

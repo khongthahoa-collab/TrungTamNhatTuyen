@@ -6,7 +6,7 @@ from blueprints.admin import admin_bp, require_admin
 from datetime import date
 
 
-@admin_bp.route('/giao-vien')
+@admin_bp.route('/teachers')
 @login_required
 @require_admin
 def teachers():
@@ -32,7 +32,7 @@ def teachers():
                            session_counts=session_counts)
 
 
-@admin_bp.route('/giao-vien/them', methods=['GET', 'POST'])
+@admin_bp.route('/teachers/add', methods=['GET', 'POST'])
 @login_required
 @require_admin
 def teacher_add():
@@ -41,6 +41,7 @@ def teacher_add():
         username = request.form.get('username', '').strip()
         phone = request.form.get('phone', '').strip()
         password = request.form.get('password', '').strip()
+        gender = request.form.get('gender', '').strip() or None
         is_staff = request.form.get('is_staff') == '1'
         base_salary = request.form.get('base_salary', 0, type=float)
         note = request.form.get('note', '').strip()
@@ -62,6 +63,7 @@ def teacher_add():
             username=username,
             phone=phone,
             role=UserRole.TEACHER,
+            gender=gender,
         )
         user.set_password(password)
         db.session.add(user)
@@ -81,7 +83,7 @@ def teacher_add():
     return render_template('admin/teachers/form.html', action='add', form={})
 
 
-@admin_bp.route('/giao-vien/<int:teacher_id>/sua', methods=['GET', 'POST'])
+@admin_bp.route('/teachers/<int:teacher_id>/edit', methods=['GET', 'POST'])
 @login_required
 @require_admin
 def teacher_edit(teacher_id):
@@ -92,6 +94,7 @@ def teacher_edit(teacher_id):
         full_name = request.form.get('full_name', '').strip()
         phone = request.form.get('phone', '').strip()
         password = request.form.get('password', '').strip()
+        gender = request.form.get('gender', '').strip() or None
         is_staff = request.form.get('is_staff') == '1'
         base_salary = request.form.get('base_salary', 0, type=float)
         note = request.form.get('note', '').strip()
@@ -109,6 +112,7 @@ def teacher_edit(teacher_id):
             else:
                 user.full_name = full_name
                 user.phone = phone
+                user.gender = gender
                 user.is_active = is_active
                 if password:
                     user.set_password(password)
@@ -123,7 +127,7 @@ def teacher_edit(teacher_id):
                            action='edit', teacher=teacher, form=teacher)
 
 
-@admin_bp.route('/giao-vien/<int:teacher_id>/xoa', methods=['POST'])
+@admin_bp.route('/teachers/<int:teacher_id>/delete', methods=['POST'])
 @login_required
 @require_admin
 def teacher_delete(teacher_id):
@@ -134,7 +138,7 @@ def teacher_delete(teacher_id):
     return redirect(url_for('admin.teachers'))
 
 
-@admin_bp.route('/giao-vien/<int:teacher_id>/kich-hoat', methods=['POST'])
+@admin_bp.route('/teachers/<int:teacher_id>/activate', methods=['POST'])
 @login_required
 @require_admin
 def teacher_activate(teacher_id):
