@@ -7,12 +7,13 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
 def _fix_db_url(url):
-    """Ensure PyMySQL driver is used — mysql:// and mysql+mysqldb:// both require
-    the mysqlclient C extension which is not available in native environments."""
+    """Normalize database URL for SQLAlchemy.
+    - postgres:// (Supabase/Heroku) → postgresql:// (required by SQLAlchemy 2.x)
+    """
     if not url:
         return url
-    if url.startswith('mysql://') or url.startswith('mysql+mysqldb://'):
-        return 'mysql+pymysql://' + url.split('://', 1)[1]
+    if url.startswith('postgres://'):
+        return 'postgresql://' + url[len('postgres://'):]
     return url
 
 
@@ -32,10 +33,7 @@ class Config:
 
 class DevelopmentConfig(Config):
     DEBUG = True
-    SQLALCHEMY_DATABASE_URI = _fix_db_url(os.environ.get(
-        'DATABASE_URL',
-        'mysql+pymysql://nhat_tuyen_user:nhat_tuyen_pass@localhost:3306/nhat_tuyen_db'
-    ))
+    SQLALCHEMY_DATABASE_URI = _fix_db_url(os.environ.get('DATABASE_URL', 'sqlite:///nhat_tuyen_dev.db'))
 
 
 class ProductionConfig(Config):

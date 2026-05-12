@@ -2,12 +2,8 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-# Install system dependencies
-# - default-libmysqlclient-dev: MySQL client (replaces libmysqlclient-dev removed in Debian trixie)
-# - WeasyPrint needs: pango, cairo, gdk-pixbuf, fontconfig, fonts
+# WeasyPrint needs: pango, cairo, gdk-pixbuf, fontconfig, fonts
 RUN apt-get update && apt-get install -y \
-    default-libmysqlclient-dev \
-    pkg-config \
     libpango-1.0-0 \
     libpangoft2-1.0-0 \
     libpangocairo-1.0-0 \

@@ -12,6 +12,7 @@ services:
         generateValue: true
       - key: DATABASE_URL
         sync: false
+        # Dán Supabase connection string vào đây (Transaction mode, port 6543)
       - key: UPLOAD_FOLDER
         value: uploads/documents
       - key: MAX_CONTENT_LENGTH
