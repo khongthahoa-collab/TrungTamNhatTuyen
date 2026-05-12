@@ -3,9 +3,21 @@ FROM python:3.13-slim
 WORKDIR /app
 
 # Install system dependencies
+# - default-libmysqlclient-dev: MySQL client (replaces libmysqlclient-dev removed in Debian trixie)
+# - WeasyPrint needs: pango, cairo, gdk-pixbuf, fontconfig, fonts
 RUN apt-get update && apt-get install -y \
-    libmysqlclient-dev \
+    default-libmysqlclient-dev \
     pkg-config \
+    libpango-1.0-0 \
+    libpangoft2-1.0-0 \
+    libpangocairo-1.0-0 \
+    libcairo2 \
+    libgdk-pixbuf2.0-0 \
+    libffi-dev \
+    libharfbuzz0b \
+    shared-mime-info \
+    fonts-liberation \
+    fonts-noto-core \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements
@@ -23,7 +35,7 @@ EXPOSE 5000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000').read()" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/').read()" || exit 1
 
 # Run application
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "wsgi:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "wsgi:app"]

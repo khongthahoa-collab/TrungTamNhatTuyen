@@ -32,12 +32,11 @@ class DevelopmentConfig(Config):
 
 class ProductionConfig(Config):
     DEBUG = False
-    # REQUIRED: DATABASE_URL must be set in Railway environment variables
+    # REQUIRED: Set DATABASE_URL in Render.com environment variables
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
     WTF_CSRF_SSL_STRICT = True
 
     def __init__(self):
-        # Validate critical configs in production
         if not self.SQLALCHEMY_DATABASE_URI:
             raise ValueError('DATABASE_URL environment variable is not set!')
         if os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production') == 'dev-secret-key-change-in-production':

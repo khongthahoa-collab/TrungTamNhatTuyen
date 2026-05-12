@@ -1,8 +1,7 @@
 import os
 from app import create_app
 
-# Railway will set FLASK_ENV to 'production'
-# If not set, default to 'development'
+# On Render.com, set FLASK_ENV=production in environment variables
 env = os.environ.get('FLASK_ENV', 'development')
 app = create_app(env)
 
