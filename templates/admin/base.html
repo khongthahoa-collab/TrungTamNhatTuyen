@@ -1,10 +1,12 @@
 {% extends 'base.html' %}
 {% block body %}
+{% set fullwidth_endpoints = ['admin.exams_new', 'admin.exams_edit', 'admin.exams_confirm'] %}
+{% set start_collapsed = request.endpoint in fullwidth_endpoints %}
 <div class="d-flex" id="admin-wrapper">
 
   <!-- Sidebar -->
   <nav class="sidebar d-flex flex-column flex-shrink-0 p-3 text-white" id="sidebar"
-       style="background: linear-gradient(180deg, #6d4dd4 0%, #7c5cdb 100%); width:240px; min-height:100vh; position:fixed; top:0; left:0; z-index:100; transition:transform .3s;">
+       style="background: linear-gradient(180deg, #6d4dd4 0%, #7c5cdb 100%); width:240px; min-height:100vh; position:fixed; top:0; left:0; z-index:100; transition:transform .3s;{% if start_collapsed %} transform:translateX(-100%);{% endif %}">
     <a href="{{ url_for('admin.dashboard') }}" class="d-flex align-items-center mb-3 text-white text-decoration-none">
       <i class="bi bi-mortarboard-fill fs-5 me-2"></i>
       <span class="fw-bold">Nhật Tuyền</span>
@@ -74,6 +76,11 @@
         </a>
       </li>
       <li class="nav-item mb-1">
+        <a href="{{ url_for('admin.exams_list') }}" class="nav-link text-white {% if 'exam' in request.endpoint %}active{% endif %}">
+          <i class="bi bi-pc-display me-2"></i>Đề thi online
+        </a>
+      </li>
+      <li class="nav-item mb-1">
         <a href="{{ url_for('admin.reports') }}" class="nav-link text-white {% if 'report' in request.endpoint %}active{% endif %}">
           <i class="bi bi-bar-chart-line me-2"></i>Báo cáo
         </a>
@@ -125,10 +132,10 @@
   </nav>
 
   <!-- Main content -->
-  <div class="flex-grow-1" id="main-content" style="margin-left:240px;">
+  <div class="flex-grow-1" id="main-content" style="margin-left: {{ '0' if start_collapsed else '240px' }}; transition: margin-left .3s;">
     <!-- Top bar -->
     <div class="d-flex align-items-center px-3 py-2 border-bottom bg-white sticky-top" style="z-index:50;">
-      <button class="btn btn-sm btn-outline-secondary d-lg-none me-3" id="sidebarToggle">
+      <button class="btn btn-sm btn-outline-secondary {% if not start_collapsed %}d-lg-none{% endif %} me-3" id="sidebarToggle" title="Ẩn/hiện menu">
         <i class="bi bi-list"></i>
       </button>
       <nav aria-label="breadcrumb" class="flex-grow-1">
@@ -167,6 +174,9 @@ const mainContent = document.getElementById('main-content');
 document.getElementById('sidebarToggle')?.addEventListener('click', () => {
   const hidden = sidebar.style.transform === 'translateX(-100%)';
   sidebar.style.transform = hidden ? '' : 'translateX(-100%)';
+  if (window.innerWidth >= 992) {
+    mainContent.style.marginLeft = hidden ? '240px' : '0';
+  }
 });
 // Close sidebar when clicking outside on mobile
 document.addEventListener('click', e => {

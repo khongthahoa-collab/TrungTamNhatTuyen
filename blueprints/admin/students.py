@@ -1,6 +1,8 @@
 import io
 import csv
 import os
+import re
+import unicodedata
 from flask import render_template, redirect, url_for, flash, request, abort, Response, current_app
 from flask_login import login_required, current_user
 from datetime import date, datetime
@@ -11,6 +13,18 @@ from models import (Student, User, Enrollment, Class, TuitionPayment, Score, Rew
 from blueprints.admin import admin_bp, require_admin
 
 PHOTO_EXTS = {'jpg', 'jpeg', 'png', 'webp', 'gif'}
+
+
+def _strip_diacritics(text):
+    text = unicodedata.normalize('NFD', text or '')
+    text = ''.join(c for c in text if unicodedata.category(c) != 'Mn')
+    return text.replace('Đ', 'D').replace('đ', 'd')
+
+
+def default_parent_password(full_name, birth_year=None):
+    """Default parent account password: @ + tên học sinh không dấu, không khoảng trắng + năm sinh."""
+    name_part = re.sub(r'[^a-z0-9]', '', _strip_diacritics(full_name).lower())
+    return f'@{name_part}{birth_year or ""}'
 
 
 @admin_bp.route('/students')
@@ -24,7 +38,7 @@ def students():
     school_q     = request.args.get('school_q', '').strip()
     teacher_id   = request.args.get('teacher_id', type=int)
 
-    query = Student.query
+    query = Student.query.filter_by(is_deleted=False)
 
     if q:
         query = query.filter(
@@ -55,8 +69,11 @@ def students():
             Enrollment.is_active == True
         ).distinct()
 
-    page     = request.args.get('page', 1, type=int)
-    per_page = 30
+    page         = request.args.get('page', 1, type=int)
+    per_page_raw = request.args.get('per_page', '10')
+    if per_page_raw not in ('10', '20', '40', '80', 'all'):
+        per_page_raw = '10'
+    per_page = max(query.count(), 1) if per_page_raw == 'all' else int(per_page_raw)
     pagination = query.order_by(Student.full_name).paginate(page=page, per_page=per_page, error_out=False)
     students   = pagination.items
 
@@ -82,16 +99,34 @@ def students():
                            absent_counts=absent_counts,
                            q=q, level=level, active_only=active_only,
                            class_id=class_id, school_q=school_q, teacher_id=teacher_id,
+                           per_page=per_page_raw,
                            levels=StudentLevel.LABELS,
                            all_classes=all_classes,
                            all_teachers=all_teachers)
+
+
+@admin_bp.route('/students/bulk-delete', methods=['POST'])
+@login_required
+@require_admin
+def students_bulk_delete():
+    student_ids = request.form.getlist('student_ids', type=int)
+    if not student_ids:
+        flash('Vui lòng chọn ít nhất 1 học sinh để xóa.', 'warning')
+        return redirect(url_for('admin.students'))
+
+    count = Student.query.filter(Student.id.in_(student_ids)).update(
+        {'is_deleted': True}, synchronize_session=False
+    )
+    db.session.commit()
+    flash(f'Đã xóa {count} học sinh.', 'success')
+    return redirect(url_for('admin.students'))
 
 
 @admin_bp.route('/students/export')
 @login_required
 @require_admin
 def export_students():
-    students = Student.query.order_by(Student.full_name).all()
+    students = Student.query.filter_by(is_deleted=False).order_by(Student.full_name).all()
 
     student_ids = [s.id for s in students]
     absent_counts = {}
@@ -144,7 +179,7 @@ def import_students():
     try:
         content = file.read().decode('utf-8-sig')
         reader = csv.DictReader(io.StringIO(content))
-        added = skipped = errors = 0
+        added = duplicates = missing_info = 0
         for row in reader:
             full_name = (row.get('Họ tên') or row.get('full_name') or '').strip()
             level_raw = (row.get('Cấp học') or row.get('level') or '').strip()
@@ -153,13 +188,13 @@ def import_students():
             level = level_map.get(level_raw, level_raw if level_raw in StudentLevel.LABELS else StudentLevel.SECONDARY)
 
             if not full_name:
-                skipped += 1
+                missing_info += 1
                 continue
 
             parent_phone = (row.get('SĐT phụ huynh') or row.get('parent_phone') or '').strip()
             # Skip duplicate by name + parent_phone
             if parent_phone and Student.query.filter_by(full_name=full_name, parent_phone=parent_phone).first():
-                skipped += 1
+                duplicates += 1
                 continue
 
             student = Student(
@@ -174,7 +209,10 @@ def import_students():
             added += 1
 
         db.session.commit()
-        flash(f'Import thành công: {added} học sinh mới, bỏ qua {skipped} trùng/thiếu thông tin.', 'success')
+        if missing_info:
+            flash(f'Thiếu thông tin học sinh, vui lòng nhập đầy đủ thông tin cần thiết ({missing_info} dòng bị bỏ qua).', 'danger')
+        if added or duplicates:
+            flash(f'Import thành công: {added} học sinh mới, bỏ qua {duplicates} dòng trùng thông tin.', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Lỗi khi đọc file: {e}', 'danger')
@@ -242,11 +280,12 @@ def student_add():
                     phone=parent_phone,
                     role=UserRole.PARENT,
                 )
-                new_user.set_password(parent_phone[-6:])
+                default_pw = default_parent_password(full_name, dob.year if dob else None)
+                new_user.set_password(default_pw)
                 db.session.add(new_user)
                 db.session.flush()
                 parent_user_id = new_user.id
-                flash(f'Đã tạo tài khoản phụ huynh: {username} / mật khẩu: {parent_phone[-6:]}', 'info')
+                flash(f'Đã tạo tài khoản phụ huynh: {username} / mật khẩu: {default_pw}', 'info')
 
         student = Student(
             full_name=full_name,
@@ -292,6 +331,8 @@ def student_detail(student_id):
     current_total = sum(t.amount for t in current_month_tuition)
     current_unpaid = sum(t.amount for t in current_month_tuition if not t.is_paid)
 
+    parent_account = User.query.get(student.parent_user_id) if student.parent_user_id else None
+
     return render_template('admin/students/detail.html',
                            student=student,
                            today=today,
@@ -302,7 +343,25 @@ def student_detail(student_id):
                            tuition_records=tuition_records,
                            current_month_tuition=current_month_tuition,
                            current_total=current_total,
-                           current_unpaid=current_unpaid)
+                           current_unpaid=current_unpaid,
+                           parent_account=parent_account)
+
+
+@admin_bp.route('/students/<int:student_id>/reset-parent-password', methods=['POST'])
+@login_required
+@require_admin
+def student_reset_parent_password(student_id):
+    student = Student.query.get_or_404(student_id)
+    if not student.parent_user_id:
+        flash('Học sinh này chưa có tài khoản phụ huynh để đặt lại mật khẩu.', 'warning')
+        return redirect(url_for('admin.student_detail', student_id=student_id))
+
+    user = User.query.get_or_404(student.parent_user_id)
+    new_pw = default_parent_password(student.full_name, student.date_of_birth.year if student.date_of_birth else None)
+    user.set_password(new_pw)
+    db.session.commit()
+    flash(f'Đã đặt lại mật khẩu phụ huynh về: {new_pw}', 'success')
+    return redirect(url_for('admin.student_detail', student_id=student_id))
 
 
 @admin_bp.route('/students/<int:student_id>/edit', methods=['GET', 'POST'])

@@ -9,6 +9,161 @@
   <h5 class="mb-0 fw-bold"><i class="bi bi-folder2 me-2 text-primary"></i>Quản lý tài liệu</h5>
 </div>
 
+<!-- Thư mục đề thi -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <span class="fw-semibold"><i class="bi bi-journal-bookmark me-2 text-success"></i>Thư mục đề thi</span>
+    <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#newExamFolderModal">
+      <i class="bi bi-folder-plus me-1"></i>Tạo thư mục
+    </button>
+  </div>
+  <div class="card-body">
+    {% if exam_folders %}
+    <div class="row g-2">
+      {% for folder in exam_folders %}
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="border rounded p-2 d-flex justify-content-between align-items-center">
+          <a href="{{ url_for('admin.exams_list', folder_id=folder.id) }}" class="text-decoration-none text-body flex-grow-1">
+            <i class="bi bi-folder me-2 text-success"></i>{{ folder.name }}
+            <span class="badge bg-secondary-subtle text-secondary border rounded-pill ms-1">{{ folder.exams.count() }}</span>
+            <div class="small text-muted">{{ folder.scope_label }}</div>
+          </a>
+          {% if current_user.is_admin or folder.created_by == current_user.id %}
+          <button type="button" class="btn btn-sm btn-link text-muted px-2" data-bs-toggle="modal"
+                  data-bs-target="#editExamFolderModal{{ folder.id }}" title="Sửa thư mục">
+            <i class="bi bi-pencil-fill" style="font-size:0.75rem;"></i>
+          </button>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Sửa thư mục -->
+      <div class="modal fade" id="editExamFolderModal{{ folder.id }}" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-0">
+              <h5 class="modal-title fw-bold"><i class="bi bi-folder me-2 text-success"></i>Sửa thư mục</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{{ url_for('admin.exam_folder_edit', folder_id=folder.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <div class="modal-body">
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">Tên thư mục</label>
+                  <input type="text" name="name" class="form-control" required value="{{ folder.name }}">
+                </div>
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">Tạo theo</label>
+                  <div class="form-check">
+                    <input class="form-check-input edit-exam-folder-scope" type="radio" name="scope_type" value="class"
+                           id="docEditScopeClass{{ folder.id }}" data-folder="{{ folder.id }}" {% if folder.scope_type == 'class' %}checked{% endif %}>
+                    <label class="form-check-label" for="docEditScopeClass{{ folder.id }}">Lớp học</label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input edit-exam-folder-scope" type="radio" name="scope_type" value="subject"
+                           id="docEditScopeSubject{{ folder.id }}" data-folder="{{ folder.id }}" {% if folder.scope_type == 'subject' %}checked{% endif %}>
+                    <label class="form-check-label" for="docEditScopeSubject{{ folder.id }}">Môn học</label>
+                  </div>
+                </div>
+                <div class="mb-3" id="docEditScopeClassBox{{ folder.id }}" {% if folder.scope_type != 'class' %}style="display:none;"{% endif %}>
+                  <label class="form-label fw-semibold">Chọn lớp</label>
+                  <select name="class_id" class="form-select">
+                    <option value="">-- Chọn lớp --</option>
+                    {% for cls in classes %}
+                    <option value="{{ cls.id }}" {% if folder.class_id == cls.id %}selected{% endif %}>{{ cls.name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="mb-3" id="docEditScopeSubjectBox{{ folder.id }}" {% if folder.scope_type != 'subject' %}style="display:none;"{% endif %}>
+                  <label class="form-label fw-semibold">Chọn môn</label>
+                  <select name="subject" class="form-select">
+                    <option value="">-- Chọn môn --</option>
+                    {% for course in courses %}
+                    <option value="{{ course.name }}" {% if folder.subject == course.name %}selected{% endif %}>{{ course.name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+              <div class="modal-footer border-0 d-flex justify-content-between">
+                <button type="submit" form="deleteExamFolderForm{{ folder.id }}" class="btn btn-outline-danger">
+                  <i class="bi bi-trash me-1"></i>Xóa thư mục
+                </button>
+                <div class="d-flex gap-2">
+                  <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                  <button type="submit" class="btn btn-success">Lưu</button>
+                </div>
+              </div>
+            </form>
+            <form id="deleteExamFolderForm{{ folder.id }}" method="post"
+                  action="{{ url_for('admin.exam_folder_delete', folder_id=folder.id) }}"
+                  onsubmit="return confirm('Xóa thư mục &quot;{{ folder.name }}&quot;? Các đề thi trong thư mục vẫn được giữ lại.')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted small mb-0">Chưa có thư mục đề thi nào. Bấm "Tạo thư mục" để tổ chức đề thi theo lớp hoặc môn học.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Tạo thư mục đề thi -->
+<div class="modal fade" id="newExamFolderModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-4 border-0 shadow">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-bold"><i class="bi bi-folder-plus me-2 text-success"></i>Tạo thư mục đề thi</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{{ url_for('admin.exam_folder_create') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Tên thư mục</label>
+            <input type="text" name="name" class="form-control" required placeholder="VD: Đề ôn thi giữa kì 1">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Tạo theo</label>
+            <div class="form-check">
+              <input class="form-check-input new-exam-folder-scope" type="radio" name="scope_type" value="class" id="docScopeClass" checked>
+              <label class="form-check-label" for="docScopeClass">Lớp học</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input new-exam-folder-scope" type="radio" name="scope_type" value="subject" id="docScopeSubject">
+              <label class="form-check-label" for="docScopeSubject">Môn học</label>
+            </div>
+          </div>
+          <div class="mb-3" id="docScopeClassBox">
+            <label class="form-label fw-semibold">Chọn lớp</label>
+            <select name="class_id" class="form-select">
+              <option value="">-- Chọn lớp --</option>
+              {% for cls in classes %}
+              <option value="{{ cls.id }}">{{ cls.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3 d-none" id="docScopeSubjectBox">
+            <label class="form-label fw-semibold">Chọn môn</label>
+            <select name="subject" class="form-select">
+              <option value="">-- Chọn môn --</option>
+              {% for course in courses %}
+              <option value="{{ course.name }}">{{ course.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="submit" class="btn btn-success">Tạo thư mục</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <!-- Bộ lọc lớp -->
 <div class="card mb-3 border-0 shadow-sm">
   <div class="card-body py-2">
@@ -171,4 +326,28 @@
   </div>
   {% endif %}
 </div>
+
+<script>
+(function() {
+  const radios = document.querySelectorAll('.new-exam-folder-scope');
+  const classBox = document.getElementById('docScopeClassBox');
+  const subjectBox = document.getElementById('docScopeSubjectBox');
+  function sync() {
+    const isClass = document.getElementById('docScopeClass').checked;
+    classBox.classList.toggle('d-none', !isClass);
+    subjectBox.classList.toggle('d-none', isClass);
+  }
+  radios.forEach(r => r.addEventListener('change', sync));
+  sync();
+})();
+
+document.querySelectorAll('.edit-exam-folder-scope').forEach(radio => {
+  radio.addEventListener('change', () => {
+    const folderId = radio.dataset.folder;
+    const isClass = document.getElementById('docEditScopeClass' + folderId).checked;
+    document.getElementById('docEditScopeClassBox' + folderId).style.display = isClass ? '' : 'none';
+    document.getElementById('docEditScopeSubjectBox' + folderId).style.display = isClass ? 'none' : '';
+  });
+});
+</script>
 {% endblock %}

@@ -123,6 +123,30 @@
   </div>
 </div>
 
+<!-- Tài khoản phụ huynh -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-semibold"><i class="bi bi-person-badge me-2 text-primary"></i>Tài khoản phụ huynh</div>
+  <div class="card-body">
+    {% if parent_account %}
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div>
+        <div class="fw-semibold small">{{ parent_account.full_name }}</div>
+        <div class="small text-muted">Đăng nhập bằng SĐT: {{ parent_account.phone }} (hoặc username: {{ parent_account.username }})</div>
+      </div>
+      <form method="post" action="{{ url_for('admin.student_reset_parent_password', student_id=student.id) }}"
+            onsubmit="return confirm('Đặt lại mật khẩu phụ huynh về định dạng mặc định?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-outline-warning btn-sm">
+          <i class="bi bi-key me-1"></i>Đặt lại mật khẩu
+        </button>
+      </form>
+    </div>
+    {% else %}
+    <p class="text-muted small mb-0">Học sinh chưa có tài khoản phụ huynh liên kết. Để tạo, hãy bật tùy chọn "Tạo tài khoản phụ huynh" khi thêm học sinh mới.</p>
+    {% endif %}
+  </div>
+</div>
+
 <!-- Tab layout -->
 <ul class="nav nav-tabs mb-3" id="studentTabs" role="tablist">
   <li class="nav-item" role="presentation">

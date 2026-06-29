@@ -1,12 +1,18 @@
 import os
+import json
+import random
+import re
 from flask import Blueprint, render_template, redirect, url_for, flash, abort, send_from_directory, current_app, request
 from flask_login import login_required, current_user
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from extensions import db
 from models import (Student, Attendance, Score, Reward, TuitionPayment, Schedule, Enrollment,
-                    ClassDocument, ScoreType, ScoreSource, ContactInquiry)
+                    ClassDocument, ScoreType, ScoreSource, ContactInquiry, Exam, ExamAttempt, ExamLog,
+                    Class, User, UserRole, Notification)
 
 parent_bp = Blueprint('parent', __name__)
+CHEAT_LIMIT = 3
+ERROR_ID_PATTERN = re.compile(r'\[(\*?)([A-F]):([^\]]*)\]')
 
 
 def _get_student_or_403(student_id):
@@ -15,6 +21,34 @@ def _get_student_or_403(student_id):
     if student not in kids:
         abort(403)
     return student
+
+
+@parent_bp.route('/change-password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    if not current_user.is_parent:
+        abort(403)
+
+    if request.method == 'POST':
+        current_password = request.form.get('current_password', '')
+        new_password = request.form.get('new_password', '')
+        confirm_password = request.form.get('confirm_password', '')
+
+        if not current_user.check_password(current_password):
+            flash('Mật khẩu hiện tại không đúng.', 'danger')
+        elif len(new_password) < 6:
+            flash('Mật khẩu mới phải có ít nhất 6 ký tự.', 'danger')
+        elif new_password != confirm_password:
+            flash('Mật khẩu xác nhận không khớp.', 'danger')
+        else:
+            current_user.set_password(new_password)
+            db.session.commit()
+            flash('Đã đổi mật khẩu thành công.', 'success')
+            return redirect(url_for('parent.dashboard'))
+
+    children = current_user.children.filter_by(is_active=True).all()
+    return render_template('parent/change_password.html', children=children,
+                           student=children[0] if children else None)
 
 
 @parent_bp.route('/')
@@ -385,3 +419,311 @@ def download_document(doc_id):
                                doc.stored_filename,
                                as_attachment=True,
                                download_name=doc.original_filename)
+
+
+# ============================================================
+# Exam / online test taking
+# ============================================================
+
+def _exams_for_student(student):
+    """Non-draft exams assigned to one of the student's active classes, or open to everyone."""
+    class_ids = {e.class_id for e in student.enrollments.filter_by(is_active=True).all()}
+    all_exams = Exam.query.filter_by(is_draft=False).order_by(Exam.created_at.desc()).all()
+    return [exam for exam in all_exams if not exam.class_list or class_ids & set(exam.class_list)]
+
+
+def _build_attempt_order(exam):
+    """Per group: shuffle question order, and (for mcq/true_false) shuffle option/statement order.
+    Groups themselves always stay in their authored order (Phần 1, Phần 2, ...)."""
+    groups_order = []
+    for group in exam.question_groups:
+        questions = group.get('questions', [])
+        q_order = list(range(len(questions)))
+        if exam.shuffle_questions:
+            random.shuffle(q_order)
+        opt_orders = {}
+        if exam.shuffle_answers and group.get('type') in ('mcq', 'true_false'):
+            key = 'options' if group.get('type') == 'mcq' else 'statements'
+            for qi, q in enumerate(questions):
+                opt_order = list(range(len(q.get(key, []))))
+                random.shuffle(opt_order)
+                opt_orders[str(qi)] = opt_order
+        groups_order.append({'q_order': q_order, 'opt_orders': opt_orders})
+    return {'groups': groups_order}
+
+
+def _ordered_questions(exam, order_data):
+    """Build the grouped list of questions to display, in shuffled order, without leaking correct answers."""
+    groups_order = order_data.get('groups') or []
+    display_groups = []
+    for gi, group in enumerate(exam.question_groups):
+        go = groups_order[gi] if gi < len(groups_order) else {}
+        gtype = group.get('type')
+        questions = group.get('questions', [])
+        q_order = go.get('q_order') or list(range(len(questions)))
+        opt_orders = go.get('opt_orders') or {}
+        display_questions = []
+        for position, orig_qi in enumerate(q_order, start=1):
+            if orig_qi >= len(questions):
+                continue
+            q = questions[orig_qi]
+            item = {'position': position, 'text': q.get('text', '')}
+            if gtype == 'mcq':
+                opt_order = opt_orders.get(str(orig_qi)) or list(range(len(q.get('options', []))))
+                item['options'] = [q['options'][oi] for oi in opt_order if oi < len(q.get('options', []))]
+            elif gtype == 'true_false':
+                opt_order = opt_orders.get(str(orig_qi)) or list(range(len(q.get('statements', []))))
+                statements = q.get('statements', [])
+                item['statements'] = [statements[oi]['text'] for oi in opt_order if oi < len(statements)]
+            elif gtype == 'error_id':
+                item['labels'] = [label for _star, label, _seg in ERROR_ID_PATTERN.findall(q.get('text', ''))]
+            display_questions.append(item)
+        display_groups.append({
+            'index': gi, 'title': group.get('title', ''), 'type': gtype,
+            'instruction': group.get('instruction', ''), 'questions': display_questions,
+        })
+    return display_groups
+
+
+def _grade_attempt(exam, attempt, form):
+    """Type-aware grading. Each question contributes equal weight to the overall score;
+    a true_false question earns the fraction of its sub-statements answered correctly (partial credit)."""
+    order_data = attempt.order_data
+    groups_order = order_data.get('groups') or []
+    breakdown = []
+    normalized = {}
+    total_earned = 0.0
+    total_weight = 0
+
+    for gi, group in enumerate(exam.question_groups):
+        go = groups_order[gi] if gi < len(groups_order) else {}
+        gtype = group.get('type')
+        questions = group.get('questions', [])
+        q_order = go.get('q_order') or list(range(len(questions)))
+        opt_orders = go.get('opt_orders') or {}
+        group_earned = 0.0
+        group_total = 0
+
+        for position, orig_qi in enumerate(q_order, start=1):
+            if orig_qi >= len(questions):
+                continue
+            q = questions[orig_qi]
+            field = f'g{gi}_q{position}'
+            group_total += 1
+            earned = 0.0
+
+            if gtype == 'mcq':
+                opt_order = opt_orders.get(str(orig_qi)) or list(range(len(q.get('options', []))))
+                raw_choice = form.get(field, '').strip()
+                normalized[field] = raw_choice
+                if raw_choice:
+                    try:
+                        chosen_orig = opt_order[int(raw_choice) - 1]
+                        earned = 1.0 if chosen_orig == q.get('correct_index') else 0.0
+                    except (ValueError, IndexError):
+                        pass
+            elif gtype == 'true_false':
+                statements = q.get('statements', [])
+                opt_order = opt_orders.get(str(orig_qi)) or list(range(len(statements)))
+                correct_subs = 0
+                chosen = {}
+                for sub_pos, orig_si in enumerate(opt_order, start=1):
+                    raw_val = form.get(f'{field}_{sub_pos}', '').strip()
+                    chosen[str(sub_pos)] = raw_val
+                    if orig_si < len(statements) and raw_val in ('0', '1'):
+                        if (raw_val == '1') == bool(statements[orig_si].get('correct')):
+                            correct_subs += 1
+                normalized[field] = chosen
+                earned = (correct_subs / len(statements)) if statements else 0.0
+            elif gtype == 'short_answer':
+                raw_answer = form.get(field, '').strip()
+                normalized[field] = raw_answer
+                earned = 1.0 if raw_answer and raw_answer in q.get('accepted_answers', []) else 0.0
+            elif gtype == 'error_id':
+                raw_choice = form.get(field, '').strip().upper()
+                normalized[field] = raw_choice
+                earned = 1.0 if raw_choice and raw_choice == q.get('correct_label') else 0.0
+
+            group_earned += earned
+            total_earned += earned
+
+        total_weight += group_total
+        breakdown.append({'title': group.get('title', ''), 'type': gtype,
+                          'earned': round(group_earned, 2), 'total': group_total})
+
+    percent = int(round(total_earned / total_weight * 100)) if total_weight else 0
+    score_10 = round(total_earned / total_weight * 10, 1) if total_weight else 0
+    result = {'earned': round(total_earned, 2), 'total': total_weight, 'percent': percent,
+             'score_10': score_10, 'breakdown': breakdown}
+    return normalized, result
+
+
+@parent_bp.route('/students/<int:student_id>/exams')
+@login_required
+def exams(student_id):
+    if not current_user.is_parent:
+        abort(403)
+    student = _get_student_or_403(student_id)
+    children = current_user.children.filter_by(is_active=True).all()
+
+    rows = []
+    for exam in _exams_for_student(student):
+        attempts = ExamAttempt.query.filter_by(exam_id=exam.id, student_id=student.id).order_by(
+            ExamAttempt.started_at.desc()).all()
+        submitted = [a for a in attempts if a.status == 'submitted']
+        in_progress = next((a for a in attempts if a.status == 'in_progress'), None)
+        if exam.is_unlimited_attempts:
+            can_take = True
+        else:
+            can_take = len(submitted) < exam.allow_attempts or in_progress is not None
+        rows.append({
+            'exam': exam,
+            'attempts_used': len(submitted),
+            'last_attempt': submitted[0] if submitted else None,
+            'in_progress': in_progress is not None,
+            'can_take': can_take,
+            'is_open': exam.is_open_now(),
+        })
+
+    return render_template('exams/parent_list.html', rows=rows, student=student, children=children)
+
+
+@parent_bp.route('/students/<int:student_id>/exams/<int:exam_id>')
+@login_required
+def exam_take(student_id, exam_id):
+    if not current_user.is_parent:
+        abort(403)
+    student = _get_student_or_403(student_id)
+    children = current_user.children.filter_by(is_active=True).all()
+    exam = Exam.query.get_or_404(exam_id)
+
+    if exam.is_draft or exam not in _exams_for_student(student):
+        abort(404)
+
+    last_attempt = ExamAttempt.query.filter_by(exam_id=exam.id, student_id=student.id).order_by(
+        ExamAttempt.started_at.desc()).first()
+
+    if last_attempt and last_attempt.status == 'in_progress':
+        elapsed = (datetime.utcnow() - last_attempt.started_at).total_seconds()
+        if elapsed >= exam.duration_minutes * 60:
+            # Time already ran out while the student was away — finalize with whatever was given (nothing).
+            normalized, result = _grade_attempt(exam, last_attempt, {})
+            last_attempt.submitted_at = datetime.utcnow()
+            last_attempt.status = 'submitted'
+            last_attempt.score = result['percent']
+            last_attempt.total_questions = result['total']
+            last_attempt.answers_json = json.dumps(normalized)
+            last_attempt.result_json = json.dumps(result)
+            db.session.commit()
+            flash('Đã hết thời gian làm bài, hệ thống tự động nộp bài.', 'warning')
+            return redirect(url_for('parent.exam_result', student_id=student.id, exam_id=exam.id))
+        attempt = last_attempt
+    else:
+        submitted_count = ExamAttempt.query.filter_by(
+            exam_id=exam.id, student_id=student.id, status='submitted').count()
+        if not exam.is_unlimited_attempts and submitted_count >= exam.allow_attempts:
+            flash('Bạn đã hết lượt làm bài này.', 'warning')
+            return redirect(url_for('parent.exam_result', student_id=student.id, exam_id=exam.id))
+        if not exam.is_open_now():
+            flash('Đề thi hiện chưa mở hoặc đã đóng theo thời gian quy định.', 'warning')
+            return redirect(url_for('parent.exams', student_id=student.id))
+
+        attempt = ExamAttempt(
+            exam_id=exam.id,
+            user_id=current_user.id,
+            student_id=student.id,
+            status='in_progress',
+            total_questions=exam.total_question_count,
+            order_json=json.dumps(_build_attempt_order(exam)),
+        )
+        db.session.add(attempt)
+        db.session.add(ExamLog(user_id=current_user.id, action='start_exam_attempt', target_type='exam',
+                               target_id=exam.id, detail=f'{student.full_name} bắt đầu làm "{exam.title}"'))
+        db.session.commit()
+
+    questions = _ordered_questions(exam, attempt.order_data)
+    remaining_seconds = max(0, int(exam.duration_minutes * 60 - (datetime.utcnow() - attempt.started_at).total_seconds()))
+
+    return render_template('exams/take.html', exam=exam, attempt=attempt, student=student, children=children,
+                           questions=questions, remaining_seconds=remaining_seconds, cheat_limit=CHEAT_LIMIT)
+
+
+def _notify_cheat_flag(exam, student, attempt):
+    """Notify admins and the exam's creator/primary teacher of the assigned classes
+    that a student was flagged for leaving the exam screen too many times."""
+    recipient_ids = {u.id for u in User.query.filter_by(role=UserRole.ADMIN).all()}
+    if exam.created_by:
+        recipient_ids.add(exam.created_by)
+    for class_id in exam.class_list:
+        cls = Class.query.get(class_id)
+        if cls and cls.primary_teacher and cls.primary_teacher.user_id:
+            recipient_ids.add(cls.primary_teacher.user_id)
+
+    title = f'Cảnh báo gian lận: {student.full_name}'
+    body = (f'Học sinh {student.full_name} đã rời khỏi màn hình thi quá {CHEAT_LIMIT} lần '
+            f'khi làm đề "{exam.title}" ({attempt.cheat_count} lần).')
+    link = url_for('admin.exams_results', exam_id=exam.id)
+    for uid in recipient_ids:
+        db.session.add(Notification(user_id=uid, title=title, body=body, notif_type='warning', link=link))
+
+
+@parent_bp.route('/students/<int:student_id>/exams/<int:exam_id>/submit', methods=['POST'])
+@login_required
+def exam_submit(student_id, exam_id):
+    if not current_user.is_parent:
+        abort(403)
+    student = _get_student_or_403(student_id)
+    exam = Exam.query.get_or_404(exam_id)
+
+    attempt = ExamAttempt.query.filter_by(exam_id=exam.id, student_id=student.id, status='in_progress').order_by(
+        ExamAttempt.started_at.desc()).first()
+    if not attempt:
+        return redirect(url_for('parent.exam_result', student_id=student.id, exam_id=exam.id))
+
+    normalized, result = _grade_attempt(exam, attempt, request.form)
+    try:
+        cheat_count = int(request.form.get('cheat_count', 0))
+    except (ValueError, TypeError):
+        cheat_count = 0
+    was_flagged = cheat_count > CHEAT_LIMIT
+
+    attempt.submitted_at = datetime.utcnow()
+    attempt.status = 'submitted'
+    attempt.score = result['percent']
+    attempt.total_questions = result['total']
+    attempt.cheat_count = cheat_count
+    attempt.was_flagged = was_flagged
+    attempt.answers_json = json.dumps(normalized)
+    attempt.result_json = json.dumps(result)
+
+    log_detail = f'{student.full_name} nộp bài "{exam.title}" — {result["earned"]}/{result["total"]} điểm {result["score_10"]}/10'
+    if was_flagged:
+        log_detail += f' (cảnh báo gian lận, {cheat_count} lần)'
+        _notify_cheat_flag(exam, student, attempt)
+    db.session.add(ExamLog(user_id=current_user.id, action='submit_exam_attempt', target_type='exam',
+                           target_id=exam.id, detail=log_detail))
+    db.session.commit()
+
+    return redirect(url_for('parent.exam_result', student_id=student.id, exam_id=exam.id))
+
+
+@parent_bp.route('/students/<int:student_id>/exams/<int:exam_id>/result')
+@login_required
+def exam_result(student_id, exam_id):
+    if not current_user.is_parent:
+        abort(403)
+    student = _get_student_or_403(student_id)
+    children = current_user.children.filter_by(is_active=True).all()
+    exam = Exam.query.get_or_404(exam_id)
+
+    attempt = ExamAttempt.query.filter_by(exam_id=exam.id, student_id=student.id, status='submitted').order_by(
+        ExamAttempt.started_at.desc()).first()
+    if not attempt:
+        flash('Bạn chưa hoàn thành bài thi này.', 'warning')
+        return redirect(url_for('parent.exams', student_id=student.id))
+
+    submitted_count = ExamAttempt.query.filter_by(exam_id=exam.id, student_id=student.id, status='submitted').count()
+    can_retake = exam.is_unlimited_attempts or submitted_count < exam.allow_attempts
+
+    return render_template('exams/result.html', exam=exam, attempt=attempt, student=student, children=children,
+                           can_retake=can_retake)

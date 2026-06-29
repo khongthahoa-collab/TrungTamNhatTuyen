@@ -1,0 +1,47 @@
+{% extends 'parent/base.html' %}
+{% block content %}
+<div class="container py-3" style="max-width:640px;">
+  <div class="card border-0 shadow-sm">
+    <div class="card-body text-center">
+      <h4 class="fw-bold mb-1">{{ exam.title }}</h4>
+      <p class="text-muted mb-3">Kết quả bài làm của <strong>{{ student.full_name }}</strong></p>
+
+      {% set result = attempt.result %}
+      <div class="display-4 fw-bold text-success mb-1">{{ result.get('score_10', 0) }}<span class="fs-4 text-muted">/10</span></div>
+      <p class="text-muted mb-3">Đúng {{ result.get('earned', 0) }}/{{ result.get('total', 0) }} câu (quy đổi) · {{ result.get('percent', 0) }}%</p>
+
+      {% if result.get('breakdown') %}
+      <div class="text-start small border rounded p-2 mb-3 bg-light">
+        {% for part in result.breakdown %}
+        <div class="d-flex justify-content-between">
+          <span>{{ part.title }}</span>
+          <span class="fw-semibold">{{ part.earned }}/{{ part.total }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if attempt.was_flagged %}
+      <div class="alert alert-warning text-start small">
+        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+        Bài làm này đã được ghi nhận <strong>{{ attempt.cheat_count }}</strong> lần rời khỏi màn hình thi và bị đánh dấu là có dấu hiệu gian lận.
+        Điểm số vẫn được tính như bình thường nhưng giáo viên sẽ được thông báo để xem xét lại.
+      </div>
+      {% endif %}
+
+      <p class="small text-muted mb-3">Nộp bài lúc {{ attempt.submitted_at | datetime_vn if attempt.submitted_at else '—' }}</p>
+
+      <div class="d-flex justify-content-center gap-2">
+        <a href="{{ url_for('parent.exams', student_id=student.id) }}" class="btn btn-outline-secondary">
+          <i class="bi bi-arrow-left me-1"></i>Danh sách bài thi
+        </a>
+        {% if can_retake %}
+        <a href="{{ url_for('parent.exam_take', student_id=student.id, exam_id=exam.id) }}" class="btn btn-primary">
+          <i class="bi bi-arrow-repeat me-1"></i>Làm lại
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

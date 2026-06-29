@@ -1,3 +1,4 @@
+import json
 from extensions import db
 from flask_login import UserMixin
 from datetime import datetime, date
@@ -152,6 +153,222 @@ teacher_classes = db.Table(
 # Database Models - Core entities
 # ============================================================
 
+class ExamFolder(db.Model):
+    """Folder to organize exams for reuse, scoped to either a class or a subject."""
+    __tablename__ = 'exam_folders'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    scope_type = db.Column(db.String(20), nullable=False, default='class')  # 'class' | 'subject'
+    class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=True)
+    subject = db.Column(db.String(100), nullable=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    class_ = db.relationship('Class', backref='exam_folders')
+
+    @property
+    def scope_label(self):
+        if self.scope_type == 'class':
+            return self.class_.name if self.class_ else 'Lớp đã xóa'
+        return self.subject or 'Môn học'
+
+    def __repr__(self):
+        return f'<ExamFolder {self.name}>'
+
+
+class Exam(db.Model):
+    """Online exam / practice test definition."""
+    __tablename__ = 'exams'
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    subject = db.Column(db.String(100), nullable=False, default='')
+    exam_type = db.Column(db.String(40), nullable=False, default='practice')
+    description = db.Column(db.Text)
+    class_ids = db.Column(db.Text, default='')
+    folder_id = db.Column(db.Integer, db.ForeignKey('exam_folders.id'), nullable=True)
+    duration_minutes = db.Column(db.Integer, default=30)
+    availability_mode = db.Column(db.String(30), default='always')
+    available_from = db.Column(db.DateTime)
+    available_to = db.Column(db.DateTime)
+    allow_attempts = db.Column(db.Integer, default=1)
+    shuffle_questions = db.Column(db.Boolean, default=True)
+    shuffle_answers = db.Column(db.Boolean, default=True)
+    is_draft = db.Column(db.Boolean, default=False)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    questions_json = db.Column(db.Text, nullable=False, default='{"groups": []}')
+
+    folder = db.relationship('ExamFolder', backref=db.backref('exams', lazy='dynamic'))
+
+    QUESTION_TYPE_LABELS = {
+        'mcq': 'Trắc nghiệm 4 đáp án',
+        'true_false': 'Đúng / Sai theo nhóm',
+        'short_answer': 'Trả lời ngắn',
+        'error_id': 'Tìm lỗi sai (gạch chân)',
+    }
+
+    @property
+    def question_groups(self):
+        """Parsed {'groups': [{'title','type','instruction','questions':[...]}]} structure."""
+        try:
+            data = json.loads(self.questions_json or '{}')
+        except Exception:
+            data = {}
+        groups = data.get('groups') if isinstance(data, dict) else None
+        return groups if isinstance(groups, list) else []
+
+    @property
+    def all_questions(self):
+        """Flatten every question across all groups, e.g. for counting."""
+        result = []
+        for group in self.question_groups:
+            for question in group.get('questions', []):
+                result.append((group, question))
+        return result
+
+    @property
+    def total_question_count(self):
+        return len(self.all_questions)
+
+    @property
+    def class_list(self):
+        return [int(item) for item in (self.class_ids or '').split(',') if item.strip().isdigit()]
+
+    @property
+    def type_label(self):
+        labels = {
+            'practice': 'Ôn tập',
+            'quiz_15': 'Kiểm tra 15 phút',
+            'periodic': 'Kiểm tra định kì',
+            'midterm_1': 'Giữa kì 1',
+            'final_1': 'Cuối kì 1',
+            'midterm_2': 'Giữa kì 2',
+            'final_2': 'Cuối kì 2',
+            'other': 'Khác',
+        }
+        return labels.get(self.exam_type, self.exam_type)
+
+    @property
+    def availability_label(self):
+        if self.availability_mode == 'range':
+            return 'Theo khoảng thời gian'
+        if self.availability_mode == 'class_schedule':
+            return 'Trong khung giờ học của lớp'
+        return 'Không giới hạn'
+
+    @property
+    def is_unlimited_attempts(self):
+        return not self.allow_attempts or self.allow_attempts <= 0
+
+    def is_open_now(self, now=None):
+        """Whether the exam can be taken right now, per its availability_mode."""
+        now = now or datetime.utcnow()
+        if self.availability_mode == 'range':
+            if self.available_from and now < self.available_from:
+                return False
+            if self.available_to and now > self.available_to:
+                return False
+            return True
+        if self.availability_mode == 'class_schedule':
+            class_ids = self.class_list
+            if not class_ids:
+                return False
+            today = now.date()
+            current_time = now.time()
+            exists = Schedule.query.filter(
+                Schedule.class_id.in_(class_ids),
+                Schedule.date == today,
+                Schedule.is_cancelled.is_(False),
+                Schedule.start_time <= current_time,
+                Schedule.end_time >= current_time,
+            ).first()
+            return exists is not None
+        return True
+
+    @property
+    def taken_status(self):
+        """'Đã thi' / 'Chưa thi' / 'Hết hạn' — only meaningful for published (non-draft) exams."""
+        if self.availability_mode == 'range' and self.available_to and datetime.utcnow() > self.available_to:
+            return 'expired'
+        if self.attempts.filter_by(status='submitted').first() is not None:
+            return 'taken'
+        return 'not_taken'
+
+    @property
+    def taken_status_label(self):
+        return {'taken': 'Đã thi', 'not_taken': 'Chưa thi', 'expired': 'Hết hạn'}[self.taken_status]
+
+    def __repr__(self):
+        return f'<Exam {self.title}>'
+
+
+class ExamAttempt(db.Model):
+    """A single attempt by a parent/student to complete an exam."""
+    __tablename__ = 'exam_attempts'
+
+    id = db.Column(db.Integer, primary_key=True)
+    exam_id = db.Column(db.Integer, db.ForeignKey('exams.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=True)
+    started_at = db.Column(db.DateTime, default=datetime.utcnow)
+    submitted_at = db.Column(db.DateTime)
+    status = db.Column(db.String(30), default='in_progress')
+    score = db.Column(db.Integer, default=0)
+    total_questions = db.Column(db.Integer, default=0)
+    cheat_count = db.Column(db.Integer, default=0)
+    was_flagged = db.Column(db.Boolean, default=False)
+    answers_json = db.Column(db.Text, default='{}')
+    result_json = db.Column(db.Text, default='{}')
+    order_json = db.Column(db.Text, default='{}')
+
+    exam = db.relationship('Exam', backref=db.backref('attempts', lazy='dynamic'))
+    student = db.relationship('Student', foreign_keys=[student_id], backref='exam_attempts')
+
+    @property
+    def answers(self):
+        try:
+            return json.loads(self.answers_json or '{}')
+        except Exception:
+            return {}
+
+    @property
+    def result(self):
+        try:
+            return json.loads(self.result_json or '{}')
+        except Exception:
+            return {}
+
+    @property
+    def order_data(self):
+        try:
+            data = json.loads(self.order_json or '{}')
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+    def __repr__(self):
+        return f'<ExamAttempt exam={self.exam_id} user={self.user_id}>'
+
+
+class ExamLog(db.Model):
+    """Audit log for exam actions."""
+    __tablename__ = 'exam_logs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    action = db.Column(db.String(60), nullable=False)
+    target_type = db.Column(db.String(60), nullable=False, default='exam')
+    target_id = db.Column(db.Integer, nullable=True)
+    detail = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<ExamLog {self.action}>'
+
+
 class SystemConfig(db.Model):
     """System configuration settings"""
     __tablename__ = 'system_config'
@@ -241,6 +458,7 @@ class User(UserMixin, db.Model):
     teacher_profile = db.relationship('Teacher', backref='user', uselist=False)
     children = db.relationship('Student', backref='parent_user',
                                foreign_keys='Student.parent_user_id', lazy='dynamic')
+    created_exams = db.relationship('Exam', backref='creator', lazy='dynamic', foreign_keys='Exam.created_by')
 
     def set_password(self, password):
         """Hash and set password"""
@@ -506,6 +724,7 @@ class Student(db.Model):
     photo_path = db.Column(db.String(255))
     is_active = db.Column(db.Boolean, default=True)
     status = db.Column(db.String(20), default='active', server_default='active')
+    is_deleted = db.Column(db.Boolean, default=False, server_default='0')  # soft delete
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships

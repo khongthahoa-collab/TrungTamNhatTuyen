@@ -60,7 +60,7 @@
           {% endif %}
 
           <!-- Attendance button -->
-          <a href="{{ url_for('teacher.attendance', schedule_id=s.id) }}"
+          <a href="{{ url_for('teacher.attendance_session', schedule_id=s.id) }}"
              class="btn btn-primary btn-lg flex-fill">
             <i class="bi bi-person-check me-1"></i>Điểm danh
           </a>
@@ -93,7 +93,7 @@
           &nbsp;{{ s.start_time.strftime('%H:%M') }}
         </div>
       </div>
-      <a href="{{ url_for('teacher.attendance', schedule_id=s.id) }}"
+      <a href="{{ url_for('teacher.attendance_session', schedule_id=s.id) }}"
          class="btn btn-warning btn-sm px-3 flex-shrink-0">
         <i class="bi bi-person-check me-1"></i>Điểm danh
       </a>

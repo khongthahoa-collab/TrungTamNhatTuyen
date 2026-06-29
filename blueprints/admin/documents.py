@@ -3,7 +3,7 @@ import uuid
 from flask import render_template, redirect, url_for, flash, request, current_app, send_from_directory
 from flask_login import login_required, current_user
 from extensions import db
-from models import ClassDocument, Class
+from models import ClassDocument, Class, Course, ExamFolder
 from blueprints.admin import admin_bp, require_admin
 
 
@@ -17,8 +17,11 @@ def documents():
         query = query.filter_by(class_id=class_id)
     docs = query.order_by(ClassDocument.uploaded_at.desc()).all()
     classes = Class.query.filter_by(is_active=True).order_by(Class.name).all()
+    courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
+    exam_folders = ExamFolder.query.order_by(ExamFolder.name).all()
     return render_template('admin/documents/list.html',
-                           docs=docs, classes=classes, selected_class_id=class_id)
+                           docs=docs, classes=classes, courses=courses,
+                           exam_folders=exam_folders, selected_class_id=class_id)
 
 
 @admin_bp.route('/documents/upload', methods=['POST'])
@@ -76,7 +79,7 @@ def document_delete(doc_id):
 
 @admin_bp.route('/documents/<int:doc_id>/download')
 @login_required
-def admin_download_document(doc_id):
+def document_download(doc_id):
     doc = ClassDocument.query.get_or_404(doc_id)
     if not doc.is_active:
         flash('Tài liệu không còn tồn tại.', 'danger')

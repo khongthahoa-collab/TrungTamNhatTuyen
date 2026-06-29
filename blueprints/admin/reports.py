@@ -37,9 +37,9 @@ def reports():
     profit = total_revenue - total_expenses
 
     # Student statistics
-    total_students = Student.query.filter_by(is_active=True).count()
+    total_students = Student.query.filter_by(is_active=True, is_deleted=False).count()
     new_this_year = Student.query.filter(
-        extract('year', Student.created_at) == year
+        extract('year', Student.created_at) == year, Student.is_deleted == False
     ).count()
 
     # Class efficiency (current active classes)

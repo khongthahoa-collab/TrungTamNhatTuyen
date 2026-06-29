@@ -14,8 +14,17 @@ def require_admin(f):
     return decorated
 
 
+def require_admin_or_teacher(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not current_user.is_authenticated or not (current_user.is_admin or current_user.is_teacher):
+            abort(403)
+        return f(*args, **kwargs)
+    return decorated
+
+
 # Import sub-modules to register routes
-from blueprints.admin import students, classes, academic, finance, rewards, documents, reports, settings, teachers, rooms, schools, attendance  # noqa
+from blueprints.admin import students, classes, academic, finance, rewards, documents, reports, settings, teachers, rooms, schools, attendance, exams  # noqa
 
 
 @admin_bp.route('/')
@@ -27,7 +36,7 @@ def dashboard():
 
     today = date.today()
     stats = {
-        'students': Student.query.filter_by(is_active=True).count(),
+        'students': Student.query.filter_by(is_active=True, is_deleted=False).count(),
         'teachers': Teacher.query.count(),
         'classes': Class.query.filter_by(is_active=True).count(),
         'unpaid_tuition': TuitionPayment.query.filter_by(

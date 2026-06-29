@@ -56,6 +56,11 @@
         {% endif %}
       </a>
 
+      <!-- Change password -->
+      <a href="{{ url_for('parent.change_password') }}" class="btn btn-sm btn-outline-light" title="Đổi mật khẩu">
+        <i class="bi bi-key"></i>
+      </a>
+
       <!-- Logout -->
       <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-light d-flex align-items-center gap-1" title="Đăng xuất">
         <i class="bi bi-box-arrow-right"></i>
@@ -122,6 +127,14 @@
          style="font-size:0.65rem;">
         <i class="bi bi-folder{% if request.endpoint == 'parent.documents' %}-fill{% endif %} fs-5"></i>
         <span>Tài liệu</span>
+      </a>
+
+      <a href="{{ url_for('parent.exams', student_id=current_student_id) }}"
+         class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none
+                {% if 'exam' in request.endpoint %}text-success border-top border-success border-2{% else %}text-muted{% endif %}"
+         style="font-size:0.65rem;">
+        <i class="bi bi-pc-display{% if 'exam' in request.endpoint %}-fill{% endif %} fs-5"></i>
+        <span>Thi online</span>
       </a>
 
     </div>

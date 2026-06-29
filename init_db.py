@@ -2,12 +2,13 @@
 Initialize database and seed sample data for Nhat Tuyen tutoring center.
 Run: python init_db.py
 """
+import json
 from app import create_app
 from extensions import db
 from models import (
     User, Teacher, Course, Class, Student, Enrollment,
     AcademicYear, Semester, Schedule, SystemConfig, School,
-    Score, Reward, TuitionPayment,
+    Score, Reward, TuitionPayment, Exam, ExamFolder,
     UserRole, StudentLevel, ScheduleType, ScoreSource, ScoreType, SemesterType, TuitionMethod
 )
 from datetime import date, time, timedelta, datetime
@@ -41,7 +42,7 @@ def seed():
 
         # ── Admin account
         admin = User(
-            full_name='Nguyen Thi Nhat Tuyen',
+            full_name='Nhat Tuyen',
             username='admin',
             phone='0901234567',
             role=UserRole.ADMIN
@@ -372,6 +373,192 @@ def seed():
                 received_by=admin.id if is_paid else None,
             )
             db.session.add(tp)
+
+        # ── Sample online exams (Math 8A class)
+        math_8a, math_8a_teacher = classes[0]
+        class_10a, class_10a_teacher = classes[1]  # has THPT-level students enrolled (Diệu, Em, Phương)
+
+        def mcq_group(title, questions, instruction=''):
+            return {'title': title, 'type': 'mcq', 'instruction': instruction, 'questions': questions}
+
+        practice_mcq = mcq_group('Phần 1. Trắc nghiệm', [
+            {'text': 'Kết quả của 7 + 5 × 2 là?', 'options': ['24', '17', '19', '12'], 'correct_index': 1,
+             'explanation': 'Nhân chia trước, cộng trừ sau: 7 + (5×2) = 7 + 10 = 17.'},
+            {'text': 'Số nào là số nguyên tố?', 'options': ['9', '15', '17', '21'], 'correct_index': 2,
+             'explanation': '17 chỉ chia hết cho 1 và chính nó.'},
+            {'text': 'Giá trị của x trong phương trình 2x + 3 = 11 là?', 'options': ['3', '4', '5', '6'], 'correct_index': 1,
+             'explanation': '2x = 11 - 3 = 8 → x = 4.'},
+            {'text': 'Diện tích hình chữ nhật có chiều dài 8cm, chiều rộng 5cm là?', 'options': ['13 cm²', '26 cm²', '40 cm²', '45 cm²'], 'correct_index': 2,
+             'explanation': 'S = dài × rộng = 8 × 5 = 40 cm².'},
+            {'text': 'Tổng 3 góc trong một tam giác bằng?', 'options': ['90°', '180°', '270°', '360°'], 'correct_index': 1,
+             'explanation': ''},
+        ])
+        quiz_mcq = mcq_group('Phần 1. Trắc nghiệm', [
+            {'text': '(-3) × (-4) bằng bao nhiêu?', 'options': ['-12', '12', '-7', '7'], 'correct_index': 1,
+             'explanation': 'Tích của hai số âm là số dương.'},
+            {'text': 'Phân số 3/4 đổi ra số thập phân là?', 'options': ['0.34', '0.75', '0.43', '1.33'], 'correct_index': 1,
+             'explanation': ''},
+            {'text': 'Ước chung lớn nhất (ƯCLN) của 12 và 18 là?', 'options': ['2', '3', '6', '36'], 'correct_index': 2,
+             'explanation': '12 = 2²×3, 18 = 2×3² → ƯCLN = 2×3 = 6.'},
+        ])
+
+        # Multi-format demo exam — mirrors azota.vn's structure (Trắc nghiệm / Đúng-Sai / Tìm lỗi sai / Trả lời ngắn)
+        mixed_groups = [
+            mcq_group('Phần 1. TRẮC NGHIỆM', [
+                {'text': 'Trong cuộc khai thác thuộc địa lần thứ hai ở Đông Dương 1919-1929, thực dân Pháp tập trung đầu tư vào',
+                 'options': ['Ngành chế tạo máy.', 'Công nghiệp luyện kim.', 'Đồn điền cao su.', 'Công nghiệp hóa chất.'],
+                 'correct_index': 0, 'explanation': ''},
+            ]),
+            {
+                'title': 'Phần 2. Câu trắc nghiệm đúng sai',
+                'type': 'true_false',
+                'instruction': 'Trong mỗi ý a), b), c), d) ở mỗi câu, thí sinh chọn đúng hoặc sai.',
+                'questions': [{
+                    'text': 'Một cuộc thi bắn cung có 20 người tham gia. Trong lần bắn đầu tiên có 18 người bắn trúng mục tiêu. '
+                            'Trong lần bắn thứ hai có 15 người bắn trúng mục tiêu. Trong lần bắn thứ ba còn 10 người bắn trúng mục tiêu.',
+                    'statements': [
+                        {'text': 'Số người bắn trượt mục tiêu trong lần đầu tiên là 2.', 'correct': True},
+                        {'text': 'Số người bắn trượt mục tiêu trong lần bắn thứ hai là 6.', 'correct': False},
+                        {'text': 'Số người bắn trượt mục tiêu trong lần bắn thứ nhất và thứ hai nhiều nhất là 8.', 'correct': False},
+                        {'text': 'Số người bắn trúng mục tiêu trong cả ba lần bắn ít nhất là 3.', 'correct': True},
+                    ],
+                    'explanation': '',
+                }],
+            },
+            {
+                'title': 'Phần 3. Tìm lỗi sai',
+                'type': 'error_id',
+                'instruction': 'Mark the letter A, B, C, or D to indicate the underlined part that needs correction.',
+                'questions': [{
+                    'text': 'Every [A:member] of the class [*B:were] invited [C:to] the party by [D:the form teacher].',
+                    'correct_label': 'B',
+                    'explanation': '"member" là danh từ số ít nên động từ phải chia số ít: "was" thay vì "were".',
+                }],
+            },
+            {
+                'title': 'Phần 4. Trả lời ngắn',
+                'type': 'short_answer',
+                'instruction': '',
+                'questions': [{
+                    'text': 'The apple ___ the table.',
+                    'accepted_answers': ['on', 'On', 'ON'], 'explanation': '',
+                }],
+            },
+        ]
+
+        # English exam mirroring the typical THPT Quốc Gia structure (phonetics / grammar-vocab / error
+        # identification / reading) — illustrative sample content, not an actual official exam paper.
+        english_groups = [
+            mcq_group(
+                'Phần 1. Ngữ âm - Trọng âm', [
+                    {'text': 'Chọn từ có trọng âm chính khác với 3 từ còn lại.',
+                     'options': ['happy', 'family', 'holiday', 'hotel'], 'correct_index': 3,
+                     'explanation': "hoTEL nhấn âm 2, còn lại nhấn âm 1: HAppy, FAmily, HOliday."},
+                ],
+                instruction='Chọn từ có trọng âm chính (trọng âm 1 - 2) khác với 3 từ còn lại.',
+            ),
+            mcq_group(
+                'Phần 2. Ngữ âm - Phát âm', [
+                    {'text': "Chọn từ có phần đuôi '-ed' được phát âm khác với 3 từ còn lại.",
+                     'options': ['looked', 'played', 'watched', 'stopped'], 'correct_index': 1,
+                     'explanation': "played phát âm /d/, còn looked/watched/stopped đều phát âm /t/."},
+                ],
+                instruction="Chọn từ có phần gạch chân được phát âm khác với 3 từ còn lại.",
+            ),
+            mcq_group(
+                'Phần 3. Ngữ pháp - Từ vựng', [
+                    {'text': 'If I ___ more free time, I would learn another language.',
+                     'options': ['have', 'had', 'will have', 'would have'], 'correct_index': 1,
+                     'explanation': 'Câu điều kiện loại 2: If + S + V(past simple), S + would + V.'},
+                    {'text': 'She is looking forward ___ from you soon.',
+                     'options': ['to hear', 'to hearing', 'hear', 'hearing'], 'correct_index': 1,
+                     'explanation': "look forward to + V-ing."},
+                    {'text': 'There has been a sharp ___ in the number of tourists this year.',
+                     'options': ['increase', 'increasing', 'increased', 'increasement'], 'correct_index': 0,
+                     'explanation': 'Cần danh từ sau mạo từ "a": increase (n).'},
+                ],
+            ),
+            {
+                'title': 'Phần 4. Tìm lỗi sai',
+                'type': 'error_id',
+                'instruction': 'Mark the letter A, B, C, or D to indicate the underlined part that needs correction.',
+                'questions': [
+                    {'text': '[*A:Despite of] the heavy rain, the football match [B:was] not [C:cancelled] [D:on time].',
+                     'correct_label': 'A', 'explanation': "Dùng 'Despite' hoặc 'In spite of', không dùng 'Despite of'."},
+                    {'text': 'Each of the students in this class [*A:have] [B:to submit] [C:their] essay [D:by Friday].',
+                     'correct_label': 'A', 'explanation': "'Each of + danh từ số nhiều' chia động từ số ít: 'has', không phải 'have'."},
+                ],
+            },
+            mcq_group(
+                'Phần 5. Đọc hiểu', [
+                    {'text': 'Theo đoạn văn, một hậu quả của việc nhiệt độ tăng là gì?',
+                     'options': ['Tăng sản xuất nhiên liệu hoá thạch', 'Băng tan ở các chỏm cực', 'Giảm phát thải khí nhà kính', 'Giảm các hiện tượng thời tiết cực đoan'],
+                     'correct_index': 1, 'explanation': ''},
+                    {'text': 'Các nhà khoa học đồng ý rằng điều gì là cần thiết để làm chậm biến đổi khí hậu?',
+                     'options': ['Xây thêm nhà máy', 'Giảm phát thải khí nhà kính', 'Tăng kích thước chỏm băng', 'Ngừng đầu tư năng lượng tái tạo'],
+                     'correct_index': 1, 'explanation': ''},
+                    {'text': 'Những nguồn năng lượng tái tạo nào được đề cập trong đoạn văn?',
+                     'options': ['Than và dầu', 'Năng lượng mặt trời và gió', 'Hạt nhân và khí đốt', 'Thuỷ điện và sinh khối'],
+                     'correct_index': 1, 'explanation': ''},
+                ],
+                instruction=(
+                    'Đọc đoạn văn sau và trả lời các câu hỏi:\n'
+                    'Climate change is one of the most pressing issues facing our planet today. Rising temperatures '
+                    'have led to melting ice caps, more frequent extreme weather events, and significant disruptions '
+                    'to ecosystems. Scientists agree that reducing greenhouse gas emissions is essential to slow down '
+                    'this process. Many countries have started investing in renewable energy sources such as solar '
+                    'and wind power to replace fossil fuels.'
+                ),
+            ),
+        ]
+
+        # ── Exam folders — one scoped to a class, one scoped to a subject
+        folder_math_8a = ExamFolder(name='Đề Toán 8A', scope_type='class', class_id=math_8a.id,
+                                    created_by=math_8a_teacher.user_id)
+        folder_english = ExamFolder(name='Đề Tiếng Anh', scope_type='subject', subject='Anh Văn',
+                                    created_by=class_10a_teacher.user_id)
+        db.session.add_all([folder_math_8a, folder_english])
+        db.session.flush()
+
+        sample_exams = [
+            dict(title='Đề ôn tập Toán - Chương 1', subject='Toán', exam_type='practice',
+                 description='Ôn tập các kiến thức cơ bản chương 1.', duration_minutes=20,
+                 availability_mode='always', allow_attempts=0, is_draft=False,
+                 folder_id=folder_math_8a.id, groups=[practice_mcq]),
+            dict(title='Kiểm tra 15 phút - Toán', subject='Toán', exam_type='quiz_15',
+                 description='Kiểm tra nhanh kiến thức đã học trong tuần.', duration_minutes=15,
+                 availability_mode='range', allow_attempts=1, is_draft=False,
+                 available_from=datetime.combine(today, time(0, 0)),
+                 available_to=datetime.combine(today + timedelta(days=30), time(23, 59)),
+                 folder_id=folder_math_8a.id, groups=[quiz_mcq]),
+            dict(title='Đề tổng hợp đa dạng (theo mẫu Azota)', subject='Tổng hợp', exam_type='periodic',
+                 description='Đề minh hoạ đủ 4 dạng câu hỏi: trắc nghiệm, đúng/sai, tìm lỗi sai, trả lời ngắn.',
+                 duration_minutes=60, availability_mode='always', allow_attempts=0, is_draft=False,
+                 groups=mixed_groups),
+            dict(title='Đề thi giữa kì 1 - Toán 8 (nháp)', subject='Toán', exam_type='midterm_1',
+                 description='Đang soạn, chưa giao cho học sinh.', duration_minutes=60,
+                 availability_mode='always', allow_attempts=1, is_draft=True,
+                 groups=[mcq_group('Phần 1. Trắc nghiệm', practice_mcq['questions'][:2])]),
+            dict(title='Đề tiếng Anh - Tham khảo cấu trúc đề thi THPT Quốc gia', subject='Anh Văn', exam_type='periodic',
+                 description='Đề mẫu minh hoạ cấu trúc đề thi tốt nghiệp THPT Quốc gia môn Tiếng Anh '
+                             '(ngữ âm, ngữ pháp - từ vựng, tìm lỗi sai, đọc hiểu). Nội dung tham khảo, không phải đề thi chính thức.',
+                 duration_minutes=60, availability_mode='always', allow_attempts=0, is_draft=False,
+                 class_id=class_10a.id, created_by=class_10a_teacher.user_id,
+                 folder_id=folder_english.id, groups=english_groups),
+        ]
+        for data in sample_exams:
+            exam = Exam(
+                title=data['title'], subject=data['subject'], exam_type=data['exam_type'],
+                description=data['description'], class_ids=str(data.get('class_id', math_8a.id)),
+                folder_id=data.get('folder_id'),
+                duration_minutes=data['duration_minutes'], availability_mode=data['availability_mode'],
+                available_from=data.get('available_from'), available_to=data.get('available_to'),
+                allow_attempts=data['allow_attempts'], shuffle_questions=True, shuffle_answers=True,
+                is_draft=data['is_draft'], created_by=data.get('created_by', math_8a_teacher.user_id),
+                questions_json=json.dumps({'groups': data['groups']}),
+            )
+            db.session.add(exam)
+        print(f"✓ {len(sample_exams)} đề thi online mẫu đã được thêm")
 
         db.session.commit()
         print("✓ Sample data seeded successfully!")

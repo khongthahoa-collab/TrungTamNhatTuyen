@@ -80,6 +80,14 @@
           {% endfor %}
         </select>
       </div>
+      <div class="col-6 col-md-1">
+        <label class="form-label small fw-semibold mb-1">Số dòng</label>
+        <select name="per_page" class="form-select form-select-sm" onchange="this.form.submit()">
+          {% for opt in ['10', '20', '40', '80', 'all'] %}
+          <option value="{{ opt }}" {% if per_page == opt %}selected{% endif %}>{{ 'Tất cả' if opt == 'all' else opt }}</option>
+          {% endfor %}
+        </select>
+      </div>
       <div class="col-12 col-md-1 d-flex gap-1 align-items-end">
         <button type="submit" class="btn btn-primary btn-sm flex-grow-1">Lọc</button>
         <a href="{{ url_for('admin.students') }}" class="btn btn-outline-secondary btn-sm" title="Xóa lọc"><i class="bi bi-x"></i></a>
@@ -96,13 +104,24 @@
 </div>
 
 <!-- Bảng học sinh -->
+<form id="bulkForm" method="post" action="{{ url_for('admin.students_bulk_delete') }}"
+      onsubmit="return confirm('Bạn có chắc muốn xóa ' + document.querySelectorAll('.student-select:checked').length + ' học sinh đã chọn? Học sinh sẽ bị ẩn khỏi danh sách (xóa mềm).')">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="d-flex justify-content-end mb-2">
+    <button type="submit" id="bulkDeleteBtn" class="btn btn-outline-danger btn-sm" disabled>
+      <i class="bi bi-trash me-1"></i>Xóa đã chọn (<span id="bulkDeleteCount">0</span>)
+    </button>
+  </div>
 <div class="card border-0 shadow-sm">
   <div class="card-body p-0">
     <div class="table-responsive">
       <table class="table table-hover align-middle mb-0">
         <thead class="table-light">
           <tr>
-            <th class="ps-3" style="width:40px">STT</th>
+            <th class="ps-3" style="width:36px">
+              <input type="checkbox" class="form-check-input" id="selectAllStudents">
+            </th>
+            <th style="width:40px">STT</th>
             <th>Họ tên</th>
             <th>Cấp</th>
             <th>Trường</th>
@@ -114,10 +133,13 @@
           </tr>
         </thead>
         <tbody>
-          {% set offset = (pagination.page - 1) * 30 %}
+          {% set offset = (pagination.page - 1) * pagination.per_page %}
           {% for student in students %}
           <tr {% if student.status == 'pending_confirmation' %}class="table-warning"{% endif %}>
-            <td class="ps-3 text-muted small">{{ offset + loop.index }}</td>
+            <td class="ps-3">
+              <input type="checkbox" class="form-check-input student-select" name="student_ids" value="{{ student.id }}">
+            </td>
+            <td class="text-muted small">{{ offset + loop.index }}</td>
             <td>
               <div class="d-flex align-items-center gap-2">
                 {% if student.photo_path %}
@@ -180,7 +202,7 @@
           </tr>
           {% else %}
           <tr>
-            <td colspan="9" class="text-center text-muted py-4">
+            <td colspan="10" class="text-center text-muted py-4">
               <i class="bi bi-inbox fs-4 d-block mb-2"></i>Không tìm thấy học sinh nào
             </td>
           </tr>
@@ -190,27 +212,28 @@
     </div>
   </div>
 </div>
+</form>
 
 <!-- Phân trang -->
 {% if pagination.pages > 1 %}
 <nav class="mt-3 d-flex justify-content-center" aria-label="Phân trang">
   <ul class="pagination pagination-sm mb-0">
     <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-      <a class="page-link" href="{{ url_for('admin.students', page=pagination.prev_num, q=q, level=level, active=active_only, class_id=class_id or '', school_q=school_q, teacher_id=teacher_id or '') }}">
+      <a class="page-link" href="{{ url_for('admin.students', page=pagination.prev_num, q=q, level=level, active=active_only, class_id=class_id or '', school_q=school_q, teacher_id=teacher_id or '', per_page=per_page) }}">
         <i class="bi bi-chevron-left"></i>
       </a>
     </li>
     {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
       {% if p %}
         <li class="page-item {% if p == pagination.page %}active{% endif %}">
-          <a class="page-link" href="{{ url_for('admin.students', page=p, q=q, level=level, active=active_only, class_id=class_id or '', school_q=school_q, teacher_id=teacher_id or '') }}">{{ p }}</a>
+          <a class="page-link" href="{{ url_for('admin.students', page=p, q=q, level=level, active=active_only, class_id=class_id or '', school_q=school_q, teacher_id=teacher_id or '', per_page=per_page) }}">{{ p }}</a>
         </li>
       {% else %}
         <li class="page-item disabled"><span class="page-link">…</span></li>
       {% endif %}
     {% endfor %}
     <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-      <a class="page-link" href="{{ url_for('admin.students', page=pagination.next_num, q=q, level=level, active=active_only, class_id=class_id or '', school_q=school_q, teacher_id=teacher_id or '') }}">
+      <a class="page-link" href="{{ url_for('admin.students', page=pagination.next_num, q=q, level=level, active=active_only, class_id=class_id or '', school_q=school_q, teacher_id=teacher_id or '', per_page=per_page) }}">
         <i class="bi bi-chevron-right"></i>
       </a>
     </li>
@@ -250,4 +273,27 @@
     </div>
   </div>
 </div>
+
+<script>
+(function() {
+  const selectAll = document.getElementById('selectAllStudents');
+  const bulkBtn = document.getElementById('bulkDeleteBtn');
+  const bulkCount = document.getElementById('bulkDeleteCount');
+  if (!selectAll || !bulkBtn) return;
+
+  function rowCheckboxes() {
+    return document.querySelectorAll('.student-select');
+  }
+  function updateBulkState() {
+    const checked = document.querySelectorAll('.student-select:checked').length;
+    bulkBtn.disabled = checked === 0;
+    bulkCount.textContent = checked;
+  }
+  selectAll.addEventListener('change', () => {
+    rowCheckboxes().forEach(cb => { cb.checked = selectAll.checked; });
+    updateBulkState();
+  });
+  rowCheckboxes().forEach(cb => cb.addEventListener('change', updateBulkState));
+})();
+</script>
 {% endblock %}

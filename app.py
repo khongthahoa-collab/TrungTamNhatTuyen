@@ -20,6 +20,34 @@ def create_app(config_name=None):
     csrf.init_app(app)
     migrate.init_app(app, db)
 
+    # Auto-create database tables for local development when schema is missing.
+    if config_name != 'production':
+        import models  # noqa: F401
+        with app.app_context():
+            db.create_all()
+            from models import User, Teacher, UserRole
+
+            def ensure_user(username, full_name, phone, role, password):
+                existing = User.query.filter_by(username=username).first()
+                if existing:
+                    return existing
+                user = User(full_name=full_name, username=username, phone=phone, role=role)
+                user.set_password(password)
+                db.session.add(user)
+                db.session.flush()
+                if role == UserRole.TEACHER:
+                    teacher_profile = Teacher.query.filter_by(user_id=user.id).first()
+                    if not teacher_profile:
+                        db.session.add(Teacher(user_id=user.id, is_staff=True, base_salary=8000000))
+                db.session.commit()
+                return user
+
+            ensure_user('admin', 'Nguyen Thi Nhat Tuyen', '0901234567', UserRole.ADMIN, 'admin123')
+            ensure_user('gvtoan', 'Trần Văn An', '0912345678', UserRole.TEACHER, 'teacher123')
+            ensure_user('gvly', 'Lê Thị Bình', '0923456789', UserRole.TEACHER, 'teacher123')
+            ensure_user('parent01', 'Phụ huynh 01', '0901111111', UserRole.PARENT, 'parent123')
+            ensure_user('parent02', 'Phụ huynh 02', '0902222222', UserRole.PARENT, 'parent123')
+
     # User loader
     from models import User
 
@@ -109,5 +137,22 @@ def create_app(config_name=None):
             return days[value.weekday()]
         except Exception:
             return ''
+
+    @app.template_filter('error_id_render')
+    def error_id_render(text, reveal=True):
+        """Render '[A:seg]' / '[*B:seg]' error-identification markers as underlined, labeled spans.
+        reveal=False hides which one is correct (use for student-facing exam papers)."""
+        import re
+        from markupsafe import Markup, escape
+        if not text:
+            return Markup('')
+        escaped = str(escape(text))
+
+        def repl(m):
+            star, label, seg = m.group(1), m.group(2), m.group(3)
+            cls = 'text-success fw-bold' if (star and reveal) else ''
+            return f'<span class="{cls}" style="text-decoration:underline;">{seg}</span><sup>{label}</sup>'
+
+        return Markup(re.sub(r'\[(\*?)([A-F]):([^\]]*)\]', repl, escaped))
 
     return app
