@@ -1,0 +1,486 @@
+{% extends 'teacher/base.html' %}
+{% block title %}{% if editing %}Sửa đề thi{% else %}Tạo đề thi{% endif %} – Giáo viên – Nhật Tuyền{% endblock %}
+{% block content %}
+<div class="container-fluid px-3 pt-3">
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <a href="{{ url_for('teacher.exams_list') }}" class="small text-decoration-none text-muted d-block mb-1">
+      <i class="bi bi-arrow-left me-1"></i>Đề thi online
+    </a>
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge rounded-pill bg-success">Bước 1/2</span>
+      <h6 class="fw-bold mb-0">{% if editing %}Chỉnh sửa nội dung đề thi{% else %}Soạn nội dung đề thi{% endif %}</h6>
+    </div>
+  </div>
+  <a href="{{ url_for('teacher.exams_list') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-x-lg me-1"></i>Hủy
+  </a>
+</div>
+{% if editing and exam.attempts.count() > 0 %}
+<div class="alert alert-info small">
+  <i class="bi bi-info-circle me-1"></i>
+  Đề này đã có <strong>{{ exam.attempts.count() }}</strong> lượt làm bài. Sửa câu hỏi/đáp án sẽ không thay đổi các kết quả đã có,
+  chỉ áp dụng cho lượt làm bài mới.
+</div>
+{% endif %}
+
+<!-- Phần 1: Tên đề thi -->
+<div class="row justify-content-center mb-4">
+  <div class="col-lg-6">
+    <label class="form-label fw-semibold small text-muted">TÊN ĐỀ THI</label>
+    <input type="text" id="examTitle" class="form-control form-control-lg text-center fw-semibold"
+           placeholder="Ví dụ: Đề ôn thi giữa kì 1" value="{{ prefill.title | default('') }}" maxlength="200">
+  </div>
+</div>
+
+<form id="exam-form" method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="title" id="titleField">
+  <input type="hidden" name="groups_json" id="groupsField">
+
+  <div class="row g-3">
+    <!-- Phần 2: khung soạn trực quan (mỗi phần thi 1 dạng câu hỏi riêng) -->
+    <div class="col-lg-7">
+      <div id="groupsContainer"></div>
+      <div class="card border-0 shadow-sm">
+        <div class="card-body d-flex flex-wrap gap-2 align-items-center">
+          <span class="small text-muted">Thêm phần thi mới:</span>
+          <select id="newGroupType" class="form-select form-select-sm w-auto">
+            <option value="mcq">Trắc nghiệm 4 đáp án</option>
+            <option value="true_false">Đúng / Sai theo nhóm</option>
+            <option value="short_answer">Trả lời ngắn</option>
+            <option value="error_id">Tìm lỗi sai (gạch chân)</option>
+          </select>
+          <button type="button" id="addGroupBtn" class="btn btn-success btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>Thêm phần thi
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phần 3: soạn bằng văn bản thô, đồng bộ 2 chiều với khung trực quan -->
+    <div class="col-lg-5">
+      <div class="card border-0 shadow-sm" style="position:sticky; top:8px;">
+        <div class="card-header bg-white">
+          <span class="fw-semibold small text-uppercase text-muted"><i class="bi bi-code-slash me-1"></i>Soạn bằng văn bản</span>
+          <div class="form-text mb-0 mt-1" style="font-size:0.74rem;">
+            Cú pháp: <code>## Tên phần {mcq|true_false|short_answer|error_id}</code> · <code>Câu 1: ...</code> ·
+            tuỳ loại: <code>A. đáp án</code> / <code>a) ý</code> · <code>Đáp án: ...</code> · <code>Giải thích: ...</code>.
+            Soạn bên này sẽ tự cập nhật khung trực quan bên trái và ngược lại.
+          </div>
+        </div>
+        <div class="card-body p-2">
+          <textarea id="rawTextEditor" class="form-control" style="min-height:50vh; font-family:'SFMono-Regular',Consolas,monospace; font-size:0.82rem;"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-end gap-2 mt-3">
+    <a href="{{ url_for('teacher.exams_list') }}" class="btn btn-outline-secondary">Hủy</a>
+    <button type="submit" class="btn btn-primary">Tiếp tục: Cấu hình đề <i class="bi bi-arrow-right ms-1"></i></button>
+  </div>
+</form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
+const SL = ['a', 'b', 'c', 'd', 'e', 'f'];
+const GROUP_TYPE_LABELS = {
+  mcq: 'Trắc nghiệm 4 đáp án',
+  true_false: 'Đúng / Sai theo nhóm',
+  short_answer: 'Trả lời ngắn',
+  error_id: 'Tìm lỗi sai (gạch chân)',
+};
+const PREFILL_GROUPS = {{ prefill.groups | default([]) | tojson }};
+
+function escapeHtml(str) {
+  return (str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function newQuestionForType(type) {
+  if (type === 'true_false') {
+    return { text: '', statements: [
+      { text: '', correct: false }, { text: '', correct: false },
+      { text: '', correct: false }, { text: '', correct: false },
+    ], explanation: '' };
+  }
+  if (type === 'short_answer') return { text: '', accepted_answers: [''], explanation: '' };
+  if (type === 'error_id') return { text: '', explanation: '' };
+  return { text: '', options: ['', '', '', ''], correct_index: 0, explanation: '' };
+}
+
+function defaultGroups() {
+  return [{ title: 'Phần 1. Trắc nghiệm', type: 'mcq', instruction: '', questions: [newQuestionForType('mcq')] }];
+}
+
+// Same shape as newQuestionForType(), but with EMPTY option/statement lists — used while parsing raw
+// text, where each option/statement line is appended one at a time (vs. the builder's "+ Thêm câu hỏi",
+// which wants pre-filled blank slots ready to edit).
+function emptyQuestionForType(type) {
+  if (type === 'true_false') return { text: '', statements: [], explanation: '' };
+  if (type === 'short_answer') return { text: '', accepted_answers: [], explanation: '' };
+  if (type === 'error_id') return { text: '', explanation: '' };
+  return { text: '', options: [], correct_index: 0, explanation: '' };
+}
+
+let groups = (PREFILL_GROUPS && PREFILL_GROUPS.length) ? JSON.parse(JSON.stringify(PREFILL_GROUPS)) : defaultGroups();
+
+const groupsContainer = document.getElementById('groupsContainer');
+const rawTextEditor = document.getElementById('rawTextEditor');
+const titleEl = document.getElementById('examTitle');
+
+// ────────────────────────────────────────────────────────────
+// Serialize state -> raw text DSL
+// ────────────────────────────────────────────────────────────
+function serializeToText(allGroups) {
+  const lines = [];
+  allGroups.forEach(g => {
+    lines.push(`## ${g.title || 'Phần thi'} {${g.type}}`);
+    if (g.instruction) lines.push(g.instruction);
+    lines.push('');
+    g.questions.forEach((q, qi) => {
+      const n = qi + 1;
+      lines.push(`Câu ${n}: ${q.text || ''}`);
+      if (g.type === 'mcq') {
+        (q.options || []).forEach((opt, oi) => lines.push(`${LETTERS[oi]}. ${opt}`));
+        lines.push(`Đáp án: ${LETTERS[q.correct_index] || 'A'}`);
+      } else if (g.type === 'true_false') {
+        (q.statements || []).forEach((st, si) => lines.push(`${SL[si]}) ${st.text}`));
+        lines.push(`Đáp án: ${(q.statements || []).map((st, si) => `${SL[si]})${st.correct ? 'Đ' : 'S'}`).join(' ')}`);
+      } else if (g.type === 'short_answer') {
+        lines.push(`Đáp án: ${(q.accepted_answers || []).join(' | ')}`);
+      }
+      if (q.explanation) lines.push(`Giải thích: ${q.explanation}`);
+      lines.push('');
+    });
+  });
+  return lines.join('\n').trim() + '\n';
+}
+
+// ────────────────────────────────────────────────────────────
+// Parse raw text DSL -> state
+// ────────────────────────────────────────────────────────────
+function applyAnswerLine(group, question, value) {
+  if (group.type === 'mcq') {
+    const idx = LETTERS.indexOf(value.trim().toUpperCase());
+    question.correct_index = idx >= 0 ? idx : 0;
+  } else if (group.type === 'true_false') {
+    value.split(/\s+/).forEach(part => {
+      const m = part.match(/^([a-f])\)(Đ|S)$/i);
+      if (m) {
+        const idx = SL.indexOf(m[1].toLowerCase());
+        if (question.statements[idx]) question.statements[idx].correct = m[2].toUpperCase() === 'Đ';
+      }
+    });
+  } else if (group.type === 'short_answer') {
+    question.accepted_answers = value.split('|').map(s => s.trim()).filter(Boolean);
+  }
+}
+
+function parseFromText(text) {
+  const lines = text.split('\n');
+  const result = [];
+  let curGroup = null;
+  let curQuestion = null;
+
+  function flushQuestion() {
+    if (curGroup && curQuestion && (curQuestion.text || '').trim()) curGroup.questions.push(curQuestion);
+    curQuestion = null;
+  }
+  function flushGroup() {
+    flushQuestion();
+    if (curGroup) result.push(curGroup);
+    curGroup = null;
+  }
+
+  lines.forEach(raw => {
+    const line = raw.trim();
+    if (!line) return;
+
+    const groupMatch = line.match(/^##\s*(.+?)\s*(\{(\w+)\})?\s*$/);
+    if (groupMatch) {
+      flushGroup();
+      const type = (groupMatch[3] && GROUP_TYPE_LABELS[groupMatch[3]]) ? groupMatch[3] : 'mcq';
+      curGroup = { title: groupMatch[1].trim(), type, instruction: '', questions: [] };
+      return;
+    }
+    if (!curGroup) curGroup = { title: 'Phần 1', type: 'mcq', instruction: '', questions: [] };
+
+    const qMatch = line.match(/^C[aâ]u\s*\d+[:.]\s*(.*)$/i);
+    if (qMatch) {
+      flushQuestion();
+      curQuestion = emptyQuestionForType(curGroup.type);
+      curQuestion.text = qMatch[1];
+      return;
+    }
+    if (!curQuestion) {
+      curGroup.instruction = (curGroup.instruction ? curGroup.instruction + '\n' : '') + line;
+      return;
+    }
+
+    const optMatch = line.match(/^([A-F])\.\s*(.*)$/);
+    if (optMatch && curGroup.type === 'mcq') { curQuestion.options.push(optMatch[2]); return; }
+
+    const stMatch = line.match(/^([a-f])\)\s*(.*)$/);
+    if (stMatch && curGroup.type === 'true_false') {
+      curQuestion.statements.push({ text: stMatch[2], correct: false });
+      return;
+    }
+
+    const ansMatch = line.match(/^Đáp\s*án\s*:\s*(.*)$/i);
+    if (ansMatch) { applyAnswerLine(curGroup, curQuestion, ansMatch[1]); return; }
+
+    const expMatch = line.match(/^Giải\s*thích\s*:\s*(.*)$/i);
+    if (expMatch) { curQuestion.explanation = expMatch[1].trim(); return; }
+
+    curQuestion.text += (curQuestion.text ? ' ' : '') + line;
+  });
+  flushGroup();
+  return result.filter(g => g.questions.length);
+}
+
+// ────────────────────────────────────────────────────────────
+// Render: visual builder (left pane)
+// ────────────────────────────────────────────────────────────
+const ERROR_ID_PATTERN = /\[(\*?)([A-F]):([^\]]*)\]/g;
+
+function renderErrorIdPreview(text) {
+  if (!text) return '<span class="text-muted fst-italic">(chưa có nội dung)</span>';
+  return escapeHtml(text).replace(/\[(\*?)([A-F]):([^\]]*)\]/g, (m, star, label, seg) => {
+    const cls = star ? 'text-success fw-bold' : '';
+    return `<span class="${cls}" style="text-decoration:underline;">${escapeHtml(seg)}</span><sup>${label}</sup>`;
+  });
+}
+
+function renderQuestionCard(gi, g, qi, q) {
+  const head = `
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <span class="badge bg-success-subtle text-success border border-success-subtle">Câu ${qi + 1}</span>
+      <button type="button" class="btn btn-sm btn-outline-danger remove-question" data-g="${gi}" data-q="${qi}" ${g.questions.length <= 1 ? 'disabled' : ''}>
+        <i class="bi bi-trash"></i>
+      </button>
+    </div>`;
+
+  let body = '';
+  if (g.type === 'mcq') {
+    body = `
+      <textarea class="form-control mb-2 q-text" data-g="${gi}" data-q="${qi}" rows="2" placeholder="Nội dung câu hỏi">${escapeHtml(q.text)}</textarea>
+      ${q.options.map((opt, oi) => `
+        <div class="input-group input-group-sm mb-1">
+          <span class="input-group-text"><input type="radio" class="form-check-input mt-0 correct-radio" name="correct_${gi}_${qi}" data-g="${gi}" data-q="${qi}" data-oi="${oi}" ${q.correct_index === oi ? 'checked' : ''} title="Đáp án đúng"></span>
+          <span class="input-group-text fw-semibold" style="width:34px; justify-content:center;">${LETTERS[oi] || oi + 1}</span>
+          <input type="text" class="form-control opt-text" data-g="${gi}" data-q="${qi}" data-oi="${oi}" placeholder="Đáp án ${LETTERS[oi] || oi + 1}" value="${escapeHtml(opt)}">
+          <button type="button" class="btn btn-outline-secondary remove-option" data-g="${gi}" data-q="${qi}" data-oi="${oi}" ${q.options.length <= 2 ? 'disabled' : ''}><i class="bi bi-dash"></i></button>
+        </div>`).join('')}
+      <button type="button" class="btn btn-sm btn-outline-secondary add-option mt-1" data-g="${gi}" data-q="${qi}" ${q.options.length >= 6 ? 'disabled' : ''}>
+        <i class="bi bi-plus me-1"></i>Thêm đáp án
+      </button>`;
+  } else if (g.type === 'true_false') {
+    body = `
+      <textarea class="form-control mb-2 q-text" data-g="${gi}" data-q="${qi}" rows="2" placeholder="Đoạn dẫn / tình huống chung cho các ý a, b, c, d">${escapeHtml(q.text)}</textarea>
+      ${q.statements.map((st, si) => `
+        <div class="d-flex align-items-start gap-2 mb-1">
+          <span class="fw-semibold pt-1" style="width:18px;">${SL[si]})</span>
+          <input type="text" class="form-control form-control-sm st-text" data-g="${gi}" data-q="${qi}" data-si="${si}" placeholder="Ý ${SL[si]}" value="${escapeHtml(st.text)}">
+          <div class="btn-group btn-group-sm flex-shrink-0" role="group">
+            <input type="radio" class="btn-check st-correct" data-g="${gi}" data-q="${qi}" data-si="${si}" name="tf_${gi}_${qi}_${si}" id="tf_${gi}_${qi}_${si}_d" value="1" ${st.correct ? 'checked' : ''}>
+            <label class="btn btn-outline-success btn-sm" for="tf_${gi}_${qi}_${si}_d">Đúng</label>
+            <input type="radio" class="btn-check st-correct" data-g="${gi}" data-q="${qi}" data-si="${si}" name="tf_${gi}_${qi}_${si}" id="tf_${gi}_${qi}_${si}_s" value="0" ${!st.correct ? 'checked' : ''}>
+            <label class="btn btn-outline-danger btn-sm" for="tf_${gi}_${qi}_${si}_s">Sai</label>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-danger remove-statement flex-shrink-0" data-g="${gi}" data-q="${qi}" data-si="${si}" ${q.statements.length <= 2 ? 'disabled' : ''}><i class="bi bi-x"></i></button>
+        </div>`).join('')}
+      <button type="button" class="btn btn-sm btn-outline-secondary add-statement mt-1" data-g="${gi}" data-q="${qi}" ${q.statements.length >= 6 ? 'disabled' : ''}>
+        <i class="bi bi-plus me-1"></i>Thêm ý
+      </button>`;
+  } else if (g.type === 'short_answer') {
+    body = `
+      <textarea class="form-control mb-2 q-text" data-g="${gi}" data-q="${qi}" rows="2" placeholder="Nội dung câu hỏi (dùng ___ để biểu diễn khoảng trống)">${escapeHtml(q.text)}</textarea>
+      <label class="form-label small text-muted mb-1">Các đáp án được chấp nhận</label>
+      ${q.accepted_answers.map((a, ai) => `
+        <div class="input-group input-group-sm mb-1">
+          <input type="text" class="form-control ans-text" data-g="${gi}" data-q="${qi}" data-ai="${ai}" placeholder="Biến thể đáp án" value="${escapeHtml(a)}">
+          <button type="button" class="btn btn-outline-secondary remove-answer" data-g="${gi}" data-q="${qi}" data-ai="${ai}" ${q.accepted_answers.length <= 1 ? 'disabled' : ''}><i class="bi bi-dash"></i></button>
+        </div>`).join('')}
+      <button type="button" class="btn btn-sm btn-outline-secondary add-answer mt-1" data-g="${gi}" data-q="${qi}">
+        <i class="bi bi-plus me-1"></i>Thêm biến thể đáp án
+      </button>`;
+  } else if (g.type === 'error_id') {
+    body = `
+      <div class="form-text mb-1">Dùng cú pháp <code>[A:đoạn]</code> cho mỗi phần, thêm <code>*</code> trước nhãn của phần cần chọn — ví dụ: <code>Every [A:member] of the class [*B:were] invited [C:to] the party.</code></div>
+      <textarea class="form-control mb-2 q-text" data-g="${gi}" data-q="${qi}" rows="3" placeholder="Câu hỏi có đánh dấu [A:...] [*B:...] ...">${escapeHtml(q.text)}</textarea>
+      <div class="small p-2 bg-light rounded"><strong>Xem trước:</strong> ${renderErrorIdPreview(q.text)}</div>`;
+  }
+
+  return `
+    <div class="border rounded p-3 mb-3">
+      ${head}
+      ${body}
+      <textarea class="form-control mt-2 q-explanation" data-g="${gi}" data-q="${qi}" rows="1" placeholder="Hướng dẫn giải (không bắt buộc)">${escapeHtml(q.explanation || '')}</textarea>
+    </div>`;
+}
+
+function renderGroups() {
+  groupsContainer.innerHTML = groups.map((g, gi) => `
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white d-flex flex-wrap gap-2 align-items-center justify-content-between">
+        <input type="text" class="form-control form-control-sm fw-semibold group-title" style="max-width:320px;" data-g="${gi}"
+               value="${escapeHtml(g.title)}" placeholder="Tên phần thi">
+        <div class="d-flex gap-2 align-items-center">
+          <select class="form-select form-select-sm group-type" data-g="${gi}" style="width:auto;">
+            ${Object.entries(GROUP_TYPE_LABELS).map(([val, label]) => `<option value="${val}" ${g.type === val ? 'selected' : ''}>${label}</option>`).join('')}
+          </select>
+          <button type="button" class="btn btn-sm btn-outline-secondary move-group" data-g="${gi}" data-dir="-1" ${gi === 0 ? 'disabled' : ''}><i class="bi bi-arrow-up"></i></button>
+          <button type="button" class="btn btn-sm btn-outline-secondary move-group" data-g="${gi}" data-dir="1" ${gi === groups.length - 1 ? 'disabled' : ''}><i class="bi bi-arrow-down"></i></button>
+          <button type="button" class="btn btn-sm btn-outline-danger remove-group" data-g="${gi}" ${groups.length <= 1 ? 'disabled' : ''}><i class="bi bi-trash"></i></button>
+        </div>
+      </div>
+      <div class="card-body">
+        <textarea class="form-control form-control-sm mb-3 group-instruction" rows="2" data-g="${gi}"
+                  placeholder="Hướng dẫn chung cho phần này (không bắt buộc)">${escapeHtml(g.instruction)}</textarea>
+        ${g.questions.map((q, qi) => renderQuestionCard(gi, g, qi, q)).join('')}
+        <button type="button" class="btn btn-sm btn-outline-success add-question" data-g="${gi}">
+          <i class="bi bi-plus-lg me-1"></i>Thêm câu hỏi
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function syncTextFromState() {
+  rawTextEditor.value = serializeToText(groups);
+}
+
+function renderAll() {
+  renderGroups();
+  syncTextFromState();
+}
+
+// ────────────────────────────────────────────────────────────
+// Event delegation: visual pane edits
+// ────────────────────────────────────────────────────────────
+groupsContainer.addEventListener('input', e => {
+  const t = e.target;
+  const gi = +t.dataset.g;
+  if (t.classList.contains('group-title')) { groups[gi].title = t.value; syncTextFromState(); }
+  else if (t.classList.contains('group-instruction')) { groups[gi].instruction = t.value; syncTextFromState(); }
+  else if (t.classList.contains('q-text')) { groups[gi].questions[+t.dataset.q].text = t.value;
+    if (groups[gi].type === 'error_id') {
+      const preview = t.closest('.border').querySelector('.bg-light');
+      if (preview) preview.innerHTML = '<strong>Xem trước:</strong> ' + renderErrorIdPreview(t.value);
+    }
+    syncTextFromState();
+  }
+  else if (t.classList.contains('q-explanation')) { groups[gi].questions[+t.dataset.q].explanation = t.value; syncTextFromState(); }
+  else if (t.classList.contains('opt-text')) { groups[gi].questions[+t.dataset.q].options[+t.dataset.oi] = t.value; syncTextFromState(); }
+  else if (t.classList.contains('st-text')) { groups[gi].questions[+t.dataset.q].statements[+t.dataset.si].text = t.value; syncTextFromState(); }
+  else if (t.classList.contains('ans-text')) { groups[gi].questions[+t.dataset.q].accepted_answers[+t.dataset.ai] = t.value; syncTextFromState(); }
+});
+
+groupsContainer.addEventListener('change', e => {
+  const t = e.target;
+  const gi = +t.dataset.g;
+  if (t.classList.contains('group-type')) {
+    const newType = t.value;
+    if (groups[gi].questions.some(q => (q.text || '').trim()) &&
+        !confirm('Đổi loại câu hỏi sẽ xoá nội dung các câu hỏi đã nhập trong phần này. Tiếp tục?')) {
+      renderAll();
+      return;
+    }
+    groups[gi].type = newType;
+    groups[gi].questions = [newQuestionForType(newType)];
+    renderAll();
+  } else if (t.classList.contains('correct-radio')) {
+    groups[gi].questions[+t.dataset.q].correct_index = +t.dataset.oi; syncTextFromState();
+  } else if (t.classList.contains('st-correct')) {
+    groups[gi].questions[+t.dataset.q].statements[+t.dataset.si].correct = t.value === '1'; syncTextFromState();
+  }
+});
+
+groupsContainer.addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  const gi = +btn.dataset.g;
+
+  if (btn.classList.contains('remove-group')) {
+    if (groups.length > 1) { groups.splice(gi, 1); renderAll(); }
+  } else if (btn.classList.contains('move-group')) {
+    const dir = +btn.dataset.dir;
+    const target = gi + dir;
+    if (target >= 0 && target < groups.length) {
+      [groups[gi], groups[target]] = [groups[target], groups[gi]];
+      renderAll();
+    }
+  } else if (btn.classList.contains('add-question')) {
+    groups[gi].questions.push(newQuestionForType(groups[gi].type));
+    renderAll();
+  } else if (btn.classList.contains('remove-question')) {
+    const q = groups[gi].questions;
+    if (q.length > 1) { q.splice(+btn.dataset.q, 1); renderAll(); }
+  } else if (btn.classList.contains('add-option')) {
+    const opts = groups[gi].questions[+btn.dataset.q].options;
+    if (opts.length < 6) { opts.push(''); renderAll(); }
+  } else if (btn.classList.contains('remove-option')) {
+    const q = groups[gi].questions[+btn.dataset.q];
+    const oi = +btn.dataset.oi;
+    if (q.options.length > 2) {
+      q.options.splice(oi, 1);
+      if (q.correct_index >= q.options.length) q.correct_index = 0;
+      else if (q.correct_index > oi) q.correct_index -= 1;
+      renderAll();
+    }
+  } else if (btn.classList.contains('add-statement')) {
+    const sts = groups[gi].questions[+btn.dataset.q].statements;
+    if (sts.length < 6) { sts.push({ text: '', correct: false }); renderAll(); }
+  } else if (btn.classList.contains('remove-statement')) {
+    const sts = groups[gi].questions[+btn.dataset.q].statements;
+    if (sts.length > 2) { sts.splice(+btn.dataset.si, 1); renderAll(); }
+  } else if (btn.classList.contains('add-answer')) {
+    groups[gi].questions[+btn.dataset.q].accepted_answers.push('');
+    renderAll();
+  } else if (btn.classList.contains('remove-answer')) {
+    const ans = groups[gi].questions[+btn.dataset.q].accepted_answers;
+    if (ans.length > 1) { ans.splice(+btn.dataset.ai, 1); renderAll(); }
+  }
+});
+
+document.getElementById('addGroupBtn').addEventListener('click', () => {
+  const type = document.getElementById('newGroupType').value;
+  groups.push({ title: `Phần ${groups.length + 1}`, type, instruction: '', questions: [newQuestionForType(type)] });
+  renderAll();
+});
+
+// ────────────────────────────────────────────────────────────
+// Raw text pane edits -> reparse -> re-render visual pane only
+// ────────────────────────────────────────────────────────────
+rawTextEditor.addEventListener('input', () => {
+  const parsed = parseFromText(rawTextEditor.value);
+  if (parsed.length) groups = parsed;
+  renderGroups();
+});
+
+// ────────────────────────────────────────────────────────────
+// Submit
+// ────────────────────────────────────────────────────────────
+document.getElementById('exam-form').addEventListener('submit', e => {
+  document.getElementById('titleField').value = titleEl.value.trim();
+  document.getElementById('groupsField').value = JSON.stringify({ groups });
+
+  if (!titleEl.value.trim()) {
+    e.preventDefault();
+    alert('Vui lòng nhập tên đề thi.');
+    return;
+  }
+  const hasContent = groups.some(g => g.questions.some(q => (q.text || '').trim()));
+  if (!hasContent) {
+    e.preventDefault();
+    alert('Vui lòng nhập ít nhất 1 câu hỏi có nội dung.');
+  }
+});
+
+renderAll();
+</script>
+{% endblock %}

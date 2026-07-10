@@ -55,6 +55,7 @@
         <span>Tổng quan</span>
       </a>
 
+      {% if current_user.can_access('schedule') %}
       <a href="{{ url_for('teacher.schedule') }}"
          class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none
                 {% if request.endpoint == 'teacher.schedule' %}text-success border-top border-success border-2{% else %}text-muted{% endif %}"
@@ -62,7 +63,9 @@
         <i class="bi bi-calendar3{% if request.endpoint == 'teacher.schedule' %}-fill{% endif %} fs-5"></i>
         <span>Lịch dạy</span>
       </a>
+      {% endif %}
 
+      {% if current_user.can_access('attendance') %}
       <a href="{{ url_for('teacher.attendance_list') }}"
          class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none
                 {% if 'attendance' in request.endpoint %}text-primary border-top border-primary border-2{% else %}text-muted{% endif %}"
@@ -70,7 +73,9 @@
         <i class="bi bi-person-check{% if 'attendance' in request.endpoint %}-fill{% endif %} fs-5"></i>
         <span>Điểm danh</span>
       </a>
+      {% endif %}
 
+      {% if current_user.can_access('scores') %}
       <a href="{{ url_for('teacher.scores_list') }}"
          class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none
                 {% if 'scores' in request.endpoint %}text-success border-top border-success border-2{% else %}text-muted{% endif %}"
@@ -78,14 +83,27 @@
         <i class="bi bi-pencil-square fs-5"></i>
         <span>Điểm số</span>
       </a>
+      {% endif %}
 
-      <a href="{{ url_for('admin.exams_list') }}"
+      {% if current_user.can_access('exams') %}
+      <a href="{{ url_for('teacher.exams_list') }}"
          class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none
                 {% if 'exam' in request.endpoint %}text-success border-top border-success border-2{% else %}text-muted{% endif %}"
          style="font-size:0.65rem;">
         <i class="bi bi-pc-display{% if 'exam' in request.endpoint %}-fill{% endif %} fs-5"></i>
         <span>Đề thi</span>
       </a>
+      {% endif %}
+
+      {% if current_user.can_access('schedule') %}
+      <a href="{{ url_for('teacher.create_intensive') }}"
+         class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none
+                {% if request.endpoint == 'teacher.create_intensive' %}text-success border-top border-success border-2{% else %}text-muted{% endif %}"
+         style="font-size:0.65rem;">
+        <i class="bi bi-plus-square{% if request.endpoint == 'teacher.create_intensive' %}-fill{% endif %} fs-5"></i>
+        <span>Tạo lớp</span>
+      </a>
+      {% endif %}
 
       <a href="{{ url_for('teacher.notifications') }}"
          class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none position-relative

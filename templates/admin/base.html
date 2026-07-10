@@ -6,7 +6,7 @@
 
   <!-- Sidebar -->
   <nav class="sidebar d-flex flex-column flex-shrink-0 p-3 text-white" id="sidebar"
-       style="background: linear-gradient(180deg, #6d4dd4 0%, #7c5cdb 100%); width:240px; min-height:100vh; position:fixed; top:0; left:0; z-index:100; transition:transform .3s;{% if start_collapsed %} transform:translateX(-100%);{% endif %}">
+       style="background: linear-gradient(180deg, #6d4dd4 0%, #7c5cdb 100%); width:240px; height:100vh; overflow-y:auto; position:fixed; top:0; left:0; z-index:100; transition:transform .3s;{% if start_collapsed %} transform:translateX(-100%);{% endif %}">
     <a href="{{ url_for('admin.dashboard') }}" class="d-flex align-items-center mb-3 text-white text-decoration-none">
       <i class="bi bi-mortarboard-fill fs-5 me-2"></i>
       <span class="fw-bold">Nhật Tuyền</span>
@@ -18,89 +18,127 @@
           <i class="bi bi-speedometer2 me-2"></i>Tổng quan
         </a>
       </li>
+      {% if current_user.can_access('students') %}
       <li class="nav-item mb-1">
         <a href="{{ url_for('admin.students') }}" class="nav-link text-white {% if 'student' in request.endpoint %}active{% endif %}">
           <i class="bi bi-people me-2"></i>Học sinh
         </a>
       </li>
+      {% endif %}
+      {% if current_user.can_access('classes') %}
       <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.classes') }}" class="nav-link text-white {% if 'class' in request.endpoint %}active{% endif %}">
+        <a href="{{ url_for('admin.classes') }}" class="nav-link text-white {% if 'class' in request.endpoint or request.endpoint in ('admin.generate_schedule', 'admin.add_schedule', 'admin.cancel_schedule', 'admin.delete_schedule') %}active{% endif %}">
           <i class="bi bi-journal-bookmark me-2"></i>Lớp học
         </a>
       </li>
+      {% endif %}
+      {% if current_user.can_access('academic') %}
       <li class="nav-item mb-1">
         <a href="{{ url_for('admin.academic_years') }}" class="nav-link text-white {% if 'academic' in request.endpoint or 'semester' in request.endpoint %}active{% endif %}">
           <i class="bi bi-calendar3 me-2"></i>Năm học
         </a>
       </li>
+      {% endif %}
+      {% if current_user.can_access('rewards') %}
       <li class="nav-item mb-1">
         <a href="{{ url_for('admin.rewards') }}" class="nav-link text-white {% if 'reward' in request.endpoint %}active{% endif %}">
           <i class="bi bi-trophy me-2"></i>Khen thưởng
-          {% set pending_count = namespace(n=0) %}
-          {# Use Python logic from context #}
         </a>
       </li>
+      {% endif %}
+      {% if current_user.can_access('attendance') %}
       <li class="nav-item mb-1">
         <a href="{{ url_for('admin.attendance_list') }}" class="nav-link text-white {% if 'attendance' in request.endpoint %}active{% endif %}">
           <i class="bi bi-person-check me-2"></i>Điểm danh
         </a>
       </li>
+      {% endif %}
+      {% if current_user.can_access('tuition') %}
       <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.tuition') }}" class="nav-link text-white {% if 'tuition' in request.endpoint or 'monthly_fee' in request.endpoint %}active{% endif %}">
+        <a href="{{ url_for('admin.tuition') }}" class="nav-link text-white {% if (request.endpoint == 'admin.tuition' or 'monthly_fee' in request.endpoint or request.endpoint in ('admin.tuition_class_detail', 'admin.tuition_bulk_add')) %}active{% endif %}">
           <i class="bi bi-cash-stack me-2"></i>Học phí
         </a>
       </li>
+      {% endif %}
+      {% if current_user.can_access('tuition_report') %}
       <li class="nav-item mb-1">
         <a href="{{ url_for('admin.tuition_report') }}" class="nav-link text-white {% if 'tuition_report' in request.endpoint %}active{% endif %}">
           <i class="bi bi-bar-chart me-2"></i>Thống kê HP
         </a>
       </li>
+      {% endif %}
+      {% if current_user.can_access('expenses') %}
       <li class="nav-item mb-1">
         <a href="{{ url_for('admin.expenses') }}" class="nav-link text-white {% if 'expense' in request.endpoint %}active{% endif %}">
           <i class="bi bi-receipt me-2"></i>Chi phí
         </a>
       </li>
+      {% endif %}
+      {% if current_user.can_access('salary') %}
+      <li class="nav-item mb-1">
+        <a href="{{ url_for('admin.salary') }}" class="nav-link text-white {% if 'salary' in request.endpoint %}active{% endif %}">
+          <i class="bi bi-cash-coin me-2"></i>Lương
+        </a>
+      </li>
+      {% endif %}
+      {% if current_user.can_access('teachers') %}
       <li class="nav-item mb-1">
         <a href="{{ url_for('admin.teachers') }}" class="nav-link text-white {% if 'teacher' in request.endpoint %}active{% endif %}">
           <i class="bi bi-person-badge me-2"></i>Giáo viên
         </a>
       </li>
+      {% endif %}
+      {% if current_user.can_access('rooms') %}
       <li class="nav-item mb-1">
         <a href="{{ url_for('admin.rooms') }}" class="nav-link text-white {% if 'room' in request.endpoint %}active{% endif %}">
           <i class="bi bi-door-open me-2"></i>Phòng học
         </a>
       </li>
+      {% endif %}
+      {% if current_user.can_access('documents') %}
       <li class="nav-item mb-1">
         <a href="{{ url_for('admin.documents') }}" class="nav-link text-white {% if 'document' in request.endpoint %}active{% endif %}">
           <i class="bi bi-folder2 me-2"></i>Tài liệu
         </a>
       </li>
+      {% endif %}
+      {% if current_user.can_access('exams') %}
       <li class="nav-item mb-1">
         <a href="{{ url_for('admin.exams_list') }}" class="nav-link text-white {% if 'exam' in request.endpoint %}active{% endif %}">
           <i class="bi bi-pc-display me-2"></i>Đề thi online
         </a>
       </li>
+      {% endif %}
+      {% if current_user.can_access('reports') %}
       <li class="nav-item mb-1">
         <a href="{{ url_for('admin.reports') }}" class="nav-link text-white {% if 'report' in request.endpoint %}active{% endif %}">
           <i class="bi bi-bar-chart-line me-2"></i>Báo cáo
         </a>
       </li>
+      {% endif %}
       <hr class="text-secondary">
+      {% if current_user.can_access('schools') %}
       <li class="nav-item mb-1">
         <a href="{{ url_for('admin.schools') }}" class="nav-link text-white {% if 'school' in request.endpoint %}active{% endif %}">
           <i class="bi bi-building me-2"></i>Trường học
         </a>
       </li>
+      {% endif %}
+      {% if current_user.can_access('courses') %}
       <li class="nav-item mb-1">
         <a href="{{ url_for('admin.courses') }}" class="nav-link text-white {% if 'course' in request.endpoint %}active{% endif %}">
           <i class="bi bi-book me-2"></i>Môn học
         </a>
       </li>
+      {% endif %}
+      {% if current_user.can_access('users') %}
       <li class="nav-item mb-1">
         <a href="{{ url_for('admin.users') }}" class="nav-link text-white {% if 'user' in request.endpoint %}active{% endif %}">
           <i class="bi bi-person-gear me-2"></i>Tài khoản
         </a>
       </li>
+      {% endif %}
+      {% if current_user.can_access('inquiries') %}
       <li class="nav-item mb-1">
         <a href="{{ url_for('admin.inquiries') }}" class="nav-link text-white {% if 'inquir' in request.endpoint %}active{% endif %}">
           <i class="bi bi-envelope me-2"></i>Liên hệ
@@ -109,11 +147,14 @@
           {% endif %}
         </a>
       </li>
+      {% endif %}
+      {% if current_user.can_access('settings') %}
       <li class="nav-item mb-1">
         <a href="{{ url_for('admin.settings') }}" class="nav-link text-white {% if 'setting' in request.endpoint %}active{% endif %}">
           <i class="bi bi-gear me-2"></i>Cài đặt
         </a>
       </li>
+      {% endif %}
     </ul>
     <hr class="text-secondary">
     <div class="d-flex align-items-center gap-2">

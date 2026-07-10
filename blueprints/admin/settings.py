@@ -1,8 +1,9 @@
-from flask import render_template, redirect, url_for, flash, request
+from flask import render_template, redirect, url_for, flash, request, abort
 from flask_login import login_required, current_user
 from extensions import db
 from models import SystemConfig, User, Teacher, Course, UserRole, ContactInquiry
 from blueprints.admin import admin_bp, require_admin
+from blueprints.permissions import ADMIN_MODULES, TEACHER_MODULES
 
 
 @admin_bp.route('/settings')
@@ -56,7 +57,8 @@ def inquiry_delete(inquiry_id):
 @require_admin
 def users():
     users = User.query.order_by(User.role, User.full_name).all()
-    return render_template('admin/users.html', users=users)
+    return render_template('admin/users.html', users=users,
+                           admin_modules=ADMIN_MODULES, teacher_modules=TEACHER_MODULES)
 
 
 @admin_bp.route('/accounts/add', methods=['POST'])
@@ -82,6 +84,16 @@ def user_add():
 
     user = User(full_name=full_name, username=username, phone=phone, role=role)
     user.set_password(password)
+
+    if role == UserRole.ADMIN:
+        full_access = request.form.get('admin_full_access') == 'on'
+        selected = request.form.getlist('admin_permissions')
+        user.set_permissions(None if full_access else selected)
+    elif role == UserRole.TEACHER:
+        full_access = request.form.get('teacher_full_access') == 'on'
+        selected = request.form.getlist('teacher_permissions')
+        user.set_permissions(None if full_access else selected)
+
     db.session.add(user)
     db.session.flush()
 
@@ -92,6 +104,32 @@ def user_add():
 
     db.session.commit()
     flash(f'Đã tạo tài khoản {username}.', 'success')
+    return redirect(url_for('admin.users'))
+
+
+@admin_bp.route('/accounts/<int:user_id>/permissions', methods=['POST'])
+@login_required
+@require_admin
+def user_permissions_update(user_id):
+    if not current_user.has_full_access:
+        abort(403)
+    user = User.query.get_or_404(user_id)
+    if user.id == current_user.id:
+        flash('Không thể tự sửa quyền của chính mình.', 'danger')
+        return redirect(url_for('admin.users'))
+    if user.role not in (UserRole.ADMIN, UserRole.TEACHER):
+        abort(404)
+
+    if user.role == UserRole.ADMIN:
+        full_access = request.form.get('admin_full_access') == 'on'
+        selected = request.form.getlist('admin_permissions')
+    else:
+        full_access = request.form.get('teacher_full_access') == 'on'
+        selected = request.form.getlist('teacher_permissions')
+
+    user.set_permissions(None if full_access else selected)
+    db.session.commit()
+    flash(f'Đã cập nhật quyền cho {user.full_name}.', 'success')
     return redirect(url_for('admin.users'))
 
 

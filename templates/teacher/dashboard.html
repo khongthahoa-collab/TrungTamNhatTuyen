@@ -108,11 +108,10 @@
   </h6>
 
   {% set my_classes = teacher.classes.all() %}
-  {% if my_classes %}
+  {% if my_classes and (current_user.can_access('scores') or current_user.can_access('documents_teacher')) %}
     <div class="list-group shadow-sm mb-3">
       {% for cls in my_classes %}
-      <a href="{{ url_for('teacher.scores', class_id=cls.id) }}"
-         class="list-group-item list-group-item-action d-flex align-items-center gap-3 py-3">
+      <div class="list-group-item d-flex align-items-center gap-3 py-3">
         <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center text-primary fw-bold flex-shrink-0"
              style="width:42px;height:42px;font-size:0.85rem;">
           {{ cls.name[:2] }}
@@ -124,8 +123,17 @@
             {% if cls.course %}&nbsp;·&nbsp;{{ cls.course.name }}{% endif %}
           </div>
         </div>
-        <i class="bi bi-chevron-right text-muted"></i>
-      </a>
+        {% if current_user.can_access('documents_teacher') %}
+        <a href="{{ url_for('teacher.documents', class_id=cls.id) }}" class="btn btn-sm btn-outline-secondary" title="Tài liệu">
+          <i class="bi bi-folder2"></i>
+        </a>
+        {% endif %}
+        {% if current_user.can_access('scores') %}
+        <a href="{{ url_for('teacher.scores', class_id=cls.id) }}" class="btn btn-sm btn-outline-primary" title="Điểm số">
+          <i class="bi bi-pencil-square"></i>
+        </a>
+        {% endif %}
+      </div>
       {% endfor %}
     </div>
   {% else %}

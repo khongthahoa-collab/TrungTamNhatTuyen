@@ -1,0 +1,22 @@
+{% macro permission_checkboxes(modules, prefix, field_name='permissions', full_access_name='full_access', selected=None) %}
+<div class="form-check form-switch mb-2">
+  <input class="form-check-input" type="checkbox" name="{{ full_access_name }}" id="{{ prefix }}_full"
+         {% if selected is none %}checked{% endif %}
+         onchange="document.getElementById('{{ prefix }}_list').classList.toggle('d-none', this.checked)">
+  <label class="form-check-label fw-semibold" for="{{ prefix }}_full">Toàn quyền</label>
+</div>
+<div class="row row-cols-2 row-cols-md-3 g-2 {% if selected is none %}d-none{% endif %}" id="{{ prefix }}_list">
+  {% for key, label, icon in modules %}
+  <div class="col">
+    <div class="form-check">
+      <input class="form-check-input" type="checkbox" name="{{ field_name }}" value="{{ key }}"
+             id="{{ prefix }}_{{ key }}"
+             {% if selected and key in selected %}checked{% endif %}>
+      <label class="form-check-label small" for="{{ prefix }}_{{ key }}">
+        <i class="bi {{ icon }} me-1"></i>{{ label }}
+      </label>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endmacro %}

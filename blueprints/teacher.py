@@ -20,6 +20,18 @@ def require_teacher(f):
     return decorated
 
 
+@teacher_bp.before_request
+def check_module_permission():
+    """Per-account feature restriction, on top of require_teacher above."""
+    if not current_user.is_authenticated or not current_user.is_teacher:
+        return
+    from blueprints.permissions import TEACHER_ENDPOINT_MODULES
+    endpoint = (request.endpoint or '').split('.')[-1]
+    module = TEACHER_ENDPOINT_MODULES.get(endpoint)
+    if module and not current_user.can_access(module):
+        abort(403)
+
+
 @teacher_bp.route('/')
 @login_required
 @require_teacher
@@ -652,3 +664,8 @@ def save_attendance(schedule_id):
         'message': 'Lưu điểm danh thành công',
         'summary': summary_data
     })
+
+
+# Import to register the teacher-side exam routes (separate screens from admin's,
+# sharing only the underlying models + blueprints/exams_shared.py parsing logic)
+from blueprints import teacher_exams  # noqa: E402,F401

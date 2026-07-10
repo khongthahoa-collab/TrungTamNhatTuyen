@@ -453,6 +453,7 @@ class User(UserMixin, db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime)
+    permissions = db.Column(db.Text)  # JSON list of module keys; NULL = full access
 
     # Relationships
     teacher_profile = db.relationship('Teacher', backref='user', uselist=False)
@@ -488,6 +489,31 @@ class User(UserMixin, db.Model):
             UserRole.TEACHER: 'Giáo viên',
             UserRole.PARENT: 'Phụ huynh'
         }.get(self.role, self.role)
+
+    def get_permissions(self):
+        """None = full access. Otherwise a list of allowed module keys."""
+        if self.permissions is None:
+            return None
+        try:
+            return json.loads(self.permissions)
+        except (TypeError, ValueError):
+            return []
+
+    def set_permissions(self, modules):
+        """Pass None for full access, or a list of module keys to restrict."""
+        self.permissions = json.dumps(modules) if modules is not None else None
+
+    @property
+    def has_full_access(self):
+        return self.permissions is None
+
+    def can_access(self, module_key):
+        """Whether this user is allowed to see/use the given module."""
+        from blueprints.permissions import CORE_MODULES
+        if module_key in CORE_MODULES:
+            return True
+        perms = self.get_permissions()
+        return perms is None or module_key in perms
 
     def __repr__(self):
         return f'<User {self.username}>'

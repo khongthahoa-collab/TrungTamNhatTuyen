@@ -1,0 +1,159 @@
+{% extends 'teacher/base.html' %}
+{% block title %}Đề thi online – Giáo viên – Nhật Tuyền{% endblock %}
+{% block content %}
+<div class="container-fluid px-3 pt-3">
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <a href="{{ url_for('teacher.dashboard') }}" class="small text-decoration-none text-muted d-block mb-1">
+      <i class="bi bi-arrow-left me-1"></i>Tổng quan
+    </a>
+    <h5 class="fw-bold mb-1">Quản lý đề thi online</h5>
+    <p class="text-muted small mb-0">Tạo đề, giao bài cho lớp và theo dõi kết quả</p>
+  </div>
+  <a href="{{ url_for('teacher.exams_new') }}" class="btn btn-primary">
+    <i class="bi bi-plus-lg me-1"></i>Tạo đề thi
+  </a>
+</div>
+
+<!-- Bộ lọc -->
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-3">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold mb-1">Thư mục</label>
+        <select name="folder_id" class="form-select form-select-sm">
+          <option value="">Tất cả thư mục</option>
+          {% for folder in folders %}
+          <option value="{{ folder.id }}" {% if folder_id == folder.id %}selected{% endif %}>{{ folder.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold mb-1">Môn</label>
+        <select name="subject" class="form-select form-select-sm">
+          <option value="">Tất cả môn</option>
+          {% for course in courses %}
+          <option value="{{ course.name }}" {% if subject == course.name %}selected{% endif %}>{{ course.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold mb-1">Loại bài</label>
+        <select name="exam_type" class="form-select form-select-sm">
+          <option value="">Tất cả loại</option>
+          {% for value, label in exam_types %}
+          <option value="{{ value }}" {% if exam_type == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold mb-1">Lớp</label>
+        <select name="class_id" class="form-select form-select-sm">
+          <option value="">Tất cả lớp</option>
+          {% for cls in classes %}
+          <option value="{{ cls.id }}" {% if class_id == cls.id %}selected{% endif %}>{{ cls.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold mb-1">Trạng thái</label>
+        <select name="status" class="form-select form-select-sm">
+          <option value="">Tất cả</option>
+          <option value="draft" {% if status == 'draft' %}selected{% endif %}>Nháp</option>
+          <option value="published" {% if status == 'published' %}selected{% endif %}>Đã đăng</option>
+        </select>
+      </div>
+      <div class="col-12 d-flex gap-2 justify-content-end align-items-center">
+        <button type="submit" class="btn btn-primary btn-sm">Lọc</button>
+        <a href="{{ url_for('teacher.exams_list') }}" class="btn btn-outline-secondary btn-sm" title="Xóa lọc"><i class="bi bi-x"></i></a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Tên đề</th>
+            <th>Môn</th>
+            <th>Loại</th>
+            <th>Số câu</th>
+            <th>Thời lượng</th>
+            <th>Số lần làm</th>
+            <th>Trạng thái</th>
+            <th>Tình trạng thi</th>
+            <th>Ngày tạo</th>
+            <th class="text-end">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for exam in exams %}
+          <tr>
+            <td class="fw-semibold">
+              {{ exam.title }}
+              {% if exam.folder %}<div class="small text-muted"><i class="bi bi-folder me-1"></i>{{ exam.folder.name }}</div>{% endif %}
+            </td>
+            <td>{{ exam.subject }}</td>
+            <td>{{ exam.type_label }}</td>
+            <td>{{ exam.total_question_count }} <span class="text-muted small">({{ exam.question_groups | length }} phần)</span></td>
+            <td>{{ exam.duration_minutes }} phút</td>
+            <td>{% if exam.is_unlimited_attempts %}Không giới hạn{% else %}{{ exam.allow_attempts }} lần{% endif %}</td>
+            <td>{% if exam.is_draft %}<span class="badge bg-secondary">Nháp</span>{% else %}<span class="badge bg-success">Đã đăng</span>{% endif %}</td>
+            <td>
+              {% if not exam.is_draft %}
+                {% set ts = exam.taken_status %}
+                <span class="badge {% if ts == 'taken' %}bg-primary{% elif ts == 'expired' %}bg-danger{% else %}bg-warning text-dark{% endif %}">
+                  {{ exam.taken_status_label }}
+                </span>
+              {% else %}<span class="text-muted small">—</span>{% endif %}
+            </td>
+            <td class="small text-muted">{{ exam.created_at | date_vn if exam.created_at else '—' }}</td>
+            <td class="text-end">
+              <div class="d-flex gap-1 justify-content-end">
+                <a href="{{ url_for('teacher.exams_preview', exam_id=exam.id) }}" class="btn btn-outline-primary btn-sm" title="Xem">
+                  <i class="bi bi-eye"></i>
+                </a>
+                <a href="{{ url_for('teacher.exams_results', exam_id=exam.id) }}" class="btn btn-outline-info btn-sm" title="Kết quả làm bài">
+                  <i class="bi bi-bar-chart-line"></i>
+                </a>
+                <a href="{{ url_for('teacher.exams_edit', exam_id=exam.id) }}" class="btn btn-outline-secondary btn-sm" title="Chỉnh sửa">
+                  <i class="bi bi-pencil"></i>
+                </a>
+                <div class="btn-group">
+                  <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" title="Thêm">
+                    <i class="bi bi-three-dots"></i>
+                  </button>
+                  <ul class="dropdown-menu dropdown-menu-end">
+                    <li>
+                      <form method="post" action="{{ url_for('teacher.exam_duplicate', exam_id=exam.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="dropdown-item"><i class="bi bi-copy me-2"></i>Sao chép để tái sử dụng</button>
+                      </form>
+                    </li>
+                    <li><a class="dropdown-item" href="{{ url_for('teacher.exams_export', exam_id=exam.id, fmt='pdf') }}" target="_blank">Xuất PDF (in)</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('teacher.exams_export', exam_id=exam.id, fmt='doc') }}">Xuất Word</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                      <form method="post" action="{{ url_for('teacher.exams_delete', exam_id=exam.id) }}" onsubmit="return confirm('Xóa đề này?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="dropdown-item text-danger"><i class="bi bi-trash me-2"></i>Xóa</button>
+                      </form>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="10" class="text-center text-muted py-4">Chưa có đề thi nào. Bấm "Tạo đề thi" để bắt đầu.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+{% endblock %}
