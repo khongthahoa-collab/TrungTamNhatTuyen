@@ -82,3 +82,8 @@ npm-debug.log
 
 # Virtual environment
 .venv
+.env
+.env.production
+.env.local
+.venv/
+__pycache__/
