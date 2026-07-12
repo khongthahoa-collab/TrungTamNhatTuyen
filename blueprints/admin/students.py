@@ -326,7 +326,8 @@ def student_detail(student_id):
                            current_month_tuition=current_month_tuition,
                            current_total=current_total,
                            current_unpaid=current_unpaid,
-                           parent_account=parent_account)
+                           parent_account=parent_account,
+                           default_temp_password=DEFAULT_TEMP_PASSWORD)
 
 
 @admin_bp.route('/students/<int:student_id>/reset-parent-password', methods=['POST'])
