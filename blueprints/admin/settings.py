@@ -1,9 +1,23 @@
+import secrets
+import string
+
 from flask import render_template, redirect, url_for, flash, request, abort
 from flask_login import login_required, current_user
 from extensions import db
 from models import SystemConfig, User, Teacher, Course, UserRole, ContactInquiry
 from blueprints.admin import admin_bp, require_admin
 from blueprints.permissions import ADMIN_MODULES, TEACHER_MODULES
+
+PASSWORD_ALPHABET = string.ascii_letters + string.digits + '!@#$%^&*'
+
+
+def _generate_strong_password(length=12):
+    """Random password guaranteed to mix lower/upper/digit/symbol."""
+    while True:
+        pwd = ''.join(secrets.choice(PASSWORD_ALPHABET) for _ in range(length))
+        if (any(c.islower() for c in pwd) and any(c.isupper() for c in pwd)
+                and any(c.isdigit() for c in pwd) and any(c in '!@#$%^&*' for c in pwd)):
+            return pwd
 
 
 @admin_bp.route('/settings')
@@ -66,23 +80,38 @@ def users():
 @require_admin
 def user_add():
     full_name = request.form.get('full_name', '').strip()
-    phone = request.form.get('phone', '').strip()
+    phone = request.form.get('phone', '').strip() or None
     username = request.form.get('username', '').strip()
     role = request.form.get('role', 'parent')
     password = request.form.get('password', '').strip()
+    password_confirm = request.form.get('password_confirm', '').strip()
     is_staff = request.form.get('is_staff') == '1'
     base_salary = request.form.get('base_salary', 0, type=float)
     note = request.form.get('specialty', '').strip()
 
-    if not all([full_name, phone, username, password]):
-        flash('Vui lòng điền đầy đủ thông tin.', 'danger')
+    if not username:
+        flash('Vui lòng nhập tên đăng nhập.', 'danger')
         return redirect(url_for('admin.users'))
 
-    if User.query.filter((User.phone == phone) | (User.username == username)).first():
+    dup_filters = [User.username == username]
+    if phone:
+        dup_filters.append(User.phone == phone)
+    if User.query.filter(db.or_(*dup_filters)).first():
         flash('Số điện thoại hoặc tên đăng nhập đã tồn tại.', 'danger')
         return redirect(url_for('admin.users'))
 
-    user = User(full_name=full_name, username=username, phone=phone, role=role)
+    generated_password = None
+    if password or password_confirm:
+        if password != password_confirm:
+            flash('Mật khẩu nhập lại không khớp.', 'danger')
+            return redirect(url_for('admin.users'))
+        if len(password) < 6:
+            flash('Mật khẩu tối thiểu 6 ký tự.', 'danger')
+            return redirect(url_for('admin.users'))
+    else:
+        password = generated_password = _generate_strong_password()
+
+    user = User(full_name=full_name or username, username=username, phone=phone, role=role)
     user.set_password(password)
 
     if role == UserRole.ADMIN:
@@ -103,7 +132,11 @@ def user_add():
         db.session.add(teacher)
 
     db.session.commit()
-    flash(f'Đã tạo tài khoản {username}.', 'success')
+    if generated_password:
+        flash(f'Đã tạo tài khoản {username} với mật khẩu tự động: {generated_password} '
+              f'— hãy lưu lại ngay, mật khẩu sẽ không hiển thị lại.', 'success')
+    else:
+        flash(f'Đã tạo tài khoản {username}.', 'success')
     return redirect(url_for('admin.users'))
 
 

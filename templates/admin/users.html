@@ -28,9 +28,9 @@
 
         <div class="row g-3">
           <div class="col-12 col-md-6">
-            <label class="form-label fw-semibold" for="new_full_name">Họ tên <span class="text-danger">*</span></label>
+            <label class="form-label fw-semibold" for="new_full_name">Họ tên</label>
             <input type="text" class="form-control" name="full_name" id="new_full_name"
-                   placeholder="Nguyễn Văn A" required>
+                   placeholder="Nguyễn Văn A">
           </div>
           <div class="col-12 col-md-6">
             <label class="form-label fw-semibold" for="new_phone">Số điện thoại</label>
@@ -52,12 +52,26 @@
             </select>
           </div>
           <div class="col-12 col-md-6">
-            <label class="form-label fw-semibold" for="new_password">Mật khẩu <span class="text-danger">*</span></label>
+            <label class="form-label fw-semibold" for="new_password">Mật khẩu</label>
             <div class="input-group">
               <input type="password" class="form-control" name="password" id="new_password"
-                     placeholder="••••••••" required autocomplete="new-password">
+                     placeholder="Để trống để tự tạo mật khẩu" autocomplete="new-password"
+                     oninput="syncPwdConfirmRequired()">
               <button class="btn btn-outline-secondary" type="button"
                       onclick="togglePwd('new_password', this)">
+                <i class="bi bi-eye"></i>
+              </button>
+            </div>
+            <div class="form-text">Để trống: hệ thống tự tạo mật khẩu mạnh và hiển thị sau khi tạo.</div>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-semibold" for="new_password_confirm">Nhập lại mật khẩu</label>
+            <div class="input-group">
+              <input type="password" class="form-control" name="password_confirm" id="new_password_confirm"
+                     placeholder="Nhập lại mật khẩu" autocomplete="new-password"
+                     oninput="syncPwdConfirmRequired()">
+              <button class="btn btn-outline-secondary" type="button"
+                      onclick="togglePwd('new_password_confirm', this)">
                 <i class="bi bi-eye"></i>
               </button>
             </div>
@@ -299,6 +313,25 @@ function toggleTeacherFields() {
   document.getElementById('newAdminPerms').style.display = (role === 'admin') ? '' : 'none';
   document.getElementById('newTeacherPerms').style.display = (role === 'teacher') ? '' : 'none';
 }
+
+function syncPwdConfirmRequired() {
+  const pwd = document.getElementById('new_password');
+  const confirm = document.getElementById('new_password_confirm');
+  const filled = pwd.value.length > 0 || confirm.value.length > 0;
+  pwd.required = filled;
+  confirm.required = filled;
+}
+
+document.getElementById('addUserFormEl')?.addEventListener('submit', function(e) {
+  const pwd = document.getElementById('new_password').value;
+  const confirm = document.getElementById('new_password_confirm').value;
+  if (pwd || confirm) {
+    if (pwd !== confirm) {
+      e.preventDefault();
+      alert('Mật khẩu nhập lại không khớp.');
+    }
+  }
+});
 
 function togglePwd(inputId, btn) {
   const input = document.getElementById(inputId);
