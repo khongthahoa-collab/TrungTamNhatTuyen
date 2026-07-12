@@ -1,7 +1,6 @@
 from flask import render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required
 from datetime import date, timedelta, time as time_type
-import re
 from extensions import db
 from models import Class, Course, Teacher, Schedule, Semester, Enrollment, Student, Room
 from blueprints.admin import admin_bp, require_admin
@@ -121,22 +120,16 @@ def _generate_schedules(class_id, teacher_id, semester, sched_rows):
     return created, skipped
 
 
-def _gen_class_suffix(grade_level, course_id, exclude_id=None):
-    """Return next available letter suffix (A, B, C…) for this grade+course."""
-    q = Class.query.filter_by(grade_level=grade_level, course_id=course_id)
-    if exclude_id:
-        q = q.filter(Class.id != exclude_id)
-    count = q.count()
-    return chr(ord('A') + count)
-
-
-def _make_class_name(grade_level, course_name, suffix):
-    """Build display name like 'Lớp 6A - Toán' or 'Tiền tiểu học A - Toán'."""
-    if grade_level and re.search(r'\d$', grade_level):
-        combined = f'{grade_level}{suffix}'
+def _make_class_name(course_name, grade_level, teacher):
+    """Build display name like 'Toán 5 - Cô Gấu' (môn học + lớp - Thầy/Cô + tên giáo viên)."""
+    grade_short = grade_level[len('Lớp '):] if grade_level and grade_level.startswith('Lớp ') else (grade_level or '')
+    left = f'{course_name} {grade_short}'.strip()
+    if teacher:
+        given_name = (teacher.full_name or '').strip().split(' ')[-1]
+        right = f'{teacher.title} {given_name}'.strip()
     else:
-        combined = f'{grade_level} {suffix}'.strip()
-    return f'{combined} - {course_name}' if course_name else combined
+        right = ''
+    return f'{left} - {right}' if right else left
 
 
 def _has_duplicate_slot(grade_level, course_id, teacher_id, sched_rows, exclude_class_id=None):
@@ -194,13 +187,6 @@ def _parse_sched_rows(teachers_by_id, default_teacher_id):
 
 # ── Routes ─────────────────────────────────────────────────────────────────
 
-def _build_suffix_counts():
-    """Build a mapping of 'grade|course_id' → existing class count for name preview."""
-    rows = db.session.query(Class.grade_level, Class.course_id, db.func.count(Class.id)) \
-        .group_by(Class.grade_level, Class.course_id).all()
-    return {f'{g}|{c}': cnt for g, c, cnt in rows}
-
-
 def _form_context(action, courses, teachers, rooms, semesters, default_semester, form=None, class_=None):
     return dict(
         action=action, courses=courses, teachers=teachers, rooms=rooms,
@@ -208,7 +194,6 @@ def _form_context(action, courses, teachers, rooms, semesters, default_semester,
         grade_options=GRADE_LEVEL_OPTIONS,
         time_slots=TIME_SLOTS, day_options=DAY_OPTIONS,
         form=form, class_=class_,
-        suffix_counts=_build_suffix_counts() if action == 'add' else {},
     )
 
 
@@ -286,8 +271,8 @@ def class_add():
 
         # Auto-generate class name
         course = Course.query.get(course_id)
-        suffix = _gen_class_suffix(grade_level, course_id)
-        name = _make_class_name(grade_level, course.name if course else '', suffix)
+        primary_teacher = Teacher.query.get(primary_teacher_id)
+        name = _make_class_name(course.name if course else '', grade_level, primary_teacher)
 
         cl = Class(
             name=name,
@@ -364,11 +349,12 @@ def class_edit(class_id):
         new_course_id = request.form.get('course_id', type=int) or class_.course_id
         new_primary_id = request.form.get('primary_teacher_id', type=int) or None
 
-        # Auto-update name if grade or course changed
-        if grade_level and grade_level != class_.grade_level or new_course_id != class_.course_id:
+        # Auto-update name if grade, course, or primary teacher changed
+        if (grade_level and grade_level != class_.grade_level) or new_course_id != class_.course_id \
+                or new_primary_id != class_.primary_teacher_id:
             course = Course.query.get(new_course_id)
-            suffix = _gen_class_suffix(grade_level or class_.grade_level, new_course_id, exclude_id=class_.id)
-            class_.name = _make_class_name(grade_level or class_.grade_level, course.name if course else '', suffix)
+            primary_teacher = Teacher.query.get(new_primary_id)
+            class_.name = _make_class_name(course.name if course else '', grade_level or class_.grade_level, primary_teacher)
 
         class_.course_id = new_course_id
         class_.grade_level = grade_level or class_.grade_level

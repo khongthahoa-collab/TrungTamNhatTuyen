@@ -35,6 +35,7 @@
           <th class="text-center">Buổi dạy</th>
           <th>Lương cơ bản</th>
           <th>Trạng thái</th>
+          <th class="text-center">Thao tác</th>
         </tr>
       </thead>
       <tbody>
@@ -53,41 +54,45 @@
             </div>
           </td>
           <td class="small">{{ teacher.phone }}</td>
-          <td>
-            {% if teacher.is_staff %}
-            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Hợp đồng</span>
-            {% else %}
-            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Trợ giảng</span>
-            {% endif %}
-          </td>
-          <td class="text-center">
-            <span class="badge bg-info-subtle text-info border border-info-subtle">
-              {{ class_counts.get(teacher.id, 0) }}
-            </span>
-          </td>
-          <td class="text-center">
-            <span class="badge bg-success-subtle text-success border border-success-subtle">
-              {{ session_counts.get(teacher.id, 0) }}
-            </span>
-          </td>
-          <td class="small">
-            {% if teacher.base_salary %}
-            {{ teacher.base_salary | int | vnd }}
-            {% else %}
-            <span class="text-muted">—</span>
-            {% endif %}
-          </td>
-          <td>
-            {% if teacher.user.is_active %}
-            <span class="badge bg-success-subtle text-success border border-success-subtle">Hoạt động</span>
-            {% else %}
-            <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Đã vô hiệu hóa</span>
-            {% endif %}
-          </td>
+          <form method="post" action="{{ url_for('admin.teacher_update_fields', teacher_id=teacher.id) }}" class="d-contents">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <td style="min-width:130px;">
+              <select class="form-select form-select-sm" name="is_staff">
+                <option value="1" {% if teacher.is_staff %}selected{% endif %}>Hợp đồng</option>
+                <option value="0" {% if not teacher.is_staff %}selected{% endif %}>Trợ giảng</option>
+              </select>
+            </td>
+            <td class="text-center">
+              <span class="badge bg-info-subtle text-info border border-info-subtle">
+                {{ class_counts.get(teacher.id, 0) }}
+              </span>
+            </td>
+            <td class="text-center">
+              <span class="badge bg-success-subtle text-success border border-success-subtle">
+                {{ session_counts.get(teacher.id, 0) }}
+              </span>
+            </td>
+            <td style="min-width:140px;">
+              <input type="number" class="form-control form-control-sm" name="base_salary" min="0" step="100000"
+                     value="{{ teacher.base_salary | int }}">
+            </td>
+            <td>
+              {% if teacher.user.is_active %}
+              <span class="badge bg-success-subtle text-success border border-success-subtle">Hoạt động</span>
+              {% else %}
+              <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Đã vô hiệu hóa</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              <button type="submit" class="btn btn-sm btn-outline-primary" title="Lưu">
+                <i class="bi bi-check-lg"></i>
+              </button>
+            </td>
+          </form>
         </tr>
         {% else %}
         <tr>
-          <td colspan="7" class="text-center text-muted py-5">
+          <td colspan="8" class="text-center text-muted py-5">
             <i class="bi bi-person-badge fs-3 d-block mb-2"></i>
             Chưa có giáo viên nào.
             <a href="{{ url_for('admin.users') }}">Thêm giáo viên trong Quản lý tài khoản</a>
@@ -98,4 +103,10 @@
     </table>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+.d-contents { display: contents; }
+</style>
 {% endblock %}

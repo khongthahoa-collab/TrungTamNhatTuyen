@@ -106,10 +106,11 @@
             <!-- Giáo viên chính (required) -->
             <div class="col-12 col-md-6">
               <label class="form-label fw-semibold">Giáo viên chính <span class="text-danger">*</span></label>
-              <select class="form-select" name="primary_teacher_id" required>
+              <select class="form-select" name="primary_teacher_id" id="teacherSelect" required>
                 <option value="">-- Chọn giáo viên --</option>
                 {% for t in teachers %}
                 <option value="{{ t.id }}"
+                  data-title="{{ t.title }}" data-given-name="{{ t.full_name.split(' ')[-1] if t.full_name else '' }}"
                   {% if action == 'edit' and class_.primary_teacher_id == t.id %}selected
                   {% elif form and form.get('primary_teacher_id','') | string == t.id | string %}selected{% endif %}>
                   {{ t.full_name }}
@@ -170,14 +171,14 @@
             <div class="col-12">
               <div class="alert alert-info py-2 mb-0 small">
                 <i class="bi bi-info-circle me-1"></i>
-                Tên lớp sẽ được tạo tự động, ví dụ: <strong id="namePreview">Lớp 6A - Toán</strong>
+                Tên lớp sẽ được tạo tự động, ví dụ: <strong id="namePreview">Toán 5 - Cô Gấu</strong>
               </div>
             </div>
             {% else %}
             <div class="col-12 col-md-6">
               <label class="form-label fw-semibold">Tên lớp hiện tại</label>
               <input type="text" class="form-control" value="{{ class_.name }}" readonly disabled>
-              <div class="form-text">Tên sẽ tự động cập nhật nếu đổi lớp hoặc môn học.</div>
+              <div class="form-text">Tên sẽ tự động cập nhật nếu đổi lớp, môn học hoặc giáo viên chính.</div>
             </div>
             <!-- Trạng thái -->
             <div class="col-12 col-md-6 d-flex align-items-end pb-1">
@@ -312,9 +313,10 @@ document.getElementById('sessionsPerWeek')?.addEventListener('input', function()
 // Init
 updateSessionsPerWeek();
 
-const courseSelect = document.getElementById('courseSelect');
-const gradeSelect  = document.getElementById('gradeSelect');
-const gradeCustom  = document.getElementById('gradeCustom');
+const courseSelect  = document.getElementById('courseSelect');
+const gradeSelect   = document.getElementById('gradeSelect');
+const gradeCustom   = document.getElementById('gradeCustom');
+const teacherSelect = document.getElementById('teacherSelect');
 
 // ── "Loại khác" custom input ──────────────────────────────────────
 function syncCustomInput() {
@@ -328,24 +330,29 @@ gradeSelect.addEventListener('change', () => {
 });
 syncCustomInput();  // init on load
 
-// ── Auto-name preview ─────────────────────────────────────────────
+// ── Auto-name preview: "{Môn học} {Lớp} - {Thầy/Cô} {Tên giáo viên}" ──────
 {% if action == 'add' %}
-const SUFFIX_COUNTS = {{ suffix_counts | tojson if suffix_counts is defined else '{}' }};
-
 function updatePreview() {
   const courseOpt = courseSelect.options[courseSelect.selectedIndex];
   const courseName = courseOpt && courseOpt.value ? courseOpt.text : '...';
-  const gradeVal = gradeSelect.value === 'Loại khác' ? (gradeCustom.value || '...') : (gradeSelect.value || '...');
-  const key = (gradeSelect.value || '') + '|' + (courseOpt ? courseOpt.value : '');
-  const count = SUFFIX_COUNTS[key] || 0;
-  const suffix = String.fromCharCode(65 + count);  // A, B, C…
-  const combined = /\d$/.test(gradeVal) ? gradeVal + suffix : gradeVal + ' ' + suffix;
+  const gradeRaw = gradeSelect.value === 'Loại khác' ? (gradeCustom.value || '...') : (gradeSelect.value || '...');
+  const gradeShort = gradeRaw.startsWith('Lớp ') ? gradeRaw.slice(4) : gradeRaw;
+  const left = (courseName + ' ' + gradeShort).trim();
+
+  const teacherOpt = teacherSelect.options[teacherSelect.selectedIndex];
   const preview = document.getElementById('namePreview');
-  if (preview) preview.textContent = combined.trim() + ' - ' + courseName;
+  if (!preview) return;
+  if (teacherOpt && teacherOpt.value) {
+    const right = (teacherOpt.dataset.title + ' ' + teacherOpt.dataset.givenName).trim();
+    preview.textContent = left + ' - ' + right;
+  } else {
+    preview.textContent = left + ' - Thầy/Cô ...';
+  }
 }
 courseSelect.addEventListener('change', updatePreview);
 gradeSelect.addEventListener('change', updatePreview);
 gradeCustom.addEventListener('input', updatePreview);
+teacherSelect.addEventListener('change', updatePreview);
 updatePreview();
 {% endif %}
 </script>

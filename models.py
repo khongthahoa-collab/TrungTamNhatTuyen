@@ -788,6 +788,7 @@ class Schedule(db.Model):
     start_time = db.Column(db.Time, nullable=False)
     end_time = db.Column(db.Time, nullable=False)
     room = db.Column(db.String(50))
+    room_id = db.Column(db.Integer, db.ForeignKey('rooms.id'), nullable=True)
     topic = db.Column(db.String(255))
     schedule_type = db.Column(db.String(20), default=ScheduleType.REGULAR)
     semester_id = db.Column(db.Integer, db.ForeignKey('semesters.id'), nullable=True)
@@ -801,6 +802,7 @@ class Schedule(db.Model):
     attendances = db.relationship('Attendance', backref='schedule', lazy='dynamic',
                                   cascade='all, delete-orphan')
     semester = db.relationship('Semester', backref='schedules')
+    room_obj = db.relationship('Room', foreign_keys=[room_id], backref='schedules')
 
     @property
     def is_today(self):

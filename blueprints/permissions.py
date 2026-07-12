@@ -92,8 +92,9 @@ ADMIN_ENDPOINT_MODULES = {
     'expenses': 'expenses', 'expense_add': 'expenses', 'expense_delete': 'expenses',
     'salary': 'salary', 'salary_calculate': 'salary', 'salary_adjust': 'salary', 'salary_finalize': 'salary',
 
-    # teachers.py (read-only stats view; CRUD lives in settings.py's accounts routes)
-    'teachers': 'teachers',
+    # teachers.py (read-only stats view + inline salary/classification edit;
+    # everything else about the account lives in settings.py's accounts routes)
+    'teachers': 'teachers', 'teacher_update_fields': 'teachers',
 
     # rooms.py
     'rooms': 'rooms', 'room_add': 'rooms', 'room_edit': 'rooms',
