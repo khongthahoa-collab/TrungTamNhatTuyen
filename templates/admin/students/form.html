@@ -151,13 +151,15 @@
             <i class="bi bi-info-circle-fill fs-5"></i>
             <div class="flex-grow-1">
               <div class="form-check mb-0">
-                <input class="form-check-input" type="checkbox" id="create_parent_account" name="create_parent_account" value="1">
+                <input class="form-check-input" type="checkbox" id="create_parent_account" name="create_parent_account" value="1"
+                       {% if form.create_parent_account %}checked{% endif %}>
                 <label class="form-check-label fw-semibold" for="create_parent_account">
                   Tạo tài khoản phụ huynh
                 </label>
               </div>
               <div class="small mt-1">
-                Hệ thống sẽ tự động tạo tài khoản phụ huynh dựa trên số điện thoại phụ huynh đã nhập.
+                Hệ thống sẽ tự động tạo tài khoản phụ huynh (tên đăng nhập và mật khẩu tạm được cấp tự động).
+                Nếu có nhập số điện thoại, phụ huynh có thể dùng SĐT để đăng nhập thay cho tên đăng nhập.
               </div>
             </div>
           </div>

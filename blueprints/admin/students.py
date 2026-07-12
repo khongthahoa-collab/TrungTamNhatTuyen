@@ -14,6 +14,37 @@ from blueprints.admin.account_utils import next_username, DEFAULT_TEMP_PASSWORD
 PHOTO_EXTS = {'jpg', 'jpeg', 'png', 'webp', 'gif'}
 
 
+def _create_or_link_parent_account(student_name, parent_name, parent_phone=None):
+    """Link an existing parent User by phone (if a phone was given), or create
+    one with an auto-generated username + temp password (must change it on
+    first login) — phone is optional, only admin-typed username/phone ever is.
+    Flashes the outcome. Returns the User.id to use as Student.parent_user_id,
+    or None if nothing could be linked."""
+    if parent_phone:
+        existing_user = User.query.filter_by(phone=parent_phone).first()
+        if existing_user:
+            if existing_user.role == UserRole.PARENT:
+                flash(f'Tài khoản phụ huynh SĐT {parent_phone} đã tồn tại, đã liên kết.', 'info')
+                return existing_user.id
+            flash(f'SĐT {parent_phone} đã được dùng cho tài khoản khác.', 'warning')
+            return None
+
+    username = next_username(UserRole.PARENT)
+    new_user = User(
+        full_name=parent_name or f'Phụ huynh của {student_name}',
+        username=username,
+        phone=parent_phone or None,
+        role=UserRole.PARENT,
+        must_change_password=True,
+    )
+    new_user.set_password(DEFAULT_TEMP_PASSWORD)
+    db.session.add(new_user)
+    db.session.flush()
+    flash(f'Đã tạo tài khoản phụ huynh: {username} / mật khẩu tạm: {DEFAULT_TEMP_PASSWORD} '
+          f'— bắt buộc đổi ở lần đăng nhập đầu tiên.', 'info')
+    return new_user.id
+
+
 @admin_bp.route('/students')
 @login_required
 @require_admin
@@ -245,29 +276,8 @@ def student_add():
             dob = None
 
         parent_user_id = None
-        if create_parent_account and parent_phone:
-            existing_user = User.query.filter_by(phone=parent_phone).first()
-            if existing_user:
-                if existing_user.role == UserRole.PARENT:
-                    parent_user_id = existing_user.id
-                    flash(f'Tài khoản phụ huynh SĐT {parent_phone} đã tồn tại, đã liên kết.', 'info')
-                else:
-                    flash(f'SĐT {parent_phone} đã được dùng cho tài khoản khác.', 'warning')
-            else:
-                username = next_username(UserRole.PARENT)
-                new_user = User(
-                    full_name=parent_name or f'Phụ huynh của {full_name}',
-                    username=username,
-                    phone=parent_phone,
-                    role=UserRole.PARENT,
-                    must_change_password=True,
-                )
-                new_user.set_password(DEFAULT_TEMP_PASSWORD)
-                db.session.add(new_user)
-                db.session.flush()
-                parent_user_id = new_user.id
-                flash(f'Đã tạo tài khoản phụ huynh: {username} / mật khẩu tạm: {DEFAULT_TEMP_PASSWORD} '
-                      f'— bắt buộc đổi ở lần đăng nhập đầu tiên.', 'info')
+        if create_parent_account:
+            parent_user_id = _create_or_link_parent_account(full_name, parent_name, parent_phone)
 
         student = Student(
             full_name=full_name,
@@ -345,6 +355,31 @@ def student_reset_parent_password(student_id):
     db.session.commit()
     flash(f'Đã đặt lại mật khẩu phụ huynh về: {DEFAULT_TEMP_PASSWORD} '
           f'— bắt buộc đổi ở lần đăng nhập đầu tiên.', 'success')
+    return redirect(url_for('admin.student_detail', student_id=student_id))
+
+
+@admin_bp.route('/students/<int:student_id>/create-parent-account', methods=['POST'])
+@login_required
+@require_admin
+def student_create_parent_account(student_id):
+    """Create/link a parent account after the fact, for students added without
+    checking "Tạo tài khoản phụ huynh" (or without a phone) at creation time."""
+    student = Student.query.get_or_404(student_id)
+    if student.parent_user_id:
+        flash('Học sinh đã có tài khoản phụ huynh liên kết.', 'warning')
+        return redirect(url_for('admin.student_detail', student_id=student_id))
+
+    parent_phone = request.form.get('parent_phone', '').strip()
+    parent_name = request.form.get('parent_name', '').strip()
+
+    parent_user_id = _create_or_link_parent_account(student.full_name, parent_name, parent_phone)
+    if parent_user_id:
+        if parent_phone:
+            student.parent_phone = parent_phone
+        if parent_name:
+            student.parent_name = parent_name
+        student.parent_user_id = parent_user_id
+        db.session.commit()
     return redirect(url_for('admin.student_detail', student_id=student_id))
 
 

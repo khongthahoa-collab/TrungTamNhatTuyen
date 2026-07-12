@@ -63,7 +63,8 @@ ADMIN_ENDPOINT_MODULES = {
     # students.py
     'students': 'students', 'students_bulk_delete': 'students', 'export_students': 'students',
     'import_students': 'students', 'student_add': 'students', 'student_detail': 'students',
-    'student_reset_parent_password': 'students', 'student_edit': 'students',
+    'student_reset_parent_password': 'students', 'student_create_parent_account': 'students',
+    'student_edit': 'students',
     'student_enroll': 'students', 'student_unenroll': 'students',
     'student_photo_upload': 'students', 'student_photo_delete': 'students',
 

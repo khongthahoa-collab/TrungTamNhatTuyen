@@ -150,7 +150,26 @@
       </form>
     </div>
     {% else %}
-    <p class="text-muted small mb-0">Học sinh chưa có tài khoản phụ huynh liên kết. Để tạo, hãy bật tùy chọn "Tạo tài khoản phụ huynh" khi thêm học sinh mới.</p>
+    <p class="text-muted small mb-2">Học sinh chưa có tài khoản phụ huynh liên kết.</p>
+    <form method="post" action="{{ url_for('admin.student_create_parent_account', student_id=student.id) }}"
+          class="row g-2 align-items-end">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="col-12 col-sm-5">
+        <label class="form-label small mb-1">Họ tên phụ huynh</label>
+        <input type="text" class="form-control form-control-sm" name="parent_name"
+               value="{{ student.parent_name or '' }}" placeholder="Nhập họ tên phụ huynh">
+      </div>
+      <div class="col-12 col-sm-4">
+        <label class="form-label small mb-1">Số điện thoại phụ huynh</label>
+        <input type="tel" class="form-control form-control-sm" name="parent_phone"
+               value="{{ student.parent_phone or '' }}" placeholder="0xxxxxxxxx (không bắt buộc)">
+      </div>
+      <div class="col-12 col-sm-3">
+        <button type="submit" class="btn btn-primary btn-sm w-100">
+          <i class="bi bi-person-plus me-1"></i>Tạo tài khoản
+        </button>
+      </div>
+    </form>
     {% endif %}
   </div>
 </div>
