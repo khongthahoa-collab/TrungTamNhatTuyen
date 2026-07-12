@@ -1,0 +1,194 @@
+{% extends 'admin/base.html' %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ url_for('admin.students') }}">Học sinh</a></li>
+<li class="breadcrumb-item active">{% if action == 'add' %}Thêm học sinh{% else %}Sửa thông tin{% endif %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h5 class="mb-0 fw-bold">
+    <i class="bi bi-person-{% if action == 'add' %}plus{% else %}pencil{% endif %} me-2 text-primary"></i>
+    {% if action == 'add' %}Thêm học sinh mới{% else %}Sửa thông tin học sinh{% endif %}
+  </h5>
+  <a href="{{ url_for('admin.students') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Quay lại
+  </a>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-4">
+        <form method="post"
+              action="{% if action == 'add' %}{{ url_for('admin.student_add') }}{% else %}{{ url_for('admin.student_edit', student_id=student.id) }}{% endif %}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <h6 class="fw-semibold text-primary mb-3 border-bottom pb-2">
+            <i class="bi bi-person me-2"></i>Thông tin học sinh
+          </h6>
+
+          <div class="row g-3 mb-4">
+            <!-- Họ tên -->
+            <div class="col-12 col-md-8">
+              <label for="full_name" class="form-label fw-semibold">Họ và tên <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="full_name" name="full_name"
+                     value="{{ form.full_name if form else '' }}" required placeholder="Nhập họ và tên học sinh">
+            </div>
+
+            <!-- Giới tính -->
+            <div class="col-12 col-md-4">
+              <label class="form-label fw-semibold">Giới tính</label>
+              <div class="d-flex gap-3 mt-1">
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="gender" id="genderMale" value="male"
+                         {% if (form.gender if form else '') in ('male', '') %}checked{% endif %}>
+                  <label class="form-check-label" for="genderMale">Nam</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="gender" id="genderFemale" value="female"
+                         {% if (form.gender if form else '') == 'female' %}checked{% endif %}>
+                  <label class="form-check-label" for="genderFemale">Nữ</label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Ngày sinh -->
+            <div class="col-12 col-md-4">
+              <label for="dob" class="form-label fw-semibold">Ngày sinh</label>
+              <input type="date" class="form-control" id="dob" name="dob"
+                     value="{{ form.date_of_birth | string if form and form.date_of_birth else '' }}">
+            </div>
+
+            <!-- Cấp học -->
+            <div class="col-12 col-md-4">
+              <label for="level" class="form-label fw-semibold">Cấp học</label>
+              <select class="form-select" id="level" name="level">
+                <option value="">-- Chọn cấp --</option>
+                {% for key, label in levels.items() %}
+                <option value="{{ key }}" {% if (form.level if form else '') == key %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- Lớp đang học -->
+            <div class="col-12 col-md-4">
+              <label for="grade" class="form-label fw-semibold">Lớp</label>
+              <input type="text" class="form-control" id="grade" name="grade"
+                     value="{{ form.current_grade if form else '' }}" placeholder="VD: 10A1, Lớp 5...">
+            </div>
+
+            <!-- Trường -->
+            <div class="col-12 col-md-8">
+              <label class="form-label fw-semibold">Trường</label>
+              {% set cur_school_id = form.school_id if form and form.school_id else '' %}
+              {% set cur_school_name = form.current_school if form and form.current_school else '' %}
+              {% set known_ids = schools | map(attribute='id') | list %}
+              {% set is_custom = cur_school_id == '' or cur_school_id not in known_ids %}
+              <select class="form-select" name="school_id" id="schoolSelect">
+                <option value="">-- Trường khác (tự nhập) --</option>
+                {% for s in schools %}
+                <option value="{{ s.id }}"
+                  {% if cur_school_id and cur_school_id == s.id %}selected{% endif %}>
+                  {{ s.name }}{% if s.grade_range_label %} ({{ s.grade_range_label }}){% endif %}
+                </option>
+                {% endfor %}
+              </select>
+              <input type="text" class="form-control mt-2 {% if not is_custom or cur_school_id %}d-none{% endif %}"
+                     id="schoolCustom" name="school_custom"
+                     placeholder="Nhập tên trường..."
+                     value="{{ cur_school_name if is_custom else '' }}">
+            </div>
+          </div>
+
+          <h6 class="fw-semibold text-primary mb-3 border-bottom pb-2">
+            <i class="bi bi-person-hearts me-2"></i>Thông tin phụ huynh
+          </h6>
+
+          <div class="row g-3 mb-4">
+            <!-- Tên phụ huynh -->
+            <div class="col-12 col-md-6">
+              <label for="parent_name" class="form-label fw-semibold">Họ tên phụ huynh</label>
+              <input type="text" class="form-control" id="parent_name" name="parent_name"
+                     value="{{ form.parent_name if form else '' }}" placeholder="Nhập họ tên phụ huynh">
+            </div>
+
+            <!-- SĐT phụ huynh -->
+            <div class="col-12 col-md-6">
+              <label for="parent_phone" class="form-label fw-semibold">Số điện thoại phụ huynh</label>
+              <input type="tel" class="form-control" id="parent_phone" name="parent_phone"
+                     value="{{ form.parent_phone if form else '' }}" placeholder="0xxxxxxxxx">
+            </div>
+          </div>
+
+          <h6 class="fw-semibold text-primary mb-3 border-bottom pb-2">
+            <i class="bi bi-card-text me-2"></i>Ghi chú & Trạng thái
+          </h6>
+
+          <div class="row g-3 mb-4">
+            <!-- Ghi chú -->
+            <div class="col-12">
+              <label for="note" class="form-label fw-semibold">Ghi chú</label>
+              <textarea class="form-control" id="note" name="note" rows="3"
+                        placeholder="Ghi chú thêm về học sinh...">{{ form.note if form else '' }}</textarea>
+            </div>
+
+            <!-- Trạng thái (chỉ hiển thị khi sửa) -->
+            {% if action == 'edit' %}
+            <div class="col-12">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="is_active" name="is_active" value="1"
+                       {% if form.is_active %}checked{% endif %}>
+                <label class="form-check-label fw-semibold" for="is_active">Đang học (hoạt động)</label>
+              </div>
+            </div>
+            {% endif %}
+          </div>
+
+          <!-- Tạo tài khoản phụ huynh (chỉ khi thêm mới) -->
+          {% if action == 'add' %}
+          <div class="alert alert-info d-flex align-items-center gap-3 mb-4">
+            <i class="bi bi-info-circle-fill fs-5"></i>
+            <div class="flex-grow-1">
+              <div class="form-check mb-0">
+                <input class="form-check-input" type="checkbox" id="create_parent_account" name="create_parent_account" value="1">
+                <label class="form-check-label fw-semibold" for="create_parent_account">
+                  Tạo tài khoản phụ huynh
+                </label>
+              </div>
+              <div class="small mt-1">
+                Hệ thống sẽ tự động tạo tài khoản phụ huynh dựa trên số điện thoại phụ huynh đã nhập.
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <div class="d-flex gap-2 justify-content-end">
+            <a href="{{ url_for('admin.students') }}" class="btn btn-outline-secondary">
+              <i class="bi bi-x-lg me-1"></i>Hủy
+            </a>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check-lg me-1"></i>
+              {% if action == 'add' %}Thêm học sinh{% else %}Lưu thay đổi{% endif %}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function() {
+  const sel = document.getElementById('schoolSelect');
+  const custom = document.getElementById('schoolCustom');
+  if (!sel || !custom) return;
+  function sync() {
+    const hide = sel.value !== '';
+    custom.classList.toggle('d-none', hide);
+    custom.required = !hide;
+  }
+  sel.addEventListener('change', sync);
+  sync();
+})();
+</script>
+{% endblock %}

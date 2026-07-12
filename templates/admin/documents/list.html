@@ -1,0 +1,353 @@
+{% extends 'admin/base.html' %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Tài liệu</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h5 class="mb-0 fw-bold"><i class="bi bi-folder2 me-2 text-primary"></i>Quản lý tài liệu</h5>
+</div>
+
+<!-- Thư mục đề thi -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <span class="fw-semibold"><i class="bi bi-journal-bookmark me-2 text-success"></i>Thư mục đề thi</span>
+    <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#newExamFolderModal">
+      <i class="bi bi-folder-plus me-1"></i>Tạo thư mục
+    </button>
+  </div>
+  <div class="card-body">
+    {% if exam_folders %}
+    <div class="row g-2">
+      {% for folder in exam_folders %}
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="border rounded p-2 d-flex justify-content-between align-items-center">
+          <a href="{{ url_for('admin.exams_list', folder_id=folder.id) }}" class="text-decoration-none text-body flex-grow-1">
+            <i class="bi bi-folder me-2 text-success"></i>{{ folder.name }}
+            <span class="badge bg-secondary-subtle text-secondary border rounded-pill ms-1">{{ folder.exams.count() }}</span>
+            <div class="small text-muted">{{ folder.scope_label }}</div>
+          </a>
+          {% if current_user.is_admin or folder.created_by == current_user.id %}
+          <button type="button" class="btn btn-sm btn-link text-muted px-2" data-bs-toggle="modal"
+                  data-bs-target="#editExamFolderModal{{ folder.id }}" title="Sửa thư mục">
+            <i class="bi bi-pencil-fill" style="font-size:0.75rem;"></i>
+          </button>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Sửa thư mục -->
+      <div class="modal fade" id="editExamFolderModal{{ folder.id }}" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-0">
+              <h5 class="modal-title fw-bold"><i class="bi bi-folder me-2 text-success"></i>Sửa thư mục</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{{ url_for('admin.exam_folder_edit', folder_id=folder.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <div class="modal-body">
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">Tên thư mục</label>
+                  <input type="text" name="name" class="form-control" required value="{{ folder.name }}">
+                </div>
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">Tạo theo</label>
+                  <div class="form-check">
+                    <input class="form-check-input edit-exam-folder-scope" type="radio" name="scope_type" value="class"
+                           id="docEditScopeClass{{ folder.id }}" data-folder="{{ folder.id }}" {% if folder.scope_type == 'class' %}checked{% endif %}>
+                    <label class="form-check-label" for="docEditScopeClass{{ folder.id }}">Lớp học</label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input edit-exam-folder-scope" type="radio" name="scope_type" value="subject"
+                           id="docEditScopeSubject{{ folder.id }}" data-folder="{{ folder.id }}" {% if folder.scope_type == 'subject' %}checked{% endif %}>
+                    <label class="form-check-label" for="docEditScopeSubject{{ folder.id }}">Môn học</label>
+                  </div>
+                </div>
+                <div class="mb-3" id="docEditScopeClassBox{{ folder.id }}" {% if folder.scope_type != 'class' %}style="display:none;"{% endif %}>
+                  <label class="form-label fw-semibold">Chọn lớp</label>
+                  <select name="class_id" class="form-select">
+                    <option value="">-- Chọn lớp --</option>
+                    {% for cls in classes %}
+                    <option value="{{ cls.id }}" {% if folder.class_id == cls.id %}selected{% endif %}>{{ cls.name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="mb-3" id="docEditScopeSubjectBox{{ folder.id }}" {% if folder.scope_type != 'subject' %}style="display:none;"{% endif %}>
+                  <label class="form-label fw-semibold">Chọn môn</label>
+                  <select name="subject" class="form-select">
+                    <option value="">-- Chọn môn --</option>
+                    {% for course in courses %}
+                    <option value="{{ course.name }}" {% if folder.subject == course.name %}selected{% endif %}>{{ course.name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+              <div class="modal-footer border-0 d-flex justify-content-between">
+                <button type="submit" form="deleteExamFolderForm{{ folder.id }}" class="btn btn-outline-danger">
+                  <i class="bi bi-trash me-1"></i>Xóa thư mục
+                </button>
+                <div class="d-flex gap-2">
+                  <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                  <button type="submit" class="btn btn-success">Lưu</button>
+                </div>
+              </div>
+            </form>
+            <form id="deleteExamFolderForm{{ folder.id }}" method="post"
+                  action="{{ url_for('admin.exam_folder_delete', folder_id=folder.id) }}"
+                  onsubmit="return confirm('Xóa thư mục &quot;{{ folder.name }}&quot;? Các đề thi trong thư mục vẫn được giữ lại.')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted small mb-0">Chưa có thư mục đề thi nào. Bấm "Tạo thư mục" để tổ chức đề thi theo lớp hoặc môn học.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Tạo thư mục đề thi -->
+<div class="modal fade" id="newExamFolderModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-4 border-0 shadow">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-bold"><i class="bi bi-folder-plus me-2 text-success"></i>Tạo thư mục đề thi</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{{ url_for('admin.exam_folder_create') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Tên thư mục</label>
+            <input type="text" name="name" class="form-control" required placeholder="VD: Đề ôn thi giữa kì 1">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Tạo theo</label>
+            <div class="form-check">
+              <input class="form-check-input new-exam-folder-scope" type="radio" name="scope_type" value="class" id="docScopeClass" checked>
+              <label class="form-check-label" for="docScopeClass">Lớp học</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input new-exam-folder-scope" type="radio" name="scope_type" value="subject" id="docScopeSubject">
+              <label class="form-check-label" for="docScopeSubject">Môn học</label>
+            </div>
+          </div>
+          <div class="mb-3" id="docScopeClassBox">
+            <label class="form-label fw-semibold">Chọn lớp</label>
+            <select name="class_id" class="form-select">
+              <option value="">-- Chọn lớp --</option>
+              {% for cls in classes %}
+              <option value="{{ cls.id }}">{{ cls.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3 d-none" id="docScopeSubjectBox">
+            <label class="form-label fw-semibold">Chọn môn</label>
+            <select name="subject" class="form-select">
+              <option value="">-- Chọn môn --</option>
+              {% for course in courses %}
+              <option value="{{ course.name }}">{{ course.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="submit" class="btn btn-success">Tạo thư mục</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Bộ lọc lớp -->
+<div class="card mb-3 border-0 shadow-sm">
+  <div class="card-body py-2">
+    <form method="get" class="row g-2 align-items-center">
+      <div class="col-12 col-md-5">
+        <select name="class_id" class="form-select form-select-sm">
+          <option value="">-- Tất cả lớp --</option>
+          {% for cls in classes %}
+          <option value="{{ cls.id }}" {% if selected_class_id == cls.id %}selected{% endif %}>{{ cls.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12 col-md-3 d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-sm flex-grow-1">Lọc</button>
+        <a href="{{ url_for('admin.documents') }}" class="btn btn-outline-secondary btn-sm">Xóa</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Form tải lên -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-semibold">
+    <i class="bi bi-upload me-2 text-primary"></i>Tải lên tài liệu mới
+  </div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('admin.document_upload') }}" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="row g-3">
+        <div class="col-12 col-md-4">
+          <label class="form-label fw-semibold">Lớp học</label>
+          <select name="class_id" class="form-select">
+            <option value="">-- Không gắn với lớp --</option>
+            {% for cls in classes %}
+            <option value="{{ cls.id }}" {% if selected_class_id == cls.id %}selected{% endif %}>{{ cls.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label fw-semibold">Tiêu đề <span class="text-danger">*</span></label>
+          <input type="text" name="title" class="form-control" required placeholder="Tên tài liệu...">
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label fw-semibold">Mô tả</label>
+          <input type="text" name="description" class="form-control" placeholder="Mô tả ngắn về tài liệu...">
+        </div>
+        <div class="col-12 col-md-8">
+          <label class="form-label fw-semibold">Chọn file <span class="text-danger">*</span></label>
+          <input type="file" name="file" class="form-control" required
+                 accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip,.rar,.mp4,.mp3">
+          <div class="form-text">Định dạng chấp nhận: PDF, Word, Excel, PowerPoint, hình ảnh, ZIP, RAR, video, audio</div>
+        </div>
+        <div class="col-12 col-md-4 d-flex align-items-end">
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-upload me-1"></i>Tải lên
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Bảng tài liệu -->
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3" style="width:40px"></th>
+            <th>Tiêu đề</th>
+            <th>Lớp học</th>
+            <th>Người upload</th>
+            <th class="text-end">Kích thước</th>
+            <th>Ngày tải</th>
+            <th class="text-center">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for doc in docs %}
+          {% set ext = doc.original_filename.rsplit('.', 1)[-1].lower() if doc.original_filename else '' %}
+          <tr>
+            <td class="ps-3 text-center">
+              {% if ext == 'pdf' %}
+              <i class="bi bi-file-earmark-pdf text-danger fs-5"></i>
+              {% elif ext in ('doc', 'docx') %}
+              <i class="bi bi-file-earmark-word text-primary fs-5"></i>
+              {% elif ext in ('xls', 'xlsx') %}
+              <i class="bi bi-file-earmark-excel text-success fs-5"></i>
+              {% elif ext in ('ppt', 'pptx') %}
+              <i class="bi bi-file-earmark-ppt text-warning fs-5"></i>
+              {% elif ext in ('jpg', 'jpeg', 'png', 'gif', 'webp') %}
+              <i class="bi bi-file-earmark-image text-info fs-5"></i>
+              {% elif ext in ('zip', 'rar', '7z') %}
+              <i class="bi bi-file-earmark-zip text-secondary fs-5"></i>
+              {% elif ext in ('mp4', 'avi', 'mov') %}
+              <i class="bi bi-file-earmark-play text-danger fs-5"></i>
+              {% elif ext in ('mp3', 'wav') %}
+              <i class="bi bi-file-earmark-music text-warning fs-5"></i>
+              {% else %}
+              <i class="bi bi-file-earmark text-secondary fs-5"></i>
+              {% endif %}
+            </td>
+            <td>
+              <div class="fw-semibold small">{{ doc.title }}</div>
+              {% if doc.description %}
+              <div class="small text-muted">{{ doc.description }}</div>
+              {% endif %}
+              <div class="small text-muted font-monospace">{{ doc.original_filename }}</div>
+            </td>
+            <td class="small">
+              {% if doc.class_ %}
+              <a href="{{ url_for('admin.class_detail', class_id=doc.class_.id) }}" class="text-decoration-none">
+                {{ doc.class_.name }}
+              </a>
+              {% else %}
+              <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td class="small">{{ doc.uploader.full_name if doc.uploader else '—' }}</td>
+            <td class="text-end small text-muted">
+              {% if doc.file_size %}
+              {% if doc.file_size < 1024 %}{{ doc.file_size }} B
+              {% elif doc.file_size < 1048576 %}{{ (doc.file_size / 1024) | round(1) }} KB
+              {% else %}{{ (doc.file_size / 1048576) | round(1) }} MB
+              {% endif %}
+              {% else %}—{% endif %}
+            </td>
+            <td class="small text-muted">{{ doc.uploaded_at | date_vn if doc.uploaded_at else '—' }}</td>
+            <td class="text-center">
+              <div class="d-flex justify-content-center gap-1">
+                <a href="{{ url_for('admin.document_download', doc_id=doc.id) }}" class="btn btn-outline-primary btn-sm" title="Tải xuống">
+                  <i class="bi bi-download"></i>
+                </a>
+                <form method="post" action="{{ url_for('admin.document_delete', doc_id=doc.id) }}"
+                      onsubmit="return confirm('Bạn có chắc muốn xóa tài liệu này?')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-outline-danger btn-sm" title="Xóa">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="7" class="text-center text-muted py-4">
+              <i class="bi bi-folder2-open d-block mb-2 fs-4"></i>
+              Không tìm thấy tài liệu nào
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% if docs %}
+  <div class="card-footer bg-white text-muted small">
+    {{ docs | length }} tài liệu
+  </div>
+  {% endif %}
+</div>
+
+<script>
+(function() {
+  const radios = document.querySelectorAll('.new-exam-folder-scope');
+  const classBox = document.getElementById('docScopeClassBox');
+  const subjectBox = document.getElementById('docScopeSubjectBox');
+  function sync() {
+    const isClass = document.getElementById('docScopeClass').checked;
+    classBox.classList.toggle('d-none', !isClass);
+    subjectBox.classList.toggle('d-none', isClass);
+  }
+  radios.forEach(r => r.addEventListener('change', sync));
+  sync();
+})();
+
+document.querySelectorAll('.edit-exam-folder-scope').forEach(radio => {
+  radio.addEventListener('change', () => {
+    const folderId = radio.dataset.folder;
+    const isClass = document.getElementById('docEditScopeClass' + folderId).checked;
+    document.getElementById('docEditScopeClassBox' + folderId).style.display = isClass ? '' : 'none';
+    document.getElementById('docEditScopeSubjectBox' + folderId).style.display = isClass ? 'none' : '';
+  });
+});
+</script>
+{% endblock %}

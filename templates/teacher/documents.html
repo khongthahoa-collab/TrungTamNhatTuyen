@@ -1,0 +1,142 @@
+{% extends 'teacher/base.html' %}
+{% block title %}Tài liệu: {{ class_.name }} – Nhật Tuyền{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <!-- Header -->
+  <div class="mb-3">
+    <a href="{{ url_for('teacher.dashboard') }}" class="btn btn-sm btn-outline-secondary mb-2">
+      <i class="bi bi-arrow-left me-1"></i>Quay lại
+    </a>
+    <h5 class="fw-bold mb-0">
+      <i class="bi bi-folder2-open text-primary me-1"></i>Tài liệu
+    </h5>
+    <div class="text-muted fw-semibold">{{ class_.name }}</div>
+  </div>
+
+  <!-- ===== UPLOAD FORM ===== -->
+  <div class="card shadow-sm border-0 mb-4">
+    <div class="card-header fw-semibold py-2 bg-light">
+      <i class="bi bi-cloud-upload me-1"></i>Tải lên tài liệu mới
+    </div>
+    <div class="card-body">
+      <form method="post"
+            action="{{ url_for('teacher.documents', class_id=class_.id) }}"
+            enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="doc_title">Tiêu đề <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" name="title" id="doc_title"
+                 placeholder="Nhập tiêu đề tài liệu..." required style="min-height:44px;">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="doc_desc">Mô tả</label>
+          <textarea class="form-control" name="description" id="doc_desc"
+                    rows="2" placeholder="Mô tả ngắn về tài liệu (tùy chọn)"></textarea>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="doc_file">Tệp đính kèm <span class="text-danger">*</span></label>
+          <input type="file" class="form-control" name="file" id="doc_file" required style="min-height:44px;">
+          {% if allowed_ext %}
+          <div class="form-text">
+            Định dạng cho phép: {{ allowed_ext | join(', ') | upper }}
+          </div>
+          {% endif %}
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100" style="min-height:44px;">
+          <i class="bi bi-upload me-1"></i>Tải lên
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== EXISTING DOCUMENTS ===== -->
+  <h6 class="text-uppercase text-muted fw-bold mb-2">
+    <i class="bi bi-files me-1"></i>Tài liệu đã tải lên
+  </h6>
+
+  {% if docs %}
+    {% for doc in docs %}
+    {% set ext = doc.original_filename.rsplit('.', 1)[-1].lower() if '.' in doc.original_filename else '' %}
+
+    <div class="card mb-2 shadow-sm border-0">
+      <div class="card-body py-3 d-flex align-items-start gap-3">
+
+        <!-- File icon -->
+        <div class="flex-shrink-0 d-flex align-items-center justify-content-center rounded"
+             style="width:44px;height:44px;background:#f0f4ff;">
+          {% if ext in ['pdf'] %}
+            <i class="bi bi-file-earmark-pdf text-danger fs-4"></i>
+          {% elif ext in ['doc', 'docx'] %}
+            <i class="bi bi-file-earmark-word text-primary fs-4"></i>
+          {% elif ext in ['xls', 'xlsx'] %}
+            <i class="bi bi-file-earmark-excel text-success fs-4"></i>
+          {% elif ext in ['ppt', 'pptx'] %}
+            <i class="bi bi-file-earmark-ppt text-warning fs-4"></i>
+          {% elif ext in ['jpg', 'jpeg', 'png', 'gif', 'webp'] %}
+            <i class="bi bi-file-earmark-image text-info fs-4"></i>
+          {% elif ext in ['zip', 'rar', '7z'] %}
+            <i class="bi bi-file-earmark-zip text-secondary fs-4"></i>
+          {% else %}
+            <i class="bi bi-file-earmark text-secondary fs-4"></i>
+          {% endif %}
+        </div>
+
+        <!-- Doc info -->
+        <div class="flex-grow-1 overflow-hidden">
+          <div class="fw-semibold text-truncate">{{ doc.title }}</div>
+          {% if doc.description %}
+            <div class="text-muted small text-truncate">{{ doc.description }}</div>
+          {% endif %}
+          <div class="text-muted" style="font-size:0.75rem;">
+            {% if doc.file_size %}
+              <span class="me-2">
+                <i class="bi bi-hdd me-1"></i>
+                {% if doc.file_size >= 1048576 %}
+                  {{ (doc.file_size / 1048576) | round(1) }} MB
+                {% elif doc.file_size >= 1024 %}
+                  {{ (doc.file_size / 1024) | round(1) }} KB
+                {% else %}
+                  {{ doc.file_size }} B
+                {% endif %}
+              </span>
+            {% endif %}
+            <span>
+              <i class="bi bi-calendar3 me-1"></i>{{ doc.created_at | date_vn }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex-shrink-0 d-flex flex-column gap-1">
+          <a href="{{ url_for('teacher.download_document', doc_id=doc.id) }}"
+             class="btn btn-sm btn-outline-primary" title="Tải xuống" style="min-height:36px;">
+            <i class="bi bi-download"></i>
+          </a>
+          <form method="post"
+                action="{{ url_for('teacher.delete_document', doc_id=doc.id) }}"
+                onsubmit="return confirm('Xóa tài liệu này?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa" style="min-height:36px;">
+              <i class="bi bi-trash"></i>
+            </button>
+          </form>
+        </div>
+
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="alert alert-light border text-center text-muted">
+      <i class="bi bi-folder-x fs-4 d-block mb-1"></i>
+      Chưa có tài liệu nào cho lớp này
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

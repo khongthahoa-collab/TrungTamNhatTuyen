@@ -1,0 +1,54 @@
+{% extends 'parent/base.html' %}
+{% block content %}
+<div class="container py-3">
+  <h4 class="fw-bold mb-1">Bài thi & ôn tập</h4>
+  <p class="text-muted small mb-3">Của học sinh: <strong>{{ student.full_name }}</strong></p>
+
+  <div class="list-group">
+    {% for row in rows %}
+    {% set exam = row.exam %}
+    <div class="list-group-item">
+      <div class="d-flex justify-content-between align-items-start gap-2">
+        <div>
+          <div class="fw-semibold">{{ exam.title }}</div>
+          <div class="small text-muted">{{ exam.subject }} · {{ exam.type_label }} · {{ exam.duration_minutes }} phút</div>
+        </div>
+        {% if row.in_progress %}
+          <span class="badge bg-warning text-dark">Đang làm</span>
+        {% elif row.last_attempt %}
+          <span class="badge bg-success">Đã làm {{ row.attempts_used }} lần</span>
+        {% elif not row.is_open %}
+          <span class="badge bg-secondary">Chưa mở</span>
+        {% else %}
+          <span class="badge bg-primary">Chưa làm</span>
+        {% endif %}
+      </div>
+      <div class="d-flex gap-2 mt-2">
+        {% if row.in_progress %}
+          <a href="{{ url_for('parent.exam_take', student_id=student.id, exam_id=exam.id) }}" class="btn btn-warning btn-sm">
+            <i class="bi bi-play-fill me-1"></i>Tiếp tục làm bài
+          </a>
+        {% elif row.last_attempt %}
+          <a href="{{ url_for('parent.exam_result', student_id=student.id, exam_id=exam.id) }}" class="btn btn-outline-success btn-sm">
+            Xem kết quả
+          </a>
+          {% if row.can_take %}
+          <a href="{{ url_for('parent.exam_take', student_id=student.id, exam_id=exam.id) }}" class="btn btn-outline-primary btn-sm">
+            Làm lại
+          </a>
+          {% endif %}
+        {% elif row.is_open %}
+          <a href="{{ url_for('parent.exam_take', student_id=student.id, exam_id=exam.id) }}" class="btn btn-primary btn-sm">
+            Làm bài
+          </a>
+        {% else %}
+          <button class="btn btn-outline-secondary btn-sm" disabled>Chưa đến giờ mở đề</button>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div class="text-muted text-center py-4">Hiện chưa có bài thi nào được giao cho lớp của {{ student.full_name }}.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

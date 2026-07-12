@@ -1,0 +1,547 @@
+{% extends 'admin/base.html' %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ url_for('admin.classes') }}">Lớp học</a></li>
+<li class="breadcrumb-item active">{{ class_.name }}</li>
+{% endblock %}
+
+{% block content %}
+<!-- Thẻ thông tin lớp -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <div class="d-flex align-items-start justify-content-between">
+      <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <h5 class="mb-0 fw-bold">{{ class_.name }}</h5>
+          {% if class_.is_active %}
+          <span class="badge bg-success-subtle text-success border border-success-subtle">Đang mở</span>
+          {% else %}
+          <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Đã đóng</span>
+          {% endif %}
+        </div>
+        <div class="row g-3 mt-1">
+          {% if class_.course %}
+          <div class="col-auto">
+            <span class="small text-muted">Môn:</span>
+            <span class="small fw-semibold ms-1">{{ class_.course.name }}</span>
+          </div>
+          {% endif %}
+          {% if class_.grade_level %}
+          <div class="col-auto">
+            <span class="small text-muted">Lớp:</span>
+            <span class="small fw-semibold ms-1">{{ grade_label or class_.grade_level }}</span>
+          </div>
+          {% endif %}
+          {% if class_.primary_teacher %}
+          <div class="col-auto">
+            <span class="small text-muted">GV chính:</span>
+            <span class="small fw-semibold ms-1 text-primary">{{ class_.primary_teacher.full_name }}</span>
+          </div>
+          {% endif %}
+          {% if class_.assistant_teacher %}
+          <div class="col-auto">
+            <span class="small text-muted">Trợ giảng:</span>
+            <span class="small fw-semibold ms-1 text-secondary">{{ class_.assistant_teacher.full_name }}</span>
+          </div>
+          {% endif %}
+          {% if class_.max_students %}
+          <div class="col-auto">
+            <span class="small text-muted">Sĩ số:</span>
+            {% set active_count = class_.enrollments | selectattr('is_active', 'equalto', true) | list | length %}
+            <span class="small fw-semibold ms-1 {% if active_count >= class_.max_students %}text-danger{% else %}text-success{% endif %}">
+              {{ active_count }}/{{ class_.max_students }}
+            </span>
+          </div>
+          {% endif %}
+          {% if class_.start_date %}
+          <div class="col-auto">
+            <span class="small text-muted">Thời gian:</span>
+            <span class="small fw-semibold ms-1">{{ class_.start_date | date_vn }}{% if class_.end_date %} – {{ class_.end_date | date_vn }}{% endif %}</span>
+          </div>
+          {% endif %}
+        </div>
+        {% if class_.description %}
+        <p class="mt-2 mb-0 small text-muted">{{ class_.description }}</p>
+        {% endif %}
+      </div>
+      <a href="{{ url_for('admin.class_edit', class_id=class_.id) }}" class="btn btn-outline-primary btn-sm ms-3 flex-shrink-0">
+        <i class="bi bi-pencil me-1"></i>Sửa
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Hai cột: Học sinh + Tài liệu -->
+<div class="row g-3 mb-4">
+  <!-- Danh sách học sinh -->
+  <div class="col-12 col-lg-7">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white fw-semibold">
+        <i class="bi bi-people me-2 text-primary"></i>Danh sách học sinh
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Học sinh</th>
+                <th>Chiết khấu</th>
+                <th>Ghi chú</th>
+                <th class="text-center">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% set active_enrollments = class_.enrollments | selectattr('is_active', 'equalto', true) | list %}
+              {% for enrollment in active_enrollments %}
+              <tr>
+                <td class="ps-3">
+                  <a href="{{ url_for('admin.student_detail', student_id=enrollment.student.id) }}" class="fw-semibold text-decoration-none small">
+                    {{ enrollment.student.full_name }}
+                  </a>
+                  {% if enrollment.student.current_grade %}
+                  <div class="small text-muted">{{ enrollment.student.current_grade }}</div>
+                  {% endif %}
+                </td>
+                <td class="small">
+                  {% if enrollment.discount_pct %}
+                  <span class="badge bg-warning-subtle text-warning border border-warning-subtle">{{ enrollment.discount_pct }}%</span>
+                  {% else %}—{% endif %}
+                </td>
+                <td class="small text-muted">{{ enrollment.note or '—' }}</td>
+                <td class="text-center">
+                  <form method="post"
+                        action="{{ url_for('admin.student_unenroll', student_id=enrollment.student.id, class_id=enrollment.class_id) }}"
+                        onsubmit="return confirm('Bạn có chắc muốn rút học sinh {{ enrollment.student.full_name }} khỏi lớp này?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-outline-danger btn-sm" title="Rút khỏi lớp">
+                      <i class="bi bi-person-dash"></i>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="4" class="text-center text-muted py-3 ps-3 small">
+                  <i class="bi bi-people d-block mb-1 fs-5"></i>Chưa có học sinh nào
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tài liệu -->
+  <div class="col-12 col-lg-5">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <span class="fw-semibold"><i class="bi bi-folder2 me-2 text-primary"></i>Tài liệu</span>
+        <a href="{{ url_for('admin.documents', class_id=class_.id) }}" class="btn btn-outline-primary btn-sm">
+          <i class="bi bi-upload me-1"></i>Tải lên
+        </a>
+      </div>
+      <div class="card-body">
+        {% set active_docs = class_.documents | selectattr('is_active', 'equalto', true) | list %}
+        {% if active_docs %}
+        <ul class="list-group list-group-flush">
+          {% for doc in (active_docs | list)[-10:] %}
+          <li class="list-group-item px-0 d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi {{ doc.file_icon }} fs-5"></i>
+              <div>
+                <div class="small fw-semibold">{{ doc.title }}</div>
+                <div class="small text-muted">{{ doc.uploaded_at | date_vn if doc.uploaded_at else '' }}</div>
+              </div>
+            </div>
+            <a href="{{ url_for('admin.document_download', doc_id=doc.id) }}" class="btn btn-outline-secondary btn-sm" title="Tải xuống">
+              <i class="bi bi-download"></i>
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-center text-muted py-4">
+          <i class="bi bi-folder2-open fs-4 d-block mb-2"></i>Chưa có tài liệu nào
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tabs lịch học -->
+<ul class="nav nav-tabs mb-3" id="scheduleTabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="upcoming-tab" data-bs-toggle="tab" data-bs-target="#upcoming" type="button" role="tab">
+      <i class="bi bi-calendar-event me-1"></i>Lịch học sắp tới
+      {% if upcoming %}<span class="badge bg-primary ms-1 rounded-pill">{{ upcoming | length }}</span>{% endif %}
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="past-tab" data-bs-toggle="tab" data-bs-target="#past" type="button" role="tab">
+      <i class="bi bi-calendar-check me-1"></i>Lịch đã qua
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content mb-4" id="scheduleTabsContent">
+
+  <!-- Lịch sắp tới -->
+  <div class="tab-pane fade show active" id="upcoming" role="tabpanel">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Ngày</th>
+                <th>Thứ</th>
+                <th>Giờ</th>
+                <th>Phòng</th>
+                <th>Giáo viên</th>
+                <th>Loại</th>
+                <th class="text-center">Điểm danh</th>
+                <th class="text-center">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% set weekdays = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'] %}
+              {% for schedule in upcoming %}
+              <tr class="{% if schedule.is_cancelled %}table-secondary{% endif %}">
+                <td class="ps-3 small fw-semibold">{{ schedule.date | date_vn }}</td>
+                <td class="small">{{ weekdays[schedule.date.weekday()] if schedule.date else '—' }}</td>
+                <td class="small">{{ schedule.start_time.strftime('%H:%M') if schedule.start_time else '—' }}{% if schedule.end_time %} – {{ schedule.end_time.strftime('%H:%M') }}{% endif %}</td>
+                <td class="small">
+                  {% if schedule.room_obj %}
+                  <span title="{{ schedule.room_obj.display_name }}">{{ schedule.room_obj.name }}</span>
+                  {% elif schedule.room %}
+                  {{ schedule.room }}
+                  {% else %}—{% endif %}
+                </td>
+                <td class="small">{{ schedule.teacher.full_name if schedule.teacher else '—' }}</td>
+                <td>
+                  {% if schedule.schedule_type == 'intensive' %}
+                  <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Tăng cường</span>
+                  {% else %}
+                  <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Thường</span>
+                  {% endif %}
+                </td>
+                <td class="text-center">
+                  {% if schedule.attendance_taken %}
+                  <span class="badge bg-success-subtle text-success border border-success-subtle">Đã điểm danh</span>
+                  {% else %}
+                  <span class="badge bg-light text-muted border">Chưa</span>
+                  {% endif %}
+                </td>
+                <td class="text-center">
+                  {% if not schedule.is_cancelled %}
+                  <div class="d-flex justify-content-center gap-1">
+                    <button type="button" class="btn btn-outline-warning btn-sm"
+                            data-bs-toggle="modal" data-bs-target="#cancelModal"
+                            data-schedule-id="{{ schedule.id }}"
+                            title="Hủy buổi học">
+                      <i class="bi bi-x-circle"></i>
+                    </button>
+                    <form method="post" action="{{ url_for('admin.delete_schedule', schedule_id=schedule.id) }}"
+                          onsubmit="return confirm('Bạn có chắc muốn xóa buổi học này?')">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button type="submit" class="btn btn-outline-danger btn-sm" title="Xóa buổi học">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </form>
+                  </div>
+                  {% else %}
+                  <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Đã hủy</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="8" class="text-center text-muted py-4 ps-3">
+                  <i class="bi bi-calendar-x d-block mb-2 fs-4"></i>Không có lịch học sắp tới
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lịch đã qua -->
+  <div class="tab-pane fade" id="past" role="tabpanel">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Ngày</th>
+                <th>Thứ</th>
+                <th>Giờ</th>
+                <th>Phòng</th>
+                <th>Giáo viên</th>
+                <th>Loại</th>
+                <th class="text-center">Điểm danh</th>
+                <th class="text-center">Vắng mặt</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% set weekdays = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'] %}
+              {% for schedule in past %}
+              <tr class="{% if schedule.is_cancelled %}table-secondary{% endif %}">
+                <td class="ps-3 small fw-semibold">{{ schedule.date | date_vn }}</td>
+                <td class="small">{{ weekdays[schedule.date.weekday()] if schedule.date else '—' }}</td>
+                <td class="small">{{ schedule.start_time.strftime('%H:%M') if schedule.start_time else '—' }}{% if schedule.end_time %} – {{ schedule.end_time.strftime('%H:%M') }}{% endif %}</td>
+                <td class="small">
+                  {% if schedule.room_obj %}{{ schedule.room_obj.name }}
+                  {% elif schedule.room %}{{ schedule.room }}
+                  {% else %}—{% endif %}
+                </td>
+                <td class="small">{{ schedule.teacher.full_name if schedule.teacher else '—' }}</td>
+                <td>
+                  {% if schedule.is_cancelled %}
+                  <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Đã hủy</span>
+                  {% elif schedule.schedule_type == 'intensive' %}
+                  <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Tăng cường</span>
+                  {% else %}
+                  <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Thường</span>
+                  {% endif %}
+                </td>
+                <td class="text-center">
+                  {% if schedule.attendance_taken %}
+                  <span class="badge bg-success-subtle text-success border border-success-subtle">Đã điểm danh</span>
+                  {% else %}
+                  <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Chưa</span>
+                  {% endif %}
+                </td>
+                <td class="text-center small">
+                  {% set absent = schedule.attendances | selectattr('status', 'equalto', 'absent') | list | length %}
+                  {% if schedule.attendance_taken %}
+                  {% if absent > 0 %}
+                  <span class="badge bg-danger rounded-pill">{{ absent }}</span>
+                  {% else %}
+                  <span class="text-success"><i class="bi bi-check-all"></i></span>
+                  {% endif %}
+                  {% else %}—{% endif %}
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="8" class="text-center text-muted py-4 ps-3">
+                  <i class="bi bi-calendar-check d-block mb-2 fs-4"></i>Chưa có buổi học nào đã qua
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tạo lịch học hàng loạt -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-semibold">
+    <i class="bi bi-calendar-plus me-2 text-primary"></i>Tạo lịch học hàng loạt
+  </div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('admin.generate_schedule', class_id=class_.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="row g-3">
+        <div class="col-12 col-md-6">
+          <label class="form-label fw-semibold">Học kỳ <span class="text-danger">*</span></label>
+          <select name="semester_id" class="form-select" required>
+            <option value="">-- Chọn học kỳ --</option>
+            {% for semester in semesters %}
+            <option value="{{ semester.id }}">{{ semester.name }} ({{ semester.academic_year.name if semester.academic_year else '' }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label fw-semibold">Giáo viên <span class="text-danger">*</span></label>
+          <select name="teacher_id" class="form-select" required>
+            <option value="">-- Chọn giáo viên --</option>
+            {% for teacher in teachers %}
+            <option value="{{ teacher.id }}" {% if class_.primary_teacher_id == teacher.id %}selected{% endif %}>
+              {{ teacher.full_name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12">
+          <label class="form-label fw-semibold">Các ngày trong tuần</label>
+          <div class="d-flex flex-wrap gap-3">
+            {% set day_names = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'] %}
+            {% for i in range(7) %}
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="days_of_week" id="day{{ i }}" value="{{ i }}">
+              <label class="form-check-label" for="day{{ i }}">{{ day_names[i] }}</label>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label fw-semibold">Giờ bắt đầu <span class="text-danger">*</span></label>
+          <input type="time" class="form-control" name="start_time" id="gen_start" required>
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label fw-semibold">Giờ kết thúc <span class="text-danger">*</span></label>
+          <input type="time" class="form-control" name="end_time" id="gen_end" required>
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label fw-semibold">Phòng học</label>
+          <select class="form-select" name="room_id" id="gen_room_id">
+            <option value="">-- Không chọn phòng --</option>
+            {% for room in rooms %}
+            <option value="{{ room.id }}">{{ room.display_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-calendar-plus me-1"></i>Tạo lịch hàng loạt
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Thêm buổi học đơn lẻ -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-semibold">
+    <i class="bi bi-plus-circle me-2 text-success"></i>Thêm buổi học đơn lẻ
+  </div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('admin.add_schedule', class_id=class_.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="row g-3">
+        <div class="col-12 col-md-4">
+          <label class="form-label fw-semibold">Ngày học <span class="text-danger">*</span></label>
+          <input type="date" class="form-control" name="date" id="single_date" required value="{{ today | string }}">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label fw-semibold">Giờ bắt đầu</label>
+          <input type="time" class="form-control" name="start_time" id="single_start">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label fw-semibold">Giờ kết thúc</label>
+          <input type="time" class="form-control" name="end_time" id="single_end">
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label fw-semibold">Phòng học</label>
+          <select class="form-select" name="room_id" id="single_room_id">
+            <option value="">-- Không chọn phòng --</option>
+            {% for room in rooms %}
+            <option value="{{ room.id }}">{{ room.display_name }}</option>
+            {% endfor %}
+          </select>
+          <div class="form-text" id="room_availability_hint"></div>
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label fw-semibold">Chủ đề buổi học</label>
+          <input type="text" class="form-control" name="topic" placeholder="Chủ đề / bài học...">
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label fw-semibold">Loại buổi học</label>
+          <select class="form-select" name="schedule_type">
+            <option value="regular">Thường</option>
+            <option value="intensive">Tăng cường</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label fw-semibold">Giáo viên</label>
+          <select class="form-select" name="teacher_id">
+            <option value="">-- Chọn giáo viên --</option>
+            {% for teacher in teachers %}
+            <option value="{{ teacher.id }}" {% if class_.primary_teacher_id == teacher.id %}selected{% endif %}>
+              {{ teacher.full_name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label fw-semibold">Học kỳ</label>
+          <select class="form-select" name="semester_id">
+            <option value="">-- Chọn học kỳ --</option>
+            {% for semester in semesters %}
+            <option value="{{ semester.id }}">{{ semester.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12">
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-plus-lg me-1"></i>Thêm buổi học
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal hủy buổi học -->
+<div class="modal fade" id="cancelModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title fw-bold">
+          <i class="bi bi-x-circle me-2 text-warning"></i>Hủy buổi học
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" id="cancelScheduleForm" action="">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <p class="text-muted small">Vui lòng nhập lý do hủy buổi học này.</p>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Lý do hủy</label>
+            <textarea class="form-control" name="reason" rows="3" placeholder="Nhập lý do hủy buổi học..." required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+          <button type="submit" class="btn btn-warning">
+            <i class="bi bi-x-circle me-1"></i>Xác nhận hủy
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+// Cancel modal
+document.getElementById('cancelModal').addEventListener('show.bs.modal', function(event) {
+  const scheduleId = event.relatedTarget.getAttribute('data-schedule-id');
+  document.getElementById('cancelScheduleForm').action =
+    "{{ url_for('admin.cancel_schedule', schedule_id=0) }}".replace('/0/', '/' + scheduleId + '/');
+});
+
+// Live room availability check
+const dateEl = document.getElementById('single_date');
+const startEl = document.getElementById('single_start');
+const endEl = document.getElementById('single_end');
+const roomEl = document.getElementById('single_room_id');
+const hint = document.getElementById('room_availability_hint');
+
+function checkRoomAvailability() {
+  const d = dateEl.value, s = startEl.value, e = endEl.value, r = roomEl.value;
+  if (!d || !s || !e || !r) { hint.textContent = ''; return; }
+  fetch(`{{ url_for('admin.rooms_available') }}?date=${d}&start=${s}&end=${e}`)
+    .then(res => res.json())
+    .then(data => {
+      const available = data.rooms.some(rm => rm.id == r);
+      hint.textContent = available ? '✓ Phòng trống' : '✗ Phòng đã được đặt!';
+      hint.className = available ? 'form-text text-success' : 'form-text text-danger fw-semibold';
+    })
+    .catch(() => { hint.textContent = ''; });
+}
+
+[dateEl, startEl, endEl, roomEl].forEach(el => el?.addEventListener('change', checkRoomAvailability));
+</script>
+{% endblock %}

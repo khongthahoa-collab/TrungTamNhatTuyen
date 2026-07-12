@@ -1,0 +1,45 @@
+{% macro render_question(q, qtype, index) %}
+  {% if qtype == 'mcq' %}
+    <div class="fw-semibold">Câu {{ index }}. {{ q.text }}</div>
+    <div class="ms-3 mt-1">
+      {% for opt in q.options %}
+      <div class="{% if loop.index0 == q.correct_index %}text-success fw-semibold{% endif %}">
+        {{ ['A','B','C','D','E','F'][loop.index0] }}. {{ opt }}
+        {% if loop.index0 == q.correct_index %}<i class="bi bi-check-circle-fill ms-1"></i>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  {% elif qtype == 'true_false' %}
+    <div class="fw-semibold">Câu {{ index }}. {{ q.text }}</div>
+    <div class="ms-3 mt-1">
+      {% for st in q.statements %}
+      <div class="{% if st.correct %}text-success{% else %}text-danger{% endif %}">
+        {{ ['a','b','c','d','e','f'][loop.index0] }}) {{ st.text }}
+        <i class="bi {% if st.correct %}bi-check-circle-fill{% else %}bi-x-circle-fill{% endif %} ms-1"></i>
+      </div>
+      {% endfor %}
+    </div>
+  {% elif qtype == 'short_answer' %}
+    <div class="fw-semibold">Câu {{ index }}. {{ q.text }}</div>
+    <div class="ms-3 mt-1 text-success"><i class="bi bi-check-circle-fill me-1"></i>Đáp án: {{ q.accepted_answers | join(' | ') }}</div>
+  {% elif qtype == 'error_id' %}
+    <div class="fw-semibold">Câu {{ index }}. {{ q.text | error_id_render }}</div>
+  {% endif %}
+  {% if q.explanation %}
+  <div class="small text-muted ms-3 mt-1"><i class="bi bi-lightbulb me-1"></i>{{ q.explanation }}</div>
+  {% endif %}
+{% endmacro %}
+
+{% macro group_type_label(gtype) %}{{ {'mcq': 'Trắc nghiệm', 'true_false': 'Đúng/Sai', 'short_answer': 'Trả lời ngắn', 'error_id': 'Tìm lỗi sai'}.get(gtype, gtype) }}{% endmacro %}
+
+{% macro render_group(g) %}
+<div class="mb-4">
+  <h6 class="fw-bold mb-1">{{ g.title }} <span class="badge bg-secondary-subtle text-secondary border ms-1">{{ group_type_label(g.type) }}</span></h6>
+  {% if g.instruction %}<p class="text-muted small">{{ g.instruction }}</p>{% endif %}
+  <ol class="list-unstyled">
+    {% for q in g.questions %}
+    <li class="mb-3">{{ render_question(q, g.type, loop.index) }}</li>
+    {% endfor %}
+  </ol>
+</div>
+{% endmacro %}

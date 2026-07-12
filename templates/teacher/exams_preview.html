@@ -1,0 +1,65 @@
+{% extends 'teacher/base.html' %}
+{% import 'exams/_macros.html' as exam_macros %}
+{% block title %}Xem trước đề thi – Giáo viên – Nhật Tuyền{% endblock %}
+{% block content %}
+<div class="container-fluid px-3 pt-3">
+<a href="{{ url_for('teacher.exams_list') }}" class="small text-decoration-none text-muted d-block mb-1">
+  <i class="bi bi-arrow-left me-1"></i>Đề thi online
+</a>
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    <h5 class="fw-bold mb-1">{{ exam.title }}</h5>
+    <div class="text-muted small">
+      {{ exam.subject }} · {{ exam.type_label }} · {{ exam.duration_minutes }} phút ·
+      {% if exam.is_unlimited_attempts %}Không giới hạn lượt làm{% else %}{{ exam.allow_attempts }} lượt làm{% endif %}
+      · {{ exam.availability_label }}
+    </div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    {% if current_user.is_admin or exam.created_by == current_user.id %}
+    <a href="{{ url_for('teacher.exams_edit', exam_id=exam.id) }}" class="btn btn-primary btn-sm">
+      <i class="bi bi-pencil me-1"></i>Chỉnh sửa
+    </a>
+    {% endif %}
+    <a href="{{ url_for('teacher.exams_export', exam_id=exam.id, fmt='pdf') }}" target="_blank" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-file-earmark-pdf me-1"></i>Xuất PDF
+    </a>
+    <a href="{{ url_for('teacher.exams_export', exam_id=exam.id, fmt='doc') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-file-earmark-word me-1"></i>Xuất Word
+    </a>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        {% if exam.description %}<p class="text-muted">{{ exam.description }}</p>{% endif %}
+        {% for group in exam.question_groups %}
+        {{ exam_macros.render_group(group) }}
+        {% else %}
+        <p class="text-muted">Đề thi chưa có câu hỏi nào.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Thông tin giao đề</h6>
+        <p class="small mb-1"><strong>Lớp được giao:</strong></p>
+        {% if classes %}
+        <ul class="small">
+          {% for cls in classes %}<li>{{ cls.name }}</li>{% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted small">Chưa giao cho lớp nào.</p>
+        {% endif %}
+        <p class="small mb-1"><strong>Người tạo:</strong> {{ exam.creator.full_name if exam.creator else '—' }}</p>
+        <p class="small mb-0"><strong>Ngày tạo:</strong> {{ exam.created_at | datetime_vn if exam.created_at else '—' }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+{% endblock %}

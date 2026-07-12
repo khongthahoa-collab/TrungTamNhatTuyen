@@ -1,0 +1,245 @@
+{% extends 'admin/base.html' %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ url_for('admin.tuition', month=month, year=year) }}">Học phí</a></li>
+<li class="breadcrumb-item active">{{ cls.name }} – T{{ month }}/{{ year }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h5 class="mb-0 fw-bold">
+      <i class="bi bi-cash-stack me-2 text-primary"></i>{{ cls.name }}
+    </h5>
+    <div class="text-muted small">Học phí tháng {{ month }}/{{ year }}</div>
+  </div>
+  <a href="{{ url_for('admin.tuition', month=month, year=year) }}"
+     class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Quay lại
+  </a>
+</div>
+
+<!-- Tóm tắt -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm border-start border-secondary border-3">
+      <div class="card-body py-2">
+        <div class="small text-muted">Tổng học sinh</div>
+        <div class="fw-bold fs-5">{{ records | length }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm border-start border-success border-3">
+      <div class="card-body py-2">
+        <div class="small text-muted">Đã đóng</div>
+        <div class="fw-bold fs-5 text-success">{{ paid | length }}</div>
+        <div class="small text-success">{{ paid | sum(attribute='amount') | vnd }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm border-start border-danger border-3">
+      <div class="card-body py-2">
+        <div class="small text-muted">Chưa đóng</div>
+        <div class="fw-bold fs-5 text-danger">{{ unpaid | length }}</div>
+        <div class="small text-danger">{{ unpaid | sum(attribute='amount') | vnd }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 d-flex align-items-center">
+    <form method="post" action="{{ url_for('admin.tuition_remind_zalo') }}" class="w-100">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="month" value="{{ month }}">
+      <input type="hidden" name="year" value="{{ year }}">
+      <input type="hidden" name="class_id" value="{{ cls.id }}">
+      <button type="submit" class="btn btn-outline-success btn-sm w-100"
+              onclick="return confirm('Gửi nhắc Zalo cho {{ unpaid | length }} phụ huynh chưa đóng?')">
+        <i class="bi bi-chat-dots me-1"></i>Nhắc Zalo ({{ unpaid | length }})
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Học sinh CHƯA đóng -->
+{% if unpaid %}
+<div class="card border-0 shadow-sm mb-3 border-top border-danger border-3">
+  <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+    <span class="fw-semibold text-danger">
+      <i class="bi bi-x-circle me-2"></i>Chưa đóng học phí ({{ unpaid | length }})
+    </span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th class="ps-3" width="45">STT</th>
+          <th>Học sinh</th>
+          <th>SĐT phụ huynh</th>
+          <th class="text-end">Số tiền</th>
+          <th class="text-center">Điều chỉnh</th>
+          <th class="text-center">Thu tiền</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in unpaid %}
+        <tr>
+          <td class="ps-3 text-muted small">{{ loop.index }}</td>
+          <td>
+            <a href="{{ url_for('admin.student_detail', student_id=r.student.id) }}"
+               class="fw-semibold small text-decoration-none">
+              {{ r.student.full_name }}
+            </a>
+            {% if r.note %}
+            <div class="text-muted" style="font-size:0.72rem;">{{ r.note }}</div>
+            {% endif %}
+          </td>
+          <td class="small text-muted">{{ r.student.parent_phone or '—' }}</td>
+          <td class="text-end fw-semibold small">
+            {{ r.amount | vnd }}
+            <button class="btn btn-link p-0 ms-1" type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#adj{{ r.id }}"
+                    title="Điều chỉnh số tiền">
+              <i class="bi bi-pencil text-muted" style="font-size:0.7rem;"></i>
+            </button>
+          </td>
+          <td class="text-center" style="min-width:220px;">
+            <div class="collapse" id="adj{{ r.id }}">
+              <form method="post"
+                    action="{{ url_for('admin.tuition_adjust_amount', payment_id=r.id) }}"
+                    class="d-flex gap-1 align-items-center justify-content-center">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="number" name="amount" class="form-control form-control-sm"
+                       style="width:110px;" value="{{ r.amount | int }}" min="0" step="1000">
+                <input type="text" name="note" class="form-control form-control-sm"
+                       style="width:130px;" placeholder="Lý do…">
+                <button type="submit" class="btn btn-primary btn-sm">Lưu</button>
+              </form>
+            </div>
+          </td>
+          <td class="text-center">
+            <button type="button" class="btn btn-success btn-sm"
+                    data-bs-toggle="modal" data-bs-target="#markPaidModal"
+                    data-record-id="{{ r.id }}"
+                    data-student-name="{{ r.student.full_name }}"
+                    data-amount="{{ r.amount | int }}">
+              <i class="bi bi-check-circle me-1"></i>Thu
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Học sinh ĐÃ đóng -->
+{% if paid %}
+<div class="card border-0 shadow-sm mb-3 border-top border-success border-3">
+  <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+    <span class="fw-semibold text-success">
+      <i class="bi bi-check-circle me-2"></i>Đã đóng học phí ({{ paid | length }})
+    </span>
+    <button class="btn btn-sm btn-outline-secondary" type="button"
+            data-bs-toggle="collapse" data-bs-target="#paidList">
+      <i class="bi bi-chevron-down"></i>
+    </button>
+  </div>
+  <div class="collapse show" id="paidList">
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3" width="45">STT</th>
+            <th>Học sinh</th>
+            <th class="text-end">Số tiền</th>
+            <th>Hình thức</th>
+            <th>Ngày đóng</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in paid %}
+          <tr>
+            <td class="ps-3 text-muted small">{{ loop.index }}</td>
+            <td>
+              <a href="{{ url_for('admin.student_detail', student_id=r.student.id) }}"
+                 class="small text-decoration-none">
+                {{ r.student.full_name }}
+              </a>
+            </td>
+            <td class="text-end small fw-semibold text-success">{{ r.amount | vnd }}</td>
+            <td class="small text-muted">{{ r.method_label if r.method else '—' }}</td>
+            <td class="small text-muted">{{ r.paid_at | date_vn if r.paid_at else '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if not records %}
+<div class="alert alert-info">
+  <i class="bi bi-info-circle me-2"></i>
+  Chưa có dữ liệu học phí tháng {{ month }}/{{ year }} cho lớp này.
+  <a href="{{ url_for('admin.tuition', month=month, year=year) }}" class="alert-link">
+    Tạo học phí từ trang tổng hợp.
+  </a>
+</div>
+{% endif %}
+
+<!-- Modal thu tiền -->
+<div class="modal fade" id="markPaidModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title fw-bold">
+          <i class="bi bi-check-circle me-2 text-success"></i>Xác nhận thu học phí
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" id="markPaidForm" action="">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <p class="mb-3 small">
+            Xác nhận học sinh <strong id="markPaidStudentName"></strong> đã đóng
+            <strong id="markPaidAmount"></strong>?
+          </p>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Hình thức thanh toán</label>
+            <select name="method" class="form-select">
+              <option value="cash">Tiền mặt</option>
+              <option value="transfer">Chuyển khoản</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Ngày đóng</label>
+            <input type="date" name="paid_date" class="form-control"
+                   value="{{ today | string }}">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-check-lg me-1"></i>Xác nhận đã thu
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('markPaidModal').addEventListener('show.bs.modal', function(e) {
+  const btn = e.relatedTarget;
+  document.getElementById('markPaidStudentName').textContent = btn.dataset.studentName;
+  document.getElementById('markPaidAmount').textContent =
+    parseInt(btn.dataset.amount).toLocaleString('vi-VN') + '₫';
+  document.getElementById('markPaidForm').action =
+    "{{ url_for('admin.tuition_mark_paid', payment_id=0) }}".replace('/0/', '/' + btn.dataset.recordId + '/');
+});
+</script>
+{% endblock %}

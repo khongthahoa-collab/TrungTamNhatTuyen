@@ -1,0 +1,573 @@
+"""
+Initialize database and seed sample data for Nhat Tuyen tutoring center.
+Run: python init_db.py
+"""
+import json
+from app import create_app
+from extensions import db
+from models import (
+    User, Teacher, Course, Class, Student, Enrollment,
+    AcademicYear, Semester, Schedule, SystemConfig, School,
+    Score, Reward, TuitionPayment, Exam, ExamFolder,
+    UserRole, StudentLevel, ScheduleType, ScoreSource, ScoreType, SemesterType, TuitionMethod
+)
+from datetime import date, time, timedelta, datetime
+
+
+def seed():
+    app = create_app('development')
+    with app.app_context():
+        db.drop_all()
+        db.create_all()
+        print("✓ Database schema created")
+
+        # ── System configuration
+        configs = [
+            ('center_name', 'Học thêm Nhật Tuyền', 'Center name'),
+            ('center_address', '159 Lê Hồng Phong, Phường Kon Tum, Quảng Ngãi', 'Center address'),
+            ('center_phone', '0901901891', 'Center phone number'),
+            ('zalo_link', 'https://zalo.me/0901901891', 'Zalo chat link'),
+            ('messenger_link', 'https://m.me/nhattuyenedu', 'Messenger link'),
+            ('bank_account', '1234567890 - Vietcombank - Nguyen Trinh Thu Phuong', 'Bank account'),
+            ('hall_of_fame_min_score', '8', 'Minimum score for hall of fame'),
+            ('hero_bg',         '#f8fdf9',                                      'Hero background color'),
+            ('hero_badge',      'TRUNG TÂM DẠY THÊM UY TÍN',                   'Hero badge text'),
+            ('hero_headline1',  'Học Thêm Chất Lượng',                          'Hero headline line 1'),
+            ('hero_headline2',  'Tại Nhật Tuyền',                               'Hero headline line 2 (gradient)'),
+            ('hero_sub',        'Lớp học sĩ số nhỏ, giáo viên tâm huyết — đồng hành cùng học sinh Tiểu học, THCS và THPT trên con đường học vấn.', 'Hero subtitle'),
+            ('hero_note',       'Tư vấn miễn phí – Liên hệ ngay hôm nay',       'Hero note below CTA button'),
+        ]
+        for key, val, desc in configs:
+            db.session.add(SystemConfig(key=key, value=val, description=desc))
+
+        # ── Admin account
+        admin = User(
+            full_name='Nhat Tuyen',
+            username='admin',
+            phone='0901234567',
+            role=UserRole.ADMIN
+        )
+        admin.set_password('admin123')
+        db.session.add(admin)
+        db.session.flush()
+
+        # ── Courses (fixed list, no level field)
+        course_names_list = [
+            'Toán', 'Tiếng Việt', 'Ngữ Văn', 'Anh Văn',
+            'Lịch Sử', 'Địa Lý', 'KHTN',
+            'Vật lý', 'Hóa học', 'Sinh học', 'Tiếng Trung',
+        ]
+        courses = {}
+        for cname in course_names_list:
+            c = Course(name=cname)
+            db.session.add(c)
+            db.session.flush()
+            courses[cname] = c
+        print(f"✓ {len(courses)} môn học đã được thêm")
+
+        # ── Teachers
+        teacher_data = [
+            # (full_name, username, phone, is_staff, base_salary)
+            ('Trần Văn An', 'gvtoan', '0912345678', True, 8000000),
+            ('Lê Thị Bình', 'gvly', '0923456789', True, 7000000),
+            ('Phạm Quốc Cường', 'gvhoa', '0934567890', True, 7500000),
+            ('Nguyễn Minh Dũng', 'gvvan', '0945678901', False, 0),
+        ]
+        teachers = []
+        for fname, uname, phone, is_staff, salary in teacher_data:
+            u = User(full_name=fname, username=uname, phone=phone, role=UserRole.TEACHER)
+            u.set_password('teacher123')
+            db.session.add(u)
+            db.session.flush()
+            t = Teacher(user_id=u.id, is_staff=is_staff, base_salary=salary)
+            db.session.add(t)
+            db.session.flush()
+            teachers.append(t)
+
+        db.session.flush()
+
+        # ── Academic year
+        ay = AcademicYear(
+            name='2025-2026',
+            start_date=date(2025, 6, 1),
+            end_date=date(2026, 5, 31),
+            is_active=True
+        )
+        db.session.add(ay)
+        db.session.flush()
+
+        # ── Semesters
+        sem_summer = Semester(
+            academic_year_id=ay.id,
+            name='Học hè 2025',
+            semester_type=SemesterType.SUMMER,
+            start_date=date(2025, 6, 1),
+            end_date=date(2025, 8, 31)
+        )
+        sem_1 = Semester(
+            academic_year_id=ay.id,
+            name='Học kỳ 1 (2025-2026)',
+            semester_type=SemesterType.SEMESTER_1,
+            start_date=date(2025, 9, 1),
+            end_date=date(2026, 1, 31)
+        )
+        sem_2 = Semester(
+            academic_year_id=ay.id,
+            name='Học kỳ 2 (2025-2026)',
+            semester_type=SemesterType.SEMESTER_2,
+            start_date=date(2026, 2, 1),
+            end_date=date(2026, 5, 31)
+        )
+        db.session.add_all([sem_summer, sem_1, sem_2])
+        db.session.flush()
+
+        # ── Classes
+        class_data = [
+            # (name, course_key, grade_level, primary_teacher_idx, max_students)
+            ('Lớp 8A - Toán',     'Toán',    'Lớp 8',  0, 15),
+            ('Lớp 10A - Toán',    'Toán',    'Lớp 10', 0, 15),
+            ('Lớp 10A - Vật lý',  'Vật lý',  'Lớp 10', 1, 12),
+            ('Lớp 9A - Hóa học',  'Hóa học', 'Lớp 9',  2, 12),
+            ('Lớp 4A - Toán',     'Toán',    'Lớp 4',  0, 10),
+        ]
+        classes = []
+        for cname, course_key, grade, primary_idx, max_s in class_data:
+            primary_teacher = teachers[primary_idx]
+            cl = Class(
+                name=cname,
+                course_id=courses[course_key].id,
+                grade_level=grade,
+                max_students=max_s,
+                primary_teacher_id=primary_teacher.id,
+                start_date=date(2025, 9, 1),
+                end_date=date(2026, 5, 31)
+            )
+            db.session.add(cl)
+            db.session.flush()
+            classes.append((cl, primary_teacher))
+
+        # ── Schools
+        school_data = [
+            # (name, grade_from, grade_to)
+            ('Tiểu học Lê Lợi',         1,  5),
+            ('Tiểu học Nguyễn Trãi',     1,  5),
+            ('THCS Lê Văn Tám',          6,  9),
+            ('THCS Nguyễn Du',           6,  9),
+            ('THPT Nguyễn Trãi',        10, 12),
+            ('THPT Trần Phú',           10, 12),
+        ]
+        seed_schools = {}
+        for sname, gf, gt in school_data:
+            sc = School(name=sname, grade_from=gf, grade_to=gt)
+            db.session.add(sc)
+            db.session.flush()
+            seed_schools[sname] = sc
+        print(f"✓ {len(seed_schools)} trường học đã được thêm")
+
+        # ── Students
+        students_data = [
+            # (full_name, dob, gender, school_key, current_grade, level, parent_name, parent_phone)
+            ('Nguyễn Văn Anh',  date(2010, 3, 15), 'male',   'THCS Lê Văn Tám',     '8A',  StudentLevel.SECONDARY,   'Nguyễn Văn Bình',   '0901111111'),
+            ('Trần Thị Bảo',    date(2010, 7, 22), 'female', 'THCS Lê Văn Tám',     '8A',  StudentLevel.SECONDARY,   'Trần Văn Cường',    '0902222222'),
+            ('Lê Minh Chiến',   date(2009, 11, 5), 'male',   'THCS Nguyễn Du',      '9B',  StudentLevel.SECONDARY,   'Lê Thị Dung',       '0903333333'),
+            ('Phạm Thị Diệu',   date(2008, 5, 18), 'female', 'THPT Nguyễn Trãi',    '10A', StudentLevel.HIGH_SCHOOL, 'Phạm Văn Em',       '0904444444'),
+            ('Hoàng Văn Em',    date(2008, 9, 30), 'male',   'THPT Nguyễn Trãi',    '10B', StudentLevel.HIGH_SCHOOL, 'Hoàng Thị Phương',  '0905555555'),
+            ('Võ Thị Phương',   date(2007, 1, 12), 'female', 'THPT Trần Phú',       '11C', StudentLevel.HIGH_SCHOOL, 'Võ Văn Giang',      '0906666666'),
+            ('Đặng Quốc Hùng',  date(2014, 6,  8), 'male',   'Tiểu học Lê Lợi',     '4A',  StudentLevel.PRIMARY,     'Đặng Văn Hải',      '0907777777'),
+            ('Bùi Thị Lan',     date(2014, 2, 25), 'female', 'Tiểu học Lê Lợi',     '4B',  StudentLevel.PRIMARY,     'Bùi Văn Kiên',      '0908888888'),
+            ('Ngô Văn Mạnh',    date(2010, 8, 14), 'male',   'THCS Lê Văn Tám',     '8B',  StudentLevel.SECONDARY,   'Ngô Thị Ngọc',      '0909999999'),
+            ('Đinh Thị Ngọc',   date(2009, 4,  3), 'female', 'THCS Nguyễn Du',      '9A',  StudentLevel.SECONDARY,   'Đinh Văn Phúc',     '0910101010'),
+        ]
+
+        # ── Parent accounts (for some students)
+        parent_phones = ['0901111111', '0902222222', '0903333333']
+        parent_users = {}
+        for i, pp in enumerate(parent_phones):
+            pu = User(
+                full_name=students_data[i][7],
+                username=f'parent{i+1:02d}',
+                phone=pp,
+                role=UserRole.PARENT
+            )
+            pu.set_password('parent123')
+            db.session.add(pu)
+            db.session.flush()
+            parent_users[pp] = pu
+
+        # ── Create students
+        students = []
+        for sdata in students_data:
+            fname, dob, gender, school_key, grade, level, pname, pphone = sdata
+            pu = parent_users.get(pphone)
+            school_obj = seed_schools.get(school_key)
+            s = Student(
+                full_name=fname,
+                date_of_birth=dob,
+                gender=gender,
+                current_school=school_key,
+                school_id=school_obj.id if school_obj else None,
+                current_grade=grade,
+                level=level,
+                parent_name=pname,
+                parent_phone=pphone,
+                parent_user_id=pu.id if pu else None
+            )
+            db.session.add(s)
+            db.session.flush()
+            students.append(s)
+
+        # ── Student enrollments in classes
+        enrollments_map = [
+            # (student_index, class_index)
+            (0, 0),   # Anh → Math 8A
+            (1, 0),   # Bao → Math 8A
+            (2, 3),   # Chien → Chemistry 9A
+            (3, 1),   # Dieu → Math 10B
+            (3, 2),   # Dieu → Physics 10A
+            (4, 1),   # Em → Math 10B
+            (4, 2),   # Em → Physics 10A
+            (5, 1),   # Phuong → Math 10B
+            (6, 4),   # Hung → Math Primary
+            (7, 4),   # Lan → Math Primary
+            (8, 0),   # Manh → Math 8A
+            (9, 3),   # Ngoc → Chemistry 9A
+            (2, 0),   # Chien → Math 8A
+        ]
+        for si, ci in enrollments_map:
+            e = Enrollment(student_id=students[si].id, class_id=classes[ci][0].id)
+            db.session.add(e)
+
+        db.session.flush()
+
+        # ── Class schedules
+        today = date.today()
+        # Find Monday of current week
+        monday = today - timedelta(days=today.weekday())
+
+        schedule_patterns = [
+            # (class_index, weekday_offset, start_time, end_time, room)
+            # Math 8A: Mon, Wed, Fri 17:00-19:00
+            (0, 0, time(17, 0), time(19, 0), 'Room 101'),
+            (0, 2, time(17, 0), time(19, 0), 'Room 101'),
+            (0, 4, time(17, 0), time(19, 0), 'Room 101'),
+            # Math 10B: Tue, Thu, Sat 17:00-19:00
+            (1, 1, time(17, 0), time(19, 0), 'Room 102'),
+            (1, 3, time(17, 0), time(19, 0), 'Room 102'),
+            (1, 5, time(17, 0), time(19, 0), 'Room 102'),
+            # Physics 10A: Mon, Thu 19:00-21:00
+            (2, 0, time(19, 0), time(21, 0), 'Room 103'),
+            (2, 3, time(19, 0), time(21, 0), 'Room 103'),
+            # Chemistry 9A: Tue, Sat 17:00-19:00
+            (3, 1, time(17, 0), time(19, 0), 'Room 104'),
+            (3, 5, time(17, 0), time(19, 0), 'Room 104'),
+            # Math Primary: Wed, Sat 15:00-17:00
+            (4, 2, time(15, 0), time(17, 0), 'Room 105'),
+            (4, 5, time(15, 0), time(17, 0), 'Room 105'),
+        ]
+
+        # Generate 4 weeks of schedules (2 past + current + 1 future)
+        for week_offset in range(-2, 2):
+            week_start = monday + timedelta(weeks=week_offset)
+            for ci, day_off, st, et, room in schedule_patterns:
+                sched_date = week_start + timedelta(days=day_off)
+                cl, teacher = classes[ci]
+                s = Schedule(
+                    class_id=cl.id,
+                    teacher_id=teacher.id,
+                    date=sched_date,
+                    start_time=st,
+                    end_time=et,
+                    room=room,
+                    schedule_type=ScheduleType.REGULAR,
+                    semester_id=sem_1.id,
+                    teacher_checked_in=(week_offset < 0),  # past weeks: all checked in
+                    teacher_check_in_time=None,
+                )
+                db.session.add(s)
+
+        db.session.flush()
+
+        # ── Sample scores
+        score_samples = [
+            # (student_index, class_index, source, type, value, exam_date)
+            (0, 0, ScoreSource.CENTER, ScoreType.CONTINUOUS, 8.5, date(2025, 10, 5)),
+            (0, 0, ScoreSource.CENTER, ScoreType.MIDTERM, 9.0, date(2025, 11, 10)),
+            (1, 0, ScoreSource.CENTER, ScoreType.CONTINUOUS, 7.0, date(2025, 10, 5)),
+            (1, 0, ScoreSource.CENTER, ScoreType.MIDTERM, 8.0, date(2025, 11, 10)),
+            (2, 0, ScoreSource.CENTER, ScoreType.CONTINUOUS, 10.0, date(2025, 10, 5)),
+            (2, 0, ScoreSource.CENTER, ScoreType.MIDTERM, 9.5, date(2025, 11, 10)),
+            (3, 1, ScoreSource.CENTER, ScoreType.CONTINUOUS, 9.0, date(2025, 10, 12)),
+            (3, 1, ScoreSource.SCHOOL, ScoreType.MIDTERM, 8.5, date(2025, 11, 15)),
+            (4, 1, ScoreSource.CENTER, ScoreType.CONTINUOUS, 8.0, date(2025, 10, 12)),
+            (4, 2, ScoreSource.CENTER, ScoreType.MIDTERM, 9.0, date(2025, 11, 20)),
+            (8, 0, ScoreSource.CENTER, ScoreType.QUIZ_15, 10.0, date(2025, 10, 8)),
+            (9, 3, ScoreSource.CENTER, ScoreType.MIDTERM, 9.0, date(2025, 11, 18)),
+        ]
+        for si, ci, src, stype, val, edate in score_samples:
+            sc = Score(
+                student_id=students[si].id,
+                class_id=classes[ci][0].id,
+                score_source=src,
+                score_type=stype,
+                score_value=val,
+                exam_date=edate,
+                school_name='Secondary Le Van Tam' if src == ScoreSource.SCHOOL else None,
+                entered_by=admin.id,
+            )
+            db.session.add(sc)
+
+        # ── Sample rewards (approved)
+        reward_samples = [
+            (2, 'Score 10/10 Continuous (Math 8A)', 20000, date(2025, 10, 6)),
+            (2, 'Score 9.5/10 Midterm (Math 8A)', 150000, date(2025, 11, 11)),
+            (0, 'Score 9.0/10 Midterm (Math 8A)', 150000, date(2025, 11, 11)),
+            (8, 'Score 10/10 Quiz 15min (Math 8A)', 50000, date(2025, 10, 9)),
+        ]
+        for si, reason, amt, rdate in reward_samples:
+            r = Reward(
+                student_id=students[si].id,
+                reason=reason,
+                amount=amt,
+                reward_type='cash',
+                reward_date=rdate,
+                is_suggested=True,
+                is_confirmed=True,
+                created_by=admin.id,
+                confirmed_by=admin.id,
+                confirmed_at=datetime.combine(rdate, time(10, 0))
+            )
+            db.session.add(r)
+
+        # ── Sample tuition payments
+        current_month = today.month
+        current_year = today.year
+        prev_month = 12 if current_month == 1 else current_month - 1
+        prev_year = current_year - 1 if current_month == 1 else current_year
+
+        tuition_samples = [
+            # (student_index, class_index, amount, month, year, is_paid, method)
+            # Previous month payments
+            (0, 0, 800000, prev_month, prev_year, True, TuitionMethod.CASH),
+            (1, 0, 800000, prev_month, prev_year, True, TuitionMethod.TRANSFER),
+            (2, 0, 800000, prev_month, prev_year, True, TuitionMethod.CASH),
+            (3, 1, 900000, prev_month, prev_year, True, TuitionMethod.TRANSFER),
+            # Current month - mixed paid/unpaid
+            (0, 0, 800000, current_month, current_year, True, TuitionMethod.CASH),
+            (1, 0, 800000, current_month, current_year, False, None),
+            (2, 0, 800000, current_month, current_year, False, None),
+            (3, 1, 900000, current_month, current_year, True, TuitionMethod.TRANSFER),
+            (4, 1, 900000, current_month, current_year, False, None),
+            (6, 4, 600000, current_month, current_year, True, TuitionMethod.CASH),
+            (7, 4, 600000, current_month, current_year, False, None),
+        ]
+        for si, ci, amt, month, year, is_paid, method in tuition_samples:
+            tp = TuitionPayment(
+                student_id=students[si].id,
+                class_id=classes[ci][0].id,
+                amount=amt,
+                month=month,
+                year=year,
+                is_paid=is_paid,
+                method=method or TuitionMethod.CASH,
+                paid_at=datetime.combine(today.replace(day=5), time(10, 0)) if is_paid else None,
+                received_by=admin.id if is_paid else None,
+            )
+            db.session.add(tp)
+
+        # ── Sample online exams (Math 8A class)
+        math_8a, math_8a_teacher = classes[0]
+        class_10a, class_10a_teacher = classes[1]  # has THPT-level students enrolled (Diệu, Em, Phương)
+
+        def mcq_group(title, questions, instruction=''):
+            return {'title': title, 'type': 'mcq', 'instruction': instruction, 'questions': questions}
+
+        practice_mcq = mcq_group('Phần 1. Trắc nghiệm', [
+            {'text': 'Kết quả của 7 + 5 × 2 là?', 'options': ['24', '17', '19', '12'], 'correct_index': 1,
+             'explanation': 'Nhân chia trước, cộng trừ sau: 7 + (5×2) = 7 + 10 = 17.'},
+            {'text': 'Số nào là số nguyên tố?', 'options': ['9', '15', '17', '21'], 'correct_index': 2,
+             'explanation': '17 chỉ chia hết cho 1 và chính nó.'},
+            {'text': 'Giá trị của x trong phương trình 2x + 3 = 11 là?', 'options': ['3', '4', '5', '6'], 'correct_index': 1,
+             'explanation': '2x = 11 - 3 = 8 → x = 4.'},
+            {'text': 'Diện tích hình chữ nhật có chiều dài 8cm, chiều rộng 5cm là?', 'options': ['13 cm²', '26 cm²', '40 cm²', '45 cm²'], 'correct_index': 2,
+             'explanation': 'S = dài × rộng = 8 × 5 = 40 cm².'},
+            {'text': 'Tổng 3 góc trong một tam giác bằng?', 'options': ['90°', '180°', '270°', '360°'], 'correct_index': 1,
+             'explanation': ''},
+        ])
+        quiz_mcq = mcq_group('Phần 1. Trắc nghiệm', [
+            {'text': '(-3) × (-4) bằng bao nhiêu?', 'options': ['-12', '12', '-7', '7'], 'correct_index': 1,
+             'explanation': 'Tích của hai số âm là số dương.'},
+            {'text': 'Phân số 3/4 đổi ra số thập phân là?', 'options': ['0.34', '0.75', '0.43', '1.33'], 'correct_index': 1,
+             'explanation': ''},
+            {'text': 'Ước chung lớn nhất (ƯCLN) của 12 và 18 là?', 'options': ['2', '3', '6', '36'], 'correct_index': 2,
+             'explanation': '12 = 2²×3, 18 = 2×3² → ƯCLN = 2×3 = 6.'},
+        ])
+
+        # Multi-format demo exam — mirrors azota.vn's structure (Trắc nghiệm / Đúng-Sai / Tìm lỗi sai / Trả lời ngắn)
+        mixed_groups = [
+            mcq_group('Phần 1. TRẮC NGHIỆM', [
+                {'text': 'Trong cuộc khai thác thuộc địa lần thứ hai ở Đông Dương 1919-1929, thực dân Pháp tập trung đầu tư vào',
+                 'options': ['Ngành chế tạo máy.', 'Công nghiệp luyện kim.', 'Đồn điền cao su.', 'Công nghiệp hóa chất.'],
+                 'correct_index': 0, 'explanation': ''},
+            ]),
+            {
+                'title': 'Phần 2. Câu trắc nghiệm đúng sai',
+                'type': 'true_false',
+                'instruction': 'Trong mỗi ý a), b), c), d) ở mỗi câu, thí sinh chọn đúng hoặc sai.',
+                'questions': [{
+                    'text': 'Một cuộc thi bắn cung có 20 người tham gia. Trong lần bắn đầu tiên có 18 người bắn trúng mục tiêu. '
+                            'Trong lần bắn thứ hai có 15 người bắn trúng mục tiêu. Trong lần bắn thứ ba còn 10 người bắn trúng mục tiêu.',
+                    'statements': [
+                        {'text': 'Số người bắn trượt mục tiêu trong lần đầu tiên là 2.', 'correct': True},
+                        {'text': 'Số người bắn trượt mục tiêu trong lần bắn thứ hai là 6.', 'correct': False},
+                        {'text': 'Số người bắn trượt mục tiêu trong lần bắn thứ nhất và thứ hai nhiều nhất là 8.', 'correct': False},
+                        {'text': 'Số người bắn trúng mục tiêu trong cả ba lần bắn ít nhất là 3.', 'correct': True},
+                    ],
+                    'explanation': '',
+                }],
+            },
+            {
+                'title': 'Phần 3. Tìm lỗi sai',
+                'type': 'error_id',
+                'instruction': 'Mark the letter A, B, C, or D to indicate the underlined part that needs correction.',
+                'questions': [{
+                    'text': 'Every [A:member] of the class [*B:were] invited [C:to] the party by [D:the form teacher].',
+                    'correct_label': 'B',
+                    'explanation': '"member" là danh từ số ít nên động từ phải chia số ít: "was" thay vì "were".',
+                }],
+            },
+            {
+                'title': 'Phần 4. Trả lời ngắn',
+                'type': 'short_answer',
+                'instruction': '',
+                'questions': [{
+                    'text': 'The apple ___ the table.',
+                    'accepted_answers': ['on', 'On', 'ON'], 'explanation': '',
+                }],
+            },
+        ]
+
+        # English exam mirroring the typical THPT Quốc Gia structure (phonetics / grammar-vocab / error
+        # identification / reading) — illustrative sample content, not an actual official exam paper.
+        english_groups = [
+            mcq_group(
+                'Phần 1. Ngữ âm - Trọng âm', [
+                    {'text': 'Chọn từ có trọng âm chính khác với 3 từ còn lại.',
+                     'options': ['happy', 'family', 'holiday', 'hotel'], 'correct_index': 3,
+                     'explanation': "hoTEL nhấn âm 2, còn lại nhấn âm 1: HAppy, FAmily, HOliday."},
+                ],
+                instruction='Chọn từ có trọng âm chính (trọng âm 1 - 2) khác với 3 từ còn lại.',
+            ),
+            mcq_group(
+                'Phần 2. Ngữ âm - Phát âm', [
+                    {'text': "Chọn từ có phần đuôi '-ed' được phát âm khác với 3 từ còn lại.",
+                     'options': ['looked', 'played', 'watched', 'stopped'], 'correct_index': 1,
+                     'explanation': "played phát âm /d/, còn looked/watched/stopped đều phát âm /t/."},
+                ],
+                instruction="Chọn từ có phần gạch chân được phát âm khác với 3 từ còn lại.",
+            ),
+            mcq_group(
+                'Phần 3. Ngữ pháp - Từ vựng', [
+                    {'text': 'If I ___ more free time, I would learn another language.',
+                     'options': ['have', 'had', 'will have', 'would have'], 'correct_index': 1,
+                     'explanation': 'Câu điều kiện loại 2: If + S + V(past simple), S + would + V.'},
+                    {'text': 'She is looking forward ___ from you soon.',
+                     'options': ['to hear', 'to hearing', 'hear', 'hearing'], 'correct_index': 1,
+                     'explanation': "look forward to + V-ing."},
+                    {'text': 'There has been a sharp ___ in the number of tourists this year.',
+                     'options': ['increase', 'increasing', 'increased', 'increasement'], 'correct_index': 0,
+                     'explanation': 'Cần danh từ sau mạo từ "a": increase (n).'},
+                ],
+            ),
+            {
+                'title': 'Phần 4. Tìm lỗi sai',
+                'type': 'error_id',
+                'instruction': 'Mark the letter A, B, C, or D to indicate the underlined part that needs correction.',
+                'questions': [
+                    {'text': '[*A:Despite of] the heavy rain, the football match [B:was] not [C:cancelled] [D:on time].',
+                     'correct_label': 'A', 'explanation': "Dùng 'Despite' hoặc 'In spite of', không dùng 'Despite of'."},
+                    {'text': 'Each of the students in this class [*A:have] [B:to submit] [C:their] essay [D:by Friday].',
+                     'correct_label': 'A', 'explanation': "'Each of + danh từ số nhiều' chia động từ số ít: 'has', không phải 'have'."},
+                ],
+            },
+            mcq_group(
+                'Phần 5. Đọc hiểu', [
+                    {'text': 'Theo đoạn văn, một hậu quả của việc nhiệt độ tăng là gì?',
+                     'options': ['Tăng sản xuất nhiên liệu hoá thạch', 'Băng tan ở các chỏm cực', 'Giảm phát thải khí nhà kính', 'Giảm các hiện tượng thời tiết cực đoan'],
+                     'correct_index': 1, 'explanation': ''},
+                    {'text': 'Các nhà khoa học đồng ý rằng điều gì là cần thiết để làm chậm biến đổi khí hậu?',
+                     'options': ['Xây thêm nhà máy', 'Giảm phát thải khí nhà kính', 'Tăng kích thước chỏm băng', 'Ngừng đầu tư năng lượng tái tạo'],
+                     'correct_index': 1, 'explanation': ''},
+                    {'text': 'Những nguồn năng lượng tái tạo nào được đề cập trong đoạn văn?',
+                     'options': ['Than và dầu', 'Năng lượng mặt trời và gió', 'Hạt nhân và khí đốt', 'Thuỷ điện và sinh khối'],
+                     'correct_index': 1, 'explanation': ''},
+                ],
+                instruction=(
+                    'Đọc đoạn văn sau và trả lời các câu hỏi:\n'
+                    'Climate change is one of the most pressing issues facing our planet today. Rising temperatures '
+                    'have led to melting ice caps, more frequent extreme weather events, and significant disruptions '
+                    'to ecosystems. Scientists agree that reducing greenhouse gas emissions is essential to slow down '
+                    'this process. Many countries have started investing in renewable energy sources such as solar '
+                    'and wind power to replace fossil fuels.'
+                ),
+            ),
+        ]
+
+        # ── Exam folders — one scoped to a class, one scoped to a subject
+        folder_math_8a = ExamFolder(name='Đề Toán 8A', scope_type='class', class_id=math_8a.id,
+                                    created_by=math_8a_teacher.user_id)
+        folder_english = ExamFolder(name='Đề Tiếng Anh', scope_type='subject', subject='Anh Văn',
+                                    created_by=class_10a_teacher.user_id)
+        db.session.add_all([folder_math_8a, folder_english])
+        db.session.flush()
+
+        sample_exams = [
+            dict(title='Đề ôn tập Toán - Chương 1', subject='Toán', exam_type='practice',
+                 description='Ôn tập các kiến thức cơ bản chương 1.', duration_minutes=20,
+                 availability_mode='always', allow_attempts=0, is_draft=False,
+                 folder_id=folder_math_8a.id, groups=[practice_mcq]),
+            dict(title='Kiểm tra 15 phút - Toán', subject='Toán', exam_type='quiz_15',
+                 description='Kiểm tra nhanh kiến thức đã học trong tuần.', duration_minutes=15,
+                 availability_mode='range', allow_attempts=1, is_draft=False,
+                 available_from=datetime.combine(today, time(0, 0)),
+                 available_to=datetime.combine(today + timedelta(days=30), time(23, 59)),
+                 folder_id=folder_math_8a.id, groups=[quiz_mcq]),
+            dict(title='Đề tổng hợp đa dạng (theo mẫu Azota)', subject='Tổng hợp', exam_type='periodic',
+                 description='Đề minh hoạ đủ 4 dạng câu hỏi: trắc nghiệm, đúng/sai, tìm lỗi sai, trả lời ngắn.',
+                 duration_minutes=60, availability_mode='always', allow_attempts=0, is_draft=False,
+                 groups=mixed_groups),
+            dict(title='Đề thi giữa kì 1 - Toán 8 (nháp)', subject='Toán', exam_type='midterm_1',
+                 description='Đang soạn, chưa giao cho học sinh.', duration_minutes=60,
+                 availability_mode='always', allow_attempts=1, is_draft=True,
+                 groups=[mcq_group('Phần 1. Trắc nghiệm', practice_mcq['questions'][:2])]),
+            dict(title='Đề tiếng Anh - Tham khảo cấu trúc đề thi THPT Quốc gia', subject='Anh Văn', exam_type='periodic',
+                 description='Đề mẫu minh hoạ cấu trúc đề thi tốt nghiệp THPT Quốc gia môn Tiếng Anh '
+                             '(ngữ âm, ngữ pháp - từ vựng, tìm lỗi sai, đọc hiểu). Nội dung tham khảo, không phải đề thi chính thức.',
+                 duration_minutes=60, availability_mode='always', allow_attempts=0, is_draft=False,
+                 class_id=class_10a.id, created_by=class_10a_teacher.user_id,
+                 folder_id=folder_english.id, groups=english_groups),
+        ]
+        for data in sample_exams:
+            exam = Exam(
+                title=data['title'], subject=data['subject'], exam_type=data['exam_type'],
+                description=data['description'], class_ids=str(data.get('class_id', math_8a.id)),
+                folder_id=data.get('folder_id'),
+                duration_minutes=data['duration_minutes'], availability_mode=data['availability_mode'],
+                available_from=data.get('available_from'), available_to=data.get('available_to'),
+                allow_attempts=data['allow_attempts'], shuffle_questions=True, shuffle_answers=True,
+                is_draft=data['is_draft'], created_by=data.get('created_by', math_8a_teacher.user_id),
+                questions_json=json.dumps({'groups': data['groups']}),
+            )
+            db.session.add(exam)
+        print(f"✓ {len(sample_exams)} đề thi online mẫu đã được thêm")
+
+        db.session.commit()
+        print("✓ Sample data seeded successfully!")
+        print("\n--- SAMPLE ACCOUNTS ---")
+        print("Admin:  admin / admin123")
+        print("Teacher: phuonglinh / teacher123")
+        print("Parent: parent01 / parent123")
+        print("-" * 40)
+
+
+if __name__ == '__main__':
+    seed()

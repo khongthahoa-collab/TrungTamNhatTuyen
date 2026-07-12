@@ -1,0 +1,227 @@
+{% extends 'admin/base.html' %}
+{% import 'exams/_macros.html' as exam_macros %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ url_for('admin.exams_list') }}">Đề thi online</a></li>
+<li class="breadcrumb-item active">{% if editing %}Chỉnh sửa đề · Bước 2{% else %}Tạo đề · Bước 2{% endif %}</li>
+{% endblock %}
+{% block content %}
+{% set existing_class_ids = existing.class_list if existing else [] %}
+{% set course_names = courses | map(attribute='name') | list %}
+{% set subject_matches_course = existing and existing.subject in course_names %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div class="d-flex align-items-center gap-2">
+    <span class="badge rounded-pill bg-success">Bước 2/2</span>
+    <h5 class="fw-bold mb-0">{% if editing %}Cập nhật cấu hình đề thi{% else %}Cấu hình & xác nhận đề thi{% endif %}</h5>
+  </div>
+  <a href="{{ url_for('admin.exams_edit', exam_id=existing.id) if editing else url_for('admin.exams_new') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Quay lại chỉnh sửa
+  </a>
+</div>
+
+{% if editing and existing.attempts.count() > 0 %}
+<div class="alert alert-info small">
+  <i class="bi bi-info-circle me-1"></i>
+  Đề này đã có <strong>{{ existing.attempts.count() }}</strong> lượt làm bài. Chỉnh sửa và lưu sẽ không thay đổi kết quả đã ghi nhận trước đó —
+  thay đổi chỉ áp dụng cho các lượt làm bài mới.
+</div>
+{% endif %}
+
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="row g-3">
+    <div class="col-lg-7">
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+          <h6 class="fw-semibold mb-3"><i class="bi bi-info-circle me-1 text-success"></i>Thông tin đề thi</h6>
+          <div class="mb-3">
+            <span class="text-muted small">Tên đề thi</span>
+            <div class="fw-semibold fs-5">{{ payload.title }}</div>
+          </div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Môn thi</label>
+              <select name="subject" id="subjectSelect" class="form-select" required>
+                <option value="">-- Chọn môn --</option>
+                {% for course in courses %}
+                <option value="{{ course.name }}"
+                        {% if (form and form.get('subject')==course.name) or (not form and existing and existing.subject==course.name) %}selected{% endif %}>
+                  {{ course.name }}
+                </option>
+                {% endfor %}
+                <option value="__other__"
+                        {% if (form and form.get('subject')=='__other__') or (not form and existing and not subject_matches_course) %}selected{% endif %}>
+                  Khác...
+                </option>
+              </select>
+              <input type="text" name="subject_other" id="subjectOther" class="form-control mt-2 d-none"
+                     placeholder="Nhập tên môn khác"
+                     value="{{ form.get('subject_other','') if form else (existing.subject if (existing and not subject_matches_course) else '') }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Loại bài thi</label>
+              <select name="exam_type" id="examTypeSelect" class="form-select">
+                {% for value, label in exam_types %}
+                <option value="{{ value }}"
+                        {% if (form and form.get('exam_type')==value) or (not form and existing and existing.exam_type==value) or (not form and not existing and value=='practice') %}selected{% endif %}>
+                  {{ label }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Thư mục <span class="text-muted small">(không bắt buộc)</span></label>
+              <select name="folder_id" class="form-select">
+                <option value="">-- Không thuộc thư mục --</option>
+                {% for folder in folders %}
+                <option value="{{ folder.id }}"
+                        {% if (form and form.get('folder_id')==folder.id|string) or (not form and existing and existing.folder_id==folder.id) %}selected{% endif %}>
+                  {{ folder.name }} ({{ folder.scope_label }})
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Mô tả / ghi chú <span class="text-muted small">(không bắt buộc)</span></label>
+              <textarea name="description" class="form-control" rows="2">{{ form.get('description','') if form else (existing.description if existing else '') }}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+          <h6 class="fw-semibold mb-3"><i class="bi bi-people me-1 text-success"></i>Chọn lớp cần giao</h6>
+          <div class="border rounded p-2" style="max-height:200px; overflow:auto;">
+            {% for cls in classes %}
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="class_ids" value="{{ cls.id }}" id="class_{{ cls.id }}"
+                     {% if (form and cls.id|string in form.getlist('class_ids')) or (not form and cls.id in existing_class_ids) %}checked{% endif %}>
+              <label class="form-check-label" for="class_{{ cls.id }}">{{ cls.name }}</label>
+            </div>
+            {% else %}
+            <p class="text-muted small mb-0">Chưa có lớp học nào trong hệ thống.</p>
+            {% endfor %}
+          </div>
+          <div class="form-check form-switch mt-3">
+            <input class="form-check-input" type="checkbox" name="is_draft" id="isDraft"
+                   {% if (form and form.get('is_draft')=='on') or (not form and existing and existing.is_draft) or (not form and not existing) %}checked{% endif %}>
+            <label class="form-check-label" for="isDraft">Lưu dưới dạng nháp (chưa giao cho học sinh, có thể xem lại sau)</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+          <h6 class="fw-semibold mb-3"><i class="bi bi-clock-history me-1 text-success"></i>Thời lượng làm bài</h6>
+          <div class="d-flex flex-wrap gap-2">
+            {% for d in durations %}
+            <input type="radio" class="btn-check" name="duration_minutes" value="{{ d }}" id="dur_{{ d }}"
+                   {% if (form and form.get('duration_minutes')==d|string) or (not form and existing and existing.duration_minutes==d) or (not form and not existing and d==30) %}checked{% endif %}>
+            <label class="btn btn-outline-success" for="dur_{{ d }}">{{ d }} phút</label>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+          <h6 class="fw-semibold mb-3"><i class="bi bi-calendar-range me-1 text-success"></i>Thời gian có thể làm bài</h6>
+          <div class="form-check mb-2">
+            <input class="form-check-input avail-radio" type="radio" name="availability_mode" value="always" id="avail_always"
+                   {% if (form and form.get('availability_mode')=='always') or (not form and existing and existing.availability_mode=='always') or (not form and not existing) %}checked{% endif %}>
+            <label class="form-check-label" for="avail_always">Không giới hạn (làm bất cứ lúc nào)</label>
+          </div>
+          <div class="form-check mb-2">
+            <input class="form-check-input avail-radio" type="radio" name="availability_mode" value="range" id="avail_range"
+                   {% if (form and form.get('availability_mode')=='range') or (not form and existing and existing.availability_mode=='range') %}checked{% endif %}>
+            <label class="form-check-label" for="avail_range">Từ ngày - đến ngày</label>
+          </div>
+          <div class="row g-2 ms-4 mb-2 avail-extra" id="avail_range_box" style="display:none;">
+            <div class="col-md-6">
+              <label class="form-label small">Mở đề từ</label>
+              <input type="datetime-local" name="available_from" class="form-control form-control-sm"
+                     value="{{ form.get('available_from','') if form else (existing.available_from.strftime('%Y-%m-%dT%H:%M') if (existing and existing.available_from) else '') }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">Đóng đề lúc</label>
+              <input type="datetime-local" name="available_to" class="form-control form-control-sm"
+                     value="{{ form.get('available_to','') if form else (existing.available_to.strftime('%Y-%m-%dT%H:%M') if (existing and existing.available_to) else '') }}">
+            </div>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input avail-radio" type="radio" name="availability_mode" value="class_schedule" id="avail_class"
+                   {% if (form and form.get('availability_mode')=='class_schedule') or (not form and existing and existing.availability_mode=='class_schedule') %}checked{% endif %}>
+            <label class="form-check-label" for="avail_class">Chỉ trong khung giờ học của lớp đã chọn</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+          <h6 class="fw-semibold mb-3"><i class="bi bi-arrow-repeat me-1 text-success"></i>Số lần làm lại</h6>
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="radio" name="allow_attempts" value="1" id="attempt_1"
+                   {% if (form and form.get('allow_attempts')=='1') or (not form and existing and existing.allow_attempts==1) or (not form and not existing) %}checked{% endif %}>
+            <label class="form-check-label" for="attempt_1">1 lần <span class="text-muted small">(dùng cho bài kiểm tra)</span></label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="allow_attempts" value="0" id="attempt_0"
+                   {% if (form and form.get('allow_attempts')=='0') or (not form and existing and existing.is_unlimited_attempts) %}checked{% endif %}>
+            <label class="form-check-label" for="attempt_0">Không giới hạn <span class="text-muted small">(dùng cho bài ôn tập)</span></label>
+          </div>
+          <div class="form-text mt-2"><i class="bi bi-info-circle me-1"></i>Mỗi lần làm bài, vị trí câu hỏi và đáp án sẽ được xáo trộn ngẫu nhiên.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      {% set total_questions = payload.groups | map(attribute='questions') | map('length') | sum %}
+      <div class="card border-0 shadow-sm" style="position:sticky; top:70px;">
+        <div class="card-header bg-white fw-semibold small text-uppercase text-muted">
+          <i class="bi bi-card-checklist me-1"></i>Xem lại nội dung ({{ total_questions }} câu, {{ payload.groups | length }} phần)
+        </div>
+        <div class="card-body" style="max-height:60vh; overflow-y:auto;">
+          {% for group in payload.groups %}
+          {{ exam_macros.render_group(group) }}
+          {% endfor %}
+        </div>
+        <div class="card-footer bg-white">
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-check-circle me-1"></i>{% if editing %}Lưu thay đổi{% else %}Xác nhận lưu đề thi{% endif %}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const subjectSelect = document.getElementById('subjectSelect');
+const subjectOther = document.getElementById('subjectOther');
+function syncSubjectOther() {
+  subjectOther.classList.toggle('d-none', subjectSelect.value !== '__other__');
+}
+subjectSelect.addEventListener('change', syncSubjectOther);
+syncSubjectOther();
+
+const availRadios = document.querySelectorAll('.avail-radio');
+const rangeBox = document.getElementById('avail_range_box');
+function syncAvailability() {
+  const checked = document.querySelector('.avail-radio:checked');
+  rangeBox.style.display = checked && checked.value === 'range' ? '' : 'none';
+}
+availRadios.forEach(r => r.addEventListener('change', syncAvailability));
+syncAvailability();
+
+// Suggest attempt setting based on exam type (admin can still override)
+const examTypeSelect = document.getElementById('examTypeSelect');
+examTypeSelect.addEventListener('change', () => {
+  const unlimited = document.getElementById('attempt_0');
+  const once = document.getElementById('attempt_1');
+  if (examTypeSelect.value === 'practice') unlimited.checked = true;
+  else once.checked = true;
+});
+</script>
+{% endblock %}

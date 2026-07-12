@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block title %}Đăng nhập — Nhật Tuyền{% endblock %}
+{% block body %}
+<div class="min-vh-100 d-flex align-items-center" style="background: linear-gradient(180deg, #7c5cdb 0%, #8b7ce0 100%);">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-12 col-sm-8 col-md-5 col-lg-4">
+        <div class="text-center mb-4">
+          <a href="{{ url_for('public.index') }}" class="text-decoration-none">
+            <h3 class="text-white fw-bold"><i class="bi bi-mortarboard-fill me-2"></i>Nhật Tuyền</h3>
+          </a>
+          <p class="text-white-50 small">Trung tâm học thêm</p>
+        </div>
+        <div class="card shadow-lg border-0 rounded-4">
+          <div class="card-body p-4">
+            <h5 class="fw-bold mb-4 text-center">Đăng nhập</h5>
+            {% if error %}
+              <div class="alert alert-danger py-2 small">{{ error }}</div>
+            {% endif %}
+            <form method="POST">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <div class="mb-3">
+                <label class="form-label fw-semibold small">Số điện thoại / Tên đăng nhập</label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-person"></i></span>
+                  <input type="text" name="phone" class="form-control form-control-lg"
+                         placeholder="SĐT hoặc username" autofocus required>
+                </div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-semibold small">Mật khẩu</label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                  <input type="password" name="password" id="pwInput"
+                         class="form-control form-control-lg" placeholder="Mật khẩu" required>
+                  <button type="button" class="btn btn-outline-secondary" onclick="togglePw()">
+                    <i class="bi bi-eye" id="pwEye"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="mb-4">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="remember" id="rememberCheck" value="on">
+                  <label class="form-check-label small" for="rememberCheck">
+                    Ghi nhớ đăng nhập
+                  </label>
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary btn-lg w-100 fw-semibold">
+                <i class="bi bi-box-arrow-in-right me-2"></i>Đăng nhập
+              </button>
+            </form>
+          </div>
+        </div>
+        <div class="text-center mt-3">
+          <a href="{{ url_for('public.index') }}" class="text-white-50 small text-decoration-none">
+            <i class="bi bi-arrow-left me-1"></i>Về trang chủ
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+function togglePw() {
+  const inp = document.getElementById('pwInput');
+  const eye = document.getElementById('pwEye');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  eye.className = inp.type === 'password' ? 'bi bi-eye' : 'bi bi-eye-slash';
+}
+</script>
+{% endblock %}

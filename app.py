@@ -1,0 +1,158 @@
+import os
+from flask import Flask
+from config import config
+from extensions import db, login_manager, csrf, migrate
+
+
+def create_app(config_name=None):
+    if config_name is None:
+        config_name = os.environ.get('FLASK_ENV', 'default')
+
+    app = Flask(__name__)
+    app.config.from_object(config[config_name])
+
+    # Ensure upload folder exists
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+    # Init extensions
+    db.init_app(app)
+    login_manager.init_app(app)
+    csrf.init_app(app)
+    migrate.init_app(app, db)
+
+    # Auto-create database tables for local development when schema is missing.
+    if config_name != 'production':
+        import models  # noqa: F401
+        with app.app_context():
+            db.create_all()
+            from models import User, Teacher, UserRole
+
+            def ensure_user(username, full_name, phone, role, password):
+                existing = User.query.filter_by(username=username).first()
+                if existing:
+                    return existing
+                user = User(full_name=full_name, username=username, phone=phone, role=role)
+                user.set_password(password)
+                db.session.add(user)
+                db.session.flush()
+                if role == UserRole.TEACHER:
+                    teacher_profile = Teacher.query.filter_by(user_id=user.id).first()
+                    if not teacher_profile:
+                        db.session.add(Teacher(user_id=user.id, is_staff=True, base_salary=8000000))
+                db.session.commit()
+                return user
+
+            ensure_user('admin', 'Nguyen Thi Nhat Tuyen', '0901234567', UserRole.ADMIN, 'admin123')
+            ensure_user('gvtoan', 'Trần Văn An', '0912345678', UserRole.TEACHER, 'teacher123')
+            ensure_user('gvly', 'Lê Thị Bình', '0923456789', UserRole.TEACHER, 'teacher123')
+            ensure_user('parent01', 'Phụ huynh 01', '0901111111', UserRole.PARENT, 'parent123')
+            ensure_user('parent02', 'Phụ huynh 02', '0902222222', UserRole.PARENT, 'parent123')
+
+    # User loader
+    from models import User
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.query.get(int(user_id))
+
+    # Register blueprints
+    from blueprints.auth import auth_bp
+    from blueprints.public import public_bp
+    from blueprints.parent import parent_bp
+    from blueprints.teacher import teacher_bp
+    from blueprints.admin import admin_bp
+
+    app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(public_bp, url_prefix='/')
+    app.register_blueprint(parent_bp, url_prefix='/parent')
+    app.register_blueprint(teacher_bp, url_prefix='/teacher')
+    app.register_blueprint(admin_bp, url_prefix='/admin')
+
+    # Jinja2 global helpers
+    from models import SystemConfig, ContactInquiry, Notification
+    from flask_login import current_user
+    import models as m
+
+    @app.context_processor
+    def inject_globals():
+        try:
+            unread_inquiries = ContactInquiry.query.filter_by(is_read=False).count()
+        except Exception:
+            unread_inquiries = 0
+        try:
+            if current_user.is_authenticated:
+                unread_notifications = Notification.query.filter_by(
+                    user_id=current_user.id, is_read=False
+                ).count()
+            else:
+                unread_notifications = 0
+        except Exception:
+            unread_notifications = 0
+        return {
+            'SystemConfig': SystemConfig,
+            'unread_inquiries': unread_inquiries,
+            'unread_notifications': unread_notifications,
+            'UserRole': m.UserRole,
+            'StudentLevel': m.StudentLevel,
+            'ScheduleType': m.ScheduleType,
+            'AttendanceStatus': m.AttendanceStatus,
+            'ScoreSource': m.ScoreSource,
+            'ScoreType': m.ScoreType,
+            'SemesterType': m.SemesterType,
+            'TuitionMethod': m.TuitionMethod,
+            'ExpenseCategory': m.ExpenseCategory,
+        }
+
+    @app.template_filter('vnd')
+    def format_vnd(value):
+        if value is None:
+            return '0 ₫'
+        try:
+            return f'{int(value):,} ₫'.replace(',', '.')
+        except (ValueError, TypeError):
+            return str(value)
+
+    @app.template_filter('date_vn')
+    def format_date_vn(value):
+        if not value:
+            return ''
+        try:
+            return value.strftime('%d/%m/%Y')
+        except Exception:
+            return str(value)
+
+    @app.template_filter('datetime_vn')
+    def format_datetime_vn(value):
+        if not value:
+            return ''
+        try:
+            return value.strftime('%d/%m/%Y %H:%M')
+        except Exception:
+            return str(value)
+
+    @app.template_filter('weekday_vn')
+    def format_weekday_vn(value):
+        days = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật']
+        try:
+            return days[value.weekday()]
+        except Exception:
+            return ''
+
+    @app.template_filter('error_id_render')
+    def error_id_render(text, reveal=True):
+        """Render '[A:seg]' / '[*B:seg]' error-identification markers as underlined, labeled spans.
+        reveal=False hides which one is correct (use for student-facing exam papers)."""
+        import re
+        from markupsafe import Markup, escape
+        if not text:
+            return Markup('')
+        escaped = str(escape(text))
+
+        def repl(m):
+            star, label, seg = m.group(1), m.group(2), m.group(3)
+            cls = 'text-success fw-bold' if (star and reveal) else ''
+            return f'<span class="{cls}" style="text-decoration:underline;">{seg}</span><sup>{label}</sup>'
+
+        return Markup(re.sub(r'\[(\*?)([A-F]):([^\]]*)\]', repl, escaped))
+
+    return app

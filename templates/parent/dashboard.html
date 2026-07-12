@@ -1,0 +1,254 @@
+{% extends 'parent/base.html' %}
+{% block title %}Tổng quan – Nhật Tuyền{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <!-- STUDENT INFO CARD -->
+  {% if student %}
+  <div class="card shadow-sm border-0 mb-3" style="background: linear-gradient(135deg, #15803d 0%, #0891b2 100%);">
+    <div class="card-body text-white">
+      <div class="d-flex align-items-center gap-3">
+        {% if student.photo_path %}
+        <img src="{{ url_for('static', filename=student.photo_path) }}"
+             class="rounded-circle object-fit-cover flex-shrink-0 border border-2 border-white border-opacity-50"
+             style="width:54px;height:54px;" alt="">
+        {% else %}
+        <div class="rounded-circle bg-white bg-opacity-25 d-flex align-items-center justify-content-center fw-bold flex-shrink-0"
+             style="width:54px;height:54px;font-size:1.4rem;">
+          {{ student.full_name[0] }}
+        </div>
+        {% endif %}
+        <div class="flex-grow-1">
+          <h5 class="mb-1 fw-bold">{{ student.full_name }}</h5>
+          <div class="d-flex flex-wrap gap-2 align-items-center">
+            {% if student.level %}<span class="badge bg-white text-success fw-semibold">{{ student.level_label }}</span>{% endif %}
+            {% if student.current_school %}<span class="small opacity-75"><i class="bi bi-building me-1"></i>{{ student.current_school }}</span>{% endif %}
+            {% if student.current_grade %}<span class="small opacity-75"><i class="bi bi-bookmark me-1"></i>Lớp {{ student.current_grade }}</span>{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- HỌC PHÍ CHƯA ĐÓNG -->
+  {% if unpaid %}
+  <div class="alert alert-danger d-flex align-items-start gap-2 shadow-sm mb-3">
+    <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0 mt-1"></i>
+    <div>
+      <div class="fw-bold">Học phí chưa đóng</div>
+      {% for t in unpaid %}
+      <div class="small">{{ t.class_.name if t.class_ else 'N/A' }} – Tháng {{ t.month }}/{{ t.year }}: <span class="fw-semibold">{{ t.amount | vnd }}</span></div>
+      {% endfor %}
+      {% if student %}
+      <a href="{{ url_for('parent.tuition', student_id=student.id) }}" class="btn btn-sm btn-danger mt-1">Xem chi tiết</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ĐĂNG KÝ LỚP HỌC MỚI -->
+  {% if student %}
+  <div class="card shadow-sm border-0 mb-3 border-start border-primary border-3">
+    <div class="card-body py-3">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <div class="fw-bold"><i class="bi bi-plus-circle-fill text-primary me-2"></i>Đăng ký lớp học mới</div>
+          <div class="text-muted small">Muốn học thêm môn khác? Gửi yêu cầu để cô Tuyền tư vấn.</div>
+        </div>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#enrollModal">
+          Đăng ký
+        </button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- LỊCH HỌC TUẦN NÀY -->
+  <h6 class="text-uppercase text-muted fw-bold mb-2"><i class="bi bi-calendar3 me-1"></i>Lịch học tuần này</h6>
+
+  {% if upcoming %}
+    {% for s in upcoming %}
+    <div class="card mb-2 shadow-sm border-0 border-start border-success border-3">
+      <div class="card-body py-2 d-flex align-items-center gap-3">
+        <div class="text-center flex-shrink-0" style="min-width:42px;">
+          <div class="text-success fw-bold" style="font-size:1.1rem;">{{ s.date.day }}</div>
+          <div class="text-muted" style="font-size:0.7rem;">
+            {% set vn_days = ['T2','T3','T4','T5','T6','T7','CN'] %}
+            {{ vn_days[s.date.weekday()] }}
+          </div>
+        </div>
+        <div class="flex-grow-1">
+          <div class="fw-semibold">{{ s.class_.name }}</div>
+          <div class="text-muted small">
+            <i class="bi bi-clock me-1"></i>{{ s.start_time.strftime('%H:%M') }} – {{ s.end_time.strftime('%H:%M') }}
+            {% if s.room %}&nbsp;·&nbsp;<i class="bi bi-door-open me-1"></i>{{ s.room }}{% endif %}
+          </div>
+        </div>
+        {% if s.date == today %}<span class="badge bg-success">Hôm nay</span>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="alert alert-light border text-center text-muted small mb-3">Không có lịch học trong tuần này</div>
+  {% endif %}
+
+  <!-- ĐIỂM SỐ GẦN ĐÂY -->
+  {% if recent_scores %}
+  <h6 class="text-uppercase text-muted fw-bold mb-2 mt-3"><i class="bi bi-bar-chart-fill me-1 text-success"></i>Điểm số gần đây</h6>
+  <div class="card shadow-sm border-0 mb-3">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Ngày</th>
+            <th>Lớp</th>
+            <th>Loại</th>
+            <th class="text-end">Điểm</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for sc in recent_scores %}
+          <tr>
+            <td class="text-muted small text-nowrap">{{ sc.exam_date | date_vn if sc.exam_date else '—' }}</td>
+            <td class="small fw-semibold">{{ sc.class_.name }}</td>
+            <td><span class="badge bg-primary bg-opacity-75 small">{{ score_types.get(sc.score_type, sc.score_type) }}</span></td>
+            <td class="text-end">
+              {% set pct = ((sc.score_value / sc.max_score * 100) | round | int) if sc.max_score and sc.max_score > 0 else none %}
+              <span class="fw-bold {% if pct is not none %}{% if pct >= 80 %}text-success{% elif pct >= 60 %}text-warning{% else %}text-danger{% endif %}{% endif %}">
+                {{ sc.score_value }}
+              </span>
+              <span class="text-muted small">/{{ sc.max_score | int }}</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if student %}
+    <div class="card-footer text-center py-2">
+      <a href="{{ url_for('parent.scores', student_id=student.id) }}" class="small text-success fw-semibold">
+        Xem tất cả <i class="bi bi-arrow-right"></i>
+      </a>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- ĐIỂM DANH GẦN ĐÂY -->
+  <h6 class="text-uppercase text-muted fw-bold mb-2 mt-3"><i class="bi bi-person-check me-1"></i>Điểm danh gần đây</h6>
+  {% if recent_att %}
+  <div class="card shadow-sm border-0 mb-3">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead class="table-light"><tr><th>Ngày</th><th>Lớp</th><th>Trạng thái</th></tr></thead>
+        <tbody>
+          {% for att in recent_att %}
+          <tr>
+            <td class="text-muted small">{{ att.schedule.date | date_vn }}</td>
+            <td class="fw-semibold small">{{ att.schedule.class_.name }}</td>
+            <td>
+              {% if att.status == 'present' %}<span class="badge bg-success">Có mặt</span>
+              {% elif att.status == 'absent' %}<span class="badge bg-danger">Vắng</span>
+              {% elif att.status == 'late' %}<span class="badge bg-warning text-dark">Trễ</span>
+              {% else %}<span class="badge bg-secondary">Vắng phép</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if student %}
+    <div class="card-footer text-center py-2">
+      <a href="{{ url_for('parent.attendance', student_id=student.id) }}" class="small text-success fw-semibold">Xem tất cả <i class="bi bi-arrow-right"></i></a>
+    </div>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="alert alert-light border text-center text-muted small mb-3">Chưa có dữ liệu điểm danh</div>
+  {% endif %}
+
+  <!-- KHEN THƯỞNG -->
+  {% if pending_rewards %}
+  <h6 class="text-uppercase text-muted fw-bold mb-2 mt-3"><i class="bi bi-trophy me-1 text-warning"></i>Khen thưởng gần đây</h6>
+  <div class="card shadow-sm border-0 mb-3">
+    <ul class="list-group list-group-flush">
+      {% for r in pending_rewards %}
+      <li class="list-group-item d-flex align-items-center gap-2 py-2">
+        <span class="badge {% if r.reward_type == 'cash' %}bg-warning text-dark{% else %}bg-info text-dark{% endif %} fs-6 px-2 flex-shrink-0">
+          <i class="bi {% if r.reward_type == 'cash' %}bi-cash{% else %}bi-gift{% endif %}"></i>
+        </span>
+        <div class="flex-grow-1">
+          <div class="small fw-semibold">{{ r.reason }}</div>
+          <div class="text-muted" style="font-size:0.72rem;">{{ r.reward_date | date_vn }}</div>
+        </div>
+        {% if r.amount %}<span class="badge bg-success">{{ r.amount | vnd }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% if student %}
+    <div class="card-footer text-center py-2">
+      <a href="{{ url_for('parent.rewards', student_id=student.id) }}" class="small text-success fw-semibold">Xem tất cả <i class="bi bi-arrow-right"></i></a>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- MODAL ĐĂNG KÝ LỚP HỌC -->
+{% if student %}
+<div class="modal fade" id="enrollModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-4 border-0 shadow-lg">
+      <div class="modal-header border-0">
+        <div>
+          <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle-fill text-primary me-2"></i>Đăng ký lớp học mới</h5>
+          <p class="text-muted small mb-0 mt-1">Cô Tuyền sẽ liên hệ lại để tư vấn và xác nhận lịch học phù hợp.</p>
+        </div>
+        <button type="button" class="btn-close ms-3" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{{ url_for('parent.enroll_request', student_id=student.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body pt-0">
+          <div class="mb-3 p-3 rounded-3" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+            <div class="small text-muted"><i class="bi bi-person-fill me-1"></i>Học sinh: <strong>{{ student.full_name }}</strong>
+              {% if student.current_school %} · {{ student.current_school }}{% endif %}
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Môn học muốn đăng ký <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" name="subject" placeholder="Ví dụ: Toán, Văn, Tiếng Anh..." required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Khối / Lớp tại trường</label>
+            <input type="text" class="form-control" name="grade_level"
+                   placeholder="Ví dụ: Lớp 6A, Lớp 10B..."
+                   value="{{ student.current_grade or '' }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Ghi chú thêm</label>
+            <textarea class="form-control" name="note" rows="2"
+                      placeholder="Thời gian rảnh, buổi sáng/chiều/tối..."></textarea>
+          </div>
+          <div class="p-3 rounded-3" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="enroll_confirm_tuition" name="confirm_tuition" value="1">
+              <label class="form-check-label fw-semibold" for="enroll_confirm_tuition">
+                Xác nhận học phí trước khi học
+              </label>
+            </div>
+            <p class="text-muted small mb-0 mt-1">Nếu chọn, cô Tuyền sẽ liên hệ để thông báo học phí trước khi bắt đầu.</p>
+          </div>
+        </div>
+        <div class="modal-footer border-0 pt-0">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="submit" class="btn btn-primary px-4"><i class="bi bi-send me-1"></i>Gửi yêu cầu</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

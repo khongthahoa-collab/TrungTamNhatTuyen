@@ -1,0 +1,188 @@
+{% extends 'parent/base.html' %}
+{% block title %}Điểm số – {{ student.full_name }} – Nhật Tuyền{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <!-- Header -->
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h5 class="fw-bold mb-0"><i class="bi bi-bar-chart-fill text-success me-1"></i>Điểm số</h5>
+      <div class="text-muted small">{{ student.full_name }}</div>
+    </div>
+    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#scoreModal">
+      <i class="bi bi-plus-lg me-1"></i>Nhập điểm
+    </button>
+  </div>
+
+  <!-- Lọc theo loại điểm -->
+  <div class="d-flex gap-2 flex-wrap mb-3">
+    <a href="{{ url_for('parent.scores', student_id=student.id) }}"
+       class="btn btn-sm {% if not score_type_filter %}btn-success{% else %}btn-outline-secondary{% endif %} rounded-pill">
+      Tất cả
+    </a>
+    {% for key, label in score_types.items() %}
+    <a href="{{ url_for('parent.scores', student_id=student.id, score_type=key) }}"
+       class="btn btn-sm {% if score_type_filter == key %}btn-success{% else %}btn-outline-secondary{% endif %} rounded-pill">
+      {{ label }}
+    </a>
+    {% endfor %}
+  </div>
+
+  <!-- Stats summary -->
+  {% if all_scores %}
+  {% set avg = (all_scores | map(attribute='score_value') | list | sum) / (all_scores | length) %}
+  <div class="row g-2 mb-3">
+    <div class="col-4">
+      <div class="card border-0 shadow-sm text-center py-2">
+        <div class="fw-bold text-success" style="font-size:1.3rem;">{{ all_scores | length }}</div>
+        <div class="text-muted" style="font-size:0.72rem;">Tổng điểm</div>
+      </div>
+    </div>
+    <div class="col-4">
+      <div class="card border-0 shadow-sm text-center py-2">
+        <div class="fw-bold {% if avg >= 8 %}text-success{% elif avg >= 6.5 %}text-warning{% else %}text-danger{% endif %}" style="font-size:1.3rem;">
+          {{ "%.1f"|format(avg) }}
+        </div>
+        <div class="text-muted" style="font-size:0.72rem;">TB {{ score_types.get(score_type_filter, 'chung') if score_type_filter else 'chung' }}</div>
+      </div>
+    </div>
+    <div class="col-4">
+      <div class="card border-0 shadow-sm text-center py-2">
+        <div class="fw-bold text-primary" style="font-size:1.3rem;">{{ all_scores | map(attribute='score_value') | list | max }}</div>
+        <div class="text-muted" style="font-size:0.72rem;">Cao nhất</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Scores by class -->
+  {% if by_class %}
+    {% for class_name, scores in by_class.items() %}
+    <div class="mb-4">
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <div class="rounded bg-success bg-opacity-10 px-2 py-1">
+          <span class="fw-bold text-success"><i class="bi bi-journal-bookmark me-1"></i>{{ class_name }}</span>
+        </div>
+        <span class="badge bg-secondary">{{ scores | length }}</span>
+      </div>
+      <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Ngày</th>
+                <th>Loại</th>
+                <th>Nguồn</th>
+                <th class="text-end">Điểm</th>
+                <th>Ghi chú</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for score in scores %}
+              <tr>
+                <td class="text-muted small text-nowrap">{{ score.exam_date | date_vn if score.exam_date else '—' }}</td>
+                <td><span class="badge bg-primary bg-opacity-75 small">{{ score.score_type_label }}</span></td>
+                <td>
+                  {% if score.score_source == 'school' %}
+                    <span class="badge bg-info bg-opacity-75 small">Thi trường</span>
+                  {% else %}
+                    <span class="badge bg-secondary bg-opacity-75 small">TT nhập</span>
+                  {% endif %}
+                </td>
+                <td class="text-end">
+                  {% set pct = ((score.score_value / score.max_score * 100) | round | int) if score.max_score and score.max_score > 0 else none %}
+                  <span class="fw-bold {% if pct is not none %}{% if pct >= 80 %}text-success{% elif pct >= 60 %}text-warning{% else %}text-danger{% endif %}{% endif %}">
+                    {{ score.score_value }}
+                  </span>
+                  <span class="text-muted small">/{{ score.max_score | int }}</span>
+                  {% if pct is not none %}
+                  <div class="progress mt-1" style="height:3px;">
+                    <div class="progress-bar {% if pct >= 80 %}bg-success{% elif pct >= 60 %}bg-warning{% else %}bg-danger{% endif %}"
+                         style="width:{{ pct }}%"></div>
+                  </div>
+                  {% endif %}
+                </td>
+                <td class="text-muted small">{{ score.note or '–' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="alert alert-light border text-center text-muted">
+      <i class="bi bi-bar-chart fs-4 d-block mb-1"></i>
+      {% if score_type_filter %}Không có điểm loại "{{ score_types.get(score_type_filter) }}"{% else %}Chưa có điểm nào{% endif %}
+    </div>
+  {% endif %}
+
+</div>
+
+<!-- MODAL NHẬP ĐIỂM -->
+<div class="modal fade" id="scoreModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-4 border-0 shadow-lg">
+      <div class="modal-header border-0">
+        <div>
+          <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square text-primary me-2"></i>Báo cáo điểm số</h5>
+          <p class="text-muted small mb-0 mt-1">Nhập điểm thi trường để trung tâm theo dõi kết quả của con.</p>
+        </div>
+        <button type="button" class="btn-close ms-3" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{{ url_for('parent.score_report', student_id=student.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body pt-0">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Lớp học <span class="text-danger">*</span></label>
+            <select class="form-select" name="class_id" required>
+              <option value="">-- Chọn lớp --</option>
+              {% for cls in active_classes %}
+              <option value="{{ cls.id }}">{{ cls.name }} ({{ cls.course.name }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-6">
+              <label class="form-label fw-semibold">Loại điểm <span class="text-danger">*</span></label>
+              <select class="form-select" name="score_type" required>
+                <option value="">-- Chọn --</option>
+                {% for key, label in score_types.items() %}
+                <option value="{{ key }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold">Ngày kiểm tra</label>
+              <input type="date" class="form-control" name="exam_date">
+            </div>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-6">
+              <label class="form-label fw-semibold">Điểm đạt được <span class="text-danger">*</span></label>
+              <input type="number" class="form-control" name="score_value"
+                     min="0" max="100" step="0.1" placeholder="8.5" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold">Thang điểm</label>
+              <input type="number" class="form-control" name="max_score"
+                     min="1" max="100" step="0.5" value="10">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Ghi chú</label>
+            <input type="text" class="form-control" name="note"
+                   placeholder="Bài kiểm tra chương 3, thi học kỳ...">
+          </div>
+        </div>
+        <div class="modal-footer border-0 pt-0">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="submit" class="btn btn-primary px-4"><i class="bi bi-send me-1"></i>Gửi báo cáo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

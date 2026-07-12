@@ -1,0 +1,228 @@
+{% extends 'admin/base.html' %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Khen thưởng</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h5 class="mb-0 fw-bold"><i class="bi bi-trophy me-2 text-primary"></i>Quản lý khen thưởng</h5>
+</div>
+
+<!-- Tab lọc trạng thái -->
+<ul class="nav nav-pills mb-3">
+  <li class="nav-item">
+    <a href="{{ url_for('admin.rewards', show='pending') }}"
+       class="nav-link {% if show == 'pending' %}active{% endif %}">
+      Chờ duyệt
+      {% if show == 'pending' and records %}
+      <span class="badge bg-warning text-dark ms-1 rounded-pill">{{ records | length }}</span>
+      {% endif %}
+    </a>
+  </li>
+  <li class="nav-item">
+    <a href="{{ url_for('admin.rewards', show='confirmed') }}"
+       class="nav-link {% if show == 'confirmed' %}active{% endif %}">
+      Đã xác nhận
+    </a>
+  </li>
+  <li class="nav-item">
+    <a href="{{ url_for('admin.rewards', show='all') }}"
+       class="nav-link {% if show == 'all' or not show %}active{% endif %}">
+      Tất cả
+    </a>
+  </li>
+</ul>
+
+<!-- Tổng tiền thưởng đã xác nhận -->
+{% if total_confirmed %}
+<div class="alert alert-success d-flex align-items-center gap-2 mb-3">
+  <i class="bi bi-trophy-fill text-success fs-5"></i>
+  <div>Tổng tiền thưởng đã xác nhận: <strong>{{ total_confirmed | vnd }}</strong></div>
+</div>
+{% endif %}
+
+<!-- Bảng khen thưởng -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Học sinh</th>
+            <th>Lý do</th>
+            <th class="text-end">Số tiền</th>
+            <th>Ngày</th>
+            <th>Loại</th>
+            <th>Nguồn</th>
+            <th class="text-center">Trạng thái</th>
+            <th class="text-center">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for reward in records %}
+          <tr>
+            <td class="ps-3 fw-semibold small">
+              <a href="{{ url_for('admin.student_detail', student_id=reward.student.id) }}" class="text-decoration-none">
+                {{ reward.student.full_name }}
+              </a>
+            </td>
+            <td class="small">{{ reward.reason }}</td>
+            <td class="text-end small fw-semibold">
+              {% if reward.amount %}{{ reward.amount | vnd }}{% else %}—{% endif %}
+            </td>
+            <td class="small">{{ reward.reward_date | date_vn }}</td>
+            <td>
+              {% if reward.reward_type == 'money' %}
+              <span class="badge bg-success-subtle text-success border border-success-subtle">Tiền mặt</span>
+              {% else %}
+              <span class="badge bg-info-subtle text-info border border-info-subtle">Quà tặng</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if reward.source == 'auto' %}
+              <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Tự động</span>
+              {% else %}
+              <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Admin</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% if reward.status == 'confirmed' %}
+              <span class="badge bg-success-subtle text-success border border-success-subtle">Đã xác nhận</span>
+              {% elif reward.status == 'pending' %}
+              <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Chờ duyệt</span>
+              {% else %}
+              <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Đã hủy</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% if reward.status == 'pending' %}
+              <div class="d-flex justify-content-center gap-1">
+                <!-- Nút xác nhận (có override số tiền) -->
+                <button type="button" class="btn btn-outline-success btn-sm"
+                        data-bs-toggle="modal" data-bs-target="#confirmRewardModal"
+                        data-reward-id="{{ reward.id }}"
+                        data-student-name="{{ reward.student.full_name }}"
+                        data-amount="{{ reward.amount or '' }}"
+                        title="Xác nhận thưởng">
+                  <i class="bi bi-check-circle me-1"></i>Duyệt
+                </button>
+                <!-- Nút hủy -->
+                <form method="post" action="{{ url_for('admin.reward_cancel', reward_id=reward.id) }}"
+                      onsubmit="return confirm('Hủy khen thưởng này?')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-outline-danger btn-sm" title="Hủy thưởng">
+                    <i class="bi bi-x-circle"></i>
+                  </button>
+                </form>
+              </div>
+              {% else %}
+              <span class="text-muted small">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="8" class="text-center text-muted py-4">
+              <i class="bi bi-inbox d-block mb-2 fs-4"></i>Không có dữ liệu khen thưởng
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Form thêm thưởng thủ công -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-semibold">
+    <i class="bi bi-plus-circle me-2 text-primary"></i>Thêm thưởng thủ công
+  </div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('admin.reward_add') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="row g-3">
+        <div class="col-12 col-md-4">
+          <label class="form-label fw-semibold">Học sinh <span class="text-danger">*</span></label>
+          <select name="student_id" class="form-select" required>
+            <option value="">-- Chọn học sinh --</option>
+            {% for student in students %}
+            <option value="{{ student.id }}">{{ student.full_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label fw-semibold">Lý do thưởng <span class="text-danger">*</span></label>
+          <input type="text" name="reason" class="form-control" required placeholder="Nhập lý do khen thưởng...">
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label fw-semibold">Số tiền (VND)</label>
+          <input type="number" name="amount" class="form-control" min="0" step="1000" placeholder="Để trống nếu là quà">
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label fw-semibold">Loại thưởng</label>
+          <select name="reward_type" class="form-select">
+            <option value="money">Tiền mặt</option>
+            <option value="gift">Quà tặng</option>
+          </select>
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label fw-semibold">Ngày thưởng</label>
+          <input type="date" name="reward_date" class="form-control" value="{{ today | string if today else '' }}">
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label fw-semibold">Ghi chú</label>
+          <input type="text" name="note" class="form-control" placeholder="Ghi chú...">
+        </div>
+        <div class="col-12 col-md-2 d-flex align-items-end">
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-plus-lg me-1"></i>Thêm
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal xác nhận thưởng -->
+<div class="modal fade" id="confirmRewardModal" tabindex="-1" aria-labelledby="confirmRewardModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title fw-bold" id="confirmRewardModalLabel">
+          <i class="bi bi-trophy me-2 text-success"></i>Xác nhận khen thưởng
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+      </div>
+      <form method="post" id="confirmRewardForm" action="">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <p class="small mb-3">Xác nhận thưởng cho học sinh <strong id="confirmStudentName"></strong>.</p>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Số tiền thưởng (VND)</label>
+            <input type="number" name="amount" id="confirmAmount" class="form-control" min="0" step="1000" placeholder="Giữ nguyên nếu không đổi">
+            <div class="form-text">Để trống để giữ nguyên số tiền ban đầu.</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-check-lg me-1"></i>Xác nhận thưởng
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('confirmRewardModal').addEventListener('show.bs.modal', function(event) {
+  const btn = event.relatedTarget;
+  document.getElementById('confirmStudentName').textContent = btn.dataset.studentName;
+  document.getElementById('confirmAmount').value = btn.dataset.amount || '';
+  document.getElementById('confirmRewardForm').action =
+    "{{ url_for('admin.reward_confirm', reward_id=0) }}".replace('/0', '/' + btn.dataset.rewardId);
+});
+</script>
+{% endblock %}

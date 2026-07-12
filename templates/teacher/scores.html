@@ -1,0 +1,185 @@
+{% extends 'teacher/base.html' %}
+{% block title %}Nhập điểm: {{ class_.name }} – Nhật Tuyền{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <!-- Header -->
+  <div class="mb-3">
+    <a href="{{ url_for('teacher.dashboard') }}" class="btn btn-sm btn-outline-secondary mb-2">
+      <i class="bi bi-arrow-left me-1"></i>Quay lại
+    </a>
+    <h5 class="fw-bold mb-0">
+      <i class="bi bi-pencil-square text-primary me-1"></i>Nhập điểm
+    </h5>
+    <div class="text-muted fw-semibold">{{ class_.name }}</div>
+  </div>
+
+  <!-- ===== SCORE ENTRY FORM ===== -->
+  <form method="post" action="{{ url_for('teacher.scores', class_id=class_.id) }}" id="scoresForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <!-- Score source -->
+    <div class="card shadow-sm border-0 mb-3">
+      <div class="card-header fw-semibold py-2 bg-light">
+        <i class="bi bi-info-circle me-1"></i>Thông tin bài kiểm tra
+      </div>
+      <div class="card-body">
+
+        <!-- score_source radio -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold mb-2">Nguồn điểm</label>
+          <div class="d-flex gap-2">
+            {% for key, label in score_sources.items() %}
+            <div class="flex-fill">
+              <input type="radio" class="btn-check" name="score_source" id="src_{{ key }}"
+                     value="{{ key }}"
+                     {% if loop.first %}checked{% endif %}
+                     onchange="toggleSchoolName()">
+              <label class="btn btn-outline-primary w-100 text-center" for="src_{{ key }}"
+                     style="min-height:48px;display:flex;align-items:center;justify-content:center;">
+                {{ label }}
+              </label>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- score_type select -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="score_type">Loại điểm</label>
+          <select class="form-select" name="score_type" id="score_type" style="min-height:44px;">
+            {% for key, label in score_types.items() %}
+            <option value="{{ key }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- exam_date -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="exam_date">Ngày kiểm tra</label>
+          <input type="date" class="form-control" name="exam_date" id="exam_date"
+                 value="{{ today.strftime('%Y-%m-%d') }}" style="min-height:44px;">
+        </div>
+
+        <!-- school_name (shown only when source = truong/school) -->
+        <div class="mb-3" id="schoolNameField" style="display:none;">
+          <label class="form-label fw-semibold" for="school_name">Tên trường</label>
+          <input type="text" class="form-control" name="school_name" id="school_name"
+                 placeholder="Nhập tên trường thi..." style="min-height:44px;">
+        </div>
+
+        <!-- max_score -->
+        <div class="mb-0">
+          <label class="form-label fw-semibold" for="max_score">Điểm tối đa</label>
+          <input type="number" class="form-control" name="max_score" id="max_score"
+                 value="10" min="1" max="1000" step="0.5" style="min-height:44px;">
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Students score table -->
+    <div class="card shadow-sm border-0 mb-3">
+      <div class="card-header fw-semibold py-2 bg-light d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-people me-1"></i>Điểm học sinh</span>
+        <span class="badge bg-secondary">{{ students | length }} HS</span>
+      </div>
+      <div class="card-body p-0">
+        {% if students %}
+          {% for student in students %}
+          <div class="d-flex align-items-center gap-2 px-3 py-2 border-bottom">
+            <div class="flex-grow-1">
+              <div class="fw-semibold">{{ student.full_name }}</div>
+            </div>
+            <div style="width:90px;">
+              <input type="number" class="form-control form-control-sm text-center"
+                     name="score_{{ student.id }}" placeholder="Điểm"
+                     min="0" step="0.25"
+                     style="min-height:44px;font-size:1rem;font-weight:600;">
+            </div>
+            <div style="width:130px;">
+              <input type="text" class="form-control form-control-sm"
+                     name="note_{{ student.id }}" placeholder="Ghi chú"
+                     style="min-height:44px;">
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="text-muted text-center py-3 small">Lớp chưa có học sinh</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Submit -->
+    <button type="submit" class="btn btn-primary btn-lg w-100 mb-4 shadow-sm" style="min-height:52px;font-size:1.1rem;">
+      <i class="bi bi-save me-2"></i>Nhập điểm
+    </button>
+  </form>
+
+  <!-- ===== ĐIỂM ĐÃ NHẬP GẦN ĐÂY ===== -->
+  <h6 class="text-uppercase text-muted fw-bold mb-2 mt-2">
+    <i class="bi bi-clock-history me-1"></i>Điểm đã nhập gần đây
+  </h6>
+
+  {% if recent_scores %}
+  <div class="card shadow-sm border-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Học sinh</th>
+            <th>Loại</th>
+            <th>Nguồn</th>
+            <th class="text-end">Điểm</th>
+            <th>Ngày</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in recent_scores %}
+          <tr>
+            <td class="fw-semibold">{{ row.student.full_name }}</td>
+            <td>
+              <span class="badge bg-secondary bg-opacity-75">
+                {{ score_types.get(row.score_type, row.score_type) }}
+              </span>
+            </td>
+            <td>
+              <span class="badge bg-primary bg-opacity-75">
+                {{ score_sources.get(row.score_source, row.score_source) }}
+              </span>
+            </td>
+            <td class="text-end fw-bold">
+              {{ row.score }}{% if row.max_score %}/{{ row.max_score }}{% endif %}
+            </td>
+            <td class="text-muted small">{{ row.exam_date | date_vn }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+    <div class="alert alert-light border text-center text-muted small">
+      Chưa có điểm nào được nhập
+    </div>
+  {% endif %}
+
+</div>
+
+{% block extra_js %}
+<script>
+function toggleSchoolName() {
+  const selected = document.querySelector('input[name="score_source"]:checked');
+  const field = document.getElementById('schoolNameField');
+  if (selected && (selected.value === 'truong' || selected.value === 'school')) {
+    field.style.display = '';
+  } else {
+    field.style.display = 'none';
+  }
+}
+// Init on load
+toggleSchoolName();
+</script>
+{% endblock %}
+{% endblock %}

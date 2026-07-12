@@ -1,0 +1,67 @@
+{% extends 'teacher/base.html' %}
+{% block title %}Kết quả làm bài – Giáo viên – Nhật Tuyền{% endblock %}
+{% block content %}
+<div class="container-fluid px-3 pt-3">
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    <a href="{{ url_for('teacher.exams_list') }}" class="small text-decoration-none text-muted d-block mb-1">
+      <i class="bi bi-arrow-left me-1"></i>Đề thi online
+    </a>
+    <h5 class="fw-bold mb-1">{{ exam.title }}</h5>
+    <div class="text-muted small">{{ exam.subject }} · {{ exam.type_label }} · {{ rows | length }} học sinh đã làm bài</div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Tên học sinh</th>
+            <th class="text-center">Điểm</th>
+            <th class="text-center">Số lần làm bài</th>
+            <th class="text-center">Thời gian làm bài</th>
+            <th class="text-center">Số lần cảnh cáo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr {% if row.flagged %}class="table-warning"{% endif %}>
+            <td class="ps-3 fw-semibold">
+              {{ row.student.full_name if row.student else 'Học sinh đã xóa' }}
+              {% if row.flagged %}<i class="bi bi-exclamation-triangle-fill text-warning ms-1" title="Có dấu hiệu gian lận"></i>{% endif %}
+            </td>
+            <td class="text-center">
+              {% if row.result %}
+              <span class="badge {% if row.result.score_10 >= 8 %}bg-success{% elif row.result.score_10 >= 5 %}bg-primary{% else %}bg-danger{% endif %}">
+                {{ row.result.get('score_10', 0) }}/10
+              </span>
+              {% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            <td class="text-center">{{ row.attempts_count }}</td>
+            <td class="text-center small">
+              {% if row.duration_seconds is not none %}
+                {{ (row.duration_seconds // 60) }} phút {{ '%02d' % (row.duration_seconds % 60) }} giây
+              {% else %}—{% endif %}
+            </td>
+            <td class="text-center">
+              {% if row.cheat_count > 0 %}
+              <span class="badge bg-warning text-dark rounded-pill">{{ row.cheat_count }}</span>
+              {% else %}<span class="text-muted small">0</span>{% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="5" class="text-center text-muted py-4">
+              <i class="bi bi-bar-chart d-block mb-2 fs-4"></i>Chưa có học sinh nào làm bài
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+{% endblock %}

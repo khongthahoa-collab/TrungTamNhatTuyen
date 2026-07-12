@@ -1,0 +1,502 @@
+{% extends 'admin/base.html' %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ url_for('admin.students') }}">Học sinh</a></li>
+<li class="breadcrumb-item active">{{ student.full_name }}</li>
+{% endblock %}
+
+{% block content %}
+<!-- Thẻ thông tin học sinh -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <div class="row align-items-start">
+      <div class="col-12 col-md-8">
+        <div class="d-flex align-items-center gap-3 mb-3">
+          <!-- Avatar / photo -->
+          <div class="position-relative flex-shrink-0" style="width:72px;height:72px;">
+            {% if student.photo_path %}
+            <img src="{{ url_for('static', filename=student.photo_path) }}"
+                 class="rounded-circle object-fit-cover border border-2 border-primary-subtle"
+                 style="width:72px;height:72px;" alt="{{ student.full_name }}">
+            {% else %}
+            <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
+                 style="width:72px;height:72px;font-size:1.6rem;">
+              {{ student.full_name[0] }}
+            </div>
+            {% endif %}
+            <!-- Upload trigger -->
+            <label for="photoInput" class="position-absolute bottom-0 end-0 bg-white rounded-circle shadow-sm d-flex align-items-center justify-content-center"
+                   style="width:24px;height:24px;cursor:pointer;border:1px solid #dee2e6;" title="Cập nhật ảnh">
+              <i class="bi bi-camera-fill text-primary" style="font-size:0.7rem;"></i>
+            </label>
+          </div>
+
+          <!-- Hidden upload form -->
+          <form id="photoForm" method="post" action="{{ url_for('admin.student_photo_upload', student_id=student.id) }}"
+                enctype="multipart/form-data" class="d-none">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="file" id="photoInput" name="photo" accept="image/*"
+                   onchange="document.getElementById('photoForm').submit()">
+          </form>
+
+          <div>
+            <h5 class="mb-0 fw-bold">{{ student.full_name }}</h5>
+            <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
+              {% if student.level %}
+              <span class="badge bg-info-subtle text-info border border-info-subtle">{{ student.level_label }}</span>
+              {% endif %}
+              {% if student.status == 'pending_confirmation' %}
+              <span class="badge" style="background:#f59e0b;color:#fff;">Đang xác nhận</span>
+              {% elif student.is_active %}
+              <span class="badge bg-success-subtle text-success border border-success-subtle">Đang học</span>
+              {% else %}
+              <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Nghỉ học</span>
+              {% endif %}
+            </div>
+            {% if student.photo_path %}
+            <form method="post" action="{{ url_for('admin.student_photo_delete', student_id=student.id) }}"
+                  onsubmit="return confirm('Xóa ảnh này?')" class="mt-1">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-link btn-sm text-danger p-0" style="font-size:0.75rem;">
+                <i class="bi bi-trash me-1"></i>Xóa ảnh
+              </button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="row g-2">
+          {% if student.date_of_birth %}
+          <div class="col-6 col-md-4">
+            <div class="small text-muted">Ngày sinh</div>
+            <div class="fw-semibold small">{{ student.date_of_birth | date_vn }}</div>
+          </div>
+          {% endif %}
+          {% if student.gender %}
+          <div class="col-6 col-md-4">
+            <div class="small text-muted">Giới tính</div>
+            <div class="fw-semibold small">{{ 'Nam' if student.gender == 'male' else 'Nữ' }}</div>
+          </div>
+          {% endif %}
+          {% if student.current_school %}
+          <div class="col-6 col-md-4">
+            <div class="small text-muted">Trường</div>
+            <div class="fw-semibold small">{{ student.current_school }}</div>
+          </div>
+          {% endif %}
+          {% if student.current_grade %}
+          <div class="col-6 col-md-4">
+            <div class="small text-muted">Lớp</div>
+            <div class="fw-semibold small">{{ student.current_grade }}</div>
+          </div>
+          {% endif %}
+          {% if student.parent_name %}
+          <div class="col-6 col-md-4">
+            <div class="small text-muted">Phụ huynh</div>
+            <div class="fw-semibold small">{{ student.parent_name }}</div>
+          </div>
+          {% endif %}
+          {% if student.parent_phone %}
+          <div class="col-6 col-md-4">
+            <div class="small text-muted">SĐT phụ huynh</div>
+            <div class="fw-semibold small">
+              <a href="tel:{{ student.parent_phone }}" class="text-decoration-none">{{ student.parent_phone }}</a>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        {% if student.note %}
+        <div class="mt-2">
+          <div class="small text-muted">Ghi chú</div>
+          <div class="small">{{ student.note }}</div>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="col-12 col-md-4 d-flex justify-content-md-end gap-2 mt-3 mt-md-0">
+        <a href="{{ url_for('admin.student_edit', student_id=student.id) }}" class="btn btn-outline-primary btn-sm">
+          <i class="bi bi-pencil me-1"></i>Sửa thông tin
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tài khoản phụ huynh -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-semibold"><i class="bi bi-person-badge me-2 text-primary"></i>Tài khoản phụ huynh</div>
+  <div class="card-body">
+    {% if parent_account %}
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div>
+        <div class="fw-semibold small">{{ parent_account.full_name }}</div>
+        <div class="small text-muted">Đăng nhập bằng SĐT: {{ parent_account.phone }} (hoặc username: {{ parent_account.username }})</div>
+      </div>
+      <form method="post" action="{{ url_for('admin.student_reset_parent_password', student_id=student.id) }}"
+            onsubmit="return confirm('Đặt lại mật khẩu phụ huynh về định dạng mặc định?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-outline-warning btn-sm">
+          <i class="bi bi-key me-1"></i>Đặt lại mật khẩu
+        </button>
+      </form>
+    </div>
+    {% else %}
+    <p class="text-muted small mb-0">Học sinh chưa có tài khoản phụ huynh liên kết. Để tạo, hãy bật tùy chọn "Tạo tài khoản phụ huynh" khi thêm học sinh mới.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Tab layout -->
+<ul class="nav nav-tabs mb-3" id="studentTabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="classes-tab" data-bs-toggle="tab" data-bs-target="#classes" type="button" role="tab">
+      <i class="bi bi-journal-bookmark me-1"></i>Lớp đang học
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="scores-tab" data-bs-toggle="tab" data-bs-target="#scores" type="button" role="tab">
+      <i class="bi bi-clipboard-data me-1"></i>Điểm số
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="rewards-tab" data-bs-toggle="tab" data-bs-target="#rewards" type="button" role="tab">
+      <i class="bi bi-trophy me-1"></i>Thưởng
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="tuition-tab" data-bs-toggle="tab" data-bs-target="#tuition" type="button" role="tab">
+      <i class="bi bi-cash-stack me-1"></i>Học phí
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content" id="studentTabsContent">
+
+  <!-- Tab 1: Lớp đang học -->
+  <div class="tab-pane fade show active" id="classes" role="tabpanel">
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white fw-semibold">Các lớp đang tham gia</div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Tên lớp</th>
+                <th>Môn</th>
+                <th>Giáo viên</th>
+                <th>Chiết khấu</th>
+                <th>Ghi chú</th>
+                <th>Trạng thái</th>
+                <th class="text-center">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for enrollment in student.enrollments %}
+              {% if enrollment.is_active %}
+              <tr>
+                <td class="ps-3 fw-semibold">
+                  <a href="{{ url_for('admin.class_detail', class_id=enrollment.class_.id) }}" class="text-decoration-none">
+                    {{ enrollment.class_.name }}
+                  </a>
+                </td>
+                <td class="small">{{ enrollment.class_.course.name if enrollment.class_.course else '—' }}</td>
+                <td class="small">{{ enrollment.class_.primary_teacher.full_name if enrollment.class_.primary_teacher else '—' }}</td>
+                <td class="small">
+                  {% if enrollment.discount_pct %}
+                  <span class="badge bg-warning-subtle text-warning border border-warning-subtle">{{ enrollment.discount_pct }}%</span>
+                  {% else %}
+                  <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
+                <td class="small text-muted">{{ enrollment.note or '—' }}</td>
+                <td>
+                  <span class="badge bg-success-subtle text-success border border-success-subtle">Đang học</span>
+                </td>
+                <td class="text-center">
+                  <form method="post" action="{{ url_for('admin.student_unenroll', student_id=student.id, class_id=enrollment.class_id) }}"
+                        onsubmit="return confirm('Bạn có chắc muốn rút học sinh khỏi lớp này?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                      <i class="bi bi-x-lg"></i>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% endif %}
+              {% else %}
+              <tr>
+                <td colspan="7" class="text-center text-muted py-3 ps-3">
+                  Chưa đăng ký lớp nào
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Form đăng ký lớp mới -->
+    {% if available_classes %}
+    <div class="card border-0 shadow-sm border-start border-primary border-3">
+      <div class="card-header bg-white fw-semibold">
+        <i class="bi bi-plus-circle me-2 text-primary"></i>Đăng ký lớp mới
+      </div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('admin.student_enroll', student_id=student.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="row g-3 align-items-end">
+            <div class="col-12 col-md-4">
+              <label class="form-label fw-semibold">Chọn lớp</label>
+              <select name="class_id" class="form-select" required>
+                <option value="">-- Chọn lớp --</option>
+                {% for cls in available_classes %}
+                {% if cls.id not in enrolled_class_ids %}
+                <option value="{{ cls.id }}">{{ cls.name }} ({{ cls.course.name if cls.course else '' }})</option>
+                {% endif %}
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12 col-md-2">
+              <label class="form-label fw-semibold">Chiết khấu (%)</label>
+              <input type="number" name="discount_pct" class="form-control" min="0" max="100" step="1" placeholder="0">
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label fw-semibold">Ghi chú</label>
+              <input type="text" name="note" class="form-control" placeholder="Ghi chú đăng ký...">
+            </div>
+            <div class="col-12 col-md-2">
+              <button type="submit" class="btn btn-primary w-100">
+                <i class="bi bi-plus-lg me-1"></i>Đăng ký
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Tab 2: Điểm số -->
+  <div class="tab-pane fade" id="scores" role="tabpanel">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold">Lịch sử điểm số</div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Ngày</th>
+                <th>Môn</th>
+                <th>Loại bài kiểm tra</th>
+                <th>Nguồn</th>
+                <th class="text-center">Điểm</th>
+                <th>Ghi chú</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for score in recent_scores %}
+              <tr>
+                <td class="ps-3 small">{{ score.date | date_vn }}</td>
+                <td class="small fw-semibold">{{ score.class_.name if score.class_ else '—' }}</td>
+                <td class="small">{{ score.score_type or '—' }}</td>
+                <td class="small text-muted">{{ score.score_source or '—' }}</td>
+                <td class="text-center">
+                  <span class="badge {% if score.score_value >= 8 %}bg-success{% elif score.score_value >= 6.5 %}bg-primary{% elif score.score_value >= 5 %}bg-warning text-dark{% else %}bg-danger{% endif %} rounded-pill">
+                    {{ score.score_value }}
+                  </span>
+                </td>
+                <td class="small text-muted">{{ score.note or '—' }}</td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="6" class="text-center text-muted py-4 ps-3">
+                  <i class="bi bi-clipboard-x d-block mb-2 fs-4"></i>Chưa có điểm số nào
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 3: Thưởng -->
+  <div class="tab-pane fade" id="rewards" role="tabpanel">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold">Lịch sử khen thưởng</div>
+      <div class="card-body">
+        {% for reward in recent_rewards %}
+        <div class="d-flex align-items-center justify-content-between border-bottom py-2">
+          <div>
+            <div class="fw-semibold small">{{ reward.reason }}</div>
+            <div class="small text-muted">{{ reward.reward_date | date_vn }} &bull; {{ 'Tiền mặt' if reward.reward_type == 'money' else 'Quà tặng' }}</div>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            {% if reward.amount %}
+            <span class="fw-semibold text-success small">{{ reward.amount | vnd }}</span>
+            {% endif %}
+            {% if reward.status == 'confirmed' %}
+            <span class="badge bg-success-subtle text-success border border-success-subtle">Đã xác nhận</span>
+            {% elif reward.status == 'pending' %}
+            <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Chờ duyệt</span>
+            {% else %}
+            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Đã hủy</span>
+            {% endif %}
+          </div>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4">
+          <i class="bi bi-trophy fs-4 d-block mb-2"></i>Chưa có khen thưởng nào
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 4: Học phí -->
+  <div class="tab-pane fade" id="tuition" role="tabpanel">
+
+    <!-- Tóm tắt tháng hiện tại -->
+    <div class="row g-3 mb-3">
+      <div class="col-6 col-md-4">
+        <div class="card border-0 shadow-sm border-start border-primary border-3">
+          <div class="card-body py-2">
+            <div class="small text-muted">Tổng HP tháng {{ today.month }}/{{ today.year }}</div>
+            <div class="fw-bold text-primary">{{ current_total | vnd }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-4">
+        <div class="card border-0 shadow-sm border-start border-danger border-3">
+          <div class="card-body py-2">
+            <div class="small text-muted">Còn nợ tháng này</div>
+            <div class="fw-bold text-danger">{{ current_unpaid | vnd }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chi tiết học phí tháng hiện tại theo lớp -->
+    {% if current_month_tuition %}
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white fw-semibold small py-2">
+        Học phí tháng {{ today.month }}/{{ today.year }} – Chi tiết theo lớp
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-3">Lớp học</th>
+              <th class="text-end">Số tiền</th>
+              <th class="text-center">Trạng thái</th>
+              <th class="text-center">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for tp in current_month_tuition %}
+            <tr>
+              <td class="ps-3 small fw-semibold">{{ tp.class_.name if tp.class_ else '—' }}</td>
+              <td class="text-end small">
+                {{ tp.amount | vnd }}
+                <!-- Nút chỉnh sửa số tiền -->
+                <button class="btn btn-link btn-sm p-0 ms-1" type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#editAmount{{ tp.id }}"
+                        title="Điều chỉnh">
+                  <i class="bi bi-pencil-fill text-muted" style="font-size:0.7rem;"></i>
+                </button>
+              </td>
+              <td class="text-center">
+                {% if tp.is_paid %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle small">Đã đóng</span>
+                {% else %}
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle small">Chưa đóng</span>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                {% if not tp.is_paid %}
+                <form method="post" action="{{ url_for('admin.tuition_mark_paid', payment_id=tp.id) }}" class="d-inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="method" value="cash">
+                  <button type="submit" class="btn btn-success btn-sm" title="Đánh dấu đã thu">
+                    <i class="bi bi-check-circle"></i>
+                  </button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            <!-- Inline edit amount -->
+            <tr class="collapse" id="editAmount{{ tp.id }}">
+              <td colspan="4" class="bg-light px-3 py-2">
+                <form method="post" action="{{ url_for('admin.tuition_adjust_amount', payment_id=tp.id) }}"
+                      class="d-flex gap-2 align-items-center">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="number" name="amount" class="form-control form-control-sm"
+                         style="max-width:140px;" value="{{ tp.amount | int }}" min="0" step="1000">
+                  <input type="text" name="note" class="form-control form-control-sm"
+                         style="max-width:200px;" placeholder="Lý do điều chỉnh...">
+                  <button type="submit" class="btn btn-primary btn-sm">Lưu</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+            <tr class="table-light fw-semibold">
+              <td class="ps-3 small">Tổng cộng</td>
+              <td class="text-end small">{{ current_total | vnd }}</td>
+              <td colspan="2"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Lịch sử học phí -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold small py-2">Lịch sử học phí (12 tháng gần nhất)</div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Tháng/Năm</th>
+                <th>Lớp</th>
+                <th class="text-end">Số tiền</th>
+                <th class="text-center">Trạng thái</th>
+                <th>Ngày đóng</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for record in tuition_records %}
+              <tr>
+                <td class="ps-3 fw-semibold small">T{{ record.month }}/{{ record.year }}</td>
+                <td class="small">{{ record.class_.name if record.class_ else '—' }}</td>
+                <td class="text-end fw-semibold small">{{ record.amount | vnd }}</td>
+                <td class="text-center">
+                  {% if record.is_paid %}
+                  <span class="badge bg-success-subtle text-success border border-success-subtle small">Đã đóng</span>
+                  {% else %}
+                  <span class="badge bg-danger-subtle text-danger border border-danger-subtle small">Chưa đóng</span>
+                  {% endif %}
+                </td>
+                <td class="small text-muted">{{ record.paid_at | date_vn if record.paid_at else '—' }}</td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="5" class="text-center text-muted py-4 ps-3">
+                  <i class="bi bi-cash d-block mb-2 fs-4"></i>Chưa có dữ liệu học phí
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

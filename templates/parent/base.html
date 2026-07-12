@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+{% block body %}
+
+<!-- Top Navbar -->
+<nav class="navbar navbar-dark sticky-top" style="background: linear-gradient(90deg, #06b6d4 0%, #0891b2 100%); z-index:200;">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{{ url_for('parent.dashboard') }}">
+      <i class="bi bi-mortarboard-fill"></i>
+      <span>Nhật Tuyền</span>
+    </a>
+
+    <div class="d-flex align-items-center gap-2">
+      <!-- Student selector (if multiple children) -->
+      {% if children and children | length > 1 %}
+        {% set current_student = student if student is defined else children[0] %}
+        <div class="dropdown">
+          <button class="btn btn-sm btn-outline-light dropdown-toggle d-flex align-items-center gap-1"
+                  type="button" data-bs-toggle="dropdown">
+            <i class="bi bi-person-circle"></i>
+            <span class="d-none d-sm-inline text-truncate" style="max-width:100px;">
+              {{ current_student.full_name if current_student else 'Chọn HS' }}
+            </span>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end shadow">
+            <li><h6 class="dropdown-header">Chọn học sinh</h6></li>
+            {% for child in children %}
+            <li>
+              <a class="dropdown-item d-flex align-items-center gap-2
+                        {% if current_student and child.id == current_student.id %}active{% endif %}"
+                 href="{{ url_for('parent.switch_student', student_id=child.id) }}">
+                <div class="rounded-circle bg-success bg-opacity-10 d-flex align-items-center justify-content-center text-success fw-bold flex-shrink-0"
+                     style="width:28px;height:28px;font-size:0.75rem;">
+                  {{ child.full_name[0] }}
+                </div>
+                {{ child.full_name }}
+              </a>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% elif children and children | length == 1 %}
+        <span class="text-light small d-flex align-items-center gap-1">
+          <i class="bi bi-person-circle"></i>
+          {{ children[0].full_name }}
+        </span>
+      {% endif %}
+
+      <!-- Bell notification -->
+      <a href="#" class="btn btn-sm btn-outline-light position-relative" title="Thông báo">
+        <i class="bi bi-bell{% if unread_notifications %}-fill{% endif %}"></i>
+        {% if unread_notifications %}
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+              style="font-size:0.6rem;">
+          {{ unread_notifications if unread_notifications < 100 else '99+' }}
+        </span>
+        {% endif %}
+      </a>
+
+      <!-- Change password -->
+      <a href="{{ url_for('parent.change_password') }}" class="btn btn-sm btn-outline-light" title="Đổi mật khẩu">
+        <i class="bi bi-key"></i>
+      </a>
+
+      <!-- Logout -->
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-light d-flex align-items-center gap-1" title="Đăng xuất">
+        <i class="bi bi-box-arrow-right"></i>
+        <span class="d-none d-sm-inline" style="font-size:0.8rem;">Đăng xuất</span>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- Page content with bottom padding for nav bar -->
+<div style="padding-bottom:72px;">
+  {% block content %}{% endblock %}
+</div>
+
+<!-- Bottom Navigation Bar -->
+{% set current_student_id = student.id if (student is defined and student) else (children[0].id if children else 0) %}
+<nav class="navbar fixed-bottom border-top bg-white py-0" style="z-index:150;">
+  <div class="container-fluid p-0">
+    <div class="d-flex w-100">
+
+      <a href="{{ url_for('parent.dashboard') }}"
+         class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none
+                {% if request.endpoint == 'parent.dashboard' %}text-success border-top border-success border-2{% else %}text-muted{% endif %}"
+         style="font-size:0.65rem;">
+        <i class="bi bi-house{% if request.endpoint == 'parent.dashboard' %}-fill{% endif %} fs-5"></i>
+        <span>Tổng quan</span>
+      </a>
+
+      <a href="{{ url_for('parent.schedule', student_id=current_student_id) }}"
+         class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none
+                {% if request.endpoint == 'parent.schedule' %}text-success border-top border-success border-2{% else %}text-muted{% endif %}"
+         style="font-size:0.65rem;">
+        <i class="bi bi-calendar3{% if request.endpoint == 'parent.schedule' %}-fill{% endif %} fs-5"></i>
+        <span>Lịch</span>
+      </a>
+
+      <a href="{{ url_for('parent.attendance', student_id=current_student_id) }}"
+         class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none
+                {% if request.endpoint == 'parent.attendance' %}text-success border-top border-success border-2{% else %}text-muted{% endif %}"
+         style="font-size:0.65rem;">
+        <i class="bi bi-person-check{% if request.endpoint == 'parent.attendance' %}-fill{% endif %} fs-5"></i>
+        <span>Điểm danh</span>
+      </a>
+
+      <a href="{{ url_for('parent.scores', student_id=current_student_id) }}"
+         class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none
+                {% if request.endpoint == 'parent.scores' %}text-success border-top border-success border-2{% else %}text-muted{% endif %}"
+         style="font-size:0.65rem;">
+        <i class="bi bi-bar-chart{% if request.endpoint == 'parent.scores' %}-fill{% endif %} fs-5"></i>
+        <span>Điểm số</span>
+      </a>
+
+      <a href="{{ url_for('parent.tuition', student_id=current_student_id) }}"
+         class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none
+                {% if request.endpoint == 'parent.tuition' %}text-success border-top border-success border-2{% else %}text-muted{% endif %}"
+         style="font-size:0.65rem;">
+        <i class="bi bi-cash-stack fs-5"></i>
+        <span>Học phí</span>
+      </a>
+
+      <a href="{{ url_for('parent.documents', student_id=current_student_id) }}"
+         class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none
+                {% if request.endpoint == 'parent.documents' %}text-success border-top border-success border-2{% else %}text-muted{% endif %}"
+         style="font-size:0.65rem;">
+        <i class="bi bi-folder{% if request.endpoint == 'parent.documents' %}-fill{% endif %} fs-5"></i>
+        <span>Tài liệu</span>
+      </a>
+
+      <a href="{{ url_for('parent.exams', student_id=current_student_id) }}"
+         class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none
+                {% if 'exam' in request.endpoint %}text-success border-top border-success border-2{% else %}text-muted{% endif %}"
+         style="font-size:0.65rem;">
+        <i class="bi bi-pc-display{% if 'exam' in request.endpoint %}-fill{% endif %} fs-5"></i>
+        <span>Thi online</span>
+      </a>
+
+    </div>
+  </div>
+</nav>
+
+{% endblock %}

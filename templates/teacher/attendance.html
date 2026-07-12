@@ -1,0 +1,133 @@
+{% extends 'teacher/base.html' %}
+{% block title %}Điểm danh: {{ schedule.class_.name }} – Nhật Tuyền{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <!-- Header -->
+  <div class="mb-3">
+    <a href="{{ url_for('teacher.schedule') }}" class="btn btn-sm btn-outline-secondary mb-2">
+      <i class="bi bi-arrow-left me-1"></i>Quay lại
+    </a>
+    <h5 class="fw-bold mb-0">
+      <i class="bi bi-person-check text-primary me-1"></i>Điểm danh
+    </h5>
+    <div class="text-muted">
+      <span class="fw-semibold text-dark">{{ schedule.class_.name }}</span>
+      &nbsp;–&nbsp;{{ schedule.date | date_vn }}
+      &nbsp;·&nbsp;{{ schedule.start_time.strftime('%H:%M') }}–{{ schedule.end_time.strftime('%H:%M') }}
+    </div>
+  </div>
+
+  <!-- Tất cả có mặt button -->
+  <button type="button" class="btn btn-success btn-lg w-100 mb-4 shadow-sm" id="btnAllPresent"
+          style="min-height:52px;font-size:1.1rem;">
+    <i class="bi bi-check-all me-2"></i>Tất cả có mặt
+  </button>
+
+  <form method="post" action="{{ url_for('teacher.attendance', schedule_id=schedule.id) }}" id="attendanceForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    {% if students %}
+      {% for student in students %}
+        {% set att = existing.get(student.id) %}
+        <div class="card mb-3 shadow-sm border-0" id="card-{{ student.id }}">
+          <div class="card-body pb-2">
+            <!-- Student name -->
+            <div class="d-flex align-items-center mb-3 gap-2">
+              <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center text-primary fw-bold flex-shrink-0"
+                   style="width:40px;height:40px;">
+                {{ student.full_name[0] }}
+              </div>
+              <span class="fw-bold fs-6">{{ student.full_name }}</span>
+            </div>
+
+            <!-- Status radio buttons (4 big, touch-friendly) -->
+            <div class="row g-2 mb-2">
+
+              <!-- Có mặt -->
+              <div class="col-6">
+                <input type="radio" class="btn-check student-status" name="status_{{ student.id }}"
+                       id="present_{{ student.id }}" value="present"
+                       {% if att and att.status == 'present' %}checked{% endif %}
+                       {% if not att %}checked{% endif %}>
+                <label class="btn btn-outline-success w-100 d-flex align-items-center justify-content-center gap-1"
+                       for="present_{{ student.id }}" style="min-height:52px;font-size:0.95rem;">
+                  <i class="bi bi-check-circle"></i>Có mặt
+                </label>
+              </div>
+
+              <!-- Vắng -->
+              <div class="col-6">
+                <input type="radio" class="btn-check student-status" name="status_{{ student.id }}"
+                       id="absent_{{ student.id }}" value="absent"
+                       {% if att and att.status == 'absent' %}checked{% endif %}>
+                <label class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-1"
+                       for="absent_{{ student.id }}" style="min-height:52px;font-size:0.95rem;">
+                  <i class="bi bi-x-circle"></i>Vắng
+                </label>
+              </div>
+
+              <!-- Trễ -->
+              <div class="col-6">
+                <input type="radio" class="btn-check student-status" name="status_{{ student.id }}"
+                       id="late_{{ student.id }}" value="late"
+                       {% if att and att.status == 'late' %}checked{% endif %}>
+                <label class="btn btn-outline-warning w-100 d-flex align-items-center justify-content-center gap-1"
+                       for="late_{{ student.id }}" style="min-height:52px;font-size:0.95rem;">
+                  <i class="bi bi-clock-history"></i>Trễ
+                </label>
+              </div>
+
+              <!-- Vắng phép -->
+              <div class="col-6">
+                <input type="radio" class="btn-check student-status" name="status_{{ student.id }}"
+                       id="excused_{{ student.id }}" value="excused"
+                       {% if att and att.status == 'excused' %}checked{% endif %}>
+                <label class="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center gap-1"
+                       for="excused_{{ student.id }}" style="min-height:52px;font-size:0.95rem;">
+                  <i class="bi bi-file-earmark-check"></i>Vắng phép
+                </label>
+              </div>
+
+            </div>
+
+            <!-- Note input -->
+            <input type="text" class="form-control" name="note_{{ student.id }}"
+                   placeholder="Ghi chú (tùy chọn)"
+                   value="{{ att.note if att and att.note else '' }}"
+                   style="min-height:44px;">
+          </div>
+        </div>
+      {% endfor %}
+
+      <!-- Submit -->
+      <div class="sticky-bottom bg-white border-top py-3 px-0 mt-3" style="z-index:10;">
+        <button type="submit" class="btn btn-primary btn-lg w-100 shadow" style="min-height:52px;font-size:1.1rem;">
+          <i class="bi bi-save me-2"></i>Lưu điểm danh
+        </button>
+      </div>
+
+    {% else %}
+      <div class="alert alert-light border text-center text-muted">
+        <i class="bi bi-people fs-4 d-block mb-1"></i>
+        Lớp chưa có học sinh
+      </div>
+    {% endif %}
+  </form>
+
+</div>
+
+{% block extra_js %}
+<script>
+// Tất cả có mặt
+document.getElementById('btnAllPresent')?.addEventListener('click', function () {
+  document.querySelectorAll('input[type="radio"].student-status').forEach(function(radio) {
+    if (radio.value === 'present') {
+      radio.checked = true;
+    }
+  });
+});
+</script>
+{% endblock %}
+{% endblock %}

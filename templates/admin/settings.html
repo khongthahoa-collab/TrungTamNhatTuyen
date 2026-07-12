@@ -1,0 +1,196 @@
+{% extends 'admin/base.html' %}
+{% block title %}Cài đặt – Admin – Nhật Tuyền{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Cài đặt</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <h4 class="fw-bold mb-0">
+    <i class="bi bi-gear text-secondary me-2"></i>Cài đặt hệ thống
+  </h4>
+</div>
+
+<div class="row">
+  <div class="col-12 col-lg-8 col-xl-6">
+
+    <form method="post" action="{{ url_for('admin.settings_save') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <!-- Thông tin trung tâm -->
+      <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header fw-semibold py-2 bg-light">
+          <i class="bi bi-building me-1"></i>Thông tin trung tâm
+        </div>
+        <div class="card-body">
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="center_name">Tên trung tâm</label>
+            <input type="text" class="form-control" name="center_name" id="center_name"
+                   value="{{ configs.get('center_name', '') }}"
+                   placeholder="Trung tâm Nhật Tuyền">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="center_address">Địa chỉ</label>
+            <input type="text" class="form-control" name="center_address" id="center_address"
+                   value="{{ configs.get('center_address', '') }}"
+                   placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành">
+          </div>
+
+          <div class="mb-0">
+            <label class="form-label fw-semibold" for="center_phone">Số điện thoại</label>
+            <input type="tel" class="form-control" name="center_phone" id="center_phone"
+                   value="{{ configs.get('center_phone', '') }}"
+                   placeholder="0xxx xxx xxx">
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Mạng xã hội -->
+      <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header fw-semibold py-2 bg-light">
+          <i class="bi bi-share me-1"></i>Mạng xã hội & Liên lạc
+        </div>
+        <div class="card-body">
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="zalo_link">
+              <i class="bi bi-chat-dots me-1 text-primary"></i>Link Zalo
+            </label>
+            <input type="url" class="form-control" name="zalo_link" id="zalo_link"
+                   value="{{ configs.get('zalo_link', '') }}"
+                   placeholder="https://zalo.me/...">
+          </div>
+
+          <div class="mb-0">
+            <label class="form-label fw-semibold" for="messenger_link">
+              <i class="bi bi-messenger me-1 text-primary"></i>Link Messenger / Facebook
+            </label>
+            <input type="url" class="form-control" name="messenger_link" id="messenger_link"
+                   value="{{ configs.get('messenger_link', '') }}"
+                   placeholder="https://m.me/...">
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Tài khoản ngân hàng -->
+      <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header fw-semibold py-2 bg-light">
+          <i class="bi bi-bank me-1"></i>Tài khoản ngân hàng
+        </div>
+        <div class="card-body">
+          <div class="mb-0">
+            <label class="form-label fw-semibold" for="bank_account">Thông tin tài khoản</label>
+            <textarea class="form-control" name="bank_account" id="bank_account"
+                      rows="3"
+                      placeholder="Tên ngân hàng – Số tài khoản – Tên chủ tài khoản">{{ configs.get('bank_account', '') }}</textarea>
+            <div class="form-text">Hiển thị trên trang thanh toán học phí</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hero section -->
+      <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header fw-semibold py-2 bg-light">
+          <i class="bi bi-layout-text-window me-1"></i>Trang chủ — Hero
+        </div>
+        <div class="card-body">
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="hero_badge">Nhãn badge</label>
+            <input type="text" class="form-control" name="hero_badge" id="hero_badge"
+                   value="{{ configs.get('hero_badge', '') }}"
+                   placeholder="TRUNG TÂM DẠY THÊM UY TÍN">
+            <div class="form-text">Dòng chữ nhỏ phía trên tiêu đề (viết hoa nổi bật).</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="hero_headline1">Tiêu đề dòng 1</label>
+            <input type="text" class="form-control" name="hero_headline1" id="hero_headline1"
+                   value="{{ configs.get('hero_headline1', '') }}"
+                   placeholder="Học Thêm Chất Lượng">
+            <div class="form-text">Dòng chữ lớn, màu tối.</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="hero_headline2">Tiêu đề dòng 2 (gradient màu)</label>
+            <input type="text" class="form-control" name="hero_headline2" id="hero_headline2"
+                   value="{{ configs.get('hero_headline2', '') }}"
+                   placeholder="Tại Nhật Tuyền">
+            <div class="form-text">Dòng chữ lớn màu gradient xanh-vàng. Để trống nếu không dùng.</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="hero_sub">Mô tả ngắn</label>
+            <textarea class="form-control" name="hero_sub" id="hero_sub" rows="2"
+                      placeholder="Lớp học sĩ số nhỏ, giáo viên tâm huyết…">{{ configs.get('hero_sub', '') }}</textarea>
+            <div class="form-text">Đoạn văn giới thiệu bên dưới tiêu đề.</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="hero_note">Ghi chú dưới nút CTA</label>
+            <input type="text" class="form-control" name="hero_note" id="hero_note"
+                   value="{{ configs.get('hero_note', '') }}"
+                   placeholder="Tư vấn miễn phí – Liên hệ ngay hôm nay">
+            <div class="form-text">Dòng nhỏ hiển thị bên dưới nút "Tìm Lớp Học".</div>
+          </div>
+
+          <div class="mb-0">
+            <label class="form-label fw-semibold" for="hero_bg">Màu nền Hero</label>
+            <div class="input-group">
+              <input type="color" class="form-control form-control-color" id="hero_bg_picker"
+                     value="{{ configs.get('hero_bg', '#f8fdf9') }}"
+                     title="Chọn màu nền"
+                     oninput="document.getElementById('hero_bg').value=this.value">
+              <input type="text" class="form-control" name="hero_bg" id="hero_bg"
+                     value="{{ configs.get('hero_bg', '#f8fdf9') }}"
+                     placeholder="#f8fdf9 hoặc linear-gradient(…)"
+                     oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))document.getElementById('hero_bg_picker').value=this.value">
+            </div>
+            <div class="form-text">Nhập mã hex (ví dụ <code>#f0fdf4</code>) hoặc CSS gradient. Chọn màu từ bộ chọn bên trái.</div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Bảng danh dự -->
+      <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header fw-semibold py-2 bg-light">
+          <i class="bi bi-award me-1"></i>Bảng danh dự
+        </div>
+        <div class="card-body">
+          <div class="mb-0">
+            <label class="form-label fw-semibold" for="hall_of_fame_min_score">
+              Điểm tối thiểu để vào bảng danh dự
+            </label>
+            <div class="input-group">
+              <input type="number" class="form-control" name="hall_of_fame_min_score"
+                     id="hall_of_fame_min_score"
+                     value="{{ configs.get('hall_of_fame_min_score', '8') }}"
+                     min="0" max="10" step="0.5">
+              <span class="input-group-text">/ 10</span>
+            </div>
+            <div class="form-text">Học sinh đạt điểm trung bình từ ngưỡng này sẽ được hiển thị trên bảng danh dự.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Save button -->
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary px-4">
+          <i class="bi bi-save me-1"></i>Lưu cài đặt
+        </button>
+        <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-secondary px-4">
+          Hủy
+        </a>
+      </div>
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}

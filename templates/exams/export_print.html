@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>{{ exam.title }}</title>
+<style>
+  body { font-family: 'Times New Roman', Georgia, serif; color: #111; margin: 24px; line-height: 1.5; }
+  h1 { font-size: 20px; text-align: center; margin-bottom: 4px; }
+  .meta { text-align: center; color: #444; font-size: 13px; margin-bottom: 20px; }
+  .group-title { font-weight: bold; margin: 18px 0 4px; text-transform: uppercase; }
+  .group-instruction { font-style: italic; color: #333; margin-bottom: 10px; }
+  .question { margin-bottom: 12px; }
+  .question .qtitle { font-weight: bold; }
+  .options, .statements { margin-left: 18px; }
+  .options div, .statements div { margin-bottom: 2px; }
+  .answer-key { margin-top: 36px; border-top: 1px solid #999; padding-top: 12px; }
+  .answer-key .group-block { margin-bottom: 8px; }
+  .print-bar { text-align: center; margin-bottom: 20px; }
+  u { text-decoration: underline; }
+  @media print { .print-bar { display: none; } }
+</style>
+</head>
+<body>
+  {% if fmt == 'pdf' %}
+  <div class="print-bar">
+    <button onclick="window.print()" style="padding:8px 16px;font-size:14px;">In / Lưu thành PDF</button>
+  </div>
+  {% endif %}
+
+  <h1>{{ exam.title }}</h1>
+  <div class="meta">
+    {{ exam.subject }} · {{ exam.type_label }} · Thời gian làm bài: {{ exam.duration_minutes }} phút
+  </div>
+
+  {% for group in exam.question_groups %}
+  <div class="group-title">{{ group.title }}</div>
+  {% if group.instruction %}<div class="group-instruction">{{ group.instruction }}</div>{% endif %}
+  {% for q in group.questions %}
+  <div class="question">
+    {% if group.type == 'mcq' %}
+      <div class="qtitle">Câu {{ loop.index }}. {{ q.text }}</div>
+      <div class="options">
+        {% for opt in q.options %}<div>{{ ['A','B','C','D','E','F'][loop.index0] }}. {{ opt }}</div>{% endfor %}
+      </div>
+    {% elif group.type == 'true_false' %}
+      <div class="qtitle">Câu {{ loop.index }}. {{ q.text }}</div>
+      <div class="statements">
+        {% for st in q.statements %}<div>{{ ['a','b','c','d','e','f'][loop.index0] }}) {{ st.text }}</div>{% endfor %}
+      </div>
+    {% elif group.type == 'short_answer' %}
+      <div class="qtitle">Câu {{ loop.index }}. {{ q.text }}</div>
+    {% elif group.type == 'error_id' %}
+      <div class="qtitle">Câu {{ loop.index }}. {{ q.text | error_id_render(false) }}</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% endfor %}
+
+  <div class="answer-key">
+    <strong>Bảng đáp án</strong>
+    {% for group in exam.question_groups %}
+    <div class="group-block">
+      <em>{{ group.title }}:</em>
+      {% for q in group.questions %}
+        {% if group.type == 'mcq' %}
+          Câu {{ loop.index }}: {{ ['A','B','C','D','E','F'][q.correct_index] }}{% if not loop.last %}, {% endif %}
+        {% elif group.type == 'true_false' %}
+          Câu {{ loop.index }}: {% for st in q.statements %}{{ ['a','b','c','d','e','f'][loop.index0] }}){{ 'Đ' if st.correct else 'S' }}{% if not loop.last %} {% endif %}{% endfor %}{% if not loop.last %}; {% endif %}
+        {% elif group.type == 'short_answer' %}
+          Câu {{ loop.index }}: {{ q.accepted_answers | join(' | ') }}{% if not loop.last %}; {% endif %}
+        {% elif group.type == 'error_id' %}
+          Câu {{ loop.index }}: {{ q.correct_label }}{% if not loop.last %}, {% endif %}
+        {% endif %}
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if fmt == 'pdf' %}
+  <script>window.addEventListener('load', () => window.print());</script>
+  {% endif %}
+</body>
+</html>

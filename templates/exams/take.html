@@ -1,0 +1,161 @@
+{% extends 'parent/base.html' %}
+{% block content %}
+<div class="container py-3" style="max-width:720px;">
+
+  <!-- Sticky timer / status bar -->
+  <div class="card border-0 shadow-sm mb-3 sticky-top" style="top:60px; z-index:90;">
+    <div class="card-body py-2 d-flex justify-content-between align-items-center">
+      <div>
+        <div class="fw-bold">{{ exam.title }}</div>
+        <div class="small text-muted">{{ exam.subject }} · {{ student.full_name }}</div>
+      </div>
+      <div class="text-end">
+        <div class="fs-5 fw-bold" id="timerDisplay">--:--</div>
+        <div class="small text-muted">Thời gian còn lại</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="alert alert-warning small d-flex align-items-start gap-2 mb-3">
+    <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+    <div>
+      Không thoát màn hình, chuyển tab hoặc thu nhỏ trình duyệt khi đang thi.
+      Nếu vi phạm quá {{ cheat_limit }} lần, bài làm sẽ <strong>tự động nộp</strong> và bị đánh dấu cảnh báo.
+      Đã vi phạm: <span id="cheatCountDisplay">0</span>/{{ cheat_limit }}
+    </div>
+  </div>
+
+  <form id="examForm" method="post" action="{{ url_for('parent.exam_submit', student_id=student.id, exam_id=exam.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="cheat_count" id="cheatCountField" value="0">
+
+    {% for group in questions %}
+    <div class="mt-4 mb-2">
+      <h6 class="fw-bold text-success mb-1">{{ group.title }}</h6>
+      {% if group.instruction %}<p class="small text-muted">{{ group.instruction }}</p>{% endif %}
+    </div>
+    {% for q in group.questions %}
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body">
+        {% if group.type == 'mcq' %}
+          <div class="fw-semibold mb-2">Câu {{ q.position }}. {{ q.text }}</div>
+          {% for opt in q.options %}
+          <label class="list-group-item list-group-item-action d-flex align-items-center gap-2 mb-2 rounded border">
+            <input class="form-check-input m-0" type="radio" name="g{{ group.index }}_q{{ q.position }}" value="{{ loop.index }}" required>
+            <span>{{ ['A','B','C','D','E','F'][loop.index0] }}. {{ opt }}</span>
+          </label>
+          {% endfor %}
+        {% elif group.type == 'true_false' %}
+          <div class="fw-semibold mb-2">Câu {{ q.position }}. {{ q.text }}</div>
+          {% for st in q.statements %}
+          <div class="d-flex align-items-center gap-2 mb-2 border rounded p-2">
+            <span class="flex-grow-1 small">{{ ['a','b','c','d','e','f'][loop.index0] }}) {{ st }}</span>
+            <div class="btn-group btn-group-sm flex-shrink-0" role="group">
+              <input type="radio" class="btn-check" name="g{{ group.index }}_q{{ q.position }}_{{ loop.index }}"
+                     id="g{{ group.index }}_q{{ q.position }}_{{ loop.index }}_d" value="1" required>
+              <label class="btn btn-outline-success" for="g{{ group.index }}_q{{ q.position }}_{{ loop.index }}_d">Đúng</label>
+              <input type="radio" class="btn-check" name="g{{ group.index }}_q{{ q.position }}_{{ loop.index }}"
+                     id="g{{ group.index }}_q{{ q.position }}_{{ loop.index }}_s" value="0">
+              <label class="btn btn-outline-danger" for="g{{ group.index }}_q{{ q.position }}_{{ loop.index }}_s">Sai</label>
+            </div>
+          </div>
+          {% endfor %}
+        {% elif group.type == 'short_answer' %}
+          <div class="fw-semibold mb-2">Câu {{ q.position }}. {{ q.text }}</div>
+          <input type="text" class="form-control" name="g{{ group.index }}_q{{ q.position }}" placeholder="Nhập câu trả lời" required>
+        {% elif group.type == 'error_id' %}
+          <div class="fw-semibold mb-2">Câu {{ q.position }}. {{ q.text | error_id_render(false) }}</div>
+          <div class="d-flex flex-wrap gap-2">
+            {% for label in q.labels %}
+            <input type="radio" class="btn-check" name="g{{ group.index }}_q{{ q.position }}"
+                   id="g{{ group.index }}_q{{ q.position }}_{{ label }}" value="{{ label }}" required>
+            <label class="btn btn-outline-primary" for="g{{ group.index }}_q{{ q.position }}_{{ label }}">{{ label }}</label>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    {% endfor %}
+
+    <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold" id="submitBtn">
+      <i class="bi bi-check-circle me-1"></i>Nộp bài
+    </button>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const form = document.getElementById('examForm');
+const cheatField = document.getElementById('cheatCountField');
+const cheatDisplay = document.getElementById('cheatCountDisplay');
+const timerDisplay = document.getElementById('timerDisplay');
+const CHEAT_LIMIT = {{ cheat_limit }};
+let cheatCount = 0;
+let submitted = false;
+
+function formatTime(totalSeconds) {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function autoSubmit(reason) {
+  if (submitted) return;
+  submitted = true;
+  cheatField.value = cheatCount;
+  if (reason === 'cheat') {
+    alert('Bài làm của bạn đã được tự động nộp do vi phạm quy định chống gian lận quá ' + CHEAT_LIMIT + ' lần.');
+  } else if (reason === 'timeout') {
+    alert('Đã hết thời gian làm bài. Bài làm được tự động nộp.');
+  }
+  form.submit();
+}
+
+// ── Countdown timer ──
+let remaining = {{ remaining_seconds }};
+timerDisplay.textContent = formatTime(remaining);
+const timerInterval = setInterval(() => {
+  remaining -= 1;
+  if (remaining <= 0) {
+    timerDisplay.textContent = '0:00';
+    clearInterval(timerInterval);
+    autoSubmit('timeout');
+    return;
+  }
+  timerDisplay.textContent = formatTime(remaining);
+  if (remaining <= 60) timerDisplay.classList.add('text-danger');
+}, 1000);
+
+// ── Anti-cheat: detect tab switch / window blur (treated as "leaving the exam screen") ──
+function flagViolation() {
+  if (submitted) return;
+  cheatCount += 1;
+  cheatField.value = cheatCount;
+  cheatDisplay.textContent = cheatCount;
+  if (cheatCount > CHEAT_LIMIT) {
+    autoSubmit('cheat');
+  } else {
+    cheatDisplay.parentElement.classList.add('text-danger', 'fw-bold');
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) flagViolation();
+});
+window.addEventListener('blur', flagViolation);
+
+// Note: autoSubmit() calls form.submit() directly, which bypasses this listener entirely
+// (a browser quirk vs. requestSubmit()) — so this only ever runs for genuine user clicks.
+form.addEventListener('submit', e => {
+  if (submitted) return;
+  cheatField.value = cheatCount;
+  if (!confirm('Bạn có chắc muốn nộp bài? Sau khi nộp sẽ không thể chỉnh sửa lại.')) {
+    e.preventDefault();
+    return;
+  }
+  submitted = true;
+});
+</script>
+{% endblock %}

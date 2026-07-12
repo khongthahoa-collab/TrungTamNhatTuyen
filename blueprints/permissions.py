@@ -1,0 +1,122 @@
+"""
+Single source of truth for the per-account feature permission system.
+
+Every admin/teacher sidebar/nav item maps to a "module key". A User's
+`permissions` column (see models.User) is either None (full access) or a
+JSON list of module keys they're allowed to see/use. CORE_MODULES are
+always visible/accessible regardless of restrictions.
+"""
+
+CORE_MODULES = {'dashboard', 'notifications'}
+
+# (key, label, bootstrap-icon) — order matches the admin sidebar
+ADMIN_MODULES = [
+    ('students', 'Học sinh', 'bi-people'),
+    ('classes', 'Lớp học', 'bi-journal-bookmark'),
+    ('academic', 'Năm học', 'bi-calendar3'),
+    ('rewards', 'Khen thưởng', 'bi-trophy'),
+    ('attendance', 'Điểm danh', 'bi-person-check'),
+    ('tuition', 'Học phí', 'bi-cash-stack'),
+    ('tuition_report', 'Thống kê HP', 'bi-bar-chart'),
+    ('expenses', 'Chi phí', 'bi-receipt'),
+    ('salary', 'Lương', 'bi-cash-coin'),
+    ('teachers', 'Giáo viên', 'bi-person-badge'),
+    ('rooms', 'Phòng học', 'bi-door-open'),
+    ('documents', 'Tài liệu', 'bi-folder2'),
+    ('exams', 'Đề thi online', 'bi-pc-display'),
+    ('reports', 'Báo cáo', 'bi-bar-chart-line'),
+    ('schools', 'Trường học', 'bi-building'),
+    ('courses', 'Môn học', 'bi-book'),
+    ('users', 'Tài khoản', 'bi-person-gear'),
+    ('inquiries', 'Liên hệ', 'bi-envelope'),
+    ('settings', 'Cài đặt', 'bi-gear'),
+]
+
+# (key, label, bootstrap-icon) — order matches the teacher bottom nav
+TEACHER_MODULES = [
+    ('schedule', 'Lịch dạy', 'bi-calendar3'),
+    ('attendance', 'Điểm danh', 'bi-person-check'),
+    ('scores', 'Điểm số', 'bi-pencil-square'),
+    ('exams', 'Đề thi online', 'bi-pc-display'),
+    ('documents_teacher', 'Tài liệu lớp', 'bi-folder2'),
+]
+
+# endpoint function name (without the 'admin.' prefix) -> module key
+ADMIN_ENDPOINT_MODULES = {
+    # students.py
+    'students': 'students', 'students_bulk_delete': 'students', 'export_students': 'students',
+    'import_students': 'students', 'student_add': 'students', 'student_detail': 'students',
+    'student_reset_parent_password': 'students', 'student_edit': 'students',
+    'student_enroll': 'students', 'student_unenroll': 'students',
+    'student_photo_upload': 'students', 'student_photo_delete': 'students',
+
+    # classes.py (schedule sub-actions belong to the class detail page)
+    'classes': 'classes', 'class_add': 'classes', 'class_detail': 'classes', 'class_edit': 'classes',
+    'generate_schedule': 'classes', 'add_schedule': 'classes',
+    'cancel_schedule': 'classes', 'delete_schedule': 'classes',
+
+    # academic.py
+    'academic_years': 'academic', 'academic_year_add': 'academic',
+    'academic_year_activate': 'academic', 'semester_add': 'academic', 'semester_delete': 'academic',
+
+    # rewards.py
+    'rewards': 'rewards', 'reward_confirm': 'rewards', 'reward_cancel': 'rewards', 'reward_add': 'rewards',
+
+    # attendance.py
+    'attendance_list': 'attendance', 'attendance_session': 'attendance', 'save_attendance': 'attendance',
+
+    # finance.py — split across 4 modules
+    'tuition': 'tuition', 'tuition_class_detail': 'tuition', 'tuition_add': 'tuition',
+    'tuition_mark_paid': 'tuition', 'tuition_remind_zalo': 'tuition', 'tuition_bulk_add': 'tuition',
+    'monthly_fees': 'tuition', 'monthly_fee_update': 'tuition', 'monthly_fee_generate': 'tuition',
+    'tuition_adjust_amount': 'tuition',
+    'tuition_report': 'tuition_report', 'calculate_tuition': 'tuition_report',
+    'update_tuition_stage': 'tuition_report', 'export_tuition_report': 'tuition_report',
+    'expenses': 'expenses', 'expense_add': 'expenses', 'expense_delete': 'expenses',
+    'salary': 'salary', 'salary_calculate': 'salary', 'salary_adjust': 'salary', 'salary_finalize': 'salary',
+
+    # teachers.py
+    'teachers': 'teachers', 'teacher_add': 'teachers', 'teacher_edit': 'teachers',
+    'teacher_delete': 'teachers', 'teacher_activate': 'teachers',
+
+    # rooms.py
+    'rooms': 'rooms', 'room_add': 'rooms', 'room_edit': 'rooms',
+    'room_delete': 'rooms', 'rooms_available': 'rooms',
+
+    # documents.py
+    'documents': 'documents', 'document_upload': 'documents',
+    'document_delete': 'documents', 'document_download': 'documents',
+
+    # exams.py — shared with teacher role via require_admin_or_teacher
+    'exams_list': 'exams', 'exam_folder_create': 'exams', 'exam_folder_edit': 'exams',
+    'exam_folder_delete': 'exams', 'exam_duplicate': 'exams', 'exams_results': 'exams',
+    'exams_new': 'exams', 'exams_edit': 'exams', 'exams_confirm': 'exams', 'exams_delete': 'exams',
+    'exams_preview': 'exams', 'exams_export': 'exams',
+
+    # reports.py
+    'reports': 'reports',
+
+    # schools.py
+    'schools': 'schools', 'school_add': 'schools', 'school_edit': 'schools', 'school_delete': 'schools',
+
+    # settings.py — split across 4 modules
+    'settings': 'settings', 'settings_save': 'settings',
+    'inquiries': 'inquiries', 'inquiry_delete': 'inquiries',
+    'users': 'users', 'user_add': 'users', 'user_reset_password': 'users',
+    'user_toggle_active': 'users', 'user_permissions_update': 'users',
+    'courses': 'courses', 'course_add': 'courses', 'course_edit': 'courses',
+}
+
+# endpoint function name (without the 'teacher.' prefix) -> module key
+TEACHER_ENDPOINT_MODULES = {
+    'schedule': 'schedule', 'checkin': 'schedule',
+    'available_rooms': 'schedule', 'create_intensive': 'schedule',
+    'attendance_list': 'attendance', 'attendance_session': 'attendance', 'save_attendance': 'attendance',
+    'scores': 'scores', 'scores_list': 'scores',
+    'documents': 'documents_teacher', 'delete_document': 'documents_teacher',
+    # teacher's own exam screens (blueprints/teacher_exams.py) — separate routes from admin's,
+    # gated by the same 'exams' module key as the admin side
+    'exams_list': 'exams', 'exam_duplicate': 'exams', 'exams_results': 'exams',
+    'exams_new': 'exams', 'exams_edit': 'exams', 'exams_confirm': 'exams',
+    'exams_delete': 'exams', 'exams_preview': 'exams', 'exams_export': 'exams',
+}

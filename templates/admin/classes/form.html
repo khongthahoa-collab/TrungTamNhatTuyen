@@ -1,0 +1,352 @@
+{% extends 'admin/base.html' %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ url_for('admin.classes') }}">Lớp học</a></li>
+<li class="breadcrumb-item active">{% if action == 'add' %}Thêm lớp{% else %}Sửa lớp{% endif %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h5 class="mb-0 fw-bold">
+    <i class="bi bi-journal-{% if action == 'add' %}plus{% else %}pencil{% endif %} me-2 text-primary"></i>
+    {% if action == 'add' %}Thêm lớp học mới{% else %}Sửa lớp học{% endif %}
+  </h5>
+  <a href="{{ url_for('admin.classes') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Quay lại
+  </a>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% for cat, msg in messages %}
+<div class="alert alert-{{ cat }} alert-dismissible fade show" role="alert">
+  {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endfor %}
+{% endwith %}
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-9">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-4">
+        <form method="post"
+              action="{% if action == 'add' %}{{ url_for('admin.class_add') }}{% else %}{{ url_for('admin.class_edit', class_id=class_.id) }}{% endif %}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <!-- Thông tin lớp -->
+          <h6 class="fw-semibold text-primary mb-3 border-bottom pb-2">
+            <i class="bi bi-info-circle me-2"></i>Thông tin lớp học
+          </h6>
+
+          <div class="row g-3 mb-4">
+
+            <!-- Môn học (required) -->
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">Môn học <span class="text-danger">*</span></label>
+              <select class="form-select" name="course_id" id="courseSelect" required>
+                <option value="">-- Chọn môn học --</option>
+                {% for course in courses %}
+                <option value="{{ course.id }}"
+                        data-level="{{ course.level or 'all' }}"
+                  {% if action == 'edit' and class_.course_id == course.id %}selected
+                  {% elif form and form.get('course_id','') | string == course.id | string %}selected{% endif %}>
+                  {{ course.name }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- Lớp học (required) -->
+            {% set known_grades = grade_options | map(attribute=0) | list %}
+            {% set edit_grade = class_.grade_level if action == 'edit' else '' %}
+            {% set is_custom_grade = action == 'edit' and edit_grade and edit_grade not in known_grades %}
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">Lớp <span class="text-danger">*</span></label>
+              <select class="form-select" name="grade_level_select" id="gradeSelect" required>
+                <option value="">-- Chọn lớp --</option>
+                {% for val, label in grade_options %}
+                <option value="{{ val }}"
+                  {% if is_custom_grade and val == 'Loại khác' %}selected
+                  {% elif action == 'edit' and not is_custom_grade and edit_grade == val %}selected
+                  {% elif form and form.get('grade_level_select','') == val %}selected{% endif %}>
+                  {{ label }}
+                </option>
+                {% endfor %}
+              </select>
+              <!-- Custom input for "Loại khác" -->
+              <input type="text" class="form-control mt-2 {% if not is_custom_grade %}d-none{% endif %}"
+                     id="gradeCustom" name="grade_level_custom"
+                     placeholder="Nhập tên lớp..."
+                     value="{{ edit_grade if is_custom_grade else (form.get('grade_level_custom','') if form else '') }}"
+                     {% if is_custom_grade %}required{% endif %}>
+            </div>
+
+            <!-- Học kỳ (required on add, shown on both) -->
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">
+                Học kỳ <span class="text-danger">*</span>
+                {% if action == 'edit' %}<span class="text-muted small fw-normal">(để tạo thêm lịch mới)</span>{% endif %}
+              </label>
+              {% if semesters %}
+              <select class="form-select" name="semester_id" {% if action == 'add' %}required{% endif %}>
+                <option value="">-- Chọn học kỳ --</option>
+                {% for sem in semesters %}
+                <option value="{{ sem.id }}"
+                  {% if sem.id == default_semester_id %}selected{% endif %}>
+                  {{ sem.name }}
+                </option>
+                {% endfor %}
+              </select>
+              {% else %}
+              <div class="alert alert-warning py-2 mb-0 small">
+                Chưa có học kỳ nào. <a href="{{ url_for('admin.academic_years') }}">Thêm học kỳ</a> trước khi tạo lớp.
+              </div>
+              {% endif %}
+            </div>
+
+            <!-- Giáo viên chính (required) -->
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">Giáo viên chính <span class="text-danger">*</span></label>
+              <select class="form-select" name="primary_teacher_id" required>
+                <option value="">-- Chọn giáo viên --</option>
+                {% for t in teachers %}
+                <option value="{{ t.id }}"
+                  {% if action == 'edit' and class_.primary_teacher_id == t.id %}selected
+                  {% elif form and form.get('primary_teacher_id','') | string == t.id | string %}selected{% endif %}>
+                  {{ t.full_name }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- Trợ giảng (optional) -->
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">Trợ giảng</label>
+              <select class="form-select" name="assistant_teacher_id">
+                <option value="">-- Không chỉ định --</option>
+                {% for t in teachers %}
+                <option value="{{ t.id }}"
+                  {% if action == 'edit' and class_.assistant_teacher_id == t.id %}selected
+                  {% elif form and form.get('assistant_teacher_id','') | string == t.id | string %}selected{% endif %}>
+                  {{ t.full_name }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- Sĩ số tối đa (optional) -->
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">Sĩ số tối đa</label>
+              <input type="number" class="form-control" name="max_students" min="1"
+                     placeholder="Để trống = không giới hạn"
+                     value="{{ class_.max_students if action == 'edit' else (form.get('max_students','') if form else '') }}">
+            </div>
+
+            <!-- Học phí & số buổi/tuần -->
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">
+                Học phí / tháng (đủ 4 tuần) <span class="text-danger">*</span>
+              </label>
+              <div class="input-group">
+                <input type="number" class="form-control" name="monthly_fee" min="0" step="1000"
+                       placeholder="Ví dụ: 800000"
+                       value="{{ class_.monthly_fee | int if action == 'edit' else (form.get('monthly_fee','') if form else '') }}"
+                       required>
+                <span class="input-group-text">₫</span>
+              </div>
+              <div class="form-text">Học phí tính cho 1 tháng đủ 4 tuần. Admin điều chỉnh theo tháng thực tế.</div>
+            </div>
+
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">Số buổi học / tuần</label>
+              <input type="number" class="form-control" name="sessions_per_week" min="1" max="7"
+                     id="sessionsPerWeek"
+                     value="{{ class_.sessions_per_week if action == 'edit' else (form.get('sessions_per_week', '') if form else '') }}"
+                     placeholder="Tự động từ lịch học">
+              <div class="form-text">Tự động điền từ số khung giờ đã chọn bên dưới.</div>
+            </div>
+
+            <!-- Tên lớp tự động (hiển thị preview khi add) -->
+            {% if action == 'add' %}
+            <div class="col-12">
+              <div class="alert alert-info py-2 mb-0 small">
+                <i class="bi bi-info-circle me-1"></i>
+                Tên lớp sẽ được tạo tự động, ví dụ: <strong id="namePreview">Lớp 6A - Toán</strong>
+              </div>
+            </div>
+            {% else %}
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">Tên lớp hiện tại</label>
+              <input type="text" class="form-control" value="{{ class_.name }}" readonly disabled>
+              <div class="form-text">Tên sẽ tự động cập nhật nếu đổi lớp hoặc môn học.</div>
+            </div>
+            <!-- Trạng thái -->
+            <div class="col-12 col-md-6 d-flex align-items-end pb-1">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="is_active" name="is_active" value="1"
+                       {% if class_.is_active %}checked{% endif %}>
+                <label class="form-check-label fw-semibold" for="is_active">Lớp đang hoạt động</label>
+              </div>
+            </div>
+            {% endif %}
+          </div>
+
+          <!-- Lịch học (required at least 1 row) -->
+          <h6 class="fw-semibold text-primary mb-2 border-bottom pb-2">
+            <i class="bi bi-calendar-week me-2"></i>Lịch học <span class="text-danger">*</span>
+          </h6>
+
+          <div id="sched-rows" class="mb-2">
+            <div class="sched-row row g-2 align-items-center mb-2">
+              <div class="col-12 col-sm-3">
+                <select class="form-select form-select-sm" name="sched_day[]">
+                  {% for val, label in day_options %}
+                  <option value="{{ val }}">{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-12 col-sm-3">
+                <select class="form-select form-select-sm sched-start" name="sched_start[]">
+                  <option value="">-- Giờ bắt đầu --</option>
+                  {% for start, end in time_slots %}
+                  <option value="{{ start }}">{{ start }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-auto">
+                <span class="sched-end text-muted small">→ --:--</span>
+              </div>
+              <div class="col-12 col-sm-4">
+                <select class="form-select form-select-sm" name="sched_room_id[]">
+                  <option value="">-- Phòng (tùy chọn) --</option>
+                  {% for room in rooms %}
+                  <option value="{{ room.id }}">{{ room.display_name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-auto">
+                <button type="button" class="btn btn-outline-danger btn-sm remove-row" title="Xóa">
+                  <i class="bi bi-x-lg"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <button type="button" id="add-sched-row" class="btn btn-outline-secondary btn-sm mb-4">
+            <i class="bi bi-plus-lg me-1"></i>Thêm khung giờ
+          </button>
+
+          <!-- Mô tả (optional, cuối form) -->
+          <h6 class="fw-semibold text-primary mb-3 border-bottom pb-2">
+            <i class="bi bi-card-text me-2"></i>Mô tả
+          </h6>
+          <div class="mb-4">
+            <textarea class="form-control" name="description" rows="3"
+                      placeholder="Mô tả, yêu cầu đầu vào, ghi chú...">{{ class_.description if action == 'edit' else (form.get('description','') if form else '') }}</textarea>
+          </div>
+
+          <div class="d-flex gap-2 justify-content-end">
+            <a href="{{ url_for('admin.classes') }}" class="btn btn-outline-secondary">
+              <i class="bi bi-x-lg me-1"></i>Hủy
+            </a>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check-lg me-1"></i>
+              {% if action == 'add' %}Tạo lớp học{% else %}Lưu thay đổi{% endif %}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Time slot auto-fill ───────────────────────────────────────────
+const TIME_SLOT_END = { {% for s, e in time_slots %}"{{ s }}": "{{ e }}"{% if not loop.last %},{% endif %}{% endfor %} };
+
+const DAY_OPT    = `{% for v, l in day_options %}<option value="{{ v }}">{{ l }}</option>{% endfor %}`;
+const ROOM_OPT   = `<option value="">-- Phòng (tùy chọn) --</option>{% for r in rooms %}<option value="{{ r.id }}">{{ r.display_name }}</option>{% endfor %}`;
+const START_OPT  = `<option value="">-- Giờ bắt đầu --</option>{% for s, e in time_slots %}<option value="{{ s }}">{{ s }}</option>{% endfor %}`;
+
+function buildRow() {
+  const div = document.createElement('div');
+  div.className = 'sched-row row g-2 align-items-center mb-2';
+  div.innerHTML = `
+    <div class="col-12 col-sm-3"><select class="form-select form-select-sm" name="sched_day[]">${DAY_OPT}</select></div>
+    <div class="col-12 col-sm-3"><select class="form-select form-select-sm sched-start" name="sched_start[]">${START_OPT}</select></div>
+    <div class="col-auto"><span class="sched-end text-muted small">→ --:--</span></div>
+    <div class="col-12 col-sm-4"><select class="form-select form-select-sm" name="sched_room_id[]">${ROOM_OPT}</select></div>
+    <div class="col-auto"><button type="button" class="btn btn-outline-danger btn-sm remove-row" title="Xóa"><i class="bi bi-x-lg"></i></button></div>`;
+  return div;
+}
+
+document.getElementById('sched-rows').addEventListener('change', e => {
+  if (e.target.classList.contains('sched-start')) {
+    const v = e.target.value;
+    e.target.closest('.sched-row').querySelector('.sched-end').textContent =
+      v ? '→ ' + (TIME_SLOT_END[v] || '--:--') : '→ --:--';
+  }
+});
+
+document.getElementById('sched-rows').addEventListener('click', e => {
+  const btn = e.target.closest('.remove-row');
+  if (!btn) return;
+  if (document.querySelectorAll('.sched-row').length > 1) {
+    btn.closest('.sched-row').remove();
+    updateSessionsPerWeek();
+  }
+});
+
+// Auto-fill sessions_per_week from schedule row count
+function updateSessionsPerWeek() {
+  const count = document.querySelectorAll('.sched-row').length;
+  const field = document.getElementById('sessionsPerWeek');
+  if (field && !field.dataset.manuallySet) field.value = count;
+}
+document.getElementById('add-sched-row').addEventListener('click', () => {
+  document.getElementById('sched-rows').appendChild(buildRow());
+  updateSessionsPerWeek();
+});
+document.getElementById('sessionsPerWeek')?.addEventListener('input', function() {
+  this.dataset.manuallySet = this.value ? '1' : '';
+});
+// Init
+updateSessionsPerWeek();
+
+const courseSelect = document.getElementById('courseSelect');
+const gradeSelect  = document.getElementById('gradeSelect');
+const gradeCustom  = document.getElementById('gradeCustom');
+
+// ── "Loại khác" custom input ──────────────────────────────────────
+function syncCustomInput() {
+  const isOther = gradeSelect.value === 'Loại khác';
+  gradeCustom.classList.toggle('d-none', !isOther);
+  gradeCustom.required = isOther;
+}
+gradeSelect.addEventListener('change', () => {
+  syncCustomInput();
+  if (typeof updatePreview === 'function') updatePreview();
+});
+syncCustomInput();  // init on load
+
+// ── Auto-name preview ─────────────────────────────────────────────
+{% if action == 'add' %}
+const SUFFIX_COUNTS = {{ suffix_counts | tojson if suffix_counts is defined else '{}' }};
+
+function updatePreview() {
+  const courseOpt = courseSelect.options[courseSelect.selectedIndex];
+  const courseName = courseOpt && courseOpt.value ? courseOpt.text : '...';
+  const gradeVal = gradeSelect.value === 'Loại khác' ? (gradeCustom.value || '...') : (gradeSelect.value || '...');
+  const key = (gradeSelect.value || '') + '|' + (courseOpt ? courseOpt.value : '');
+  const count = SUFFIX_COUNTS[key] || 0;
+  const suffix = String.fromCharCode(65 + count);  // A, B, C…
+  const combined = /\d$/.test(gradeVal) ? gradeVal + suffix : gradeVal + ' ' + suffix;
+  const preview = document.getElementById('namePreview');
+  if (preview) preview.textContent = combined.trim() + ' - ' + courseName;
+}
+courseSelect.addEventListener('change', updatePreview);
+gradeSelect.addEventListener('change', updatePreview);
+gradeCustom.addEventListener('input', updatePreview);
+updatePreview();
+{% endif %}
+</script>
+{% endblock %}
