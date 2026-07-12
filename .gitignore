@@ -60,6 +60,7 @@ Thumbs.db
 *_backup.*
 backup.sql
 *.bak
+*.bak_*
 
 # Docker
 .docker/

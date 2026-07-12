@@ -25,28 +25,18 @@ def create_app(config_name=None):
         import models  # noqa: F401
         with app.app_context():
             db.create_all()
-            from models import User, Teacher, UserRole
+            from models import User, UserRole
 
-            def ensure_user(username, full_name, phone, role, password):
-                existing = User.query.filter_by(username=username).first()
-                if existing:
-                    return existing
-                user = User(full_name=full_name, username=username, phone=phone, role=role)
-                user.set_password(password)
-                db.session.add(user)
-                db.session.flush()
-                if role == UserRole.TEACHER:
-                    teacher_profile = Teacher.query.filter_by(user_id=user.id).first()
-                    if not teacher_profile:
-                        db.session.add(Teacher(user_id=user.id, is_staff=True, base_salary=8000000))
+            if not User.query.filter_by(username='nhattuyen').first():
+                admin = User(
+                    full_name='Nguyen Thi Nhat Tuyen',
+                    username='nhattuyen',
+                    phone='0901234567',
+                    role=UserRole.ADMIN,
+                )
+                admin.set_password(os.environ.get('SEED_ADMIN_PASSWORD', '!123123@'))
+                db.session.add(admin)
                 db.session.commit()
-                return user
-
-            ensure_user('admin', 'Nguyen Thi Nhat Tuyen', '0901234567', UserRole.ADMIN, 'admin123')
-            ensure_user('gvtoan', 'Trần Văn An', '0912345678', UserRole.TEACHER, 'teacher123')
-            ensure_user('gvly', 'Lê Thị Bình', '0923456789', UserRole.TEACHER, 'teacher123')
-            ensure_user('parent01', 'Phụ huynh 01', '0901111111', UserRole.PARENT, 'parent123')
-            ensure_user('parent02', 'Phụ huynh 02', '0902222222', UserRole.PARENT, 'parent123')
 
     # User loader
     from models import User
