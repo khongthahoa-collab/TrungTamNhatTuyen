@@ -92,9 +92,8 @@ ADMIN_ENDPOINT_MODULES = {
     'expenses': 'expenses', 'expense_add': 'expenses', 'expense_delete': 'expenses',
     'salary': 'salary', 'salary_calculate': 'salary', 'salary_adjust': 'salary', 'salary_finalize': 'salary',
 
-    # teachers.py
-    'teachers': 'teachers', 'teacher_add': 'teachers', 'teacher_edit': 'teachers',
-    'teacher_delete': 'teachers', 'teacher_activate': 'teachers',
+    # teachers.py (read-only stats view; CRUD lives in settings.py's accounts routes)
+    'teachers': 'teachers',
 
     # rooms.py
     'rooms': 'rooms', 'room_add': 'rooms', 'room_edit': 'rooms',
@@ -119,8 +118,8 @@ ADMIN_ENDPOINT_MODULES = {
     # settings.py — split across 4 modules
     'settings': 'settings', 'settings_save': 'settings',
     'inquiries': 'inquiries', 'inquiry_delete': 'inquiries',
-    'users': 'users', 'user_add': 'users', 'user_reset_password': 'users',
-    'user_toggle_active': 'users', 'user_permissions_update': 'users',
+    'users': 'users', 'user_add': 'users', 'user_edit': 'users', 'user_delete': 'users',
+    'user_reset_password': 'users', 'user_toggle_active': 'users', 'user_permissions_update': 'users',
     'courses': 'courses', 'course_add': 'courses', 'course_edit': 'courses',
 }
 

@@ -1,8 +1,6 @@
 import io
 import csv
 import os
-import re
-import unicodedata
 from flask import render_template, redirect, url_for, flash, request, abort, Response, current_app
 from flask_login import login_required, current_user
 from datetime import date, datetime
@@ -11,20 +9,9 @@ from extensions import db
 from models import (Student, User, Enrollment, Class, TuitionPayment, Score, Reward,
                     StudentLevel, UserRole, Attendance, AttendanceStatus, Teacher, Schedule, School)
 from blueprints.admin import admin_bp, require_admin
+from blueprints.admin.account_utils import next_username, DEFAULT_TEMP_PASSWORD
 
 PHOTO_EXTS = {'jpg', 'jpeg', 'png', 'webp', 'gif'}
-
-
-def _strip_diacritics(text):
-    text = unicodedata.normalize('NFD', text or '')
-    text = ''.join(c for c in text if unicodedata.category(c) != 'Mn')
-    return text.replace('Đ', 'D').replace('đ', 'd')
-
-
-def default_parent_password(full_name, birth_year=None):
-    """Default parent account password: @ + tên học sinh không dấu, không khoảng trắng + năm sinh."""
-    name_part = re.sub(r'[^a-z0-9]', '', _strip_diacritics(full_name).lower())
-    return f'@{name_part}{birth_year or ""}'
 
 
 @admin_bp.route('/students')
@@ -267,25 +254,20 @@ def student_add():
                 else:
                     flash(f'SĐT {parent_phone} đã được dùng cho tài khoản khác.', 'warning')
             else:
-                username = f'ph_{parent_phone[-4:]}'
-                base_username = username
-                counter = 1
-                while User.query.filter_by(username=username).first():
-                    username = f'{base_username}_{counter}'
-                    counter += 1
-
+                username = next_username(UserRole.PARENT)
                 new_user = User(
                     full_name=parent_name or f'Phụ huynh của {full_name}',
                     username=username,
                     phone=parent_phone,
                     role=UserRole.PARENT,
+                    must_change_password=True,
                 )
-                default_pw = default_parent_password(full_name, dob.year if dob else None)
-                new_user.set_password(default_pw)
+                new_user.set_password(DEFAULT_TEMP_PASSWORD)
                 db.session.add(new_user)
                 db.session.flush()
                 parent_user_id = new_user.id
-                flash(f'Đã tạo tài khoản phụ huynh: {username} / mật khẩu: {default_pw}', 'info')
+                flash(f'Đã tạo tài khoản phụ huynh: {username} / mật khẩu tạm: {DEFAULT_TEMP_PASSWORD} '
+                      f'— bắt buộc đổi ở lần đăng nhập đầu tiên.', 'info')
 
         student = Student(
             full_name=full_name,
@@ -357,10 +339,11 @@ def student_reset_parent_password(student_id):
         return redirect(url_for('admin.student_detail', student_id=student_id))
 
     user = User.query.get_or_404(student.parent_user_id)
-    new_pw = default_parent_password(student.full_name, student.date_of_birth.year if student.date_of_birth else None)
-    user.set_password(new_pw)
+    user.set_password(DEFAULT_TEMP_PASSWORD)
+    user.must_change_password = True
     db.session.commit()
-    flash(f'Đã đặt lại mật khẩu phụ huynh về: {new_pw}', 'success')
+    flash(f'Đã đặt lại mật khẩu phụ huynh về: {DEFAULT_TEMP_PASSWORD} '
+          f'— bắt buộc đổi ở lần đăng nhập đầu tiên.', 'success')
     return redirect(url_for('admin.student_detail', student_id=student_id))
 
 

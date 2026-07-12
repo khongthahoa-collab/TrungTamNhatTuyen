@@ -38,15 +38,17 @@
                    placeholder="0xxx xxx xxx">
           </div>
           <div class="col-12 col-md-6">
-            <label class="form-label fw-semibold" for="new_username">Tên đăng nhập <span class="text-danger">*</span></label>
+            <label class="form-label fw-semibold" for="new_username">Tên đăng nhập</label>
             <input type="text" class="form-control" name="username" id="new_username"
-                   placeholder="username" required autocomplete="off">
+                   placeholder="Để trống: tự tạo (admin1/teacher1/user1...)" autocomplete="off">
           </div>
           <div class="col-12 col-md-6">
             <label class="form-label fw-semibold" for="new_role">Vai trò <span class="text-danger">*</span></label>
             <select class="form-select" name="role" id="new_role" required onchange="toggleTeacherFields()">
               <option value="">-- Chọn vai trò --</option>
+              {% if current_user.is_master %}
               <option value="admin">Admin</option>
+              {% endif %}
               <option value="teacher">Giáo viên</option>
               <option value="parent">Phụ huynh</option>
             </select>
@@ -55,14 +57,14 @@
             <label class="form-label fw-semibold" for="new_password">Mật khẩu</label>
             <div class="input-group">
               <input type="password" class="form-control" name="password" id="new_password"
-                     placeholder="Để trống để tự tạo mật khẩu" autocomplete="new-password"
+                     placeholder="Để trống: dùng mật khẩu tạm pass@123" autocomplete="new-password"
                      oninput="syncPwdConfirmRequired()">
               <button class="btn btn-outline-secondary" type="button"
                       onclick="togglePwd('new_password', this)">
                 <i class="bi bi-eye"></i>
               </button>
             </div>
-            <div class="form-text">Để trống: hệ thống tự tạo mật khẩu mạnh và hiển thị sau khi tạo.</div>
+            <div class="form-text">Để trống: mật khẩu tạm pass@123, bắt buộc đổi ở lần đăng nhập đầu tiên.</div>
           </div>
           <div class="col-12 col-md-6">
             <label class="form-label fw-semibold" for="new_password_confirm">Nhập lại mật khẩu</label>
@@ -97,6 +99,14 @@
               <label class="form-label fw-semibold" for="new_specialty">Chuyên môn</label>
               <input type="text" class="form-control" name="specialty" id="new_specialty"
                      placeholder="Toán, Văn, Tiếng Anh...">
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold" for="new_gender">Giới tính</label>
+              <select class="form-select" name="gender" id="new_gender">
+                <option value="">-- Không rõ --</option>
+                <option value="male">Nam</option>
+                <option value="female">Nữ</option>
+              </select>
             </div>
           </div>
         </div>
@@ -184,6 +194,22 @@
           </td>
           <td class="text-end">
             <div class="btn-group btn-group-sm">
+              <!-- Edit profile -->
+              <button class="btn btn-outline-secondary"
+                      title="Sửa thông tin"
+                      data-bs-toggle="modal"
+                      data-bs-target="#userEditModal"
+                      data-user-id="{{ u.id }}"
+                      data-user-name="{{ u.full_name }}"
+                      data-user-role="{{ u.role }}"
+                      data-user-full-name="{{ u.full_name }}"
+                      data-user-phone="{{ u.phone or '' }}"
+                      data-user-gender="{{ u.gender or '' }}"
+                      data-user-is-staff="{{ (u.teacher_profile.is_staff if u.teacher_profile else True) | tojson }}"
+                      data-user-base-salary="{{ u.teacher_profile.base_salary if u.teacher_profile else 0 }}"
+                      data-user-note="{{ u.teacher_profile.note if u.teacher_profile else '' }}">
+                <i class="bi bi-pencil"></i>
+              </button>
               {% if current_user.has_full_access and u.role in ('admin', 'teacher') and u.id != current_user.id %}
               <!-- Edit permissions -->
               <button class="btn btn-outline-primary"
@@ -219,6 +245,20 @@
                   <i class="bi {% if u.is_active %}bi-person-x{% else %}bi-person-check{% endif %}"></i>
                 </button>
               </form>
+              {% if current_user.is_master and u.id != current_user.id %}
+              <!-- Delete -->
+              <form method="post"
+                    action="{{ url_for('admin.user_delete', user_id=u.id) }}"
+                    class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit"
+                        class="btn btn-outline-danger"
+                        title="Xoá tài khoản"
+                        onclick="return confirm('Xoá tài khoản {{ u.full_name }}? Tài khoản sẽ bị ẩn khỏi danh sách nhưng dữ liệu liên quan (điểm, lịch dạy...) vẫn được giữ nguyên.')">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+              {% endif %}
             </div>
           </td>
         </tr>
@@ -232,6 +272,61 @@
   </div>
 </div>
 
+<!-- ===== EDIT PROFILE MODAL ===== -->
+<div class="modal fade" id="userEditModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="bi bi-pencil me-1"></i>Sửa thông tin
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" id="userEditForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="edit_full_name">Họ tên <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" name="full_name" id="edit_full_name" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="edit_phone">Số điện thoại</label>
+            <input type="tel" class="form-control" name="phone" id="edit_phone">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="edit_gender">Giới tính</label>
+            <select class="form-select" name="gender" id="edit_gender">
+              <option value="">-- Không rõ --</option>
+              <option value="male">Nam</option>
+              <option value="female">Nữ</option>
+            </select>
+          </div>
+          <div id="editTeacherFields" style="display:none;">
+            <div class="form-check form-switch mb-2">
+              <input class="form-check-input" type="checkbox" name="is_staff" id="edit_is_staff">
+              <label class="form-check-label fw-semibold" for="edit_is_staff">Là nhân viên cơ hữu</label>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="edit_base_salary">Lương cơ bản (VND/tháng)</label>
+              <input type="number" class="form-control" name="base_salary" id="edit_base_salary" min="0" step="100000">
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="edit_note">Chuyên môn</label>
+              <input type="text" class="form-control" name="note" id="edit_note">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i>Lưu
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <!-- ===== RESET PASSWORD MODAL ===== -->
 <div class="modal fade" id="resetPwdModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -242,15 +337,14 @@
         </h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <form method="post" action="/quan-tri/tai-khoan/0/doi-mat-khau" id-placeholder="true" id="resetPwdForm">
+      <form method="post" id="resetPwdForm">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="user_id" id="resetUserId">
         <div class="modal-body">
           <p>Đặt lại mật khẩu cho: <strong id="resetUserName"></strong></p>
           <div class="mb-3">
             <label class="form-label fw-semibold" for="new_password_reset">Mật khẩu mới <span class="text-danger">*</span></label>
             <div class="input-group">
-              <input type="password" class="form-control" name="new_password"
+              <input type="password" class="form-control" name="password"
                      id="new_password_reset" placeholder="••••••••" required
                      autocomplete="new-password">
               <button class="btn btn-outline-secondary" type="button"
@@ -346,11 +440,28 @@ function togglePwd(inputId, btn) {
 }
 
 // Populate reset password modal
+const resetPwdBaseAction = "{{ url_for('admin.user_reset_password', user_id=0) }}";
 document.getElementById('resetPwdModal')?.addEventListener('show.bs.modal', function(e) {
   const btn = e.relatedTarget;
-  document.getElementById('resetUserId').value = btn.dataset.userId;
+  document.getElementById('resetPwdForm').action = resetPwdBaseAction.replace('/0/', '/' + btn.dataset.userId + '/');
   document.getElementById('resetUserName').textContent = btn.dataset.userName;
   document.getElementById('new_password_reset').value = '';
+});
+
+// Populate edit-profile modal
+const userEditBaseAction = "{{ url_for('admin.user_edit', user_id=0) }}";
+document.getElementById('userEditModal')?.addEventListener('show.bs.modal', function(e) {
+  const btn = e.relatedTarget;
+  document.getElementById('userEditForm').action = userEditBaseAction.replace('/0/', '/' + btn.dataset.userId + '/');
+  document.getElementById('edit_full_name').value = btn.dataset.userFullName || '';
+  document.getElementById('edit_phone').value = btn.dataset.userPhone || '';
+  document.getElementById('edit_gender').value = btn.dataset.userGender || '';
+
+  const isTeacher = btn.dataset.userRole === 'teacher';
+  document.getElementById('editTeacherFields').style.display = isTeacher ? '' : 'none';
+  document.getElementById('edit_is_staff').checked = btn.dataset.userIsStaff === 'true';
+  document.getElementById('edit_base_salary').value = btn.dataset.userBaseSalary || 0;
+  document.getElementById('edit_note').value = btn.dataset.userNote || '';
 });
 
 // Populate edit-permissions modal

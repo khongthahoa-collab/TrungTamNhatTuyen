@@ -33,6 +33,7 @@ def create_app(config_name=None):
                     username='nhattuyen',
                     phone='0901234567',
                     role=UserRole.ADMIN,
+                    is_master=True,
                 )
                 admin.set_password(os.environ.get('SEED_ADMIN_PASSWORD', '!123123@'))
                 db.session.add(admin)
@@ -57,6 +58,17 @@ def create_app(config_name=None):
     app.register_blueprint(parent_bp, url_prefix='/parent')
     app.register_blueprint(teacher_bp, url_prefix='/teacher')
     app.register_blueprint(admin_bp, url_prefix='/admin')
+
+    # Force a password change before any other page is reachable for accounts
+    # created with a temporary password (see blueprints/admin/account_utils.py).
+    @app.before_request
+    def enforce_password_change():
+        from flask import redirect, url_for, request
+        from flask_login import current_user
+        if current_user.is_authenticated and current_user.must_change_password:
+            allowed = {'auth.change_password', 'auth.logout', 'static'}
+            if request.endpoint not in allowed:
+                return redirect(url_for('auth.change_password'))
 
     # Jinja2 global helpers
     from flask import request

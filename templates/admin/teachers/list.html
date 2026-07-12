@@ -10,8 +10,8 @@
     <h5 class="fw-bold mb-0"><i class="bi bi-person-badge me-2 text-primary"></i>Quản lý Giáo viên</h5>
     <div class="text-muted small">{{ teachers | length }} giáo viên</div>
   </div>
-  <a href="{{ url_for('admin.teacher_add') }}" class="btn btn-primary">
-    <i class="bi bi-plus-lg me-1"></i>Thêm giáo viên
+  <a href="{{ url_for('admin.users') }}" class="btn btn-primary">
+    <i class="bi bi-person-gear me-1"></i>Quản lý trong Tài khoản
   </a>
 </div>
 
@@ -35,7 +35,6 @@
           <th class="text-center">Buổi dạy</th>
           <th>Lương cơ bản</th>
           <th>Trạng thái</th>
-          <th class="text-center">Thao tác</th>
         </tr>
       </thead>
       <tbody>
@@ -85,37 +84,13 @@
             <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Đã vô hiệu hóa</span>
             {% endif %}
           </td>
-          <td class="text-center">
-            <div class="d-flex justify-content-center gap-1">
-              <a href="{{ url_for('admin.teacher_edit', teacher_id=teacher.id) }}"
-                 class="btn btn-outline-primary btn-sm" title="Sửa">
-                <i class="bi bi-pencil"></i>
-              </a>
-              {% if teacher.user.is_active %}
-              <form method="post" action="{{ url_for('admin.teacher_delete', teacher_id=teacher.id) }}"
-                    onsubmit="return confirm('Vô hiệu hóa giáo viên {{ teacher.full_name }}?')">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn btn-outline-danger btn-sm" title="Vô hiệu hóa">
-                  <i class="bi bi-person-x"></i>
-                </button>
-              </form>
-              {% else %}
-              <form method="post" action="{{ url_for('admin.teacher_activate', teacher_id=teacher.id) }}">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn btn-outline-success btn-sm" title="Kích hoạt lại">
-                  <i class="bi bi-person-check"></i>
-                </button>
-              </form>
-              {% endif %}
-            </div>
-          </td>
         </tr>
         {% else %}
         <tr>
-          <td colspan="8" class="text-center text-muted py-5">
+          <td colspan="7" class="text-center text-muted py-5">
             <i class="bi bi-person-badge fs-3 d-block mb-2"></i>
             Chưa có giáo viên nào.
-            <a href="{{ url_for('admin.teacher_add') }}">Thêm giáo viên đầu tiên</a>
+            <a href="{{ url_for('admin.users') }}">Thêm giáo viên trong Quản lý tài khoản</a>
           </td>
         </tr>
         {% endfor %}

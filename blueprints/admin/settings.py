@@ -1,23 +1,10 @@
-import secrets
-import string
-
 from flask import render_template, redirect, url_for, flash, request, abort
 from flask_login import login_required, current_user
 from extensions import db
 from models import SystemConfig, User, Teacher, Course, UserRole, ContactInquiry
 from blueprints.admin import admin_bp, require_admin
+from blueprints.admin.account_utils import next_username, DEFAULT_TEMP_PASSWORD
 from blueprints.permissions import ADMIN_MODULES, TEACHER_MODULES
-
-PASSWORD_ALPHABET = string.ascii_letters + string.digits + '!@#$%^&*'
-
-
-def _generate_strong_password(length=12):
-    """Random password guaranteed to mix lower/upper/digit/symbol."""
-    while True:
-        pwd = ''.join(secrets.choice(PASSWORD_ALPHABET) for _ in range(length))
-        if (any(c.islower() for c in pwd) and any(c.isupper() for c in pwd)
-                and any(c.isdigit() for c in pwd) and any(c in '!@#$%^&*' for c in pwd)):
-            return pwd
 
 
 @admin_bp.route('/settings')
@@ -70,7 +57,8 @@ def inquiry_delete(inquiry_id):
 @login_required
 @require_admin
 def users():
-    users = User.query.order_by(User.role, User.full_name).all()
+    users = (User.query.filter_by(is_deleted=False)
+             .order_by(User.role, User.full_name).all())
     return render_template('admin/users.html', users=users,
                            admin_modules=ADMIN_MODULES, teacher_modules=TEACHER_MODULES)
 
@@ -85,13 +73,16 @@ def user_add():
     role = request.form.get('role', 'parent')
     password = request.form.get('password', '').strip()
     password_confirm = request.form.get('password_confirm', '').strip()
+    gender = request.form.get('gender', '').strip() or None
     is_staff = request.form.get('is_staff') == '1'
     base_salary = request.form.get('base_salary', 0, type=float)
     note = request.form.get('specialty', '').strip()
 
+    if role == UserRole.ADMIN and not current_user.is_master:
+        abort(403)
+
     if not username:
-        flash('Vui lòng nhập tên đăng nhập.', 'danger')
-        return redirect(url_for('admin.users'))
+        username = next_username(role)
 
     dup_filters = [User.username == username]
     if phone:
@@ -100,18 +91,19 @@ def user_add():
         flash('Số điện thoại hoặc tên đăng nhập đã tồn tại.', 'danger')
         return redirect(url_for('admin.users'))
 
-    generated_password = None
-    if password or password_confirm:
+    used_default_password = not (password or password_confirm)
+    if used_default_password:
+        password = DEFAULT_TEMP_PASSWORD
+    else:
         if password != password_confirm:
             flash('Mật khẩu nhập lại không khớp.', 'danger')
             return redirect(url_for('admin.users'))
         if len(password) < 6:
             flash('Mật khẩu tối thiểu 6 ký tự.', 'danger')
             return redirect(url_for('admin.users'))
-    else:
-        password = generated_password = _generate_strong_password()
 
-    user = User(full_name=full_name or username, username=username, phone=phone, role=role)
+    user = User(full_name=full_name or username, username=username, phone=phone,
+                role=role, gender=gender, must_change_password=True)
     user.set_password(password)
 
     if role == UserRole.ADMIN:
@@ -132,11 +124,59 @@ def user_add():
         db.session.add(teacher)
 
     db.session.commit()
-    if generated_password:
-        flash(f'Đã tạo tài khoản {username} với mật khẩu tự động: {generated_password} '
-              f'— hãy lưu lại ngay, mật khẩu sẽ không hiển thị lại.', 'success')
+    if used_default_password:
+        flash(f'Đã tạo tài khoản {username} với mật khẩu tạm: {DEFAULT_TEMP_PASSWORD} '
+              f'— bắt buộc đổi mật khẩu ở lần đăng nhập đầu tiên.', 'success')
     else:
-        flash(f'Đã tạo tài khoản {username}.', 'success')
+        flash(f'Đã tạo tài khoản {username} — bắt buộc đổi mật khẩu ở lần đăng nhập đầu tiên.', 'success')
+    return redirect(url_for('admin.users'))
+
+
+@admin_bp.route('/accounts/<int:user_id>/edit', methods=['POST'])
+@login_required
+@require_admin
+def user_edit(user_id):
+    user = User.query.get_or_404(user_id)
+    full_name = request.form.get('full_name', '').strip()
+    phone = request.form.get('phone', '').strip() or None
+    gender = request.form.get('gender', '').strip() or None
+
+    if not full_name:
+        flash('Vui lòng nhập họ tên.', 'danger')
+        return redirect(url_for('admin.users'))
+
+    if phone and User.query.filter(User.phone == phone, User.id != user.id).first():
+        flash('Số điện thoại đã được sử dụng.', 'danger')
+        return redirect(url_for('admin.users'))
+
+    user.full_name = full_name
+    user.phone = phone
+    user.gender = gender
+
+    if user.role == UserRole.TEACHER and user.teacher_profile:
+        user.teacher_profile.is_staff = request.form.get('is_staff') == '1'
+        user.teacher_profile.base_salary = request.form.get('base_salary', 0, type=float)
+        user.teacher_profile.note = request.form.get('note', '').strip()
+
+    db.session.commit()
+    flash(f'Đã cập nhật thông tin {user.full_name}.', 'success')
+    return redirect(url_for('admin.users'))
+
+
+@admin_bp.route('/accounts/<int:user_id>/delete', methods=['POST'])
+@login_required
+@require_admin
+def user_delete(user_id):
+    if not current_user.is_master:
+        abort(403)
+    user = User.query.get_or_404(user_id)
+    if user.id == current_user.id:
+        flash('Không thể tự xoá tài khoản của chính mình.', 'danger')
+        return redirect(url_for('admin.users'))
+    user.is_deleted = True
+    user.is_active = False
+    db.session.commit()
+    flash(f'Đã xoá tài khoản {user.full_name}.', 'success')
     return redirect(url_for('admin.users'))
 
 

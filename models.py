@@ -454,6 +454,9 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime)
     permissions = db.Column(db.Text)  # JSON list of module keys; NULL = full access
+    is_master = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+    must_change_password = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+    is_deleted = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
 
     # Relationships
     teacher_profile = db.relationship('Teacher', backref='user', uselist=False)
