@@ -6,8 +6,7 @@
 <nav class="navbar navbar-dark" style="background:#0f5132;">
   <div class="container-fluid">
     <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="#">
-      <i class="bi bi-mortarboard-fill"></i>
-      <span>Nhật Tuyền</span>
+      <img src="{{ url_for('static', filename='icons/logo-mark.png') }}" alt="Nhật Tuyền" height="28">
     </a>
     <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-light">
       <i class="bi bi-box-arrow-right me-1"></i>Đăng xuất

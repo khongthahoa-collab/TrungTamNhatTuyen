@@ -8,8 +8,7 @@
   <nav class="sidebar d-flex flex-column flex-shrink-0 p-3 text-white" id="sidebar"
        style="background: linear-gradient(180deg, #6d4dd4 0%, #7c5cdb 100%); width:240px; height:100vh; overflow-y:auto; position:fixed; top:0; left:0; z-index:100; transition:transform .3s;{% if start_collapsed %} transform:translateX(-100%);{% endif %}">
     <a href="{{ url_for('admin.dashboard') }}" class="d-flex align-items-center mb-3 text-white text-decoration-none">
-      <i class="bi bi-mortarboard-fill fs-5 me-2"></i>
-      <span class="fw-bold">Nhật Tuyền</span>
+      <img src="{{ url_for('static', filename='icons/logo-mark.png') }}" alt="Nhật Tuyền" height="28">
     </a>
     <hr class="text-secondary">
     <ul class="nav nav-pills flex-column mb-auto">
