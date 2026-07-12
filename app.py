@@ -69,8 +69,10 @@ def create_app(config_name=None):
     app.register_blueprint(admin_bp, url_prefix='/admin')
 
     # Jinja2 global helpers
+    from flask import request
     from models import SystemConfig, ContactInquiry, Notification
     from flask_login import current_user
+    from blueprints.permissions import ADMIN_ENDPOINT_MODULES, ADMIN_SIDEBAR_GROUPS
     import models as m
 
     @app.context_processor
@@ -92,6 +94,8 @@ def create_app(config_name=None):
             'SystemConfig': SystemConfig,
             'unread_inquiries': unread_inquiries,
             'unread_notifications': unread_notifications,
+            'current_admin_module': ADMIN_ENDPOINT_MODULES.get((request.endpoint or '').split('.')[-1]),
+            'ADMIN_SIDEBAR_GROUPS': ADMIN_SIDEBAR_GROUPS,
             'UserRole': m.UserRole,
             'StudentLevel': m.StudentLevel,
             'ScheduleType': m.ScheduleType,

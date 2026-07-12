@@ -32,6 +32,23 @@ ADMIN_MODULES = [
     ('settings', 'Cài đặt', 'bi-gear'),
 ]
 
+# Admin sidebar layout: 'reports' and dashboard render as standalone links;
+# everything else is grouped into collapsible sections. (group_key, label,
+# icon, [module keys in ADMIN_MODULES]) — every ADMIN_MODULES key except
+# 'reports' must appear in exactly one group.
+ADMIN_SIDEBAR_GROUPS = [
+    ('academic', 'Học vụ', 'bi-mortarboard-fill',
+        ['students', 'classes', 'academic', 'attendance', 'rewards']),
+    ('staff', 'Nhân sự & Cơ sở', 'bi-building',
+        ['teachers', 'rooms', 'schools', 'courses']),
+    ('finance', 'Tài chính', 'bi-cash-stack',
+        ['tuition', 'tuition_report', 'expenses', 'salary']),
+    ('content', 'Học liệu & Thi cử', 'bi-journal-text',
+        ['documents', 'exams']),
+    ('system', 'Hệ thống', 'bi-gear-fill',
+        ['users', 'inquiries', 'settings']),
+]
+
 # (key, label, bootstrap-icon) — order matches the teacher bottom nav
 TEACHER_MODULES = [
     ('schedule', 'Lịch dạy', 'bi-calendar3'),

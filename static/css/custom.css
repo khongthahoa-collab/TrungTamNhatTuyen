@@ -131,6 +131,20 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 2px 16px rgba(17,26,20,.25);
 }
 
+/* Mobile menu overlays the page instead of pushing content down */
+@media (max-width: 991.98px) {
+  .navbar-public .navbar-collapse {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--nt-dark-bg);
+    padding: 0.5rem 1rem 1rem;
+    box-shadow: 0 8px 16px rgba(17,26,20,.25);
+    z-index: 1040;
+  }
+}
+
 .navbar .nav-link {
   font-weight: 500;
   font-size: 0.9rem;
@@ -574,8 +588,21 @@ footer a:hover { color: #fff !important; }
   font-weight: 600;
   box-shadow: 0 2px 8px rgba(22,163,74,.30);
 }
+/* Collapsible group headers */
+.sidebar .sidebar-caret {
+  transition: transform .2s ease;
+  font-size: 0.75rem;
+}
+.sidebar .nav-link.collapsed .sidebar-caret {
+  transform: rotate(-90deg);
+}
+.sidebar ul.nav ul.nav .nav-link {
+  font-size: 0.83rem;
+  padding: 8px 12px;
+}
 @media (max-width:991px) {
   .sidebar { transform: translateX(-100%); }
+  .sidebar.sidebar-open { transform: translateX(0); }
   #main-content { margin-left: 0 !important; }
 }
 

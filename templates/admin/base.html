@@ -18,141 +18,212 @@
           <i class="bi bi-speedometer2 me-2"></i>Tổng quan
         </a>
       </li>
-      {% if current_user.can_access('students') %}
+
+      {# ── Học vụ ── #}
+      {% if current_user.can_access('students') or current_user.can_access('classes') or current_user.can_access('academic') or current_user.can_access('attendance') or current_user.can_access('rewards') %}
+      {% set group_active = current_admin_module in ('students', 'classes', 'academic', 'attendance', 'rewards') %}
       <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.students') }}" class="nav-link text-white {% if 'student' in request.endpoint %}active{% endif %}">
-          <i class="bi bi-people me-2"></i>Học sinh
+        <a href="#group-academic" class="nav-link text-white d-flex align-items-center {% if not group_active %}collapsed{% endif %}" data-bs-toggle="collapse" role="button" aria-expanded="{{ 'true' if group_active else 'false' }}">
+          <i class="bi bi-mortarboard-fill me-2"></i>Học vụ
+          <i class="bi bi-chevron-down ms-auto sidebar-caret"></i>
         </a>
+        <ul class="nav nav-pills flex-column ps-3 collapse {% if group_active %}show{% endif %}" id="group-academic">
+          {% if current_user.can_access('students') %}
+          <li class="nav-item mb-1">
+            <a href="{{ url_for('admin.students') }}" class="nav-link text-white {% if current_admin_module == 'students' %}active{% endif %}">
+              <i class="bi bi-people me-2"></i>Học sinh
+            </a>
+          </li>
+          {% endif %}
+          {% if current_user.can_access('classes') %}
+          <li class="nav-item mb-1">
+            <a href="{{ url_for('admin.classes') }}" class="nav-link text-white {% if current_admin_module == 'classes' %}active{% endif %}">
+              <i class="bi bi-journal-bookmark me-2"></i>Lớp học
+            </a>
+          </li>
+          {% endif %}
+          {% if current_user.can_access('academic') %}
+          <li class="nav-item mb-1">
+            <a href="{{ url_for('admin.academic_years') }}" class="nav-link text-white {% if current_admin_module == 'academic' %}active{% endif %}">
+              <i class="bi bi-calendar3 me-2"></i>Năm học
+            </a>
+          </li>
+          {% endif %}
+          {% if current_user.can_access('attendance') %}
+          <li class="nav-item mb-1">
+            <a href="{{ url_for('admin.attendance_list') }}" class="nav-link text-white {% if current_admin_module == 'attendance' %}active{% endif %}">
+              <i class="bi bi-person-check me-2"></i>Điểm danh
+            </a>
+          </li>
+          {% endif %}
+          {% if current_user.can_access('rewards') %}
+          <li class="nav-item mb-1">
+            <a href="{{ url_for('admin.rewards') }}" class="nav-link text-white {% if current_admin_module == 'rewards' %}active{% endif %}">
+              <i class="bi bi-trophy me-2"></i>Khen thưởng
+            </a>
+          </li>
+          {% endif %}
+        </ul>
       </li>
       {% endif %}
-      {% if current_user.can_access('classes') %}
+
+      {# ── Nhân sự & Cơ sở ── #}
+      {% if current_user.can_access('teachers') or current_user.can_access('rooms') or current_user.can_access('schools') or current_user.can_access('courses') %}
+      {% set group_active = current_admin_module in ('teachers', 'rooms', 'schools', 'courses') %}
       <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.classes') }}" class="nav-link text-white {% if 'class' in request.endpoint or request.endpoint in ('admin.generate_schedule', 'admin.add_schedule', 'admin.cancel_schedule', 'admin.delete_schedule') %}active{% endif %}">
-          <i class="bi bi-journal-bookmark me-2"></i>Lớp học
+        <a href="#group-staff" class="nav-link text-white d-flex align-items-center {% if not group_active %}collapsed{% endif %}" data-bs-toggle="collapse" role="button" aria-expanded="{{ 'true' if group_active else 'false' }}">
+          <i class="bi bi-building me-2"></i>Nhân sự &amp; Cơ sở
+          <i class="bi bi-chevron-down ms-auto sidebar-caret"></i>
         </a>
+        <ul class="nav nav-pills flex-column ps-3 collapse {% if group_active %}show{% endif %}" id="group-staff">
+          {% if current_user.can_access('teachers') %}
+          <li class="nav-item mb-1">
+            <a href="{{ url_for('admin.teachers') }}" class="nav-link text-white {% if current_admin_module == 'teachers' %}active{% endif %}">
+              <i class="bi bi-person-badge me-2"></i>Giáo viên
+            </a>
+          </li>
+          {% endif %}
+          {% if current_user.can_access('rooms') %}
+          <li class="nav-item mb-1">
+            <a href="{{ url_for('admin.rooms') }}" class="nav-link text-white {% if current_admin_module == 'rooms' %}active{% endif %}">
+              <i class="bi bi-door-open me-2"></i>Phòng học
+            </a>
+          </li>
+          {% endif %}
+          {% if current_user.can_access('schools') %}
+          <li class="nav-item mb-1">
+            <a href="{{ url_for('admin.schools') }}" class="nav-link text-white {% if current_admin_module == 'schools' %}active{% endif %}">
+              <i class="bi bi-building me-2"></i>Trường học
+            </a>
+          </li>
+          {% endif %}
+          {% if current_user.can_access('courses') %}
+          <li class="nav-item mb-1">
+            <a href="{{ url_for('admin.courses') }}" class="nav-link text-white {% if current_admin_module == 'courses' %}active{% endif %}">
+              <i class="bi bi-book me-2"></i>Môn học
+            </a>
+          </li>
+          {% endif %}
+        </ul>
       </li>
       {% endif %}
-      {% if current_user.can_access('academic') %}
+
+      {# ── Tài chính ── #}
+      {% if current_user.can_access('tuition') or current_user.can_access('tuition_report') or current_user.can_access('expenses') or current_user.can_access('salary') %}
+      {% set group_active = current_admin_module in ('tuition', 'tuition_report', 'expenses', 'salary') %}
       <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.academic_years') }}" class="nav-link text-white {% if 'academic' in request.endpoint or 'semester' in request.endpoint %}active{% endif %}">
-          <i class="bi bi-calendar3 me-2"></i>Năm học
+        <a href="#group-finance" class="nav-link text-white d-flex align-items-center {% if not group_active %}collapsed{% endif %}" data-bs-toggle="collapse" role="button" aria-expanded="{{ 'true' if group_active else 'false' }}">
+          <i class="bi bi-cash-stack me-2"></i>Tài chính
+          <i class="bi bi-chevron-down ms-auto sidebar-caret"></i>
         </a>
+        <ul class="nav nav-pills flex-column ps-3 collapse {% if group_active %}show{% endif %}" id="group-finance">
+          {% if current_user.can_access('tuition') %}
+          <li class="nav-item mb-1">
+            <a href="{{ url_for('admin.tuition') }}" class="nav-link text-white {% if current_admin_module == 'tuition' %}active{% endif %}">
+              <i class="bi bi-cash-stack me-2"></i>Học phí
+            </a>
+          </li>
+          {% endif %}
+          {% if current_user.can_access('tuition_report') %}
+          <li class="nav-item mb-1">
+            <a href="{{ url_for('admin.tuition_report') }}" class="nav-link text-white {% if current_admin_module == 'tuition_report' %}active{% endif %}">
+              <i class="bi bi-bar-chart me-2"></i>Thống kê HP
+            </a>
+          </li>
+          {% endif %}
+          {% if current_user.can_access('expenses') %}
+          <li class="nav-item mb-1">
+            <a href="{{ url_for('admin.expenses') }}" class="nav-link text-white {% if current_admin_module == 'expenses' %}active{% endif %}">
+              <i class="bi bi-receipt me-2"></i>Chi phí
+            </a>
+          </li>
+          {% endif %}
+          {% if current_user.can_access('salary') %}
+          <li class="nav-item mb-1">
+            <a href="{{ url_for('admin.salary') }}" class="nav-link text-white {% if current_admin_module == 'salary' %}active{% endif %}">
+              <i class="bi bi-cash-coin me-2"></i>Lương
+            </a>
+          </li>
+          {% endif %}
+        </ul>
       </li>
       {% endif %}
-      {% if current_user.can_access('rewards') %}
+
+      {# ── Học liệu & Thi cử ── #}
+      {% if current_user.can_access('documents') or current_user.can_access('exams') %}
+      {% set group_active = current_admin_module in ('documents', 'exams') %}
       <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.rewards') }}" class="nav-link text-white {% if 'reward' in request.endpoint %}active{% endif %}">
-          <i class="bi bi-trophy me-2"></i>Khen thưởng
+        <a href="#group-content" class="nav-link text-white d-flex align-items-center {% if not group_active %}collapsed{% endif %}" data-bs-toggle="collapse" role="button" aria-expanded="{{ 'true' if group_active else 'false' }}">
+          <i class="bi bi-journal-text me-2"></i>Học liệu &amp; Thi cử
+          <i class="bi bi-chevron-down ms-auto sidebar-caret"></i>
         </a>
+        <ul class="nav nav-pills flex-column ps-3 collapse {% if group_active %}show{% endif %}" id="group-content">
+          {% if current_user.can_access('documents') %}
+          <li class="nav-item mb-1">
+            <a href="{{ url_for('admin.documents') }}" class="nav-link text-white {% if current_admin_module == 'documents' %}active{% endif %}">
+              <i class="bi bi-folder2 me-2"></i>Tài liệu
+            </a>
+          </li>
+          {% endif %}
+          {% if current_user.can_access('exams') %}
+          <li class="nav-item mb-1">
+            <a href="{{ url_for('admin.exams_list') }}" class="nav-link text-white {% if current_admin_module == 'exams' %}active{% endif %}">
+              <i class="bi bi-pc-display me-2"></i>Đề thi online
+            </a>
+          </li>
+          {% endif %}
+        </ul>
       </li>
       {% endif %}
-      {% if current_user.can_access('attendance') %}
-      <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.attendance_list') }}" class="nav-link text-white {% if 'attendance' in request.endpoint %}active{% endif %}">
-          <i class="bi bi-person-check me-2"></i>Điểm danh
-        </a>
-      </li>
-      {% endif %}
-      {% if current_user.can_access('tuition') %}
-      <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.tuition') }}" class="nav-link text-white {% if (request.endpoint == 'admin.tuition' or 'monthly_fee' in request.endpoint or request.endpoint in ('admin.tuition_class_detail', 'admin.tuition_bulk_add')) %}active{% endif %}">
-          <i class="bi bi-cash-stack me-2"></i>Học phí
-        </a>
-      </li>
-      {% endif %}
-      {% if current_user.can_access('tuition_report') %}
-      <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.tuition_report') }}" class="nav-link text-white {% if 'tuition_report' in request.endpoint %}active{% endif %}">
-          <i class="bi bi-bar-chart me-2"></i>Thống kê HP
-        </a>
-      </li>
-      {% endif %}
-      {% if current_user.can_access('expenses') %}
-      <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.expenses') }}" class="nav-link text-white {% if 'expense' in request.endpoint %}active{% endif %}">
-          <i class="bi bi-receipt me-2"></i>Chi phí
-        </a>
-      </li>
-      {% endif %}
-      {% if current_user.can_access('salary') %}
-      <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.salary') }}" class="nav-link text-white {% if 'salary' in request.endpoint %}active{% endif %}">
-          <i class="bi bi-cash-coin me-2"></i>Lương
-        </a>
-      </li>
-      {% endif %}
-      {% if current_user.can_access('teachers') %}
-      <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.teachers') }}" class="nav-link text-white {% if 'teacher' in request.endpoint %}active{% endif %}">
-          <i class="bi bi-person-badge me-2"></i>Giáo viên
-        </a>
-      </li>
-      {% endif %}
-      {% if current_user.can_access('rooms') %}
-      <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.rooms') }}" class="nav-link text-white {% if 'room' in request.endpoint %}active{% endif %}">
-          <i class="bi bi-door-open me-2"></i>Phòng học
-        </a>
-      </li>
-      {% endif %}
-      {% if current_user.can_access('documents') %}
-      <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.documents') }}" class="nav-link text-white {% if 'document' in request.endpoint %}active{% endif %}">
-          <i class="bi bi-folder2 me-2"></i>Tài liệu
-        </a>
-      </li>
-      {% endif %}
-      {% if current_user.can_access('exams') %}
-      <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.exams_list') }}" class="nav-link text-white {% if 'exam' in request.endpoint %}active{% endif %}">
-          <i class="bi bi-pc-display me-2"></i>Đề thi online
-        </a>
-      </li>
-      {% endif %}
+
       {% if current_user.can_access('reports') %}
       <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.reports') }}" class="nav-link text-white {% if 'report' in request.endpoint %}active{% endif %}">
+        <a href="{{ url_for('admin.reports') }}" class="nav-link text-white {% if current_admin_module == 'reports' %}active{% endif %}">
           <i class="bi bi-bar-chart-line me-2"></i>Báo cáo
         </a>
       </li>
       {% endif %}
+
       <hr class="text-secondary">
-      {% if current_user.can_access('schools') %}
+
+      {# ── Hệ thống ── #}
+      {% if current_user.can_access('users') or current_user.can_access('inquiries') or current_user.can_access('settings') %}
+      {% set group_active = current_admin_module in ('users', 'inquiries', 'settings') %}
       <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.schools') }}" class="nav-link text-white {% if 'school' in request.endpoint %}active{% endif %}">
-          <i class="bi bi-building me-2"></i>Trường học
-        </a>
-      </li>
-      {% endif %}
-      {% if current_user.can_access('courses') %}
-      <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.courses') }}" class="nav-link text-white {% if 'course' in request.endpoint %}active{% endif %}">
-          <i class="bi bi-book me-2"></i>Môn học
-        </a>
-      </li>
-      {% endif %}
-      {% if current_user.can_access('users') %}
-      <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.users') }}" class="nav-link text-white {% if 'user' in request.endpoint %}active{% endif %}">
-          <i class="bi bi-person-gear me-2"></i>Tài khoản
-        </a>
-      </li>
-      {% endif %}
-      {% if current_user.can_access('inquiries') %}
-      <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.inquiries') }}" class="nav-link text-white {% if 'inquir' in request.endpoint %}active{% endif %}">
-          <i class="bi bi-envelope me-2"></i>Liên hệ
+        <a href="#group-system" class="nav-link text-white d-flex align-items-center {% if not group_active %}collapsed{% endif %}" data-bs-toggle="collapse" role="button" aria-expanded="{{ 'true' if group_active else 'false' }}">
+          <i class="bi bi-gear-fill me-2"></i>Hệ thống
           {% if unread_inquiries > 0 %}
-            <span class="badge bg-danger ms-1">{{ unread_inquiries }}</span>
+            <span class="badge bg-danger ms-auto me-1">{{ unread_inquiries }}</span>
+          {% else %}
+            <i class="bi bi-chevron-down ms-auto sidebar-caret"></i>
           {% endif %}
         </a>
-      </li>
-      {% endif %}
-      {% if current_user.can_access('settings') %}
-      <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.settings') }}" class="nav-link text-white {% if 'setting' in request.endpoint %}active{% endif %}">
-          <i class="bi bi-gear me-2"></i>Cài đặt
-        </a>
+        <ul class="nav nav-pills flex-column ps-3 collapse {% if group_active %}show{% endif %}" id="group-system">
+          {% if current_user.can_access('users') %}
+          <li class="nav-item mb-1">
+            <a href="{{ url_for('admin.users') }}" class="nav-link text-white {% if current_admin_module == 'users' %}active{% endif %}">
+              <i class="bi bi-person-gear me-2"></i>Tài khoản
+            </a>
+          </li>
+          {% endif %}
+          {% if current_user.can_access('inquiries') %}
+          <li class="nav-item mb-1">
+            <a href="{{ url_for('admin.inquiries') }}" class="nav-link text-white {% if current_admin_module == 'inquiries' %}active{% endif %}">
+              <i class="bi bi-envelope me-2"></i>Liên hệ
+              {% if unread_inquiries > 0 %}
+                <span class="badge bg-danger ms-1">{{ unread_inquiries }}</span>
+              {% endif %}
+            </a>
+          </li>
+          {% endif %}
+          {% if current_user.can_access('settings') %}
+          <li class="nav-item mb-1">
+            <a href="{{ url_for('admin.settings') }}" class="nav-link text-white {% if current_admin_module == 'settings' %}active{% endif %}">
+              <i class="bi bi-gear me-2"></i>Cài đặt
+            </a>
+          </li>
+          {% endif %}
+        </ul>
       </li>
       {% endif %}
     </ul>
@@ -212,19 +283,27 @@
 <script>
 const sidebar = document.getElementById('sidebar');
 const mainContent = document.getElementById('main-content');
-document.getElementById('sidebarToggle')?.addEventListener('click', () => {
-  const hidden = sidebar.style.transform === 'translateX(-100%)';
-  sidebar.style.transform = hidden ? '' : 'translateX(-100%)';
-  if (window.innerWidth >= 992) {
+const sidebarToggle = document.getElementById('sidebarToggle');
+
+// Mobile (<992px): visibility is driven by the 'sidebar-open' class (CSS
+// media query hides it by default). Desktop: driven by inline transform,
+// set once server-side for the fullwidth exam pages, toggled via JS here.
+sidebarToggle?.addEventListener('click', () => {
+  if (window.innerWidth < 992) {
+    sidebar.classList.toggle('sidebar-open');
+  } else {
+    const hidden = sidebar.style.transform === 'translateX(-100%)';
+    sidebar.style.transform = hidden ? '' : 'translateX(-100%)';
     mainContent.style.marginLeft = hidden ? '240px' : '0';
   }
 });
 // Close sidebar when clicking outside on mobile
 document.addEventListener('click', e => {
   if (window.innerWidth < 992 &&
+      sidebar.classList.contains('sidebar-open') &&
       !sidebar.contains(e.target) &&
-      !document.getElementById('sidebarToggle')?.contains(e.target)) {
-    sidebar.style.transform = 'translateX(-100%)';
+      !sidebarToggle?.contains(e.target)) {
+    sidebar.classList.remove('sidebar-open');
   }
 });
 </script>
