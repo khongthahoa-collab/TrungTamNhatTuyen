@@ -26,8 +26,8 @@ COPY . .
 # Create necessary directories
 RUN mkdir -p uploads/documents uploads/students
 
-# Render.com sets PORT env var; fallback to 5000 for local/Docker
+# Railway sets PORT env var; fallback to 5000 for local/Docker
 EXPOSE 10000
 
-# Run application - bind to $PORT (Render) or 5000 (local)
-CMD gunicorn --bind "0.0.0.0:${PORT:-5000}" --workers 2 --timeout 120 --access-logfile - --error-logfile - wsgi:app
+# Run application - bind to $PORT (Railway) or 5000 (local)
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-5000} --workers 2 --timeout 120 --access-logfile - --error-logfile - wsgi:app"]

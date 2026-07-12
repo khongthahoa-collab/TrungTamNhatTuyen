@@ -340,34 +340,26 @@ EXPENSE
 
 ## Database Setup Instructions
 
-### Option 1: Docker (Recommended)
+### Local development (SQLite — default, no setup needed)
 ```bash
-# Start MySQL container
-docker-compose up -d
-
-# Verify connection
-docker exec nhat-tuyen-mysql mysql -u nhat_tuyen_user -p nhat_tuyen_pass -e "SELECT VERSION();"
-```
-
-### Option 2: Local MySQL
-```bash
-# Create database
-mysql -u root -p -e "CREATE DATABASE nhat_tuyen_db;"
-
-# Create user
-mysql -u root -p -e "CREATE USER 'nhat_tuyen_user'@'localhost' IDENTIFIED BY 'nhat_tuyen_pass';"
-mysql -u root -p -e "GRANT ALL PRIVILEGES ON nhat_tuyen_db.* TO 'nhat_tuyen_user'@'localhost';"
-mysql -u root -p -e "FLUSH PRIVILEGES;"
-```
-
-### Initialize Schema
-```bash
-# Ensure .env is configured with DATABASE_URL
-# Install packages
 pip install -r requirements.txt
 
-# Run migrations
-python init_db.py
+# No DATABASE_URL needed: falls back to sqlite:///nhat_tuyen_dev.db
+# (created automatically under instance/ on first run)
+python run.py
+```
+
+### Production (Supabase PostgreSQL)
+```bash
+# 1. Get the connection string from Supabase dashboard:
+#    Project Settings → Database → Connection string (URI)
+#    If the password has special characters (/, *, #, @, :, ...),
+#    percent-encode it first — see urllib.parse.quote(password, safe='')
+
+# 2. Create schema + import current local data into Supabase (run once)
+FLASK_ENV=production DATABASE_URL="postgresql://..." python seed_supabase.py
+
+# 3. Set the same DATABASE_URL as an env var on Railway (Variables tab)
 ```
 
 ## Important Tables
@@ -386,29 +378,19 @@ python init_db.py
 - **Unique**: attendance (schedule_id + student_id)
 - **Unique**: salary (teacher_id + month + year)
 
-## Migration & Version Control
+## Schema Changes
 
-Use Flask-Migrate for schema changes:
-```bash
-# Create migration
-flask db migrate -m "description"
-
-# Apply migration
-flask db upgrade
-
-# Revert migration
-flask db downgrade
-```
+There's no migrations/ folder — schema changes are applied by re-running
+`db.create_all()` (via `seed_supabase.py` for Supabase, or automatically
+on startup for local dev). Flask-Migrate is in requirements.txt but not
+currently wired up.
 
 ## Backup Strategy
 
-### Regular Backups
+Use Supabase's own dashboard (Database → Backups) for production backups —
+it handles this automatically on all plans. For a manual local snapshot:
 ```bash
-# Backup database
-mysqldump -u nhat_tuyen_user -p nhat_tuyen_pass nhat_tuyen_db > backup_$(date +%Y%m%d).sql
-
-# Restore from backup
-mysql -u nhat_tuyen_user -p nhat_tuyen_pass nhat_tuyen_db < backup_20260401.sql
+pg_dump "postgresql://..." > backup_$(date +%Y%m%d).sql
 ```
 
 ---
