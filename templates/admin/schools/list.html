@@ -16,14 +16,6 @@
   </button>
 </div>
 
-{% with messages = get_flashed_messages(with_categories=true) %}
-{% for cat, msg in messages %}
-<div class="alert alert-{{ cat }} alert-dismissible fade show" role="alert">
-  {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-</div>
-{% endfor %}
-{% endwith %}
-
 <!-- Thêm trường học -->
 <div class="collapse mb-4" id="addSchoolForm">
   <div class="card border-0 shadow-sm">

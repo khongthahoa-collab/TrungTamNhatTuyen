@@ -15,14 +15,6 @@
   </a>
 </div>
 
-{% with messages = get_flashed_messages(with_categories=true) %}
-{% for cat, msg in messages %}
-<div class="alert alert-{{ cat }} alert-dismissible fade show" role="alert">
-  {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-</div>
-{% endfor %}
-{% endwith %}
-
 {% if rooms %}
 {% set branches = rooms | map(attribute='branch') | unique | list %}
 {% for branch in branches %}

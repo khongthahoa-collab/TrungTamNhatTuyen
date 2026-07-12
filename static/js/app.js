@@ -1,16 +1,8 @@
 /* Nhật Tuyền — Main JS */
 
-// Auto-dismiss flash messages after 5s
-document.addEventListener('DOMContentLoaded', () => {
-  const container = document.getElementById('flash-container');
-  if (!container) return;
-  setTimeout(() => {
-    container.querySelectorAll('.alert').forEach(el => {
-      const bsAlert = bootstrap.Alert.getOrCreateInstance(el);
-      bsAlert.close();
-    });
-  }, 5000);
-});
+// Flash messages stay until dismissed (via the close button) — some carry
+// one-time info (e.g. a generated temp password) that must not disappear
+// before the admin has a chance to read/copy it.
 
 // Mark all present in attendance form
 function markAllPresent() {
