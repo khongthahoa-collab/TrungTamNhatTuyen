@@ -1,9 +1,20 @@
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, current_app, send_from_directory
 from datetime import date, timedelta
 from models import Schedule, Class, Course, Score, SystemConfig, StudentLevel, ContactInquiry, Student, School
 from extensions import db
 
 public_bp = Blueprint('public', __name__)
+
+
+@public_bp.route('/manifest.json')
+def pwa_manifest():
+    return send_from_directory(current_app.static_folder, 'manifest.json', mimetype='application/manifest+json')
+
+
+@public_bp.route('/sw.js')
+def pwa_service_worker():
+    # Served from root (not /static/sw.js) so its scope covers the whole site.
+    return send_from_directory(current_app.static_folder, 'sw.js', mimetype='application/javascript')
 
 
 @public_bp.route('/')
