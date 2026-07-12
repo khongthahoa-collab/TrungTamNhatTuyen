@@ -26,10 +26,11 @@ Xem `QUICK_DEPLOY.md` nếu chỉ cần các bước tóm tắt. File này giả
 
 ## 4. Lấy connection string từ Supabase
 
-Vào project Supabase → **Project Settings → Database → Connection string**:
+Vào project Supabase → **Project Settings → Database → Connection string**. Có 3 lựa chọn — chỉ 1 cái dùng được trên Railway:
 
-- **Direct connection** (port `5432`, host `db.<project-ref>.supabase.co`): đơn giản, phù hợp cho script chạy 1 lần (`seed_supabase.py`) hoặc traffic thấp. Supabase free tier giới hạn số connection trực tiếp đồng thời khá thấp.
-- **Transaction pooler** (port `6543`, host dạng `aws-<n>-<region>.pooler.supabase.com`, username `postgres.<project-ref>`): nên dùng cho app production chạy nhiều gunicorn worker, vì pooler chia sẻ connection hiệu quả hơn.
+- **Direct connection** (port `5432`, host `db.<project-ref>.supabase.co`): resolve ra địa chỉ **IPv6**. Railway không hỗ trợ outbound IPv6 → lỗi `Network is unreachable`. **Không dùng cho Railway** (chỉ ổn để chạy script 1 lần từ máy local có IPv6/IPv4 dual-stack, ví dụ `seed_supabase.py`).
+- **Transaction pooler** (port `6543`): mặc định cũng resolve IPv6 trừ khi trả phí "IPv4 add-on" của Supabase. **Không dùng nếu chưa mua add-on đó.**
+- **Session pooler** (port `5432` trên host `aws-<n>-<region>.pooler.supabase.com`, username `postgres.<project-ref>`): cho IPv4 **miễn phí**. Đây là lựa chọn đúng cho `DATABASE_URL` trên Railway.
 
 ⚠️ **Lấy đúng host từ trang Connection string thật của project** — đừng copy lại host mẫu từ nơi khác, vì mỗi project được gán pooler theo đúng region lúc tạo. Dùng sai region host sẽ ra lỗi `tenant/user ... not found`.
 
@@ -84,11 +85,17 @@ curl -I https://<app>.up.railway.app
 ### "tenant/user ... not found"
 Sai region host của pooler. Quay lại đúng trang Connection string trên Supabase dashboard của project, copy chính xác host hiển thị ở đó (đừng tái sử dụng host từ project/hướng dẫn khác).
 
+### `connection ... failed: Network is unreachable` (kèm địa chỉ dạng IPv6, ví dụ `2406:da14:...`)
+`DATABASE_URL` đang trỏ vào direct connection hoặc Transaction pooler của Supabase (cả hai đều IPv6 mặc định) — Railway không có outbound IPv6. Đổi sang **Session pooler** (port 5432, host `aws-<n>-<region>.pooler.supabase.com`) — xem mục 4.
+
 ### Kết nối được nhưng "password authentication failed"
 Mật khẩu chưa được percent-encode đúng, hoặc bị copy thiếu ký tự. Encode lại bằng `urllib.parse.quote(pw, safe='')` và test connect trực tiếp bằng `psycopg` trước khi set vào Railway.
 
 ### `SECRET_KEY must be set to a secure value in production!`
 Chưa set `SECRET_KEY` trên Railway Variables, hoặc đang để đúng giá trị mặc định dev (`dev-secret-key-change-in-production`).
+
+### App crash ngay lúc boot tại `db.create_all()` (app.py)
+`db.create_all()` chỉ chạy tự động khi `config_name != 'production'` (xem `app.py`). Nếu thấy nó chạy trên Railway, `FLASK_ENV` chưa được set thành đúng `production` — kiểm tra lại tab Variables, đừng chỉ tin vào việc "đã set trước đó", verify lại giá trị thật.
 
 ### Build fail — Docker lint warning `JSONArgsRecommended`
 `Dockerfile` phải dùng CMD dạng JSON-array (`CMD ["sh", "-c", "..."]`) thay vì shell-form (`CMD gunicorn ...`), để tránh cảnh báo và đảm bảo signal (SIGTERM khi Railway restart/scale) được forward đúng tới process.

@@ -352,7 +352,10 @@ python run.py
 ### Production (Supabase PostgreSQL)
 ```bash
 # 1. Get the connection string from Supabase dashboard:
-#    Project Settings → Database → Connection string (URI)
+#    Project Settings → Database → Connection string → Session pooler tab
+#    (NOT "Direct connection" or "Transaction pooler" — both default to
+#    IPv6-only, which Railway can't reach. Session pooler, port 5432, is
+#    the free IPv4-compatible option.)
 #    If the password has special characters (/, *, #, @, :, ...),
 #    percent-encode it first — see urllib.parse.quote(password, safe='')
 
