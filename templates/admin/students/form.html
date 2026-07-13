@@ -215,7 +215,7 @@
     gradeSel.innerHTML = '';
     gradeSel.appendChild(new Option('-- Chọn lớp --', ''));
     gradeOptions.forEach(opt => {
-      if (opt.value === '' || opt.dataset.level === level) {
+      if (opt.value !== '' && opt.dataset.level === level) {
         const clone = new Option(opt.text, opt.value);
         gradeSel.appendChild(clone);
       }
