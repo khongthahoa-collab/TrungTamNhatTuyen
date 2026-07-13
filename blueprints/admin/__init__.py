@@ -44,7 +44,7 @@ from blueprints.admin import students, classes, academic, finance, rewards, docu
 @require_admin
 def dashboard():
     from datetime import date
-    from models import Student, Teacher, Class, TuitionPayment, Schedule, Reward, ZaloLog
+    from models import Student, Teacher, Class, TuitionPayment, Reward, ZaloLog
 
     today = date.today()
     stats = {
@@ -55,22 +55,13 @@ def dashboard():
             is_paid=False, month=today.month, year=today.year
         ).count(),
         'pending_rewards': Reward.query.filter_by(is_suggested=True, is_confirmed=False).count(),
-        'today_schedules': Schedule.query.filter_by(
-            date=today, is_cancelled=False
-        ).count(),
         'zalo_failed': ZaloLog.query.filter_by(status='failed').count(),
     }
-
-    # Today's schedule detail
-    today_classes = Schedule.query.filter_by(
-        date=today, is_cancelled=False
-    ).order_by(Schedule.start_time).all()
 
     # Recent Zalo logs
     recent_zalo = ZaloLog.query.order_by(ZaloLog.sent_at.desc()).limit(5).all()
 
     return render_template('admin/dashboard.html',
                            stats=stats,
-                           today_classes=today_classes,
                            recent_zalo=recent_zalo,
                            today=today)

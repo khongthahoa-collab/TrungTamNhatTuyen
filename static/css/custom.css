@@ -569,11 +569,16 @@ footer a:hover { color: #fff !important; }
 .sidebar {
   background: linear-gradient(180deg, #14532d 0%, #166534 100%);
   box-shadow: 2px 0 12px rgba(17,26,20,.15);
+  /* Collapse animations inside this flex column reflow every sibling below
+     the opening group; contain the layout/paint cost to the sidebar itself
+     so it doesn't compete with the rest of the page for frame time. */
+  contain: layout style;
+  overflow-anchor: none;
 }
 .sidebar .nav-link {
   border-radius: 8px;
   padding: 10px 14px;
-  transition: all .2s ease;
+  transition: background-color .2s ease, color .2s ease, box-shadow .2s ease;
   color: rgba(255,255,255,.82);
   font-size: 0.88rem;
   font-weight: 500;
@@ -599,6 +604,11 @@ footer a:hover { color: #fff !important; }
 .sidebar ul.nav ul.nav .nav-link {
   font-size: 0.83rem;
   padding: 8px 12px;
+}
+/* Snappier, cheaper collapse animation than Bootstrap's 0.35s default —
+   shorter duration means less time for the per-frame reflow to be noticeable. */
+.sidebar .collapsing {
+  transition: height .18s ease-out;
 }
 @media (max-width:991px) {
   .sidebar { transform: translateX(-100%); }

@@ -47,12 +47,16 @@ def logout():
 @auth_bp.route('/change-password', methods=['GET', 'POST'])
 @login_required
 def change_password():
+    forced = current_user.must_change_password
+
     if request.method == 'POST':
         current_password = request.form.get('current_password', '')
         new_password = request.form.get('new_password', '')
         confirm_password = request.form.get('confirm_password', '')
 
-        if not current_user.check_password(current_password):
+        # A forced first-login change already proves identity via the login
+        # step itself — only require the current password for a voluntary change.
+        if not forced and not current_user.check_password(current_password):
             flash('Mật khẩu hiện tại không đúng.', 'danger')
         elif len(new_password) < 6:
             flash('Mật khẩu mới phải có ít nhất 6 ký tự.', 'danger')
@@ -65,7 +69,7 @@ def change_password():
             flash('Đã đổi mật khẩu thành công.', 'success')
             return redirect(_dashboard_for(current_user))
 
-    return render_template('auth/change_password.html', forced=current_user.must_change_password)
+    return render_template('auth/change_password.html', forced=forced)
 
 
 def _dashboard_for(user):
