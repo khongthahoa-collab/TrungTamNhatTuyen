@@ -14,7 +14,7 @@ from extensions import db
 from models import Schedule, Teacher, Salary
 
 
-def _scheduled_sessions(teacher_id, month, year):
+def scheduled_sessions(teacher_id, month, year):
     """Sessions this teacher is regularly assigned to and actually taught
     (excludes sessions they were substituted out of)."""
     return Schedule.query.filter(
@@ -26,7 +26,7 @@ def _scheduled_sessions(teacher_id, month, year):
     ).count()
 
 
-def _substituted_sessions(teacher_id, month, year):
+def substituted_sessions(teacher_id, month, year):
     """Sessions this teacher taught as a substitute for another teacher."""
     return Schedule.query.filter(
         Schedule.substitute_teacher_id == teacher_id,
@@ -55,8 +55,8 @@ def get_or_create_salary(teacher, month, year):
         deduction=0,
         advance=0,
         total=base,
-        sessions_scheduled=_scheduled_sessions(teacher.id, month, year),
-        sessions_substituted=_substituted_sessions(teacher.id, month, year),
+        sessions_scheduled=scheduled_sessions(teacher.id, month, year),
+        sessions_substituted=substituted_sessions(teacher.id, month, year),
     )
     db.session.add(salary)
     return salary, True

@@ -2,9 +2,10 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from datetime import date, timedelta, datetime, time as time_type
 from extensions import db
-from models import Schedule, Attendance, Score, Class, Enrollment, Student, ClassDocument, Room, Notification
+from models import Schedule, Attendance, Score, Class, Enrollment, Student, ClassDocument, Room, Notification, User, Salary
 from services.zalo_service import ZaloService
 from services.reward_service import create_suggested_reward
+from services.salary_service import scheduled_sessions, substituted_sessions
 
 teacher_bp = Blueprint('teacher', __name__)
 
@@ -38,36 +39,48 @@ def check_module_permission():
 def dashboard():
     teacher = current_user.teacher_profile
     today = date.today()
-    monday = today - timedelta(days=today.weekday())
-    sunday = monday + timedelta(days=6)
+    month = request.args.get('month', today.month, type=int)
+    year = request.args.get('year', today.year, type=int)
 
-    # Today's schedules
-    today_schedules = Schedule.query.filter_by(
-        teacher_id=teacher.id, is_cancelled=False
-    ).filter(Schedule.date == today).order_by(Schedule.start_time).all()
-
-    # This week's schedules
-    week_schedules = Schedule.query.filter_by(
-        teacher_id=teacher.id, is_cancelled=False
-    ).filter(
-        Schedule.date >= monday, Schedule.date <= sunday
-    ).order_by(Schedule.date, Schedule.start_time).all()
-
-    # Needs attendance (past sessions without attendance taken)
-    pending_attendance = Schedule.query.filter_by(
-        teacher_id=teacher.id, is_cancelled=False
-    ).filter(
-        Schedule.date < today,
-        Schedule.date >= today - timedelta(days=7),
-    ).order_by(Schedule.date.desc()).all()
-    pending_attendance = [s for s in pending_attendance if not s.attendance_taken]
+    salary = Salary.query.filter_by(teacher_id=teacher.id, month=month, year=year).first()
 
     return render_template('teacher/dashboard.html',
                            teacher=teacher,
                            today=today,
-                           today_schedules=today_schedules,
-                           week_schedules=week_schedules,
-                           pending_attendance=pending_attendance)
+                           month=month,
+                           year=year,
+                           sessions_taught=scheduled_sessions(teacher.id, month, year),
+                           sessions_substituted=substituted_sessions(teacher.id, month, year),
+                           base_amount=salary.base_amount if salary else (teacher.base_salary or 0),
+                           total_amount=salary.total if salary else None)
+
+
+@teacher_bp.route('/profile/update', methods=['POST'])
+@login_required
+@require_teacher
+def update_profile():
+    phone = request.form.get('phone', '').strip()
+    new_password = request.form.get('new_password', '')
+    confirm_password = request.form.get('confirm_password', '')
+
+    if phone and phone != current_user.phone:
+        if User.query.filter(User.phone == phone, User.id != current_user.id).first():
+            flash('Số điện thoại đã được sử dụng.', 'danger')
+            return redirect(url_for('teacher.dashboard'))
+        current_user.phone = phone
+
+    if new_password or confirm_password:
+        if len(new_password) < 6:
+            flash('Mật khẩu mới phải có ít nhất 6 ký tự.', 'danger')
+            return redirect(url_for('teacher.dashboard'))
+        if new_password != confirm_password:
+            flash('Mật khẩu xác nhận không khớp.', 'danger')
+            return redirect(url_for('teacher.dashboard'))
+        current_user.set_password(new_password)
+
+    db.session.commit()
+    flash('Đã cập nhật thông tin.', 'success')
+    return redirect(url_for('teacher.dashboard'))
 
 
 @teacher_bp.route('/schedule')
@@ -475,26 +488,37 @@ def notifications():
 @login_required
 @require_teacher
 def attendance_list():
-    """List all schedules needing attendance"""
+    """Schedules for one date (default today) — the teacher's own regular
+    assignments plus any sessions they're covering as a substitute."""
     from models import AttendanceSummary
     teacher = current_user.teacher_profile
     today = date.today()
-    
-    # Get schedules for this teacher that need attendance
-    schedules = Schedule.query.filter_by(
-        teacher_id=teacher.id, is_cancelled=False
-    ).filter(Schedule.date <= today).all()
-    
+
+    date_str = request.args.get('date', '')
+    try:
+        selected_date = date.fromisoformat(date_str) if date_str else today
+    except ValueError:
+        selected_date = today
+
+    schedules = Schedule.query.filter(
+        db.or_(Schedule.teacher_id == teacher.id, Schedule.substitute_teacher_id == teacher.id),
+        Schedule.is_cancelled == False,
+        Schedule.date == selected_date,
+    ).order_by(Schedule.start_time).all()
+
     # Load attendance summaries
     summaries = AttendanceSummary.query.filter(
         AttendanceSummary.schedule_id.in_([s.id for s in schedules])
     ).all()
     summary_dict = {s.schedule_id: s for s in summaries}
-    
+
     return render_template('teacher/attendance_list.html',
                          schedules=schedules,
                          summaries=summary_dict,
-                         today=today)
+                         today=today,
+                         selected_date=selected_date,
+                         prev_date=selected_date - timedelta(days=1),
+                         next_date=selected_date + timedelta(days=1))
 
 
 @teacher_bp.route('/attendance/<int:schedule_id>')
@@ -505,11 +529,14 @@ def attendance_session(schedule_id):
     from models import AttendanceSummary
     schedule = Schedule.query.get_or_404(schedule_id)
 
-    # Allow access: teacher assigned to this schedule, or admin
+    # Allow access: the regular or substitute teacher assigned to this schedule, or admin
     teacher = current_user.teacher_profile
-    if not current_user.is_admin and (not teacher or schedule.teacher_id != teacher.id):
+    is_assigned = teacher and (schedule.teacher_id == teacher.id or schedule.substitute_teacher_id == teacher.id)
+    if not current_user.is_admin and not is_assigned:
         abort(403)
-    
+
+    is_future = schedule.date > date.today()
+
     # Get enrolled students
     enrollments = Enrollment.query.filter_by(class_id=schedule.class_id, is_active=True).all()
     
@@ -539,6 +566,7 @@ def attendance_session(schedule_id):
                          summary=summary,
                          center_name=center_name,
                          center_phone=center_phone,
+                         is_future=is_future,
                          attendance_status=dict(
                              PRESENT='Có mặt',
                              ABSENT='Vắng',
@@ -556,12 +584,16 @@ def save_attendance(schedule_id):
         return jsonify({'error': 'Forbidden'}), 403
     schedule = Schedule.query.get_or_404(schedule_id)
 
-    # Teachers can only save attendance for their own schedules
+    # Teachers can only save attendance for their own (or substitute-covered) schedules
     teacher = current_user.teacher_profile
     if current_user.is_teacher and not current_user.is_admin:
-        if not teacher or schedule.teacher_id != teacher.id:
+        is_assigned = teacher and (schedule.teacher_id == teacher.id or schedule.substitute_teacher_id == teacher.id)
+        if not is_assigned:
             return jsonify({'error': 'Unauthorized'}), 403
-    
+
+    if schedule.date > date.today():
+        return jsonify({'error': 'Không thể điểm danh trước cho buổi học trong tương lai.'}), 403
+
     data = request.get_json()
     attendance_records = data.get('attendance', [])
     

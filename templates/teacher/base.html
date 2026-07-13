@@ -9,18 +9,6 @@
     </a>
 
     <div class="d-flex align-items-center gap-2">
-      <!-- Bell notification -->
-      <a href="{{ url_for('teacher.notifications') }}"
-         class="btn btn-sm btn-outline-light position-relative" title="Thông báo">
-        <i class="bi bi-bell{% if unread_notifications %}-fill{% endif %}"></i>
-        {% if unread_notifications %}
-        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
-              style="font-size:0.6rem;">
-          {{ unread_notifications if unread_notifications < 100 else '99+' }}
-        </span>
-        {% endif %}
-      </a>
-
       <!-- Teacher name -->
       <span class="text-light small d-none d-sm-flex align-items-center gap-1">
         <i class="bi bi-person-circle"></i>

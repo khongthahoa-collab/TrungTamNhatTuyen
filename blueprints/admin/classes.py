@@ -6,7 +6,8 @@ from extensions import db
 from models import (Class, Course, Teacher, Schedule, Semester, Enrollment, Student, Room,
                     MonthlyClassFee, TuitionPayment, GRADE_BY_LEVEL, GRADE_SEQUENCE, User)
 from blueprints.admin import admin_bp, require_admin
-from services.schedule_service import find_student_schedule_conflict, schedule_conflict_message
+from services.schedule_service import (find_student_schedule_conflict, schedule_conflict_message,
+                                       notify_class_teachers)
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
@@ -404,6 +405,11 @@ def class_add():
             msg_extra += f' ({skipped} buổi bỏ qua do phòng trùng)'
         msg_extra += '.'
 
+        if created:
+            notify_class_teachers(cl, 'Lịch học mới',
+                                  f'Đã tạo {created} buổi học mới cho lớp {cl.name}.',
+                                  link=url_for('teacher.schedule'))
+
         db.session.commit()
         flash(f'Đã tạo lớp {name}.{msg_extra}', 'success')
         return redirect(url_for('admin.class_detail', class_id=cl.id))
@@ -519,6 +525,12 @@ def class_reschedule(class_id):
     semester = _semester_for_date(range_start)
     created, skipped = _generate_schedules(class_id, class_.primary_teacher_id, range_start, range_end, sched_rows,
                                            semester_id=semester.id if semester else None)
+
+    if created:
+        notify_class_teachers(class_, 'Lịch học mới',
+                              f'Lịch học lớp {class_.name} đã được cập nhật: {created} buổi học mới.',
+                              link=url_for('teacher.schedule'))
+
     db.session.commit()
     msg = f'Đã cập nhật lịch học: {created} buổi học mới từ {range_start.strftime("%d/%m/%Y")}.'
     if skipped:
@@ -614,6 +626,11 @@ def class_add_students(class_id):
                 ))
                 tuition_added += 1
 
+    if added:
+        notify_class_teachers(class_, 'Học sinh mới',
+                              f'{added} học sinh mới được thêm vào lớp {class_.name}.',
+                              link=url_for('teacher.scores_list'))
+
     db.session.commit()
     msg = f'Đã thêm {added} học sinh vào lớp {class_.name}.'
     if tuition_added:
@@ -673,6 +690,10 @@ def add_schedule(class_id):
         from services.zalo_service import ZaloService
         for student in class_.active_students:
             ZaloService.send_intensive_schedule(student, None)
+
+    notify_class_teachers(class_, 'Lịch học mới',
+                          f'Đã thêm 1 buổi học mới cho lớp {class_.name} ngày {sched_date.strftime("%d/%m/%Y")}.',
+                          link=url_for('teacher.schedule'))
 
     db.session.commit()
     type_label = 'tăng cường' if schedule_type == 'intensive' else 'thường'

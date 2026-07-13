@@ -23,6 +23,11 @@
     </div>
   </div>
 
+  {% if is_future %}
+  <div class="alert alert-info small py-2">
+    <i class="bi bi-eye me-1"></i>Buổi học trong tương lai — chỉ xem danh sách, chưa thể điểm danh trước.
+  </div>
+  {% else %}
   <!-- Live counter badge -->
   <div class="d-flex gap-2 mb-3 flex-wrap">
     <span class="badge bg-secondary fs-6">Sĩ số: <span id="cntTotal">{{ enrollments|length }}</span></span>
@@ -37,6 +42,7 @@
           style="min-height:52px;font-size:1.05rem;">
     <i class="bi bi-check-all me-2"></i>Tất Cả Có Mặt
   </button>
+  {% endif %}
 
   <!-- Student cards -->
   {% for enrollment in enrollments %}
@@ -65,7 +71,7 @@
       <div class="row g-2 mb-2">
         <div class="col-6">
           <input type="radio" class="btn-check status-radio" name="status_{{ student.id }}"
-                 id="present_{{ student.id }}" value="present"
+                 id="present_{{ student.id }}" value="present" {% if is_future %}disabled{% endif %}
                  {% if att %}{% if att.status == 'present' %}checked{% endif %}{% else %}checked{% endif %}>
           <label class="btn btn-outline-success w-100 d-flex align-items-center justify-content-center gap-1"
                  for="present_{{ student.id }}" style="min-height:50px;">
@@ -74,7 +80,7 @@
         </div>
         <div class="col-6">
           <input type="radio" class="btn-check status-radio" name="status_{{ student.id }}"
-                 id="absent_{{ student.id }}" value="absent"
+                 id="absent_{{ student.id }}" value="absent" {% if is_future %}disabled{% endif %}
                  {% if att and att.status == 'absent' %}checked{% endif %}>
           <label class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-1"
                  for="absent_{{ student.id }}" style="min-height:50px;">
@@ -83,7 +89,7 @@
         </div>
         <div class="col-6">
           <input type="radio" class="btn-check status-radio" name="status_{{ student.id }}"
-                 id="late_{{ student.id }}" value="late"
+                 id="late_{{ student.id }}" value="late" {% if is_future %}disabled{% endif %}
                  {% if att and att.status == 'late' %}checked{% endif %}>
           <label class="btn btn-outline-warning w-100 d-flex align-items-center justify-content-center gap-1"
                  for="late_{{ student.id }}" style="min-height:50px;">
@@ -92,7 +98,7 @@
         </div>
         <div class="col-6">
           <input type="radio" class="btn-check status-radio" name="status_{{ student.id }}"
-                 id="excused_{{ student.id }}" value="excused"
+                 id="excused_{{ student.id }}" value="excused" {% if is_future %}disabled{% endif %}
                  {% if att and att.status == 'excused' %}checked{% endif %}>
           <label class="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center gap-1"
                  for="excused_{{ student.id }}" style="min-height:50px;">
@@ -106,7 +112,7 @@
              id="reason_{{ student.id }}"
              placeholder="Lý do / Ghi chú (nếu có)"
              value="{{ att.reason or '' if att else '' }}"
-             style="min-height:40px;">
+             style="min-height:40px;" {% if is_future %}disabled{% endif %}>
     </div>
   </div>
   {% else %}
@@ -115,7 +121,7 @@
   </div>
   {% endfor %}
 
-  {% if enrollments %}
+  {% if enrollments and not is_future %}
   <!-- Zalo option -->
   <div class="card border-0 shadow-sm mb-3">
     <div class="card-body py-2">
@@ -225,7 +231,9 @@ function updateCounters() {
     else if (checked.value === 'late') late++;
     else if (checked.value === 'excused') excused++;
   });
-  document.getElementById('cntPresent').textContent = present;
+  const cntPresent = document.getElementById('cntPresent');
+  if (!cntPresent) return; // counters not rendered (future-dated session, view-only)
+  cntPresent.textContent = present;
   document.getElementById('cntAbsent').textContent = absent;
   document.getElementById('cntLate').textContent = late;
   document.getElementById('cntExcused').textContent = excused;

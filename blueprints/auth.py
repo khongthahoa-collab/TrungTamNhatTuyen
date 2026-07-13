@@ -76,5 +76,5 @@ def _dashboard_for(user):
     if user.is_admin:
         return url_for('admin.dashboard')
     if user.is_teacher:
-        return url_for('teacher.dashboard')
+        return url_for('teacher.attendance_list')
     return url_for('parent.dashboard')

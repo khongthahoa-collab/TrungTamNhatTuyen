@@ -12,7 +12,8 @@ from models import (Student, User, Enrollment, Class, TuitionPayment, Score, Rew
 from blueprints.admin import admin_bp, require_admin
 from blueprints.admin.account_utils import next_username, DEFAULT_TEMP_PASSWORD
 from blueprints.admin.academic import current_academic_year_start
-from services.schedule_service import find_student_schedule_conflict, schedule_conflict_message
+from services.schedule_service import (find_student_schedule_conflict, schedule_conflict_message,
+                                       notify_class_teachers)
 
 PHOTO_EXTS = {'jpg', 'jpeg', 'png', 'webp', 'gif'}
 
@@ -514,6 +515,9 @@ def student_enroll(student_id):
             existing.is_active = True
             existing.discount_pct = discount_pct
             existing.note = note
+            notify_class_teachers(target_class, 'Học sinh mới',
+                                  f'{student.full_name} được thêm vào lớp {target_class.name}.',
+                                  link=url_for('teacher.scores_list'))
             db.session.commit()
             flash('Đã kích hoạt lại ghi danh.', 'success')
         else:
@@ -522,6 +526,9 @@ def student_enroll(student_id):
         e = Enrollment(student_id=student_id, class_id=class_id,
                        discount_pct=discount_pct, note=note)
         db.session.add(e)
+        notify_class_teachers(target_class, 'Học sinh mới',
+                              f'{student.full_name} được thêm vào lớp {target_class.name}.',
+                              link=url_for('teacher.scores_list'))
         db.session.commit()
         flash('Ghi danh thành công.', 'success')
 

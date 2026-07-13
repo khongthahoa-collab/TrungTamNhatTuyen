@@ -3,7 +3,8 @@ students") and students.py (single-student enroll) — kept here instead of a
 blueprint module since both blueprints need it and services/ has no
 blueprint-side imports to create a cycle with."""
 from datetime import date as date_cls
-from models import Schedule, Class
+from extensions import db
+from models import Schedule, Class, Notification
 
 WEEKDAY_NAMES = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật']
 
@@ -59,3 +60,15 @@ def schedule_conflict_message(student, target_class, conflict):
         f'lúc {start_t.strftime("%H:%M")}–{end_t.strftime("%H:%M")} {WEEKDAY_NAMES[wd]} '
         f'— trùng với lịch {class_subject_label(target_class)} của lớp này.'
     )
+
+
+def notify_class_teachers(cls, title, body, link=None):
+    """Create an in-app Notification for the primary + assistant teacher of
+    a class (both count as "quản lý lớp"). No-op if neither is assigned."""
+    user_ids = set()
+    if cls.primary_teacher and cls.primary_teacher.user_id:
+        user_ids.add(cls.primary_teacher.user_id)
+    if cls.assistant_teacher and cls.assistant_teacher.user_id:
+        user_ids.add(cls.assistant_teacher.user_id)
+    for uid in user_ids:
+        db.session.add(Notification(user_id=uid, title=title, body=body, link=link))

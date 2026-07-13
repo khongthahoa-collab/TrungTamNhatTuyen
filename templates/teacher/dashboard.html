@@ -4,143 +4,107 @@
 {% block content %}
 <div class="container-fluid px-3 py-3">
 
-  <!-- Header -->
-  <div class="d-flex align-items-center justify-content-between mb-3">
-    <div>
-      <h5 class="mb-0 fw-bold">Xin chào, {{ teacher.user.full_name }}!</h5>
-      <div class="text-muted small">{{ today | date_vn }}</div>
+  <h5 class="fw-bold mb-3">
+    <i class="bi bi-person-circle text-primary me-1"></i>Tổng quan
+  </h5>
+
+  <!-- ===== THÔNG TIN CƠ BẢN ===== -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-white fw-semibold">Thông tin cơ bản</div>
+    <div class="card-body">
+      <form method="post" action="{{ url_for('teacher.update_profile') }}" id="profileForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Tên giáo viên</label>
+          <input type="text" class="form-control" value="{{ current_user.full_name }}" disabled>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Tên đăng nhập</label>
+          <input type="text" class="form-control" value="{{ current_user.username }}" disabled>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Mật khẩu mới</label>
+          <input type="password" class="form-control" name="new_password"
+                 placeholder="Để trống nếu không đổi mật khẩu" minlength="6">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Xác nhận mật khẩu mới</label>
+          <input type="password" class="form-control" name="confirm_password" minlength="6">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Số điện thoại</label>
+          <input type="tel" class="form-control" name="phone" value="{{ current_user.phone or '' }}">
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100">
+          <i class="bi bi-check-lg me-1"></i>Lưu thay đổi
+        </button>
+      </form>
     </div>
-    <span class="badge bg-primary fs-6 px-3 py-2">GV</span>
   </div>
 
-  <!-- ===== LỊCH HÔM NAY ===== -->
-  <h6 class="text-uppercase text-muted fw-bold mb-2 mt-3">
-    <i class="bi bi-calendar-day me-1"></i>Lịch hôm nay
-  </h6>
-
-  {% if today_schedules %}
-    {% for s in today_schedules %}
-    <div class="card mb-3 shadow-sm border-0">
-      <div class="card-body">
-        <!-- Class name & type badge -->
-        <div class="d-flex align-items-start justify-content-between mb-1">
-          <h5 class="card-title fw-bold mb-0">{{ s.class_.name }}</h5>
-          {% if s.schedule_type == 'regular' %}
-            <span class="badge bg-primary">Thường</span>
-          {% elif s.schedule_type == 'makeup' %}
-            <span class="badge bg-warning text-dark">Bù</span>
-          {% elif s.schedule_type == 'exam' %}
-            <span class="badge bg-danger">Kiểm tra</span>
+  <!-- ===== THỐNG KÊ ===== -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-white d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <span class="fw-semibold">Thống kê</span>
+      <form method="get" class="d-flex gap-1">
+        <select name="month" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+          {% for m in range(1, 13) %}
+          <option value="{{ m }}" {% if m == month %}selected{% endif %}>Tháng {{ m }}</option>
+          {% endfor %}
+        </select>
+        <input type="number" name="year" class="form-control form-control-sm" style="width:80px;"
+               value="{{ year }}" min="2020" max="2100" onchange="this.form.submit()">
+      </form>
+    </div>
+    <div class="card-body">
+      <div class="row g-3 text-center">
+        <div class="col-6">
+          <div class="fs-3 fw-bold text-primary">{{ sessions_taught }}</div>
+          <div class="small text-muted">Số buổi dạy</div>
+        </div>
+        <div class="col-6">
+          <div class="fs-3 fw-bold text-warning">{{ sessions_substituted }}</div>
+          <div class="small text-muted">Số buổi dạy thay</div>
+        </div>
+        <div class="col-6">
+          <div class="fs-5 fw-bold">{{ base_amount | vnd }}</div>
+          <div class="small text-muted">Lương cơ bản</div>
+        </div>
+        <div class="col-6">
+          {% if total_amount is not none %}
+          <div class="fs-5 fw-bold text-success">{{ total_amount | vnd }}</div>
           {% else %}
-            <span class="badge bg-secondary">{{ s.schedule_type }}</span>
+          <div class="fs-6 fw-semibold text-muted">Chưa tính lương</div>
           {% endif %}
-        </div>
-
-        <!-- Time & room -->
-        <div class="text-muted mb-3">
-          <i class="bi bi-clock me-1"></i>{{ s.start_time.strftime('%H:%M') }} – {{ s.end_time.strftime('%H:%M') }}
-          &nbsp;|&nbsp;
-          <i class="bi bi-door-open me-1"></i>{{ s.room or 'Chưa xếp phòng' }}
-        </div>
-
-        <!-- Actions -->
-        <div class="d-flex gap-2 flex-wrap">
-          <!-- Check-in button -->
-          {% if s.teacher_checked_in %}
-            <button class="btn btn-success btn-lg flex-fill" disabled>
-              <i class="bi bi-check-circle-fill me-1"></i>Đã check-in
-            </button>
-          {% else %}
-            <form method="post" action="{{ url_for('teacher.checkin', schedule_id=s.id) }}" class="flex-fill">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" class="btn btn-outline-success btn-lg w-100">
-                <i class="bi bi-box-arrow-in-right me-1"></i>Check-in
-              </button>
-            </form>
-          {% endif %}
-
-          <!-- Attendance button -->
-          <a href="{{ url_for('teacher.attendance_session', schedule_id=s.id) }}"
-             class="btn btn-primary btn-lg flex-fill">
-            <i class="bi bi-person-check me-1"></i>Điểm danh
-          </a>
+          <div class="small text-muted">Lương thực nhận</div>
         </div>
       </div>
-    </div>
-    {% endfor %}
-  {% else %}
-    <div class="alert alert-light border text-center text-muted">
-      <i class="bi bi-calendar-x fs-4 d-block mb-1"></i>
-      Không có lịch dạy hôm nay
-    </div>
-  {% endif %}
-
-  <!-- ===== CẦN ĐIỂM DANH ===== -->
-  {% if pending_attendance %}
-  <h6 class="text-uppercase text-muted fw-bold mb-2 mt-4">
-    <i class="bi bi-exclamation-triangle me-1 text-warning"></i>Cần điểm danh
-  </h6>
-  <div class="alert alert-warning py-2 px-3 mb-2 small">
-    Các buổi dạy trong tuần qua chưa được điểm danh.
-  </div>
-  {% for s in pending_attendance %}
-  <div class="card mb-2 border-warning border-opacity-50 shadow-sm">
-    <div class="card-body py-2 d-flex align-items-center justify-content-between gap-2">
-      <div>
-        <div class="fw-semibold">{{ s.class_.name }}</div>
-        <div class="text-muted small">
-          <i class="bi bi-calendar3 me-1"></i>{{ s.date | date_vn }}
-          &nbsp;{{ s.start_time.strftime('%H:%M') }}
-        </div>
-      </div>
-      <a href="{{ url_for('teacher.attendance_session', schedule_id=s.id) }}"
-         class="btn btn-warning btn-sm px-3 flex-shrink-0">
-        <i class="bi bi-person-check me-1"></i>Điểm danh
-      </a>
     </div>
   </div>
-  {% endfor %}
-  {% endif %}
-
-  <!-- ===== LỚP TÔI DẠY ===== -->
-  <h6 class="text-uppercase text-muted fw-bold mb-2 mt-4">
-    <i class="bi bi-journal-bookmark me-1"></i>Lớp tôi dạy
-  </h6>
-
-  {% set my_classes = teacher.classes.all() %}
-  {% if my_classes and (current_user.can_access('scores') or current_user.can_access('documents_teacher')) %}
-    <div class="list-group shadow-sm mb-3">
-      {% for cls in my_classes %}
-      <div class="list-group-item d-flex align-items-center gap-3 py-3">
-        <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center text-primary fw-bold flex-shrink-0"
-             style="width:42px;height:42px;font-size:0.85rem;">
-          {{ cls.name[:2] }}
-        </div>
-        <div class="flex-grow-1">
-          <div class="fw-semibold">{{ cls.name }}</div>
-          <div class="text-muted small">
-            {{ cls.current_enrollment }} học sinh
-            {% if cls.course %}&nbsp;·&nbsp;{{ cls.course.name }}{% endif %}
-          </div>
-        </div>
-        {% if current_user.can_access('documents_teacher') %}
-        <a href="{{ url_for('teacher.documents', class_id=cls.id) }}" class="btn btn-sm btn-outline-secondary" title="Tài liệu">
-          <i class="bi bi-folder2"></i>
-        </a>
-        {% endif %}
-        {% if current_user.can_access('scores') %}
-        <a href="{{ url_for('teacher.scores', class_id=cls.id) }}" class="btn btn-sm btn-outline-primary" title="Điểm số">
-          <i class="bi bi-pencil-square"></i>
-        </a>
-        {% endif %}
-      </div>
-      {% endfor %}
-    </div>
-  {% else %}
-    <div class="alert alert-light border text-center text-muted small">
-      Chưa được phân công lớp nào
-    </div>
-  {% endif %}
 
 </div>
+
+<script>
+document.getElementById('profileForm').addEventListener('submit', function(e) {
+  const pw = this.new_password.value;
+  const confirm = this.confirm_password.value;
+  if (pw || confirm) {
+    if (pw.length < 6) {
+      alert('Mật khẩu mới phải có ít nhất 6 ký tự.');
+      e.preventDefault();
+      return;
+    }
+    if (pw !== confirm) {
+      alert('Mật khẩu xác nhận không khớp.');
+      e.preventDefault();
+    }
+  }
+});
+</script>
 {% endblock %}
