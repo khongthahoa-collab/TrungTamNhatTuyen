@@ -253,10 +253,11 @@
       <div class="modal-body">
         <p class="text-muted small mb-3">
           File CSV cần có các cột:<br>
-          <code>Họ tên, Cấp học, Trường, Lớp tại trường, Tên phụ huynh, SĐT phụ huynh</code><br>
-          Cột <strong>Họ tên</strong> bắt buộc. Mã hoá <strong>UTF-8</strong>.
+          <code>Họ tên, Giới tính, Cấp học, Lớp học, Trường, Tên phụ huynh, SĐT phụ huynh</code><br>
+          Bắt buộc: <strong>Họ tên, Giới tính (Nam/Nữ), Cấp học (Tiểu học/THCS/THPT), Lớp học</strong>.
+          Lớp học ghi số (VD: 6, 10) hoặc "Tiền tiểu học". Mã hoá <strong>UTF-8</strong>.
         </p>
-        <a href="{{ url_for('admin.export_students') }}" class="btn btn-sm btn-outline-secondary mb-3">
+        <a href="{{ url_for('admin.students_import_template') }}" class="btn btn-sm btn-outline-secondary mb-3">
           <i class="bi bi-download me-1"></i>Tải file mẫu
         </a>
         <form method="post" action="{{ url_for('admin.import_students') }}" enctype="multipart/form-data">

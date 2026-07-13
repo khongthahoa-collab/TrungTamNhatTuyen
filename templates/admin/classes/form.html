@@ -18,7 +18,7 @@
 
 <div class="card border-0 shadow-sm">
   <div class="card-body p-4">
-        <form method="post"
+        <form method="post" id="classForm"
               action="{% if action == 'add' %}{{ url_for('admin.class_add') }}{% else %}{{ url_for('admin.class_edit', class_id=class_.id) }}{% endif %}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
@@ -29,7 +29,7 @@
 
           <div class="row g-3 mb-4">
 
-            <!-- Môn học (required) -->
+            <!-- Dòng 1: Môn học | Lớp -->
             <div class="col-12 col-md-6">
               <label class="form-label fw-semibold">Môn học <span class="text-danger">*</span></label>
               <select class="form-select" name="course_id" id="courseSelect" required>
@@ -45,7 +45,6 @@
               </select>
             </div>
 
-            <!-- Lớp học (required) -->
             {% set known_grades = grade_options | map(attribute=0) | list %}
             {% set edit_grade = class_.grade_level if action == 'edit' else '' %}
             {% set is_custom_grade = action == 'edit' and edit_grade and edit_grade not in known_grades %}
@@ -70,8 +69,8 @@
                      {% if is_custom_grade %}required{% endif %}>
             </div>
 
-            <!-- Giáo viên chính (required) -->
-            <div class="col-12 col-md-6">
+            <!-- Dòng 2: Giáo viên chính | Trợ giảng | Sĩ số tối đa -->
+            <div class="col-12 col-md-4">
               <label class="form-label fw-semibold">Giáo viên chính <span class="text-danger">*</span></label>
               <select class="form-select" name="primary_teacher_id" id="teacherSelect" required>
                 <option value="">-- Chọn giáo viên --</option>
@@ -86,8 +85,7 @@
               </select>
             </div>
 
-            <!-- Trợ giảng (optional) -->
-            <div class="col-12 col-md-6">
+            <div class="col-12 col-md-4">
               <label class="form-label fw-semibold">Trợ giảng</label>
               <select class="form-select" name="assistant_teacher_id">
                 <option value="">-- Không chỉ định --</option>
@@ -101,15 +99,14 @@
               </select>
             </div>
 
-            <!-- Sĩ số tối đa (optional) -->
-            <div class="col-12 col-md-6">
+            <div class="col-12 col-md-4">
               <label class="form-label fw-semibold">Sĩ số tối đa</label>
               <input type="number" class="form-control" name="max_students" min="1"
                      placeholder="Để trống = không giới hạn"
                      value="{{ class_.max_students if action == 'edit' else (form.get('max_students','') if form else '') }}">
             </div>
 
-            <!-- Học phí & số buổi/tuần -->
+            <!-- Dòng 3: Học phí | Số buổi học / tuần -->
             <div class="col-12 col-md-6">
               <label class="form-label fw-semibold">
                 Học phí / tháng (đủ 4 tuần) <span class="text-danger">*</span>
@@ -166,36 +163,40 @@
 
           <div id="sched-rows" class="mb-2">
             <div class="sched-row row g-2 align-items-center mb-2">
-              <div class="col-12 col-sm-3">
+              <div class="col-6 col-sm-2">
+                <label class="form-label form-label-sm small text-muted mb-0 d-sm-none">Thứ</label>
                 <select class="form-select form-select-sm" name="sched_day[]">
                   {% for val, label in day_options %}
                   <option value="{{ val }}">{{ label }}</option>
                   {% endfor %}
                 </select>
               </div>
-              <div class="col-12 col-sm-3">
+              <div class="col-6 col-sm-2">
+                <label class="form-label form-label-sm small text-muted mb-0 d-sm-none">Từ</label>
                 <select class="form-select form-select-sm sched-start" name="sched_start[]">
-                  <option value="">-- Giờ bắt đầu --</option>
-                  {% for start, end in time_slots %}
-                  <option value="{{ start }}">{{ start }}</option>
+                  <option value="">-- Từ --</option>
+                  {% for t in time_points %}
+                  <option value="{{ t }}">{{ t }}</option>
                   {% endfor %}
                 </select>
               </div>
-              <div class="col-auto">
-                <span class="sched-end text-muted small">→ --:--</span>
+              <div class="col-6 col-sm-2">
+                <label class="form-label form-label-sm small text-muted mb-0 d-sm-none">Đến</label>
+                <select class="form-select form-select-sm sched-end" name="sched_end[]">
+                  <option value="">-- Đến --</option>
+                  {% for t in time_points %}
+                  <option value="{{ t }}">{{ t }}</option>
+                  {% endfor %}
+                </select>
               </div>
-              <div class="col-12 col-sm-4">
+              <div class="col-6 col-sm-3">
+                <label class="form-label form-label-sm small text-muted mb-0 d-sm-none">Phòng</label>
                 <select class="form-select form-select-sm" name="sched_room_id[]">
                   <option value="">-- Phòng (tùy chọn) --</option>
                   {% for room in rooms %}
                   <option value="{{ room.id }}">{{ room.display_name }}</option>
                   {% endfor %}
                 </select>
-              </div>
-              <div class="col-auto">
-                <button type="button" class="btn btn-outline-danger btn-sm remove-row" title="Xóa">
-                  <i class="bi bi-x-lg"></i>
-                </button>
               </div>
             </div>
           </div>
@@ -239,16 +240,16 @@ const TIME_SLOT_END = { {% for s, e in time_slots %}"{{ s }}": "{{ e }}"{% if no
 
 const DAY_OPT    = `{% for v, l in day_options %}<option value="{{ v }}">{{ l }}</option>{% endfor %}`;
 const ROOM_OPT   = `<option value="">-- Phòng (tùy chọn) --</option>{% for r in rooms %}<option value="{{ r.id }}">{{ r.display_name }}</option>{% endfor %}`;
-const START_OPT  = `<option value="">-- Giờ bắt đầu --</option>{% for s, e in time_slots %}<option value="{{ s }}">{{ s }}</option>{% endfor %}`;
+const TIME_OPT   = `{% for t in time_points %}<option value="{{ t }}">{{ t }}</option>{% endfor %}`;
 
 function buildRow() {
   const div = document.createElement('div');
   div.className = 'sched-row row g-2 align-items-center mb-2';
   div.innerHTML = `
-    <div class="col-12 col-sm-3"><select class="form-select form-select-sm" name="sched_day[]">${DAY_OPT}</select></div>
-    <div class="col-12 col-sm-3"><select class="form-select form-select-sm sched-start" name="sched_start[]">${START_OPT}</select></div>
-    <div class="col-auto"><span class="sched-end text-muted small">→ --:--</span></div>
-    <div class="col-12 col-sm-4"><select class="form-select form-select-sm" name="sched_room_id[]">${ROOM_OPT}</select></div>
+    <div class="col-6 col-sm-2"><select class="form-select form-select-sm" name="sched_day[]">${DAY_OPT}</select></div>
+    <div class="col-6 col-sm-2"><select class="form-select form-select-sm sched-start" name="sched_start[]"><option value="">-- Từ --</option>${TIME_OPT}</select></div>
+    <div class="col-6 col-sm-2"><select class="form-select form-select-sm sched-end" name="sched_end[]"><option value="">-- Đến --</option>${TIME_OPT}</select></div>
+    <div class="col-6 col-sm-3"><select class="form-select form-select-sm" name="sched_room_id[]">${ROOM_OPT}</select></div>
     <div class="col-auto"><button type="button" class="btn btn-outline-danger btn-sm remove-row" title="Xóa"><i class="bi bi-x-lg"></i></button></div>`;
   return div;
 }
@@ -256,18 +257,16 @@ function buildRow() {
 document.getElementById('sched-rows').addEventListener('change', e => {
   if (e.target.classList.contains('sched-start')) {
     const v = e.target.value;
-    e.target.closest('.sched-row').querySelector('.sched-end').textContent =
-      v ? '→ ' + (TIME_SLOT_END[v] || '--:--') : '→ --:--';
+    const endSelect = e.target.closest('.sched-row').querySelector('.sched-end');
+    if (endSelect && TIME_SLOT_END[v]) endSelect.value = TIME_SLOT_END[v];
   }
 });
 
 document.getElementById('sched-rows').addEventListener('click', e => {
   const btn = e.target.closest('.remove-row');
   if (!btn) return;
-  if (document.querySelectorAll('.sched-row').length > 1) {
-    btn.closest('.sched-row').remove();
-    updateSessionsPerWeek();
-  }
+  btn.closest('.sched-row').remove();
+  updateSessionsPerWeek();
 });
 
 // Auto-fill sessions_per_week from schedule row count
@@ -285,6 +284,17 @@ document.getElementById('sessionsPerWeek')?.addEventListener('input', function()
 });
 // Init
 updateSessionsPerWeek();
+
+// Chặn submit nếu "Số buổi học / tuần" không khớp số khung giờ đã thêm
+document.getElementById('classForm').addEventListener('submit', function(e) {
+  const spwField = document.getElementById('sessionsPerWeek');
+  const spw = parseInt(spwField.value, 10);
+  const rowCount = document.querySelectorAll('.sched-row').length;
+  if (spw && spw !== rowCount) {
+    alert('Vui lòng kiểm tra lại Lịch học');
+    e.preventDefault();
+  }
+});
 {% endif %}
 
 const courseSelect  = document.getElementById('courseSelect');

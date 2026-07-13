@@ -169,36 +169,36 @@
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div id="resched-rows" class="mb-2">
             <div class="resched-row row g-2 align-items-center mb-2">
-              <div class="col-12 col-sm-3">
+              <div class="col-6 col-sm-2">
                 <select class="form-select form-select-sm" name="sched_day[]">
                   {% for val, label in day_options %}
                   <option value="{{ val }}">{{ label }}</option>
                   {% endfor %}
                 </select>
               </div>
-              <div class="col-12 col-sm-3">
+              <div class="col-6 col-sm-2">
                 <select class="form-select form-select-sm resched-start" name="sched_start[]">
-                  <option value="">-- Giờ bắt đầu --</option>
-                  {% for start, end in time_slots %}
-                  <option value="{{ start }}">{{ start }}</option>
+                  <option value="">-- Từ --</option>
+                  {% for t in time_points %}
+                  <option value="{{ t }}">{{ t }}</option>
                   {% endfor %}
                 </select>
               </div>
-              <div class="col-auto">
-                <span class="resched-end text-muted small">→ --:--</span>
+              <div class="col-6 col-sm-2">
+                <select class="form-select form-select-sm resched-end" name="sched_end[]">
+                  <option value="">-- Đến --</option>
+                  {% for t in time_points %}
+                  <option value="{{ t }}">{{ t }}</option>
+                  {% endfor %}
+                </select>
               </div>
-              <div class="col-12 col-sm-4">
+              <div class="col-6 col-sm-3">
                 <select class="form-select form-select-sm" name="sched_room_id[]">
                   <option value="">-- Phòng (tùy chọn) --</option>
                   {% for room in rooms %}
                   <option value="{{ room.id }}">{{ room.display_name }}</option>
                   {% endfor %}
                 </select>
-              </div>
-              <div class="col-auto">
-                <button type="button" class="btn btn-outline-danger btn-sm remove-resched-row" title="Xóa">
-                  <i class="bi bi-x-lg"></i>
-                </button>
               </div>
             </div>
           </div>
@@ -501,16 +501,16 @@ function checkRoomAvailability() {
 const RESCHED_TIME_SLOT_END = { {% for s, e in time_slots %}"{{ s }}": "{{ e }}"{% if not loop.last %},{% endif %}{% endfor %} };
 const RESCHED_DAY_OPT  = `{% for v, l in day_options %}<option value="{{ v }}">{{ l }}</option>{% endfor %}`;
 const RESCHED_ROOM_OPT = `<option value="">-- Phòng (tùy chọn) --</option>{% for r in rooms %}<option value="{{ r.id }}">{{ r.display_name }}</option>{% endfor %}`;
-const RESCHED_START_OPT = `<option value="">-- Giờ bắt đầu --</option>{% for s, e in time_slots %}<option value="{{ s }}">{{ s }}</option>{% endfor %}`;
+const RESCHED_TIME_OPT = `{% for t in time_points %}<option value="{{ t }}">{{ t }}</option>{% endfor %}`;
 
 function buildReschedRow() {
   const div = document.createElement('div');
   div.className = 'resched-row row g-2 align-items-center mb-2';
   div.innerHTML = `
-    <div class="col-12 col-sm-3"><select class="form-select form-select-sm" name="sched_day[]">${RESCHED_DAY_OPT}</select></div>
-    <div class="col-12 col-sm-3"><select class="form-select form-select-sm resched-start" name="sched_start[]">${RESCHED_START_OPT}</select></div>
-    <div class="col-auto"><span class="resched-end text-muted small">→ --:--</span></div>
-    <div class="col-12 col-sm-4"><select class="form-select form-select-sm" name="sched_room_id[]">${RESCHED_ROOM_OPT}</select></div>
+    <div class="col-6 col-sm-2"><select class="form-select form-select-sm" name="sched_day[]">${RESCHED_DAY_OPT}</select></div>
+    <div class="col-6 col-sm-2"><select class="form-select form-select-sm resched-start" name="sched_start[]"><option value="">-- Từ --</option>${RESCHED_TIME_OPT}</select></div>
+    <div class="col-6 col-sm-2"><select class="form-select form-select-sm resched-end" name="sched_end[]"><option value="">-- Đến --</option>${RESCHED_TIME_OPT}</select></div>
+    <div class="col-6 col-sm-3"><select class="form-select form-select-sm" name="sched_room_id[]">${RESCHED_ROOM_OPT}</select></div>
     <div class="col-auto"><button type="button" class="btn btn-outline-danger btn-sm remove-resched-row" title="Xóa"><i class="bi bi-x-lg"></i></button></div>`;
   return div;
 }
@@ -518,17 +518,15 @@ function buildReschedRow() {
 document.getElementById('resched-rows').addEventListener('change', e => {
   if (e.target.classList.contains('resched-start')) {
     const v = e.target.value;
-    e.target.closest('.resched-row').querySelector('.resched-end').textContent =
-      v ? '→ ' + (RESCHED_TIME_SLOT_END[v] || '--:--') : '→ --:--';
+    const endSelect = e.target.closest('.resched-row').querySelector('.resched-end');
+    if (endSelect && RESCHED_TIME_SLOT_END[v]) endSelect.value = RESCHED_TIME_SLOT_END[v];
   }
 });
 
 document.getElementById('resched-rows').addEventListener('click', e => {
   const btn = e.target.closest('.remove-resched-row');
   if (!btn) return;
-  if (document.querySelectorAll('.resched-row').length > 1) {
-    btn.closest('.resched-row').remove();
-  }
+  btn.closest('.resched-row').remove();
 });
 
 document.getElementById('add-resched-row').addEventListener('click', () => {

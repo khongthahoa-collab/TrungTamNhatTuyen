@@ -27,8 +27,8 @@ TIME_SLOTS = [
     ('19:00', '20:30'),
     ('20:30', '22:00'),
 ]
-# Lookup: start → end
-TIME_SLOT_END = {s: e for s, e in TIME_SLOTS}
+# All distinct start/end time points, for the "Từ"/"Đến" dropdowns
+TIME_POINTS = sorted({t for pair in TIME_SLOTS for t in pair})
 
 # Vietnamese weekday names → Python weekday index (Mon=0)
 DAY_OPTIONS = [
@@ -213,9 +213,11 @@ def _has_duplicate_slot(grade_level, course_id, teacher_id, sched_rows, exclude_
 
 
 def _parse_sched_rows(teachers_by_id, default_teacher_id):
-    """Parse schedule rows from POST form data."""
+    """Parse schedule rows from POST form data. "Từ"/"Đến" are independent
+    dropdowns (Đến only auto-fills client-side, admin can override it)."""
     days = request.form.getlist('sched_day[]')
     starts = request.form.getlist('sched_start[]')
+    ends = request.form.getlist('sched_end[]')
     room_ids_raw = request.form.getlist('sched_room_id[]')
     rows = []
     rooms_by_id = {r.id: r for r in Room.query.all()}
@@ -225,9 +227,9 @@ def _parse_sched_rows(teachers_by_id, default_teacher_id):
         except (ValueError, IndexError):
             continue
         start_str = starts[i] if i < len(starts) else ''
-        if start_str not in TIME_SLOT_END:
+        end_str = ends[i] if i < len(ends) else ''
+        if start_str not in TIME_POINTS or end_str not in TIME_POINTS or end_str <= start_str:
             continue
-        end_str = TIME_SLOT_END[start_str]
         try:
             room_id = int(room_ids_raw[i]) if i < len(room_ids_raw) and room_ids_raw[i] else None
         except ValueError:
@@ -261,7 +263,7 @@ def _form_context(action, courses, teachers, rooms, form=None, class_=None):
     return dict(
         action=action, courses=courses, teachers=teachers, rooms=rooms,
         grade_options=GRADE_LEVEL_OPTIONS,
-        time_slots=TIME_SLOTS, day_options=DAY_OPTIONS,
+        time_slots=TIME_SLOTS, time_points=TIME_POINTS, day_options=DAY_OPTIONS,
         form=form, class_=class_,
     )
 
@@ -349,6 +351,8 @@ def class_add():
             errors.append('Vui lòng chọn giáo viên chính.')
         if not sched_rows:
             errors.append('Vui lòng thêm ít nhất một lịch học.')
+        elif sessions_per_week != len(sched_rows):
+            errors.append('Vui lòng kiểm tra lại Lịch học.')
 
         if errors:
             for e in errors:
@@ -432,6 +436,7 @@ def class_detail(class_id):
                            schedules=schedules, weekly_slots=weekly_slots,
                            suggested_students=_suggested_students(class_),
                            grade_label=GRADE_LEVEL_LABELS.get(class_.grade_level, class_.grade_level or ''),
+                           day_options=DAY_OPTIONS, time_slots=TIME_SLOTS, time_points=TIME_POINTS,
                            today=today)
 
 

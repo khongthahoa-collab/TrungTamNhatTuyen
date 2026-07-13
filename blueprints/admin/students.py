@@ -191,6 +191,36 @@ def export_students():
     )
 
 
+def _resolve_import_grade(grade_raw, level):
+    """Map a CSV 'Lớp học' cell (bare number like '6', or a full label like
+    'Tiền tiểu học') to a canonical GRADE_SEQUENCE value valid for `level`,
+    or None if it can't be resolved / doesn't belong to that level."""
+    grade_raw = (grade_raw or '').strip()
+    if not grade_raw:
+        return None
+    candidate = f'Lớp {grade_raw}' if grade_raw.isdigit() else grade_raw
+    return candidate if candidate in GRADE_BY_LEVEL.get(level, []) else None
+
+
+@admin_bp.route('/students/import-template')
+@login_required
+@require_admin
+def students_import_template():
+    """Sample CSV showing the exact columns/format import_students() expects."""
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Họ tên', 'Giới tính', 'Cấp học', 'Lớp học', 'Trường', 'Tên phụ huynh', 'SĐT phụ huynh'])
+    writer.writerow(['Châu Anh', 'Nữ', 'THCS', '6', '', '', ''])
+    writer.writerow(['Nhất Phong', 'Nam', 'THPT', '10', '', '', ''])
+    writer.writerow(['Khả Phi', 'Nữ', 'Tiểu học', 'Tiền tiểu học', '', '', ''])
+    output.seek(0)
+    return Response(
+        '\ufeff' + output.getvalue(),
+        mimetype='text/csv; charset=utf-8',
+        headers={'Content-Disposition': 'attachment; filename=mau-import-hoc-sinh.csv'}
+    )
+
+
 @admin_bp.route('/students/import', methods=['POST'])
 @login_required
 @require_admin
@@ -200,22 +230,28 @@ def import_students():
         flash('Vui lòng chọn file CSV hợp lệ.', 'danger')
         return redirect(url_for('admin.students'))
 
+    level_map = {v: k for k, v in StudentLevel.LABELS.items()}
+    gender_map = {'nam': 'male', 'nữ': 'female'}
+    grade_year = current_academic_year_start()
+
     try:
         content = file.read().decode('utf-8-sig')
         reader = csv.DictReader(io.StringIO(content))
         added = duplicates = missing_info = 0
         for row in reader:
-            full_name = (row.get('Họ tên') or row.get('full_name') or '').strip()
-            level_raw = (row.get('Cấp học') or row.get('level') or '').strip()
-            # Map Vietnamese level labels back to keys
-            level_map = {v: k for k, v in StudentLevel.LABELS.items()}
-            level = level_map.get(level_raw, level_raw if level_raw in StudentLevel.LABELS else StudentLevel.SECONDARY)
+            full_name = (row.get('Họ tên') or '').strip()
+            gender_raw = (row.get('Giới tính') or '').strip().lower()
+            level_raw = (row.get('Cấp học') or '').strip()
 
-            if not full_name:
+            gender = gender_map.get(gender_raw)
+            level = level_map.get(level_raw) or (level_raw if level_raw in StudentLevel.LABELS else None)
+            grade = _resolve_import_grade(row.get('Lớp học'), level) if level else None
+
+            if not full_name or not gender or not level or not grade:
                 missing_info += 1
                 continue
 
-            parent_phone = (row.get('SĐT phụ huynh') or row.get('parent_phone') or '').strip()
+            parent_phone = (row.get('SĐT phụ huynh') or '').strip()
             # Skip duplicate by name + parent_phone
             if parent_phone and Student.query.filter_by(full_name=full_name, parent_phone=parent_phone).first():
                 duplicates += 1
@@ -223,10 +259,12 @@ def import_students():
 
             student = Student(
                 full_name=full_name,
+                gender=gender,
                 level=level,
-                current_school=(row.get('Trường') or row.get('current_school') or '').strip(),
-                current_grade=(row.get('Lớp tại trường') or row.get('current_grade') or '').strip(),
-                parent_name=(row.get('Tên phụ huynh') or row.get('parent_name') or '').strip(),
+                current_grade=grade,
+                grade_year=grade_year,
+                current_school=(row.get('Trường') or '').strip(),
+                parent_name=(row.get('Tên phụ huynh') or '').strip(),
                 parent_phone=parent_phone,
             )
             db.session.add(student)
@@ -234,7 +272,8 @@ def import_students():
 
         db.session.commit()
         if missing_info:
-            flash(f'Thiếu thông tin học sinh, vui lòng nhập đầy đủ thông tin cần thiết ({missing_info} dòng bị bỏ qua).', 'danger')
+            flash(f'Thiếu hoặc sai thông tin bắt buộc (Họ tên, Giới tính, Cấp học, Lớp học) — '
+                  f'{missing_info} dòng bị bỏ qua.', 'danger')
         if added or duplicates:
             flash(f'Import thành công: {added} học sinh mới, bỏ qua {duplicates} dòng trùng thông tin.', 'success')
     except Exception as e:
