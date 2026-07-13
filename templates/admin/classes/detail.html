@@ -134,8 +134,10 @@
   </div>
 </div>
 
+<div class="row g-4 mb-4">
+<div class="col-lg-6">
 <!-- Lịch học -->
-<div class="card border-0 shadow-sm mb-4">
+<div class="card border-0 shadow-sm h-100">
   <div class="card-header bg-white d-flex align-items-center justify-content-between flex-wrap gap-2">
     <span class="fw-semibold"><i class="bi bi-calendar-week me-2 text-primary"></i>Lịch học</span>
     <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="collapse" data-bs-target="#reschedulePanel">
@@ -147,26 +149,11 @@
     <!-- Danh sách khung giờ hàng tuần đang áp dụng -->
     <div class="list-group mb-3">
       {% for slot in weekly_slots %}
-      <div class="list-group-item d-flex align-items-center justify-content-between flex-wrap gap-2">
-        <div>
-          <span class="fw-semibold">{{ weekdays[slot.date.weekday()] }}</span>
-          {{ slot.start_time.strftime('%H:%M') }}–{{ slot.end_time.strftime('%H:%M') }}
-          {% if slot.room_obj %}<span class="text-muted">Phòng: {{ slot.room_obj.name }}</span>{% endif %}
-          {{ slot.effective_teacher.display_name if slot.effective_teacher else 'Chưa phân công' }}
-        </div>
-        <div class="d-flex gap-1">
-          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="collapse" data-bs-target="#reschedulePanel" title="Sửa">
-            <i class="bi bi-pencil"></i>
-          </button>
-          <form method="post" action="{{ url_for('admin.class_delete_weekly_slot', class_id=class_.id) }}"
-                onsubmit="return confirm('Xóa khung giờ này? Các buổi sắp tới của khung giờ này sẽ bị xóa (buổi đã qua vẫn giữ nguyên).')">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="schedule_id" value="{{ slot.id }}">
-            <button type="submit" class="btn btn-outline-danger btn-sm" title="Xóa">
-              <i class="bi bi-trash"></i>
-            </button>
-          </form>
-        </div>
+      <div class="list-group-item">
+        <span class="fw-semibold">{{ weekdays[slot.date.weekday()] }}</span>
+        {{ slot.start_time.strftime('%H:%M') }}–{{ slot.end_time.strftime('%H:%M') }}
+        {% if slot.room_obj %}<span class="text-muted">Phòng: {{ slot.room_obj.name }}</span>{% endif %}
+        {{ slot.effective_teacher.display_name if slot.effective_teacher else 'Chưa phân công' }}
       </div>
       {% else %}
       <div class="list-group-item text-center text-muted py-4">
@@ -274,9 +261,11 @@
     </div>
   </div>
 </div>
+</div>
 
+<div class="col-lg-6">
 <!-- Thêm buổi học đơn lẻ -->
-<div class="card border-0 shadow-sm mb-4">
+<div class="card border-0 shadow-sm h-100">
   <div class="card-header bg-white fw-semibold">
     <i class="bi bi-plus-circle me-2 text-success"></i>Thêm buổi học đơn lẻ
   </div>
@@ -284,19 +273,19 @@
     <form method="post" action="{{ url_for('admin.add_schedule', class_id=class_.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="row g-3">
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-6">
           <label class="form-label fw-semibold">Ngày học <span class="text-danger">*</span></label>
           <input type="date" class="form-control" name="date" id="single_date" required value="{{ today | string }}">
         </div>
-        <div class="col-6 col-md-2">
+        <div class="col-6 col-md-3">
           <label class="form-label fw-semibold">Giờ bắt đầu</label>
           <input type="time" class="form-control" name="start_time" id="single_start">
         </div>
-        <div class="col-6 col-md-2">
+        <div class="col-6 col-md-3">
           <label class="form-label fw-semibold">Giờ kết thúc</label>
           <input type="time" class="form-control" name="end_time" id="single_end">
         </div>
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-6">
           <label class="form-label fw-semibold">Phòng học</label>
           <select class="form-select" name="room_id" id="single_room_id">
             <option value="">-- Không chọn phòng --</option>
@@ -306,18 +295,18 @@
           </select>
           <div class="form-text" id="room_availability_hint"></div>
         </div>
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-6">
           <label class="form-label fw-semibold">Chủ đề buổi học</label>
           <input type="text" class="form-control" name="topic" placeholder="Chủ đề / bài học...">
         </div>
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-6">
           <label class="form-label fw-semibold">Loại buổi học</label>
           <select class="form-select" name="schedule_type">
             <option value="regular">Thường</option>
             <option value="intensive">Tăng cường</option>
           </select>
         </div>
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-6">
           <label class="form-label fw-semibold">Giáo viên</label>
           <select class="form-select" name="teacher_id">
             <option value="">-- Chọn giáo viên --</option>
@@ -336,6 +325,8 @@
       </div>
     </form>
   </div>
+</div>
+</div>
 </div>
 
 <!-- Modal thêm học sinh -->
