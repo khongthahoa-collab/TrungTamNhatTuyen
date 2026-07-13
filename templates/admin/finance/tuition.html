@@ -187,8 +187,11 @@
       <option value="{{ m }}" {% if month == m %}selected{% endif %}>Tháng {{ m }}</option>
       {% endfor %}
     </select>
-    <input type="number" name="year" class="form-control form-control-sm" style="width:78px;"
-           value="{{ year }}" min="2020" max="2100" onchange="this.form.submit()">
+    <select name="year" class="form-select form-select-sm" style="width:90px;" onchange="this.form.submit()">
+      {% for y in range(year - 3, year + 4) %}
+      <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+      {% endfor %}
+    </select>
     {% if selected_class_id %}<input type="hidden" name="class_id" value="{{ selected_class_id }}">{% endif %}
   </form>
   <a href="{{ url_for('admin.tuition', month=next_month, year=next_year) }}"

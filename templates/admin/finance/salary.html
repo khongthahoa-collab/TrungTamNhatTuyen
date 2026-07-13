@@ -24,7 +24,11 @@
       </div>
       <div class="col-6 col-md-2">
         <label class="form-label form-label-sm fw-semibold mb-1">Năm</label>
-        <input type="number" name="year" id="filterYear" class="form-control form-control-sm" value="{{ year }}" min="2020" max="2100" form="filterForm">
+        <select name="year" id="filterYear" class="form-select form-select-sm" form="filterForm">
+          {% for y in range(year - 3, year + 4) %}
+          <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
       </div>
       <div class="col-12 col-md-6 d-flex gap-2">
         <form id="filterForm" method="get">
