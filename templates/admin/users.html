@@ -7,7 +7,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center justify-content-between mb-4">
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
   <h4 class="fw-bold mb-0">
     <i class="bi bi-person-gear text-secondary me-2"></i>Quản lý tài khoản Admin
   </h4>
@@ -106,7 +106,7 @@
 
 <!-- ===== USERS TABLE ===== -->
 <div class="card shadow-sm border-0">
-  <div class="card-header bg-light d-flex align-items-center justify-content-between py-2">
+  <div class="card-header bg-light d-flex align-items-center justify-content-between flex-wrap gap-2 py-2">
     <span class="fw-semibold"><i class="bi bi-people me-1"></i>Danh sách tài khoản admin</span>
     <span class="badge bg-secondary">{{ users | length }}</span>
   </div>

@@ -6,7 +6,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center justify-content-between mb-3">
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
   <h5 class="mb-0 fw-bold"><i class="bi bi-receipt me-2 text-primary"></i>Quản lý chi phí</h5>
 </div>
 
@@ -150,7 +150,7 @@
             </td>
             <td class="small text-muted">{{ record.receipt_no or '—' }}</td>
             <td class="text-center">
-              <form method="post" action="{{ url_for('admin.expense_delete', expense_id=record.id) }}"
+              <form method="post" action="{{ url_for('admin.expense_delete', exp_id=record.id) }}"
                     onsubmit="return confirm('Bạn có chắc muốn xóa chi phí này?')">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-outline-danger btn-sm" title="Xóa">

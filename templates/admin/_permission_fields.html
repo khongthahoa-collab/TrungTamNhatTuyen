@@ -5,7 +5,7 @@
          onchange="document.getElementById('{{ prefix }}_list').classList.toggle('d-none', this.checked)">
   <label class="form-check-label fw-semibold" for="{{ prefix }}_full">Toàn quyền</label>
 </div>
-<div class="{% if levels is none %}d-none{% endif %}" id="{{ prefix }}_list">
+<div class="{% if levels is none %}d-none{% endif %} table-responsive" id="{{ prefix }}_list">
   <table class="table table-sm align-middle mb-0">
     <thead>
       <tr>
