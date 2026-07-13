@@ -75,18 +75,15 @@
     <div class="row g-3 mb-4">
       {% for semester in year.semesters %}
       <div class="col-12 col-md-6 col-lg-4">
-        <div class="card border {% if semester.is_active %}border-primary{% else %}border-light{% endif %} h-100">
+        <div class="card border border-light h-100">
           <div class="card-body py-2 px-3">
             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-1">
               <span class="fw-semibold small">{{ semester.name }}</span>
-              {% if semester.is_active %}
-              <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size:0.65rem">Hiện tại</span>
-              {% endif %}
             </div>
             <div class="small text-muted">
               {% if semester.semester_type %}
               <span class="badge bg-info-subtle text-info border border-info-subtle me-1" style="font-size:0.65rem">
-                {% if semester.semester_type == 'he' %}Hè{% elif semester.semester_type == 'hk1' %}HK1{% elif semester.semester_type == 'hk2' %}HK2{% else %}{{ semester.semester_type }}{% endif %}
+                {{ semester.type_label }}
               </span>
               {% endif %}
               {% if semester.start_date %}{{ semester.start_date | date_vn }}{% endif %}{% if semester.end_date %} – {{ semester.end_date | date_vn }}{% endif %}

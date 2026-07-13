@@ -67,27 +67,24 @@ def _check_room_conflict(room_id, sched_date, start_time, end_time, exclude_id=N
     return q.first()
 
 
-def _get_active_semester():
-    """Return the currently active semester, or the next upcoming one."""
-    today = date.today()
-    sem = Semester.query.filter(
-        Semester.start_date <= today,
-        Semester.end_date >= today,
+def _semester_for_date(d):
+    """Return the semester overlapping date d, if any (for stats tagging only)."""
+    return Semester.query.filter(
+        Semester.start_date <= d,
+        Semester.end_date >= d,
     ).first()
-    if not sem:
-        sem = Semester.query.filter(Semester.start_date > today).order_by(Semester.start_date).first()
-    return sem
 
 
-def _generate_schedules(class_id, teacher_id, semester, sched_rows):
+def _generate_schedules(class_id, teacher_id, start_date, end_date, sched_rows, semester_id=None):
     """
     Generate Schedule rows for each (weekday, start_time, end_time, room_id) entry
-    across the semester date range. Skip conflicts. Return (created, skipped_conflict) counts.
+    across [start_date, end_date]. Skip conflicts. Return (created, skipped_conflict) counts.
+    semester_id is optional metadata, kept only for future statistics.
     """
     created = 0
     skipped = 0
-    current = semester.start_date
-    while current <= semester.end_date:
+    current = start_date
+    while current <= end_date:
         wd = current.weekday()
         for (target_wd, start_str, end_str, room_id, room_text) in sched_rows:
             if wd == target_wd:
@@ -112,7 +109,7 @@ def _generate_schedules(class_id, teacher_id, semester, sched_rows):
                     room=room_text,
                     room_id=room_id,
                     schedule_type='regular',
-                    semester_id=semester.id,
+                    semester_id=semester_id,
                 )
                 db.session.add(s)
                 created += 1
@@ -162,9 +159,9 @@ def _has_duplicate_slot(grade_level, course_id, teacher_id, sched_rows, exclude_
 
 def _parse_sched_rows(teachers_by_id, default_teacher_id):
     """Parse schedule rows from POST form data."""
-    days = request.form.getlist('sched_day')
-    starts = request.form.getlist('sched_start')
-    room_ids_raw = request.form.getlist('sched_room_id')
+    days = request.form.getlist('sched_day[]')
+    starts = request.form.getlist('sched_start[]')
+    room_ids_raw = request.form.getlist('sched_room_id[]')
     rows = []
     rooms_by_id = {r.id: r for r in Room.query.all()}
     for i in range(len(days)):
@@ -187,12 +184,12 @@ def _parse_sched_rows(teachers_by_id, default_teacher_id):
 
 # ── Routes ─────────────────────────────────────────────────────────────────
 
-def _form_context(action, courses, teachers, rooms, semesters, default_semester, form=None, class_=None):
+def _form_context(action, courses, teachers, rooms, form=None, class_=None):
     return dict(
         action=action, courses=courses, teachers=teachers, rooms=rooms,
-        semesters=semesters, default_semester_id=default_semester.id if default_semester else None,
         grade_options=GRADE_LEVEL_OPTIONS,
         time_slots=TIME_SLOTS, day_options=DAY_OPTIONS,
+        today=date.today(),
         form=form, class_=class_,
     )
 
@@ -221,8 +218,6 @@ def class_add():
     courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
     teachers = Teacher.query.join(Teacher.user).order_by('full_name').all()
     rooms = Room.query.filter_by(is_active=True).order_by(Room.branch, Room.floor, Room.room_number).all()
-    semesters = Semester.query.order_by(Semester.start_date.desc()).all()
-    default_semester = _get_active_semester()
 
     if request.method == 'POST':
         # Grade level: select value or custom text for "Loại khác"
@@ -236,7 +231,8 @@ def class_add():
         max_students = request.form.get('max_students', type=int) or None
         monthly_fee = request.form.get('monthly_fee', 0, type=float)
         description = request.form.get('description', '').strip()
-        semester_id = request.form.get('semester_id', type=int)
+        start_str = request.form.get('start_date', '')
+        end_str = request.form.get('end_date', '')
 
         sched_rows = _parse_sched_rows({t.id: t for t in teachers}, primary_teacher_id)
         # sessions_per_week: from form override, else auto from schedule row count
@@ -251,23 +247,27 @@ def class_add():
             errors.append('Vui lòng chọn giáo viên chính.')
         if not sched_rows:
             errors.append('Vui lòng thêm ít nhất một lịch học.')
-        if not semester_id:
-            errors.append('Vui lòng chọn học kỳ.')
+        start_date = end_date = None
+        if not start_str or not end_str:
+            errors.append('Vui lòng chọn ngày bắt đầu và kết thúc lớp học.')
+        else:
+            start_date = date.fromisoformat(start_str)
+            end_date = date.fromisoformat(end_str)
+            if end_date < start_date:
+                errors.append('Ngày kết thúc phải sau ngày bắt đầu.')
 
         if errors:
             for e in errors:
                 flash(e, 'danger')
             return render_template('admin/classes/form.html',
-                                   **_form_context('add', courses, teachers, rooms, semesters, default_semester,
-                                                   form=request.form))
+                                   **_form_context('add', courses, teachers, rooms, form=request.form))
 
         # Duplicate slot check
         dup = _has_duplicate_slot(grade_level, course_id, primary_teacher_id, sched_rows)
         if dup:
             flash(f'Giáo viên đã dạy lớp "{dup.name}" (cùng lớp, cùng môn) ở khung giờ này.', 'danger')
             return render_template('admin/classes/form.html',
-                                   **_form_context('add', courses, teachers, rooms, semesters, default_semester,
-                                                   form=request.form))
+                                   **_form_context('add', courses, teachers, rooms, form=request.form))
 
         # Auto-generate class name
         course = Course.query.get(course_id)
@@ -284,26 +284,27 @@ def class_add():
             description=description,
             primary_teacher_id=primary_teacher_id,
             assistant_teacher_id=assistant_teacher_id,
+            start_date=start_date,
+            end_date=end_date,
         )
         db.session.add(cl)
         db.session.flush()
 
-        semester = Semester.query.get(semester_id)
-        msg_extra = ''
-        if semester:
-            created, skipped = _generate_schedules(cl.id, primary_teacher_id, semester, sched_rows)
-            msg_extra = f' Đã tạo {created} buổi học'
-            if skipped:
-                msg_extra += f' ({skipped} buổi bỏ qua do phòng trùng)'
-            msg_extra += f' cho {semester.name}.'
+        # Học kỳ chỉ được gắn tự động cho mục đích thống kê, không bắt buộc chọn.
+        semester = _semester_for_date(start_date)
+        created, skipped = _generate_schedules(cl.id, primary_teacher_id, start_date, end_date, sched_rows,
+                                               semester_id=semester.id if semester else None)
+        msg_extra = f' Đã tạo {created} buổi học'
+        if skipped:
+            msg_extra += f' ({skipped} buổi bỏ qua do phòng trùng)'
+        msg_extra += '.'
 
         db.session.commit()
         flash(f'Đã tạo lớp {name}.{msg_extra}', 'success')
         return redirect(url_for('admin.class_detail', class_id=cl.id))
 
     return render_template('admin/classes/form.html',
-                           **_form_context('add', courses, teachers, rooms, semesters, default_semester,
-                                           form={}))
+                           **_form_context('add', courses, teachers, rooms, form={}))
 
 
 @admin_bp.route('/classes/<int:class_id>')
@@ -339,8 +340,6 @@ def class_edit(class_id):
     courses = Course.query.filter_by(is_active=True).all()
     teachers = Teacher.query.join(Teacher.user).all()
     rooms = Room.query.filter_by(is_active=True).order_by(Room.branch, Room.floor, Room.room_number).all()
-    semesters = Semester.query.order_by(Semester.start_date.desc()).all()
-    default_semester = _get_active_semester()
 
     if request.method == 'POST':
         grade_select = request.form.get('grade_level_select', '').strip()
@@ -366,26 +365,34 @@ def class_edit(class_id):
         class_.primary_teacher_id = new_primary_id
         class_.assistant_teacher_id = request.form.get('assistant_teacher_id', type=int) or None
 
+        start_str = request.form.get('start_date', '')
+        end_str = request.form.get('end_date', '')
+        if start_str:
+            class_.start_date = date.fromisoformat(start_str)
+        if end_str:
+            class_.end_date = date.fromisoformat(end_str)
+
         sched_rows = _parse_sched_rows({t.id: t for t in teachers}, class_.primary_teacher_id)
         msg_extra = ''
-        if sched_rows:
-            semester_id = request.form.get('semester_id', type=int)
-            semester = Semester.query.get(semester_id) if semester_id else default_semester
-            if semester:
-                created, skipped = _generate_schedules(class_.id, class_.primary_teacher_id, semester, sched_rows)
-                if created:
-                    msg_extra = f' Đã thêm {created} buổi học mới'
-                    if skipped:
-                        msg_extra += f' ({skipped} buổi bỏ qua do phòng trùng)'
-                    msg_extra += '.'
+        if sched_rows and class_.start_date and class_.end_date:
+            semester = _semester_for_date(class_.start_date)
+            created, skipped = _generate_schedules(class_.id, class_.primary_teacher_id,
+                                                    class_.start_date, class_.end_date, sched_rows,
+                                                    semester_id=semester.id if semester else None)
+            if created:
+                msg_extra = f' Đã thêm {created} buổi học mới'
+                if skipped:
+                    msg_extra += f' ({skipped} buổi bỏ qua do phòng trùng)'
+                msg_extra += '.'
+        elif sched_rows:
+            flash('Chưa có ngày bắt đầu/kết thúc cho lớp này nên không thể tạo thêm lịch học mới.', 'warning')
 
         db.session.commit()
         flash(f'Đã cập nhật thông tin lớp.{msg_extra}', 'success')
         return redirect(url_for('admin.class_detail', class_id=class_id))
 
     return render_template('admin/classes/form.html',
-                           **_form_context('edit', courses, teachers, rooms, semesters, default_semester,
-                                           class_=class_))
+                           **_form_context('edit', courses, teachers, rooms, class_=class_))
 
 
 @admin_bp.route('/classes/<int:class_id>/generate-schedule', methods=['POST'])

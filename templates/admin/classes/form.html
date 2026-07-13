@@ -16,10 +16,8 @@
   </a>
 </div>
 
-<div class="row justify-content-center">
-  <div class="col-12 col-lg-9">
-    <div class="card border-0 shadow-sm">
-      <div class="card-body p-4">
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-4">
         <form method="post"
               action="{% if action == 'add' %}{{ url_for('admin.class_add') }}{% else %}{{ url_for('admin.class_edit', class_id=class_.id) }}{% endif %}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -72,27 +70,21 @@
                      {% if is_custom_grade %}required{% endif %}>
             </div>
 
-            <!-- Học kỳ (required on add, shown on both) -->
-            <div class="col-12 col-md-6">
+            <!-- Ngày bắt đầu / kết thúc lớp (required) -->
+            <div class="col-6 col-md-3">
               <label class="form-label fw-semibold">
-                Học kỳ <span class="text-danger">*</span>
-                {% if action == 'edit' %}<span class="text-muted small fw-normal">(để tạo thêm lịch mới)</span>{% endif %}
+                Ngày bắt đầu <span class="text-danger">*</span>
               </label>
-              {% if semesters %}
-              <select class="form-select" name="semester_id" {% if action == 'add' %}required{% endif %}>
-                <option value="">-- Chọn học kỳ --</option>
-                {% for sem in semesters %}
-                <option value="{{ sem.id }}"
-                  {% if sem.id == default_semester_id %}selected{% endif %}>
-                  {{ sem.name }}
-                </option>
-                {% endfor %}
-              </select>
-              {% else %}
-              <div class="alert alert-warning py-2 mb-0 small">
-                Chưa có học kỳ nào. <a href="{{ url_for('admin.academic_years') }}">Thêm học kỳ</a> trước khi tạo lớp.
-              </div>
-              {% endif %}
+              <input type="date" class="form-control" name="start_date" required
+                     value="{{ class_.start_date | string if action == 'edit' and class_.start_date else (form.get('start_date','') if form else (today | string if action == 'add' else '')) }}">
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label fw-semibold">
+                Ngày kết thúc <span class="text-danger">*</span>
+              </label>
+              <input type="date" class="form-control" name="end_date" required
+                     value="{{ class_.end_date | string if action == 'edit' and class_.end_date else (form.get('end_date','') if form else '') }}">
+              <div class="form-text">Khung thời gian dùng để tạo lịch học bên dưới.</div>
             </div>
 
             <!-- Giáo viên chính (required) -->
@@ -247,8 +239,6 @@
             </button>
           </div>
         </form>
-      </div>
-    </div>
   </div>
 </div>
 
