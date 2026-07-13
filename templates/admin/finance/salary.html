@@ -10,7 +10,7 @@
   <h5 class="mb-0 fw-bold"><i class="bi bi-wallet2 me-2 text-primary"></i>Quản lý lương giáo viên</h5>
 </div>
 
-<!-- Bộ lọc + Tính lương -->
+<!-- Bộ lọc + Tính toán -->
 <div class="card mb-4 border-0 shadow-sm">
   <div class="card-body py-2">
     <div class="row g-2 align-items-end">
@@ -35,8 +35,8 @@
           <input type="hidden" name="month" value="{{ month }}">
           <input type="hidden" name="year" value="{{ year }}">
           <button type="submit" class="btn btn-success btn-sm"
-                  onclick="return confirm('Tính lương tháng {{ month }}/{{ year }} cho tất cả giáo viên?')">
-            <i class="bi bi-calculator me-1"></i>Tính lương
+                  onclick="return confirm('Tính toán lương tháng {{ month }}/{{ year }} và cập nhật chi phí lương?')">
+            <i class="bi bi-calculator me-1"></i>Tính toán
           </button>
         </form>
       </div>
@@ -55,84 +55,48 @@
         <thead class="table-light">
           <tr>
             <th class="ps-3">Giáo viên</th>
-            <th class="text-center">Buổi lịch</th>
-            <th class="text-center">Check-in</th>
             <th class="text-end">Lương cơ bản</th>
-            <th class="text-end">Thưởng</th>
-            <th class="text-end">Khấu trừ</th>
-            <th class="text-end">Tổng lương</th>
+            <th class="text-center">Số buổi dạy (1 tháng)</th>
+            <th class="text-end">Lương thực nhận</th>
             <th class="text-center">Trạng thái</th>
-            <th class="text-center">Thao tác</th>
           </tr>
         </thead>
         <tbody>
-          {% for salary in salaries %}
+          {% for teacher in teachers %}
+          {% set sal = salaries_by_teacher.get(teacher.id) %}
           <tr>
-            <td class="ps-3 fw-semibold small">{{ salary.teacher.full_name }}</td>
-            <td class="text-center small">{{ salary.scheduled_sessions or 0 }}</td>
-            <td class="text-center small">
-              {% set checkin_count = salary.checkin_sessions or 0 %}
-              {% set scheduled = salary.scheduled_sessions or 1 %}
-              <span class="{% if checkin_count / scheduled < 0.8 %}text-danger{% else %}text-success{% endif %} fw-semibold">
-                {{ checkin_count }}
-              </span>
-            </td>
-            <td class="text-end small fw-semibold">{{ salary.base_salary | vnd }}</td>
-            <td class="text-end small text-success">
-              {% if salary.bonus and salary.bonus > 0 %}+{{ salary.bonus | vnd }}{% else %}—{% endif %}
-            </td>
-            <td class="text-end small text-danger">
-              {% if salary.deduction and salary.deduction > 0 %}-{{ salary.deduction | vnd }}{% else %}—{% endif %}
-            </td>
-            <td class="text-end fw-bold small">{{ salary.total_salary | vnd }}</td>
+            <td class="ps-3 fw-semibold small">{{ teacher.full_name }}</td>
+            <td class="text-end small">{{ sal.base_amount | vnd if sal else '—' }}</td>
+            <td class="text-center small">{{ session_counts.get(teacher.id, 0) }}</td>
+            <td class="text-end small fw-bold">{{ sal.total | vnd if sal else '—' }}</td>
             <td class="text-center">
-              {% if salary.is_finalized %}
-              <span class="badge bg-success-subtle text-success border border-success-subtle">Đã chốt</span>
+              {% if sal %}
+              <a href="{{ url_for('admin.salary_detail', salary_id=sal.id) }}"
+                 class="btn btn-outline-primary btn-sm" title="Sửa lương">
+                <i class="bi bi-pencil"></i>
+              </a>
               {% else %}
-              <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Chưa chốt</span>
+              <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Chưa tính lương</span>
               {% endif %}
-            </td>
-            <td class="text-center">
-              <div class="d-flex justify-content-center gap-1">
-                <button type="button" class="btn btn-outline-primary btn-sm"
-                        data-bs-toggle="modal" data-bs-target="#editSalaryModal"
-                        data-salary-id="{{ salary.id }}"
-                        data-teacher-name="{{ salary.teacher.full_name }}"
-                        data-bonus="{{ salary.bonus or 0 }}"
-                        data-deduction="{{ salary.deduction or 0 }}"
-                        data-note="{{ salary.note or '' }}"
-                        title="Sửa thưởng/khấu trừ">
-                  <i class="bi bi-pencil"></i>
-                </button>
-                {% if not salary.is_finalized %}
-                <form method="post" action="{{ url_for('admin.salary_finalize', salary_id=salary.id) }}"
-                      onsubmit="return confirm('Chốt lương cho {{ salary.teacher.full_name }}?')">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <button type="submit" class="btn btn-outline-success btn-sm" title="Chốt lương">
-                    <i class="bi bi-check-circle"></i>
-                  </button>
-                </form>
-                {% endif %}
-              </div>
             </td>
           </tr>
           {% else %}
           <tr>
-            <td colspan="9" class="text-center text-muted py-4">
+            <td colspan="5" class="text-center text-muted py-4">
               <i class="bi bi-inbox d-block mb-2 fs-4"></i>
-              Chưa có dữ liệu lương. Nhấn "Tính lương" để tạo bảng lương.
+              Chưa có giáo viên chính nào.
             </td>
           </tr>
           {% endfor %}
         </tbody>
-        {% if salaries %}
+        {% if teachers %}
         <tfoot class="table-light">
           <tr>
-            <td colspan="6" class="ps-3 fw-semibold text-end">Tổng chi lương:</td>
+            <td colspan="3" class="ps-3 fw-semibold text-end">Tổng chi lương:</td>
             <td class="text-end fw-bold text-primary">
-              {{ salaries | sum(attribute='total_salary') | vnd }}
+              {{ salaries_by_teacher.values() | sum(attribute='total') | vnd }}
             </td>
-            <td colspan="2"></td>
+            <td></td>
           </tr>
         </tfoot>
         {% endif %}
@@ -141,54 +105,7 @@
   </div>
 </div>
 
-<!-- Modal sửa thưởng/khấu trừ -->
-<div class="modal fade" id="editSalaryModal" tabindex="-1" aria-labelledby="editSalaryModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h6 class="modal-title fw-bold" id="editSalaryModalLabel">
-          <i class="bi bi-pencil-square me-2 text-primary"></i>Sửa lương – <span id="editTeacherName"></span>
-        </h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
-      </div>
-      <form method="post" id="editSalaryForm" action="">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Tiền thưởng (VND)</label>
-            <input type="number" name="bonus" id="editBonus" class="form-control" min="0" step="1000" value="0">
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Khấu trừ (VND)</label>
-            <input type="number" name="deduction" id="editDeduction" class="form-control" min="0" step="1000" value="0">
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Ghi chú</label>
-            <textarea name="note" id="editNote" class="form-control" rows="2" placeholder="Ghi chú về lương..."></textarea>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
-          <button type="submit" class="btn btn-primary">
-            <i class="bi bi-check-lg me-1"></i>Lưu thay đổi
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
 <script>
-document.getElementById('editSalaryModal').addEventListener('show.bs.modal', function(event) {
-  const btn = event.relatedTarget;
-  document.getElementById('editTeacherName').textContent = btn.dataset.teacherName;
-  document.getElementById('editBonus').value = btn.dataset.bonus;
-  document.getElementById('editDeduction').value = btn.dataset.deduction;
-  document.getElementById('editNote').value = btn.dataset.note;
-  document.getElementById('editSalaryForm').action =
-    "{{ url_for('admin.salary_adjust', salary_id=0) }}".replace('/0', '/' + btn.dataset.salaryId);
-});
-// Sync filter form hidden fields
 document.querySelector('#filterForm').addEventListener('submit', function() {
   const m = document.getElementById('filterMonth').value;
   const y = document.getElementById('filterYear').value;

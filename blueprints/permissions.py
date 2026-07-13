@@ -2,12 +2,18 @@
 Single source of truth for the per-account feature permission system.
 
 Every admin/teacher sidebar/nav item maps to a "module key". A User's
-`permissions` column (see models.User) is either None (full access) or a
-JSON list of module keys they're allowed to see/use. CORE_MODULES are
-always visible/accessible regardless of restrictions.
+`permissions` column (see models.User) is either None (full access, implies
+'write' everywhere) or a JSON dict of module_key -> 'read'/'write'/'deny'.
+A GET request only needs 'read'; a mutating request (POST/PUT/PATCH/DELETE)
+needs 'write'. CORE_MODULES are always accessible. MASTER_ONLY_MODULES are
+hard-denied to any non-master account regardless of their permission dict.
 """
 
 CORE_MODULES = {'dashboard', 'notifications'}
+
+# Modules only the admin-master account may access at all (view or edit) —
+# regardless of what a delegated admin's permission matrix says.
+MASTER_ONLY_MODULES = {'teachers', 'salary'}
 
 # (key, label, bootstrap-icon) — order matches the admin sidebar
 ADMIN_MODULES = [
@@ -31,6 +37,10 @@ ADMIN_MODULES = [
     ('inquiries', 'Liên hệ', 'bi-envelope'),
     ('settings', 'Cài đặt', 'bi-gear'),
 ]
+
+# Modules a delegated admin's read/write/deny matrix can actually control —
+# excludes MASTER_ONLY_MODULES, which are hard-gated to the master account.
+ADMIN_PERMISSION_MODULES = [m for m in ADMIN_MODULES if m[0] not in MASTER_ONLY_MODULES]
 
 # Admin sidebar layout: 'reports' and dashboard render as standalone links;
 # everything else is grouped into collapsible sections. (group_key, label,
@@ -91,11 +101,12 @@ ADMIN_ENDPOINT_MODULES = {
     'tuition_report': 'tuition_report', 'calculate_tuition': 'tuition_report',
     'update_tuition_stage': 'tuition_report', 'export_tuition_report': 'tuition_report',
     'expenses': 'expenses', 'expense_add': 'expenses', 'expense_delete': 'expenses',
-    'salary': 'salary', 'salary_calculate': 'salary', 'salary_adjust': 'salary', 'salary_finalize': 'salary',
+    'salary': 'salary', 'salary_calculate': 'salary', 'salary_detail': 'salary',
 
-    # teachers.py (read-only stats view + inline salary/classification edit;
-    # everything else about the account lives in settings.py's accounts routes)
-    'teachers': 'teachers', 'teacher_update_fields': 'teachers',
+    # teachers.py — master-only (see MASTER_ONLY_MODULES)
+    'teachers': 'teachers', 'teacher_add': 'teachers',
+    'teacher_detail': 'teachers', 'teacher_delete': 'teachers',
+    'teacher_reset_password': 'teachers',
 
     # rooms.py
     'rooms': 'rooms', 'room_add': 'rooms', 'room_edit': 'rooms',

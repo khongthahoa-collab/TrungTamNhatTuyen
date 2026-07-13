@@ -23,15 +23,33 @@ def require_admin_or_teacher(f):
     return decorated
 
 
+def require_master(f):
+    """Gate for functionality only the admin-master account may use at all
+    (e.g. teacher accounts, salary) — stronger than the read/write/deny matrix,
+    which delegated admins can never override for these modules."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.is_admin or not current_user.is_master:
+            abort(403)
+        return f(*args, **kwargs)
+    return decorated
+
+
 @admin_bp.before_request
 def check_module_permission():
-    """Per-account feature restriction, on top of the role-based decorators above."""
+    """Per-account feature restriction, on top of the role-based decorators above.
+    GET/HEAD only needs 'read'; a mutating request needs 'write'."""
     if not current_user.is_authenticated or not (current_user.is_admin or current_user.is_teacher):
         return
     from blueprints.permissions import ADMIN_ENDPOINT_MODULES
     endpoint = (request.endpoint or '').split('.')[-1]
     module = ADMIN_ENDPOINT_MODULES.get(endpoint)
-    if module and not current_user.can_access(module):
+    if not module:
+        return
+    if request.method in ('POST', 'PUT', 'PATCH', 'DELETE'):
+        if not current_user.can_write(module):
+            abort(403)
+    elif not current_user.can_access(module):
         abort(403)
 
 

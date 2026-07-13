@@ -494,29 +494,45 @@ class User(UserMixin, db.Model):
         }.get(self.role, self.role)
 
     def get_permissions(self):
-        """None = full access. Otherwise a list of allowed module keys."""
+        """None = full access. Otherwise a dict of module_key -> 'read'/'write'/'deny'."""
         if self.permissions is None:
             return None
         try:
-            return json.loads(self.permissions)
+            data = json.loads(self.permissions)
         except (TypeError, ValueError):
-            return []
+            return {}
+        if isinstance(data, list):
+            # Back-compat: the permission system used to store a plain list of
+            # allowed module keys, which implied full read+write on each.
+            return {k: 'write' for k in data}
+        return data
 
     def set_permissions(self, modules):
-        """Pass None for full access, or a list of module keys to restrict."""
+        """Pass None for full access, or a dict of module_key -> 'read'/'write'/'deny'."""
         self.permissions = json.dumps(modules) if modules is not None else None
 
     @property
     def has_full_access(self):
         return self.permissions is None
 
-    def can_access(self, module_key):
-        """Whether this user is allowed to see/use the given module."""
-        from blueprints.permissions import CORE_MODULES
+    def permission_level(self, module_key):
+        """Effective level for a module: 'read', 'write', or 'deny'."""
+        from blueprints.permissions import CORE_MODULES, MASTER_ONLY_MODULES
         if module_key in CORE_MODULES:
-            return True
-        perms = self.get_permissions()
-        return perms is None or module_key in perms
+            return 'write'
+        if module_key in MASTER_ONLY_MODULES:
+            return 'write' if self.is_master else 'deny'
+        if self.has_full_access:
+            return 'write'
+        return self.get_permissions().get(module_key, 'deny')
+
+    def can_access(self, module_key):
+        """Whether this user is allowed to at least view the given module."""
+        return self.permission_level(module_key) in ('read', 'write')
+
+    def can_write(self, module_key):
+        """Whether this user is allowed to create/edit/delete within the given module."""
+        return self.permission_level(module_key) == 'write'
 
     def __repr__(self):
         return f'<User {self.username}>'
@@ -978,6 +994,7 @@ class Salary(db.Model):
     base_amount = db.Column(db.Float, default=0)  # Base salary
     bonus = db.Column(db.Float, default=0)        # Bonuses
     deduction = db.Column(db.Float, default=0)    # Deductions
+    advance = db.Column(db.Float, default=0)      # Tạm ứng (advance payment)
     total = db.Column(db.Float, default=0)        # Final amount
     sessions_scheduled = db.Column(db.Integer, default=0)  # Total scheduled sessions
     sessions_checked_in = db.Column(db.Integer, default=0)  # Sessions teacher checked in

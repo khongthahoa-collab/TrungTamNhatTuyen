@@ -1,11 +1,12 @@
 from flask import render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from datetime import date, datetime
+from sqlalchemy import extract, func
 from extensions import db
 from models import (TuitionPayment, Student, Class, Salary, Teacher,
                     Expense, ExpenseCategory, TuitionMethod, MonthlyClassFee, Enrollment)
-from blueprints.admin import admin_bp, require_admin
-from services.salary_service import calculate_all_salaries, calculate_salary
+from blueprints.admin import admin_bp, require_admin, require_master
+from services.salary_service import calculate_all_salaries
 from services.zalo_service import ZaloService
 
 
@@ -309,18 +310,33 @@ def expense_delete(exp_id):
 
 @admin_bp.route('/salary')
 @login_required
-@require_admin
+@require_master
 def salary():
+    from models import User, Schedule
     today = date.today()
     month = request.args.get('month', today.month, type=int)
     year = request.args.get('year', today.year, type=int)
 
-    salaries = Salary.query.filter_by(month=month, year=year).all()
-    staff_teachers = Teacher.query.filter_by(is_staff=True).all()
+    teachers = (Teacher.query.filter_by(is_staff=True)
+               .join(Teacher.user).filter(User.is_deleted == False)
+               .order_by(User.full_name).all())
+    salaries_by_teacher = {
+        s.teacher_id: s for s in Salary.query.filter_by(month=month, year=year).all()
+    }
+    session_counts = {
+        t.id: Schedule.query.filter(
+            Schedule.teacher_id == t.id,
+            Schedule.is_cancelled == False,
+            extract('month', Schedule.date) == month,
+            extract('year', Schedule.date) == year,
+        ).count()
+        for t in teachers
+    }
 
     return render_template('admin/finance/salary.html',
-                           salaries=salaries,
-                           staff_teachers=staff_teachers,
+                           teachers=teachers,
+                           salaries_by_teacher=salaries_by_teacher,
+                           session_counts=session_counts,
                            month=month,
                            year=year,
                            today=today)
@@ -328,43 +344,58 @@ def salary():
 
 @admin_bp.route('/salary/calculate', methods=['POST'])
 @login_required
-@require_admin
+@require_master
 def salary_calculate():
     month = request.form.get('month', type=int)
     year = request.form.get('year', type=int)
-    salaries = calculate_all_salaries(month, year)
-    flash(f'Đã tính lương cho {len(salaries)} giáo viên tháng {month}/{year}.', 'success')
+    created = calculate_all_salaries(month, year)
+    db.session.flush()
+
+    total_amount = db.session.query(func.coalesce(func.sum(Salary.total), 0)).filter_by(
+        month=month, year=year
+    ).scalar()
+    expense = Expense.query.filter(
+        Expense.category == ExpenseCategory.SALARY,
+        extract('month', Expense.expense_date) == month,
+        extract('year', Expense.expense_date) == year,
+    ).first()
+    if expense:
+        expense.amount = total_amount
+    else:
+        expense = Expense(
+            category=ExpenseCategory.SALARY,
+            amount=total_amount,
+            description=f'Lương giáo viên tháng {month}/{year}',
+            expense_date=date(year, month, 1),
+            created_by=current_user.id,
+        )
+        db.session.add(expense)
+
+    db.session.commit()
+    flash(f'Đã tính lương cho {len(created)} giáo viên mới. '
+          f'Tổng chi lương tháng {month}/{year}: {total_amount:,.0f} đ đã cập nhật vào Chi phí.', 'success')
     return redirect(url_for('admin.salary', month=month, year=year))
 
 
-@admin_bp.route('/salary/<int:salary_id>/adjust', methods=['POST'])
+@admin_bp.route('/salary/<int:salary_id>/detail', methods=['GET', 'POST'])
 @login_required
-@require_admin
-def salary_adjust(salary_id):
+@require_master
+def salary_detail(salary_id):
     sal = Salary.query.get_or_404(salary_id)
-    if sal.is_finalized:
-        flash('Lương đã chốt, không thể chỉnh sửa.', 'danger')
+
+    if request.method == 'POST':
+        sal.base_amount = request.form.get('base_amount', 0, type=float)
+        sal.bonus = request.form.get('bonus', 0, type=float)
+        sal.deduction = request.form.get('deduction', 0, type=float)
+        sal.advance = request.form.get('advance', 0, type=float)
+        total = request.form.get('total', type=float)
+        sal.total = total if total is not None else (sal.base_amount + sal.bonus - sal.deduction - sal.advance)
+        sal.note = request.form.get('note', '').strip()
+        db.session.commit()
+        flash(f'Đã cập nhật lương tháng {sal.month}/{sal.year} cho {sal.teacher.full_name}.', 'success')
         return redirect(url_for('admin.salary', month=sal.month, year=sal.year))
 
-    sal.bonus = request.form.get('bonus', 0, type=float)
-    sal.deduction = request.form.get('deduction', 0, type=float)
-    sal.note = request.form.get('note', '').strip()
-    sal.total = sal.base_amount + sal.bonus - sal.deduction
-    db.session.commit()
-    flash('Đã cập nhật lương.', 'success')
-    return redirect(url_for('admin.salary', month=sal.month, year=sal.year))
-
-
-@admin_bp.route('/salary/<int:salary_id>/finalize', methods=['POST'])
-@login_required
-@require_admin
-def salary_finalize(salary_id):
-    sal = Salary.query.get_or_404(salary_id)
-    sal.is_finalized = True
-    sal.paid_at = datetime.utcnow()
-    db.session.commit()
-    flash(f'Đã chốt lương cho {sal.teacher.full_name}.', 'success')
-    return redirect(url_for('admin.salary', month=sal.month, year=sal.year))
+    return render_template('admin/finance/salary_detail.html', salary=sal)
 
 
 # ────────────────────────────────────────────────────────────────

@@ -8,10 +8,10 @@
 <div class="d-flex align-items-center justify-content-between mb-4">
   <div>
     <h5 class="fw-bold mb-0"><i class="bi bi-person-badge me-2 text-primary"></i>Quản lý Giáo viên</h5>
-    <div class="text-muted small">{{ teachers | length }} giáo viên</div>
+    <div class="text-muted small">{{ teachers | length }} giáo viên đang hoạt động</div>
   </div>
-  <a href="{{ url_for('admin.users') }}" class="btn btn-primary">
-    <i class="bi bi-person-gear me-1"></i>Quản lý trong Tài khoản
+  <a href="{{ url_for('admin.teacher_add') }}" class="btn btn-primary">
+    <i class="bi bi-person-plus me-1"></i>Thêm giáo viên
   </a>
 </div>
 
@@ -21,73 +21,64 @@
       <thead class="table-light">
         <tr>
           <th class="ps-3">Giáo viên</th>
-          <th>Điện thoại</th>
+          <th>Tên đăng nhập</th>
+          <th>Số điện thoại</th>
           <th>Phân loại</th>
-          <th class="text-center">Lớp phụ trách</th>
-          <th class="text-center">Buổi dạy</th>
-          <th>Lương cơ bản</th>
-          <th>Trạng thái</th>
+          <th>Giới tính</th>
+          <th class="text-center">Số lớp phụ trách</th>
+          <th class="text-center">Số buổi dạy (1 tháng)</th>
           <th class="text-center">Thao tác</th>
         </tr>
       </thead>
       <tbody>
         {% for teacher in teachers %}
-        <tr class="{% if not teacher.user.is_active %}table-secondary{% endif %}">
+        <tr>
           <td class="ps-3">
             <div class="d-flex align-items-center gap-2">
               <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center text-primary fw-bold flex-shrink-0"
                    style="width:36px;height:36px;font-size:0.85rem;">
                 {{ teacher.full_name[0] }}
               </div>
-              <div>
-                <div class="fw-semibold">{{ teacher.full_name }}</div>
-                <div class="small text-muted">@{{ teacher.user.username }}</div>
-              </div>
+              <div class="fw-semibold">{{ teacher.full_name }}</div>
             </div>
           </td>
-          <td class="small">{{ teacher.phone }}</td>
-          <form method="post" action="{{ url_for('admin.teacher_update_fields', teacher_id=teacher.id) }}" class="d-contents">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <td style="min-width:130px;">
-              <select class="form-select form-select-sm" name="is_staff">
-                <option value="1" {% if teacher.is_staff %}selected{% endif %}>Hợp đồng</option>
-                <option value="0" {% if not teacher.is_staff %}selected{% endif %}>Trợ giảng</option>
-              </select>
-            </td>
-            <td class="text-center">
-              <span class="badge bg-info-subtle text-info border border-info-subtle">
-                {{ class_counts.get(teacher.id, 0) }}
-              </span>
-            </td>
-            <td class="text-center">
-              <span class="badge bg-success-subtle text-success border border-success-subtle">
-                {{ session_counts.get(teacher.id, 0) }}
-              </span>
-            </td>
-            <td style="min-width:140px;">
-              <input type="number" class="form-control form-control-sm" name="base_salary" min="0" step="100000"
-                     value="{{ teacher.base_salary | int }}">
-            </td>
-            <td>
-              {% if teacher.user.is_active %}
-              <span class="badge bg-success-subtle text-success border border-success-subtle">Hoạt động</span>
-              {% else %}
-              <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Đã vô hiệu hóa</span>
-              {% endif %}
-            </td>
-            <td class="text-center">
-              <button type="submit" class="btn btn-sm btn-outline-primary" title="Lưu">
-                <i class="bi bi-check-lg"></i>
-              </button>
-            </td>
-          </form>
+          <td class="small text-muted">{{ teacher.user.username }}</td>
+          <td class="small">{{ teacher.phone or '–' }}</td>
+          <td>
+            {% if teacher.is_staff %}
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Giáo viên chính</span>
+            {% else %}
+            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Trợ giảng</span>
+            {% endif %}
+          </td>
+          <td class="small">
+            {% if teacher.user.gender == 'male' %}Nam
+            {% elif teacher.user.gender == 'female' %}Nữ
+            {% else %}–{% endif %}
+          </td>
+          <td class="text-center">
+            <span class="badge bg-info-subtle text-info border border-info-subtle">
+              {{ class_counts.get(teacher.id, 0) }}
+            </span>
+          </td>
+          <td class="text-center">
+            <span class="badge bg-success-subtle text-success border border-success-subtle">
+              {{ session_counts.get(teacher.id, 0) }}
+            </span>
+          </td>
+          <td class="text-center">
+            <a href="{{ url_for('admin.teacher_detail', teacher_id=teacher.id) }}"
+               class="btn btn-sm btn-outline-primary" title="Sửa">
+              <i class="bi bi-pencil"></i>
+            </a>
+          </td>
         </tr>
         {% else %}
         <tr>
           <td colspan="8" class="text-center text-muted py-5">
             <i class="bi bi-person-badge fs-3 d-block mb-2"></i>
             Chưa có giáo viên nào.
-            <a href="{{ url_for('admin.users') }}">Thêm giáo viên trong Quản lý tài khoản</a>
+            <a href="{{ url_for('admin.teacher_add') }}">Thêm giáo viên đầu tiên</a>
           </td>
         </tr>
         {% endfor %}
@@ -95,10 +86,4 @@
     </table>
   </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<style>
-.d-contents { display: contents; }
-</style>
 {% endblock %}

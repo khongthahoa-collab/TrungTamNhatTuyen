@@ -62,6 +62,9 @@ backup.sql
 *.bak
 *.bak_*
 
+# One-off local feature spec notes (not project docs — see DATABASE_SCHEMA.md etc.)
+feature_*.md
+
 # Docker
 .docker/
 docker-compose.override.yml

@@ -1,10 +1,12 @@
 from flask import render_template, redirect, url_for, flash, request, abort
 from flask_login import login_required, current_user
 from extensions import db
-from models import SystemConfig, User, Teacher, Course, UserRole, ContactInquiry
+from models import SystemConfig, User, Course, UserRole, ContactInquiry
 from blueprints.admin import admin_bp, require_admin
 from blueprints.admin.account_utils import next_username, DEFAULT_TEMP_PASSWORD
-from blueprints.permissions import ADMIN_MODULES, TEACHER_MODULES
+from blueprints.permissions import ADMIN_PERMISSION_MODULES
+
+PERMISSION_LEVELS = ('read', 'write', 'deny')
 
 
 @admin_bp.route('/settings')
@@ -53,36 +55,43 @@ def inquiry_delete(inquiry_id):
     return redirect(url_for('admin.inquiries'))
 
 
+def _parse_permission_matrix(form):
+    """Read one 'read'/'write'/'deny' select per ADMIN_PERMISSION_MODULES entry."""
+    perms = {}
+    for key, _, _ in ADMIN_PERMISSION_MODULES:
+        level = form.get(f'perm_{key}', 'deny')
+        perms[key] = level if level in PERMISSION_LEVELS else 'deny'
+    return perms
+
+
 @admin_bp.route('/accounts')
 @login_required
 @require_admin
 def users():
-    users = (User.query.filter_by(is_deleted=False)
-             .order_by(User.role, User.full_name).all())
+    """Admin-only account management — teacher accounts live on /admin/teachers,
+    parent accounts are created from the student pages."""
+    users = (User.query.filter_by(is_deleted=False, role=UserRole.ADMIN)
+             .order_by(User.full_name).all())
     return render_template('admin/users.html', users=users,
-                           admin_modules=ADMIN_MODULES, teacher_modules=TEACHER_MODULES)
+                           admin_modules=ADMIN_PERMISSION_MODULES)
 
 
 @admin_bp.route('/accounts/add', methods=['POST'])
 @login_required
 @require_admin
 def user_add():
+    if not current_user.is_master:
+        abort(403)
+
     full_name = request.form.get('full_name', '').strip()
     phone = request.form.get('phone', '').strip() or None
     username = request.form.get('username', '').strip()
-    role = request.form.get('role', 'parent')
     password = request.form.get('password', '').strip()
     password_confirm = request.form.get('password_confirm', '').strip()
     gender = request.form.get('gender', '').strip() or None
-    is_staff = request.form.get('is_staff') == '1'
-    base_salary = request.form.get('base_salary', 0, type=float)
-    note = request.form.get('specialty', '').strip()
-
-    if role == UserRole.ADMIN and not current_user.is_master:
-        abort(403)
 
     if not username:
-        username = next_username(role)
+        username = next_username(UserRole.ADMIN)
 
     dup_filters = [User.username == username]
     if phone:
@@ -103,26 +112,13 @@ def user_add():
             return redirect(url_for('admin.users'))
 
     user = User(full_name=full_name or username, username=username, phone=phone,
-                role=role, gender=gender, must_change_password=True)
+                role=UserRole.ADMIN, gender=gender, must_change_password=True)
     user.set_password(password)
 
-    if role == UserRole.ADMIN:
-        full_access = request.form.get('admin_full_access') == 'on'
-        selected = request.form.getlist('admin_permissions')
-        user.set_permissions(None if full_access else selected)
-    elif role == UserRole.TEACHER:
-        full_access = request.form.get('teacher_full_access') == 'on'
-        selected = request.form.getlist('teacher_permissions')
-        user.set_permissions(None if full_access else selected)
+    full_access = request.form.get('full_access') == 'on'
+    user.set_permissions(None if full_access else _parse_permission_matrix(request.form))
 
     db.session.add(user)
-    db.session.flush()
-
-    if role == UserRole.TEACHER:
-        teacher = Teacher(user_id=user.id, note=note,
-                          is_staff=is_staff, base_salary=base_salary)
-        db.session.add(teacher)
-
     db.session.commit()
     if used_default_password:
         flash(f'Đã tạo tài khoản {username} với mật khẩu tạm: {DEFAULT_TEMP_PASSWORD} '
@@ -137,6 +133,9 @@ def user_add():
 @require_admin
 def user_edit(user_id):
     user = User.query.get_or_404(user_id)
+    if user.role != UserRole.ADMIN:
+        abort(404)
+
     full_name = request.form.get('full_name', '').strip()
     phone = request.form.get('phone', '').strip() or None
     gender = request.form.get('gender', '').strip() or None
@@ -152,12 +151,6 @@ def user_edit(user_id):
     user.full_name = full_name
     user.phone = phone
     user.gender = gender
-
-    if user.role == UserRole.TEACHER and user.teacher_profile:
-        user.teacher_profile.is_staff = request.form.get('is_staff') == '1'
-        user.teacher_profile.base_salary = request.form.get('base_salary', 0, type=float)
-        user.teacher_profile.note = request.form.get('note', '').strip()
-
     db.session.commit()
     flash(f'Đã cập nhật thông tin {user.full_name}.', 'success')
     return redirect(url_for('admin.users'))
@@ -170,6 +163,8 @@ def user_delete(user_id):
     if not current_user.is_master:
         abort(403)
     user = User.query.get_or_404(user_id)
+    if user.role != UserRole.ADMIN:
+        abort(404)
     if user.id == current_user.id:
         flash('Không thể tự xoá tài khoản của chính mình.', 'danger')
         return redirect(url_for('admin.users'))
@@ -184,23 +179,17 @@ def user_delete(user_id):
 @login_required
 @require_admin
 def user_permissions_update(user_id):
-    if not current_user.has_full_access:
+    if not current_user.is_master:
         abort(403)
     user = User.query.get_or_404(user_id)
+    if user.role != UserRole.ADMIN:
+        abort(404)
     if user.id == current_user.id:
         flash('Không thể tự sửa quyền của chính mình.', 'danger')
         return redirect(url_for('admin.users'))
-    if user.role not in (UserRole.ADMIN, UserRole.TEACHER):
-        abort(404)
 
-    if user.role == UserRole.ADMIN:
-        full_access = request.form.get('admin_full_access') == 'on'
-        selected = request.form.getlist('admin_permissions')
-    else:
-        full_access = request.form.get('teacher_full_access') == 'on'
-        selected = request.form.getlist('teacher_permissions')
-
-    user.set_permissions(None if full_access else selected)
+    full_access = request.form.get('full_access') == 'on'
+    user.set_permissions(None if full_access else _parse_permission_matrix(request.form))
     db.session.commit()
     flash(f'Đã cập nhật quyền cho {user.full_name}.', 'success')
     return redirect(url_for('admin.users'))
@@ -211,6 +200,8 @@ def user_permissions_update(user_id):
 @require_admin
 def user_reset_password(user_id):
     user = User.query.get_or_404(user_id)
+    if user.role != UserRole.ADMIN:
+        abort(404)
     new_pw = request.form.get('password', '').strip()
     if len(new_pw) < 6:
         flash('Mật khẩu tối thiểu 6 ký tự.', 'danger')
@@ -226,6 +217,8 @@ def user_reset_password(user_id):
 @require_admin
 def user_toggle_active(user_id):
     user = User.query.get_or_404(user_id)
+    if user.role != UserRole.ADMIN:
+        abort(404)
     if user.id == current_user.id:
         flash('Không thể khóa tài khoản của chính mình.', 'danger')
     else:

@@ -1,22 +1,40 @@
-{% macro permission_checkboxes(modules, prefix, field_name='permissions', full_access_name='full_access', selected=None) %}
+{% macro permission_matrix(modules, prefix, levels=None) %}
 <div class="form-check form-switch mb-2">
-  <input class="form-check-input" type="checkbox" name="{{ full_access_name }}" id="{{ prefix }}_full"
-         {% if selected is none %}checked{% endif %}
+  <input class="form-check-input" type="checkbox" name="full_access" id="{{ prefix }}_full"
+         {% if levels is none %}checked{% endif %}
          onchange="document.getElementById('{{ prefix }}_list').classList.toggle('d-none', this.checked)">
   <label class="form-check-label fw-semibold" for="{{ prefix }}_full">Toàn quyền</label>
 </div>
-<div class="row row-cols-2 row-cols-md-3 g-2 {% if selected is none %}d-none{% endif %}" id="{{ prefix }}_list">
-  {% for key, label, icon in modules %}
-  <div class="col">
-    <div class="form-check">
-      <input class="form-check-input" type="checkbox" name="{{ field_name }}" value="{{ key }}"
-             id="{{ prefix }}_{{ key }}"
-             {% if selected and key in selected %}checked{% endif %}>
-      <label class="form-check-label small" for="{{ prefix }}_{{ key }}">
-        <i class="bi {{ icon }} me-1"></i>{{ label }}
-      </label>
-    </div>
-  </div>
-  {% endfor %}
+<div class="{% if levels is none %}d-none{% endif %}" id="{{ prefix }}_list">
+  <table class="table table-sm align-middle mb-0">
+    <thead>
+      <tr>
+        <th>Chức năng</th>
+        <th class="text-center" style="width:90px;">Xem</th>
+        <th class="text-center" style="width:90px;">Sửa</th>
+        <th class="text-center" style="width:90px;">Không</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for key, label, icon in modules %}
+      {% set current_level = (levels.get(key, 'deny') if levels else 'deny') %}
+      <tr>
+        <td class="small"><i class="bi {{ icon }} me-1"></i>{{ label }}</td>
+        <td class="text-center">
+          <input class="form-check-input" type="radio" name="perm_{{ key }}" value="read"
+                 id="{{ prefix }}_{{ key }}_read" {% if current_level == 'read' %}checked{% endif %}>
+        </td>
+        <td class="text-center">
+          <input class="form-check-input" type="radio" name="perm_{{ key }}" value="write"
+                 id="{{ prefix }}_{{ key }}_write" {% if current_level == 'write' %}checked{% endif %}>
+        </td>
+        <td class="text-center">
+          <input class="form-check-input" type="radio" name="perm_{{ key }}" value="deny"
+                 id="{{ prefix }}_{{ key }}_deny" {% if current_level == 'deny' %}checked{% endif %}>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
 {% endmacro %}
