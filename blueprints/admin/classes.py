@@ -84,20 +84,30 @@ def _teacher_busy_conflict(teacher_id, sched_date, start_time, end_time,
 
 
 def _find_teacher_conflict(teacher_id, start_date, end_date, sched_rows, exclude_class_id=None):
-    """Walk sched_rows across [start_date, end_date]; return the first Schedule
-    that conflicts with teacher_id's existing commitments, or None."""
-    current = start_date
-    while current <= end_date:
-        wd = current.weekday()
-        for (target_wd, start_str, end_str, room_id, room_text) in sched_rows:
-            if wd == target_wd:
-                start_t = time_type.fromisoformat(start_str)
-                end_t = time_type.fromisoformat(end_str)
-                conflict = _teacher_busy_conflict(teacher_id, current, start_t, end_t,
-                                                  exclude_class_id=exclude_class_id)
-                if conflict:
-                    return conflict
-        current += timedelta(days=1)
+    """Return the first existing Schedule that conflicts with teacher_id's
+    commitments, checked against sched_rows across [start_date, end_date].
+    Fetches the teacher's schedules in that range with a single query instead
+    of one per day, since day-by-day queries over a full school year against
+    a remote DB are what caused request timeouts (502) on class creation."""
+    if not sched_rows:
+        return None
+    q = Schedule.query.filter(
+        Schedule.is_cancelled == False,
+        Schedule.date >= start_date,
+        Schedule.date <= end_date,
+        or_(
+            and_(Schedule.teacher_id == teacher_id, Schedule.substitute_teacher_id.is_(None)),
+            Schedule.substitute_teacher_id == teacher_id,
+        ),
+    )
+    if exclude_class_id:
+        q = q.filter(Schedule.class_id != exclude_class_id)
+    slots = [(wd, time_type.fromisoformat(s), time_type.fromisoformat(e)) for (wd, s, e, _, _) in sched_rows]
+    for sched in q.all():
+        wd = sched.date.weekday()
+        for (target_wd, start_t, end_t) in slots:
+            if wd == target_wd and sched.start_time < end_t and sched.end_time > start_t:
+                return sched
     return None
 
 
@@ -136,9 +146,37 @@ def _generate_schedules(class_id, teacher_id, start_date, end_date, sched_rows, 
     Generate Schedule rows for each (weekday, start_time, end_time, room_id) entry
     across [start_date, end_date]. Skip conflicts. Return (created, skipped_conflict) counts.
     semester_id is optional metadata, kept only for future statistics.
+
+    Existing class schedules and room bookings in the date range are fetched with
+    two queries up front (instead of two queries per matching day) — day-by-day
+    queries over a full school year against a remote DB were what caused request
+    timeouts (502) when creating a class.
     """
     created = 0
     skipped = 0
+    if not sched_rows:
+        return created, skipped
+
+    existing_keys = {
+        (s.date, s.start_time)
+        for s in Schedule.query.filter(
+            Schedule.class_id == class_id,
+            Schedule.date >= start_date,
+            Schedule.date <= end_date,
+        ).all()
+    }
+
+    room_ids = {room_id for (_, _, _, room_id, _) in sched_rows if room_id}
+    room_bookings = {}
+    if room_ids:
+        for s in Schedule.query.filter(
+            Schedule.room_id.in_(room_ids),
+            Schedule.date >= start_date,
+            Schedule.date <= end_date,
+            Schedule.is_cancelled == False,
+        ).all():
+            room_bookings.setdefault(s.room_id, []).append((s.date, s.start_time, s.end_time))
+
     current = start_date
     while current <= end_date:
         wd = current.weekday()
@@ -146,14 +184,12 @@ def _generate_schedules(class_id, teacher_id, start_date, end_date, sched_rows, 
             if wd == target_wd:
                 start_t = time_type.fromisoformat(start_str)
                 end_t = time_type.fromisoformat(end_str)
-                # Skip if already exists for this class/date/time
-                exists = Schedule.query.filter_by(
-                    class_id=class_id, date=current, start_time=start_t
-                ).first()
-                if exists:
+                if (current, start_t) in existing_keys:
                     continue
-                # Room conflict check
-                if room_id and _check_room_conflict(room_id, current, start_t, end_t):
+                if room_id and any(
+                    b_date == current and b_start < end_t and b_end > start_t
+                    for (b_date, b_start, b_end) in room_bookings.get(room_id, [])
+                ):
                     skipped += 1
                     continue
                 s = Schedule(
@@ -169,6 +205,9 @@ def _generate_schedules(class_id, teacher_id, start_date, end_date, sched_rows, 
                 )
                 db.session.add(s)
                 created += 1
+                existing_keys.add((current, start_t))
+                if room_id:
+                    room_bookings.setdefault(room_id, []).append((current, start_t, end_t))
         current += timedelta(days=1)
     return created, skipped
 
