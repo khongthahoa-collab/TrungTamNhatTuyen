@@ -41,7 +41,7 @@
 <!-- Bộ lọc -->
 <div class="card mb-3 border-0 shadow-sm">
   <div class="card-body py-3">
-    <form method="get" class="row g-2 align-items-end">
+    <form method="get" id="studentFilterForm" class="row g-2 align-items-end">
       <div class="col-12 col-md-3">
         <label class="form-label small fw-semibold mb-1">Tìm kiếm</label>
         <div class="input-group input-group-sm">
@@ -81,14 +81,6 @@
           {% endfor %}
         </select>
       </div>
-      <div class="col-6 col-md-1">
-        <label class="form-label small fw-semibold mb-1">Số dòng</label>
-        <select name="per_page" class="form-select form-select-sm" onchange="this.form.submit()">
-          {% for opt in ['10', '20', '40', '80', 'all'] %}
-          <option value="{{ opt }}" {% if per_page == opt %}selected{% endif %}>{{ 'Tất cả' if opt == 'all' else opt }}</option>
-          {% endfor %}
-        </select>
-      </div>
       <div class="col-12 col-md-1 d-flex align-items-end">
         {{ filters.filter_toggle(is_filtered, url_for('admin.students')) }}
       </div>
@@ -107,9 +99,18 @@
 <form id="bulkForm" method="post" action="{{ url_for('admin.students_bulk_delete') }}"
       onsubmit="return confirm('Bạn có chắc muốn xóa ' + document.querySelectorAll('.student-select:checked').length + ' học sinh đã chọn? Học sinh sẽ bị ẩn khỏi danh sách (xóa mềm).')">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <div class="d-flex justify-content-end mb-2">
+  <div class="d-flex justify-content-end align-items-center gap-2 mb-2 flex-wrap">
+    <div class="d-flex align-items-center gap-1">
+      <label for="perPageSelect" class="form-label small fw-semibold mb-0">Số dòng hiển thị</label>
+      <select name="per_page" id="perPageSelect" class="form-select form-select-sm" style="width:auto;"
+              form="studentFilterForm" onchange="this.form.submit()">
+        {% for opt in ['10', '20', '40', '80', 'all'] %}
+        <option value="{{ opt }}" {% if per_page == opt %}selected{% endif %}>{{ 'Tất cả' if opt == 'all' else opt }}</option>
+        {% endfor %}
+      </select>
+    </div>
     <button type="submit" id="bulkDeleteBtn" class="btn btn-outline-danger btn-sm" disabled>
-      <i class="bi bi-trash me-1"></i>Xóa đã chọn (<span id="bulkDeleteCount">0</span>)
+      <i class="bi bi-trash me-1"></i>Xóa (<span id="bulkDeleteCount">0</span>) học sinh đã chọn
     </button>
   </div>
 <div class="card border-0 shadow-sm">
