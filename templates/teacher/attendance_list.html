@@ -45,11 +45,15 @@
   {% if schedules %}
   {% for schedule in schedules %}
   {% set summary = summaries.get(schedule.id) %}
+  {% set data = roster[schedule.id] %}
+  {% set is_future = selected_date > today %}
   <div class="card border-0 shadow-sm mb-2 border-start border-3
-              {% if selected_date > today %}border-info{% elif not schedule.attendance_taken %}border-warning{% else %}border-success{% endif %}">
-    <div class="card-body py-2 px-3">
-      <div class="d-flex justify-content-between align-items-start">
-        <div>
+              {% if is_future %}border-info{% elif not schedule.attendance_taken %}border-warning{% else %}border-success{% endif %}">
+    <div class="card-body py-2 px-3 attendance-row-toggle" role="button" tabindex="0"
+         data-bs-toggle="collapse" data-bs-target="#panel-{{ schedule.id }}"
+         aria-expanded="false" aria-controls="panel-{{ schedule.id }}">
+      <div class="d-flex justify-content-between align-items-start gap-2">
+        <div class="flex-grow-1">
           <div class="fw-semibold">{{ schedule.class_.name }}</div>
           {% if schedule.substitute_teacher_id == current_user.teacher_profile.id %}
           <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Dạy thay</span>
@@ -67,29 +71,139 @@
             <span class="text-success me-2"><i class="bi bi-check-circle"></i> {{ summary.present_count }} có mặt</span>
             {% if summary.absent_count %}<span class="text-danger me-2"><i class="bi bi-x-circle"></i> {{ summary.absent_count }} vắng</span>{% endif %}
             {% if summary.excused_count %}<span class="text-info me-2"><i class="bi bi-file-earmark-check"></i> {{ summary.excused_count }} vắng phép</span>{% endif %}
-            {% if summary.late_count %}<span class="text-warning"><i class="bi bi-clock-history"></i> {{ summary.late_count }} trễ</span>{% endif %}
           </div>
           {% endif %}
         </div>
-        {% if selected_date > today %}
-        <a href="{{ url_for('teacher.attendance_session', schedule_id=schedule.id) }}"
-           class="btn btn-outline-secondary btn-sm ms-2 flex-shrink-0">
-          <i class="bi bi-eye"></i> Xem
-        </a>
-        {% elif schedule.attendance_taken %}
-        <a href="{{ url_for('teacher.attendance_session', schedule_id=schedule.id) }}"
-           class="btn btn-outline-secondary btn-sm ms-2 flex-shrink-0">
-          <i class="bi bi-pencil"></i> Sửa
-        </a>
-        {% else %}
-        <a href="{{ url_for('teacher.attendance_session', schedule_id=schedule.id) }}"
-           class="btn btn-warning btn-sm ms-2 flex-shrink-0">
-          <i class="bi bi-pencil"></i> Điểm danh
-        </a>
+        <i class="bi bi-chevron-down chevron-icon fs-5 text-muted flex-shrink-0 mt-1"></i>
+      </div>
+    </div>
+
+    <div class="collapse" id="panel-{{ schedule.id }}">
+      <div class="card-body border-top pt-3">
+        {% if is_future %}
+        <div class="alert alert-info small py-2 mb-3">
+          <i class="bi bi-eye me-1"></i>Buổi học trong tương lai — chỉ xem, chưa thể điểm danh trước.
+        </div>
         {% endif %}
+
+        <!-- Sĩ số | Có | Phép | Vắng -->
+        <div class="d-flex flex-wrap gap-2 mb-3" id="counters-{{ schedule.id }}">
+          <span class="badge bg-secondary fs-6">Sĩ số: <span class="cnt-total">{{ data.enrollments | length }}</span></span>
+          <span class="badge bg-success fs-6">Có: <span class="cnt-present">0</span></span>
+          <span class="badge bg-info text-dark fs-6">Phép: <span class="cnt-excused">0</span></span>
+          <span class="badge bg-danger fs-6">Vắng: <span class="cnt-absent">0</span></span>
+        </div>
+
+        {% if not is_future and data.enrollments %}
+        <!-- Đủ | Lưu điểm danh | Xuất ảnh -->
+        <div class="row g-2 mb-3">
+          <div class="col-4">
+            <button type="button" class="btn btn-outline-success w-100 btn-mark-all" data-schedule="{{ schedule.id }}">
+              <i class="bi bi-check-all d-md-none"></i><span class="d-none d-md-inline">Đủ</span>
+            </button>
+          </div>
+          <div class="col-4">
+            <button type="button" class="btn btn-primary w-100 btn-save" data-schedule="{{ schedule.id }}" disabled>
+              <i class="bi bi-save me-md-1"></i><span class="d-none d-md-inline">Lưu điểm danh</span>
+            </button>
+          </div>
+          <div class="col-4">
+            <button type="button" class="btn btn-outline-secondary w-100 btn-export" data-schedule="{{ schedule.id }}"
+                    data-bs-toggle="modal" data-bs-target="#exportModal-{{ schedule.id }}">
+              <i class="bi bi-image me-md-1"></i><span class="d-none d-md-inline">Xuất ảnh</span>
+            </button>
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0 attendance-table" data-schedule="{{ schedule.id }}">
+            <thead class="table-light">
+              <tr>
+                <th style="width:32px;"></th>
+                <th class="d-none d-sm-table-cell" style="width:44px;">STT</th>
+                <th>Học sinh</th>
+                <th class="d-none d-sm-table-cell">SĐT</th>
+                <th class="text-center">Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for enrollment in data.enrollments %}
+              {% set student = enrollment.student %}
+              {% set att = data.attendance.get(student.id) %}
+              {% set init_status = att.status if att and att.status in ('present', 'excused') else 'absent' %}
+              <tr class="att-row" data-student="{{ student.id }}" data-status="{{ init_status }}">
+                <td>
+                  <input type="checkbox" class="form-check-input att-check" {% if is_future %}disabled{% endif %}
+                         {% if init_status == 'present' %}checked{% endif %}>
+                </td>
+                <td class="small text-muted d-none d-sm-table-cell">{{ loop.index }}</td>
+                <td>
+                  <div class="fw-semibold small">{{ student.full_name }}</div>
+                  <div class="small text-muted d-sm-none">{{ student.parent_phone or 'Chưa có' }}</div>
+                </td>
+                <td class="small text-muted d-none d-sm-table-cell">{{ student.parent_phone or 'Chưa có' }}</td>
+                <td class="text-center">
+                  <div class="btn-group btn-group-sm status-toggle" role="group">
+                    <button type="button" class="btn btn-outline-success status-btn {% if init_status == 'present' %}active{% endif %}"
+                            data-value="present" {% if is_future %}disabled{% endif %}
+                            title="Có mặt"><span class="d-sm-none">C</span><span class="d-none d-sm-inline">Có</span></button>
+                    <button type="button" class="btn btn-outline-info status-btn {% if init_status == 'excused' %}active{% endif %}"
+                            data-value="excused" {% if is_future %}disabled{% endif %}
+                            title="Vắng có phép"><span class="d-sm-none">P</span><span class="d-none d-sm-inline">Phép</span></button>
+                    <button type="button" class="btn btn-outline-danger status-btn {% if init_status == 'absent' %}active{% endif %}"
+                            data-value="absent" {% if is_future %}disabled{% endif %}
+                            title="Vắng"><span class="d-sm-none">V</span><span class="d-none d-sm-inline">Vắng</span></button>
+                  </div>
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="5" class="text-center text-muted py-3 small">Lớp chưa có học sinh đăng ký</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
+
+  {% if not is_future and data.enrollments %}
+  <!-- Modal xuất ảnh -->
+  <div class="modal fade" id="exportModal-{{ schedule.id }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h6 class="modal-title fw-bold"><i class="bi bi-image me-2 text-primary"></i>Xuất ảnh điểm danh</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="exportCapture-{{ schedule.id }}" class="p-3 bg-white border rounded">
+            <div class="text-center mb-3">
+              <div class="fw-bold fs-5">{{ schedule.class_.name }}</div>
+              <div class="text-muted small">
+                {{ schedule.date.strftime('%d/%m/%Y') }}
+                · {{ schedule.start_time.strftime('%H:%M') }}–{{ schedule.end_time.strftime('%H:%M') }}
+              </div>
+            </div>
+            <div class="d-flex justify-content-center flex-wrap gap-2 mb-3 export-counts"></div>
+            <table class="table table-sm table-bordered mb-0 export-table">
+              <thead class="table-light"><tr><th>STT</th><th>Học sinh</th><th>Trạng thái</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+          <button type="button" class="btn btn-primary btn-download-image" data-schedule="{{ schedule.id }}">
+            <i class="bi bi-download me-1"></i>Tải xuống ảnh
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
   {% endfor %}
   {% else %}
   <div class="alert alert-info">
@@ -98,4 +212,170 @@
   {% endif %}
 
 </div>
+
+<style>
+.chevron-icon { transition: transform 0.2s ease; }
+.attendance-row-toggle[aria-expanded="true"] .chevron-icon { transform: rotate(180deg); }
+.status-toggle .btn { padding-left:0.5rem; padding-right:0.5rem; }
+@media (max-width: 575.98px) {
+  .status-toggle .btn { padding-left:0.4rem; padding-right:0.4rem; min-width:2rem; }
+  .attendance-table td, .attendance-table th { padding-left:0.35rem; padding-right:0.35rem; }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+const ATT_CSRF = '{{ csrf_token() }}';
+
+function setRowStatus(row, status) {
+  row.dataset.status = status;
+  const check = row.querySelector('.att-check');
+  if (check) check.checked = (status === 'present');
+  row.querySelectorAll('.status-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.value === status);
+  });
+}
+
+function updateCounters(scheduleId) {
+  const table = document.querySelector(`.attendance-table[data-schedule="${scheduleId}"]`);
+  const counters = document.getElementById(`counters-${scheduleId}`);
+  if (!table || !counters) return;
+  let present = 0, excused = 0, absent = 0;
+  table.querySelectorAll('.att-row').forEach(row => {
+    if (row.dataset.status === 'present') present++;
+    else if (row.dataset.status === 'excused') excused++;
+    else absent++;
+  });
+  counters.querySelector('.cnt-present').textContent = present;
+  counters.querySelector('.cnt-excused').textContent = excused;
+  counters.querySelector('.cnt-absent').textContent = absent;
+}
+
+function enableSave(scheduleId) {
+  const btn = document.querySelector(`.btn-save[data-schedule="${scheduleId}"]`);
+  if (btn) btn.disabled = false;
+}
+
+document.querySelectorAll('.attendance-table').forEach(table => {
+  const scheduleId = table.dataset.schedule;
+
+  table.addEventListener('change', e => {
+    if (!e.target.classList.contains('att-check')) return;
+    const row = e.target.closest('.att-row');
+    setRowStatus(row, e.target.checked ? 'present' : 'absent');
+    updateCounters(scheduleId);
+    enableSave(scheduleId);
+  });
+
+  table.addEventListener('click', e => {
+    const btn = e.target.closest('.status-btn');
+    if (!btn) return;
+    const row = btn.closest('.att-row');
+    setRowStatus(row, btn.dataset.value);
+    updateCounters(scheduleId);
+    enableSave(scheduleId);
+  });
+
+  updateCounters(scheduleId);
+});
+
+document.querySelectorAll('.btn-mark-all').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const scheduleId = btn.dataset.schedule;
+    document.querySelectorAll(`.attendance-table[data-schedule="${scheduleId}"] .att-row`).forEach(row => {
+      setRowStatus(row, 'present');
+    });
+    updateCounters(scheduleId);
+    enableSave(scheduleId);
+  });
+});
+
+document.querySelectorAll('.btn-save').forEach(saveBtn => {
+  saveBtn.addEventListener('click', async () => {
+    const scheduleId = saveBtn.dataset.schedule;
+    const original = saveBtn.innerHTML;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+    const attendance = [];
+    document.querySelectorAll(`.attendance-table[data-schedule="${scheduleId}"] .att-row`).forEach(row => {
+      attendance.push({ student_id: parseInt(row.dataset.student, 10), status: row.dataset.status, reason: '' });
+    });
+
+    try {
+      const res = await fetch(`/teacher/api/attendance/${scheduleId}/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': ATT_CSRF },
+        body: JSON.stringify({ attendance }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Lỗi khi lưu điểm danh.');
+      saveBtn.innerHTML = '<i class="bi bi-check-lg"></i>';
+      setTimeout(() => { saveBtn.innerHTML = original; }, 1500);
+    } catch (err) {
+      alert(err.message);
+      saveBtn.innerHTML = original;
+      saveBtn.disabled = false;
+    }
+  });
+});
+
+// Xuất ảnh: build the printable summary from the live table state, then let
+// html2canvas turn it into a downloadable PNG.
+document.querySelectorAll('.btn-export').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const scheduleId = btn.dataset.schedule;
+    const capture = document.getElementById(`exportCapture-${scheduleId}`);
+    if (!capture) return;
+    const countsEl = capture.querySelector('.export-counts');
+    const tbody = capture.querySelector('.export-table tbody');
+    tbody.innerHTML = '';
+
+    let present = 0, excused = 0, absent = 0;
+    const rows = document.querySelectorAll(`.attendance-table[data-schedule="${scheduleId}"] .att-row`);
+    rows.forEach((row, i) => {
+      const status = row.dataset.status;
+      const name = row.querySelector('td:nth-child(3) .fw-semibold').textContent.trim();
+      const label = status === 'present' ? 'Có mặt' : status === 'excused' ? 'Vắng phép' : 'Vắng';
+      const badgeClass = status === 'present' ? 'text-success' : status === 'excused' ? 'text-info' : 'text-danger';
+      if (status === 'present') present++;
+      else if (status === 'excused') excused++;
+      else absent++;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${i + 1}</td><td>${name}</td><td class="${badgeClass} fw-semibold">${label}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    countsEl.innerHTML = `
+      <span class="badge bg-secondary">Sĩ số: ${rows.length}</span>
+      <span class="badge bg-success">Có: ${present}</span>
+      <span class="badge bg-info text-dark">Phép: ${excused}</span>
+      <span class="badge bg-danger">Vắng: ${absent}</span>`;
+  });
+});
+
+document.querySelectorAll('.btn-download-image').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const scheduleId = btn.dataset.schedule;
+    const capture = document.getElementById(`exportCapture-${scheduleId}`);
+    if (!capture || typeof html2canvas === 'undefined') return;
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    html2canvas(capture, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
+      const link = document.createElement('a');
+      link.download = `diem-danh-${scheduleId}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      btn.disabled = false;
+      btn.innerHTML = original;
+    }).catch(() => {
+      btn.disabled = false;
+      btn.innerHTML = original;
+    });
+  });
+});
+</script>
 {% endblock %}

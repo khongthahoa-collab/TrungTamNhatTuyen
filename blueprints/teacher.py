@@ -512,9 +512,22 @@ def attendance_list():
     ).all()
     summary_dict = {s.schedule_id: s for s in summaries}
 
+    # Full roster + existing attendance per schedule, for the inline panel
+    roster = {}
+    for s in schedules:
+        enrollments = (Enrollment.query.join(Student)
+                      .filter(Enrollment.class_id == s.class_id, Enrollment.is_active == True)
+                      .order_by(Student.full_name).all())
+        attendances = Attendance.query.filter_by(schedule_id=s.id).all()
+        roster[s.id] = {
+            'enrollments': enrollments,
+            'attendance': {a.student_id: a for a in attendances},
+        }
+
     return render_template('teacher/attendance_list.html',
                          schedules=schedules,
                          summaries=summary_dict,
+                         roster=roster,
                          today=today,
                          selected_date=selected_date,
                          prev_date=selected_date - timedelta(days=1),
