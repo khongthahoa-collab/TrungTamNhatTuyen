@@ -102,6 +102,7 @@ ADMIN_ENDPOINT_MODULES = {
     'update_tuition_stage': 'tuition_report', 'export_tuition_report': 'tuition_report',
     'expenses': 'expenses', 'expense_add': 'expenses', 'expense_delete': 'expenses',
     'salary': 'salary', 'salary_calculate': 'salary', 'salary_detail': 'salary',
+    'salary_start': 'salary', 'salary_print': 'salary',
 
     # teachers.py — master-only (see MASTER_ONLY_MODULES)
     'teachers': 'teachers', 'teacher_add': 'teachers',

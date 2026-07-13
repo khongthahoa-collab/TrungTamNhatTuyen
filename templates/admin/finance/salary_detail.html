@@ -1,16 +1,17 @@
 {% extends 'admin/base.html' %}
+{% block title %}Lương {{ salary.month }}/{{ salary.year }} - {{ salary.teacher.title }} {{ salary.teacher.full_name }} – Nhật Tuyền{% endblock %}
 
 {% block breadcrumb %}
 <li class="breadcrumb-item">Tài chính</li>
 <li class="breadcrumb-item"><a href="{{ url_for('admin.salary', month=salary.month, year=salary.year) }}">Lương GV</a></li>
-<li class="breadcrumb-item active">{{ salary.teacher.full_name }}</li>
+<li class="breadcrumb-item active">{{ salary.teacher.title }} {{ salary.teacher.full_name }}</li>
 {% endblock %}
 
 {% block content %}
 <div class="d-flex align-items-center justify-content-between mb-3">
   <h5 class="mb-0 fw-bold">
     <i class="bi bi-wallet2 me-2 text-primary"></i>
-    Lương tháng {{ salary.month }}/{{ salary.year }} — {{ salary.teacher.full_name }}
+    Lương {{ salary.month }}/{{ salary.year }} - {{ salary.teacher.title }} {{ salary.teacher.full_name }}
   </h5>
   <a href="{{ url_for('admin.salary', month=salary.month, year=salary.year) }}" class="btn btn-outline-secondary btn-sm">
     <i class="bi bi-arrow-left me-1"></i>Quay lại

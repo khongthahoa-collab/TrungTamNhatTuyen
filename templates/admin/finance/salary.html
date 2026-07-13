@@ -26,7 +26,7 @@
         <label class="form-label form-label-sm fw-semibold mb-1">Năm</label>
         <input type="number" name="year" id="filterYear" class="form-control form-control-sm" value="{{ year }}" min="2020" max="2100" form="filterForm">
       </div>
-      <div class="col-12 col-md-4 d-flex gap-2">
+      <div class="col-12 col-md-6 d-flex gap-2">
         <form id="filterForm" method="get">
           <button type="submit" class="btn btn-primary btn-sm">Xem</button>
         </form>
@@ -39,6 +39,10 @@
             <i class="bi bi-calculator me-1"></i>Tính toán
           </button>
         </form>
+        <a href="{{ url_for('admin.salary_print', month=month, year=year) }}" target="_blank"
+           class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-printer me-1"></i>In phiếu lương
+        </a>
       </div>
     </div>
   </div>
@@ -65,7 +69,22 @@
           {% for teacher in teachers %}
           {% set sal = salaries_by_teacher.get(teacher.id) %}
           <tr>
-            <td class="ps-3 fw-semibold small">{{ teacher.full_name }}</td>
+            <td class="ps-3 fw-semibold small">
+              {% if sal %}
+              <a href="{{ url_for('admin.salary_detail', salary_id=sal.id) }}" class="text-decoration-none">
+                {{ teacher.full_name }}
+              </a>
+              {% else %}
+              <form method="post" action="{{ url_for('admin.salary_start', teacher_id=teacher.id) }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="month" value="{{ month }}">
+                <input type="hidden" name="year" value="{{ year }}">
+                <button type="submit" class="btn btn-link btn-sm p-0 text-decoration-none fw-semibold">
+                  {{ teacher.full_name }}
+                </button>
+              </form>
+              {% endif %}
+            </td>
             <td class="text-end small">{{ sal.base_amount | vnd if sal else '—' }}</td>
             <td class="text-center small">{{ session_counts.get(teacher.id, 0) }}</td>
             <td class="text-end small fw-bold">{{ sal.total | vnd if sal else '—' }}</td>
@@ -76,7 +95,15 @@
                 <i class="bi bi-pencil"></i>
               </a>
               {% else %}
-              <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Chưa tính lương</span>
+              <form method="post" action="{{ url_for('admin.salary_start', teacher_id=teacher.id) }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="month" value="{{ month }}">
+                <input type="hidden" name="year" value="{{ year }}">
+                <button type="submit"
+                        class="btn btn-sm badge bg-secondary-subtle text-secondary border border-secondary-subtle">
+                  Chưa tính lương
+                </button>
+              </form>
               {% endif %}
             </td>
           </tr>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Phiếu lương tháng {{ month }}/{{ year }}</title>
+<style>
+  body { font-family: 'Times New Roman', Georgia, serif; color: #111; margin: 24px; line-height: 1.6; }
+  .print-bar { text-align: center; margin-bottom: 20px; }
+  .payslip { max-width: 640px; margin: 0 auto 40px; page-break-after: always; }
+  .payslip:last-child { page-break-after: auto; }
+  .payslip h1 { font-size: 20px; text-align: center; margin-bottom: 2px; }
+  .payslip .sub { text-align: center; color: #444; font-size: 13px; margin-bottom: 20px; }
+  .payslip table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  .payslip table td { padding: 6px 8px; border: 1px solid #ccc; }
+  .payslip table td.label { width: 55%; font-weight: bold; }
+  .payslip table td.value { text-align: right; }
+  .payslip table tr.total td { font-weight: bold; font-size: 15px; background: #f5f5f5; }
+  .payslip .note { margin-top: 12px; font-size: 13px; }
+  .payslip .sign { display: flex; justify-content: space-between; margin-top: 40px; text-align: center; font-size: 13px; }
+  .payslip .sign div { width: 45%; }
+  @media print { .print-bar { display: none; } .payslip { margin: 0 auto; } }
+</style>
+</head>
+<body>
+  <div class="print-bar">
+    <button onclick="window.print()" style="padding:8px 16px;font-size:14px;">In / Lưu thành PDF</button>
+  </div>
+
+  {% if not salaries %}
+  <p style="text-align:center;color:#888;">Chưa có bảng lương nào cho tháng {{ month }}/{{ year }}. Hãy bấm "Tính toán" ở trang Lương GV trước.</p>
+  {% endif %}
+
+  {% for sal in salaries %}
+  <div class="payslip">
+    <h1>PHIẾU LƯƠNG</h1>
+    <div class="sub">Tháng {{ month }}/{{ year }}</div>
+
+    <table>
+      <tr><td class="label">Họ tên</td><td class="value">{{ sal.teacher.title }} {{ sal.teacher.full_name }}</td></tr>
+      <tr><td class="label">Số buổi dạy (1 tháng)</td><td class="value">{{ sal.sessions_scheduled }}</td></tr>
+      <tr><td class="label">Lương cơ bản</td><td class="value">{{ sal.base_amount | vnd }}</td></tr>
+      <tr><td class="label">Thưởng</td><td class="value">{{ sal.bonus | vnd }}</td></tr>
+      <tr><td class="label">Khấu trừ</td><td class="value">-{{ sal.deduction | vnd }}</td></tr>
+      <tr><td class="label">Tạm ứng</td><td class="value">-{{ sal.advance | vnd }}</td></tr>
+      <tr class="total"><td class="label">Lương thực nhận</td><td class="value">{{ sal.total | vnd }}</td></tr>
+    </table>
+
+    {% if sal.note %}
+    <div class="note"><strong>Ghi chú:</strong> {{ sal.note }}</div>
+    {% endif %}
+
+    <div class="sign">
+      <div>Người lập phiếu<br><br><br>_______________</div>
+      <div>Người nhận lương<br><br><br>_______________</div>
+    </div>
+  </div>
+  {% endfor %}
+</body>
+</html>

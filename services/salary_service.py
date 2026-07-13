@@ -29,28 +29,39 @@ def _carry_forward_base(teacher):
     return teacher.base_salary or 0
 
 
+def get_or_create_salary(teacher, month, year):
+    """Return (salary, created) — the existing row for this teacher/month/year,
+    or a freshly created one (carried-forward base amount, current scheduled-
+    session count). Never overwrites an existing row."""
+    existing = Salary.query.filter_by(teacher_id=teacher.id, month=month, year=year).first()
+    if existing:
+        return existing, False
+
+    base = _carry_forward_base(teacher)
+    salary = Salary(
+        teacher_id=teacher.id,
+        month=month,
+        year=year,
+        base_amount=base,
+        bonus=0,
+        deduction=0,
+        advance=0,
+        total=base,
+        sessions_scheduled=_scheduled_sessions(teacher.id, month, year),
+    )
+    db.session.add(salary)
+    return salary, True
+
+
 def calculate_all_salaries(month, year):
-    """Create a Salary row (month scheduled-session count + carried-forward
-    base amount) for every active is_staff teacher missing one for this
-    month/year. Existing rows are left untouched. Returns the newly created rows."""
+    """Create a Salary row for every active is_staff teacher missing one for
+    this month/year. Existing rows are left untouched. Returns the newly
+    created rows."""
     teachers = (Teacher.query.filter_by(is_staff=True)
                 .join(Teacher.user).filter_by(is_deleted=False).all())
     created = []
     for t in teachers:
-        if Salary.query.filter_by(teacher_id=t.id, month=month, year=year).first():
-            continue
-        base = _carry_forward_base(t)
-        salary = Salary(
-            teacher_id=t.id,
-            month=month,
-            year=year,
-            base_amount=base,
-            bonus=0,
-            deduction=0,
-            advance=0,
-            total=base,
-            sessions_scheduled=_scheduled_sessions(t.id, month, year),
-        )
-        db.session.add(salary)
-        created.append(salary)
+        salary, is_new = get_or_create_salary(t, month, year)
+        if is_new:
+            created.append(salary)
     return created

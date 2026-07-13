@@ -6,7 +6,7 @@ from extensions import db
 from models import (TuitionPayment, Student, Class, Salary, Teacher,
                     Expense, ExpenseCategory, TuitionMethod, MonthlyClassFee, Enrollment)
 from blueprints.admin import admin_bp, require_admin, require_master
-from services.salary_service import calculate_all_salaries
+from services.salary_service import calculate_all_salaries, get_or_create_salary
 from services.zalo_service import ZaloService
 
 
@@ -377,7 +377,21 @@ def salary_calculate():
     return redirect(url_for('admin.salary', month=month, year=year))
 
 
-@admin_bp.route('/salary/<int:salary_id>/detail', methods=['GET', 'POST'])
+@admin_bp.route('/salary/start/<int:teacher_id>', methods=['POST'])
+@login_required
+@require_master
+def salary_start(teacher_id):
+    """Create-if-missing entry point for clicking a teacher's row on the
+    salary list (both the name and the "Chưa tính lương" status lead here)."""
+    teacher = Teacher.query.get_or_404(teacher_id)
+    month = request.form.get('month', type=int)
+    year = request.form.get('year', type=int)
+    salary, _ = get_or_create_salary(teacher, month, year)
+    db.session.commit()
+    return redirect(url_for('admin.salary_detail', salary_id=salary.id))
+
+
+@admin_bp.route('/salary/detail/<int:salary_id>', methods=['GET', 'POST'])
 @login_required
 @require_master
 def salary_detail(salary_id):
@@ -392,10 +406,24 @@ def salary_detail(salary_id):
         sal.total = total if total is not None else (sal.base_amount + sal.bonus - sal.deduction - sal.advance)
         sal.note = request.form.get('note', '').strip()
         db.session.commit()
-        flash(f'Đã cập nhật lương tháng {sal.month}/{sal.year} cho {sal.teacher.full_name}.', 'success')
-        return redirect(url_for('admin.salary', month=sal.month, year=sal.year))
+        flash(f'Đang chỉnh sửa thông tin cho Phiếu lương {sal.month}/{sal.year} - {sal.teacher.full_name}', 'warning')
+        return redirect(url_for('admin.salary_detail', salary_id=sal.id))
 
     return render_template('admin/finance/salary_detail.html', salary=sal)
+
+
+@admin_bp.route('/salary/print')
+@login_required
+@require_master
+def salary_print():
+    from models import User
+    month = request.args.get('month', type=int)
+    year = request.args.get('year', type=int)
+    salaries = (Salary.query.filter_by(month=month, year=year)
+               .join(Salary.teacher).join(Teacher.user)
+               .order_by(User.full_name).all())
+    return render_template('admin/finance/salary_print.html',
+                           salaries=salaries, month=month, year=year)
 
 
 # ────────────────────────────────────────────────────────────────
