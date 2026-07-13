@@ -39,10 +39,12 @@
             <i class="bi bi-calculator me-1"></i>Tính toán
           </button>
         </form>
+        {# Tạm ẩn nút "In phiếu lương" — route admin.salary_print vẫn còn, chỉ ẩn ở UI.
         <a href="{{ url_for('admin.salary_print', month=month, year=year) }}" target="_blank"
            class="btn btn-outline-secondary btn-sm">
           <i class="bi bi-printer me-1"></i>In phiếu lương
         </a>
+        #}
       </div>
     </div>
   </div>

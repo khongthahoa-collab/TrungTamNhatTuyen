@@ -317,7 +317,7 @@ def salary():
     month = request.args.get('month', today.month, type=int)
     year = request.args.get('year', today.year, type=int)
 
-    teachers = (Teacher.query.filter_by(is_staff=True)
+    teachers = (Teacher.query
                .join(Teacher.user).filter(User.is_deleted == False)
                .order_by(User.full_name).all())
     salaries_by_teacher = {

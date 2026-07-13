@@ -1,5 +1,6 @@
 """
-Salary Service — tạo bản ghi lương hàng tháng cho giáo viên chính (is_staff).
+Salary Service — tạo bản ghi lương hàng tháng cho mọi giáo viên đang hoạt
+động (cả Giáo viên chính và Trợ giảng).
 
 "Tính toán" chỉ TẠO bản ghi cho giáo viên chưa có lương tháng đó — không bao
 giờ ghi đè lên bản ghi đã tồn tại, để không mất chỉnh sửa thủ công của admin
@@ -54,11 +55,10 @@ def get_or_create_salary(teacher, month, year):
 
 
 def calculate_all_salaries(month, year):
-    """Create a Salary row for every active is_staff teacher missing one for
-    this month/year. Existing rows are left untouched. Returns the newly
-    created rows."""
-    teachers = (Teacher.query.filter_by(is_staff=True)
-                .join(Teacher.user).filter_by(is_deleted=False).all())
+    """Create a Salary row for every active teacher (Giáo viên chính and
+    Trợ giảng alike) missing one for this month/year. Existing rows are
+    left untouched. Returns the newly created rows."""
+    teachers = Teacher.query.join(Teacher.user).filter_by(is_deleted=False).all()
     created = []
     for t in teachers:
         salary, is_new = get_or_create_salary(t, month, year)
