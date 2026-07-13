@@ -595,15 +595,20 @@ class Teacher(db.Model):
 
     @property
     def display_name(self):
-        """'Thầy Nguyễn Văn A', 'Cô Trần Thị B', hoặc chỉ 'Nguyễn Văn C' nếu chưa đặt giới tính"""
+        """'Thầy Nguyễn Văn A', 'Cô Trần Thị B', hoặc chỉ 'Nguyễn Văn C' nếu chưa đặt giới tính.
+        Nếu full_name đã tự chứa sẵn 'Thầy'/'Cô' thì không thêm lần nữa (tránh 'Cô Cô ...')."""
         if not self.full_name:
             return ''
+        name = self.full_name.strip()
+        name_lower = name.lower()
+        if name_lower.startswith('thầy ') or name_lower.startswith('cô ') or name_lower in ('thầy', 'cô'):
+            return name
         gender = self.user.gender if self.user else None
         if gender == 'male':
-            return f'Thầy {self.full_name}'
+            return f'Thầy {name}'
         if gender == 'female':
-            return f'Cô {self.full_name}'
-        return self.full_name
+            return f'Cô {name}'
+        return name
 
     @property
     def specialties(self):
