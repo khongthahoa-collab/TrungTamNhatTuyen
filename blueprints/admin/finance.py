@@ -244,6 +244,8 @@ def expenses():
     total = sum(r.amount for r in records)
     tax_deductible = sum(r.amount for r in records if r.is_tax_deductible)
 
+    is_filtered = bool(category or month != today.month or year != today.year)
+
     return render_template('admin/finance/expenses.html',
                            records=records,
                            month=month,
@@ -252,6 +254,7 @@ def expenses():
                            total=total,
                            tax_deductible=tax_deductible,
                            categories=ExpenseCategory.LABELS,
+                           is_filtered=is_filtered,
                            today=today)
 
 
@@ -326,6 +329,16 @@ def salary():
     session_counts = {
         t.id: Schedule.query.filter(
             Schedule.teacher_id == t.id,
+            Schedule.substitute_teacher_id.is_(None),
+            Schedule.is_cancelled == False,
+            extract('month', Schedule.date) == month,
+            extract('year', Schedule.date) == year,
+        ).count()
+        for t in teachers
+    }
+    sub_counts = {
+        t.id: Schedule.query.filter(
+            Schedule.substitute_teacher_id == t.id,
             Schedule.is_cancelled == False,
             extract('month', Schedule.date) == month,
             extract('year', Schedule.date) == year,
@@ -337,6 +350,7 @@ def salary():
                            teachers=teachers,
                            salaries_by_teacher=salaries_by_teacher,
                            session_counts=session_counts,
+                           sub_counts=sub_counts,
                            month=month,
                            year=year,
                            today=today)
@@ -453,12 +467,15 @@ def tuition_report():
     total_fully_paid = sum(r.fully_paid_count for r in reports)
     total_students = sum(r.total_students for r in reports)
 
+    is_filtered = bool(class_id or month != today.month or year != today.year)
+
     return render_template('admin/finance/tuition_report.html',
                            reports=reports,
                            classes=classes,
                            month=month,
                            year=year,
                            selected_class_id=class_id,
+                           is_filtered=is_filtered,
                            total_amount=total_amount,
                            total_fully_paid=total_fully_paid,
                            total_students=total_students)

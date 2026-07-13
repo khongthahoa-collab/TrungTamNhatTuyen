@@ -2,8 +2,19 @@ from flask import render_template, redirect, url_for, flash, request
 from flask_login import login_required
 from datetime import date, timedelta
 from extensions import db
-from models import AcademicYear, Semester, SemesterType
+from models import AcademicYear, Semester, SemesterType, Student, GRADE_SEQUENCE, GRADE_TO_LEVEL
 from blueprints.admin import admin_bp, require_admin
+
+
+def current_academic_year_start(today=None):
+    """Start-year of the currently active AcademicYear, or — if none is
+    marked active — the school year the given/today's date falls in
+    (Jul–Jun rule, same convention as classes.py's _current_school_year_range)."""
+    active = AcademicYear.query.filter_by(is_active=True).first()
+    if active:
+        return active.start_date.year
+    today = today or date.today()
+    return today.year if today.month >= 7 else today.year - 1
 
 
 @admin_bp.route('/academic-years')
@@ -111,4 +122,41 @@ def semester_delete(sem_id):
     db.session.delete(sem)
     db.session.commit()
     flash(f'Đã xóa học kỳ {name}.', 'success')
+    return redirect(url_for('admin.academic_years'))
+
+
+@admin_bp.route('/academic-years/sync-grades', methods=['POST'])
+@login_required
+@require_admin
+def academic_sync_grades():
+    """Đồng bộ lớp học cho năm học hiện tại: học sinh chưa từng được gắn mốc
+    năm học chỉ được gắn mốc (không lên lớp — không rõ nên lên bao nhiêu bậc);
+    học sinh đã có mốc từ năm trước được lên lớp tương ứng số năm đã trôi qua,
+    dừng lại ở Lớp 12. Học sinh có current_grade dạng tự do (không nằm trong
+    GRADE_SEQUENCE, dữ liệu cũ) bị bỏ qua — cần admin sửa tay một lần.
+    Đây là thao tác thủ công (bấm nút), chưa chạy tự động theo cron/queue."""
+    current_year = current_academic_year_start()
+
+    baselined = advanced = 0
+    students = Student.query.filter(Student.is_active == True, Student.is_deleted == False).all()
+    for s in students:
+        if s.current_grade not in GRADE_SEQUENCE:
+            continue
+        if s.grade_year is None:
+            s.grade_year = current_year
+            baselined += 1
+            continue
+        if s.grade_year < current_year:
+            steps = current_year - s.grade_year
+            idx = GRADE_SEQUENCE.index(s.current_grade)
+            new_grade = GRADE_SEQUENCE[min(idx + steps, len(GRADE_SEQUENCE) - 1)]
+            if new_grade != s.current_grade:
+                s.current_grade = new_grade
+                s.level = GRADE_TO_LEVEL[new_grade]
+                advanced += 1
+            s.grade_year = current_year
+
+    db.session.commit()
+    flash(f'Đã đồng bộ lớp học theo năm học hiện tại: {advanced} học sinh lên lớp, '
+          f'{baselined} học sinh được gắn mốc năm học lần đầu.', 'success')
     return redirect(url_for('admin.academic_years'))

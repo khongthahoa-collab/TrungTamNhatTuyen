@@ -7,6 +7,13 @@
 {% block content %}
 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
   <h5 class="mb-0 fw-bold"><i class="bi bi-calendar3 me-2 text-primary"></i>Quản lý năm học</h5>
+  <form method="post" action="{{ url_for('admin.academic_sync_grades') }}"
+        onsubmit="return confirm('Đồng bộ lớp học cho tất cả học sinh theo năm học hiện tại? Học sinh sẽ được tự động lên lớp theo số năm đã trôi qua kể từ lần đồng bộ trước.')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn btn-outline-primary btn-sm">
+      <i class="bi bi-arrow-repeat me-1"></i>Đồng bộ lớp học
+    </button>
+  </form>
 </div>
 
 <!-- Form thêm năm học -->
@@ -20,15 +27,15 @@
       <div class="row g-3 align-items-end">
         <div class="col-12 col-md-4">
           <label class="form-label fw-semibold">Tên năm học <span class="text-danger">*</span></label>
-          <input type="text" class="form-control" name="name" placeholder="VD: 2024-2025" required>
+          <input type="text" class="form-control" name="name" placeholder="VD: 2026-2027" required>
         </div>
         <div class="col-6 col-md-3">
-          <label class="form-label fw-semibold">Ngày bắt đầu</label>
-          <input type="date" class="form-control" name="start_date">
+          <label class="form-label fw-semibold">Ngày bắt đầu <span class="text-danger">*</span></label>
+          <input type="date" class="form-control" name="start_date" required>
         </div>
         <div class="col-6 col-md-3">
-          <label class="form-label fw-semibold">Ngày kết thúc</label>
-          <input type="date" class="form-control" name="end_date">
+          <label class="form-label fw-semibold">Ngày kết thúc <span class="text-danger">*</span></label>
+          <input type="date" class="form-control" name="end_date" required>
         </div>
         <div class="col-12 col-md-2">
           <button type="submit" class="btn btn-primary w-100">
@@ -36,6 +43,7 @@
           </button>
         </div>
       </div>
+      <div class="form-text mt-2">3 học kỳ (HK1, HK2, Hè) được tự động tạo, chia đều theo thời gian — chỉ dùng để thống kê.</div>
     </form>
   </div>
 </div>
@@ -94,47 +102,8 @@
       {% endfor %}
     </div>
     {% else %}
-    <p class="text-muted small mb-3">Chưa có học kỳ nào. Thêm học kỳ bên dưới.</p>
+    <p class="text-muted small mb-0">Chưa có học kỳ nào.</p>
     {% endif %}
-
-    <!-- Form thêm học kỳ -->
-    <div class="border rounded p-3 bg-light">
-      <div class="fw-semibold small mb-2 text-muted">
-        <i class="bi bi-plus me-1"></i>Thêm học kỳ cho {{ year.name }}
-      </div>
-      <form method="post" action="{{ url_for('admin.semester_add') }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="academic_year_id" value="{{ year.id }}">
-        <div class="row g-2 align-items-end">
-          <div class="col-12 col-sm-4">
-            <label class="form-label form-label-sm fw-semibold">Tên học kỳ <span class="text-danger">*</span></label>
-            <input type="text" class="form-control form-control-sm" name="name" placeholder="VD: Học kỳ 1" required>
-          </div>
-          <div class="col-12 col-sm-3">
-            <label class="form-label form-label-sm fw-semibold">Loại học kỳ</label>
-            <select class="form-select form-select-sm" name="semester_type">
-              <option value="">-- Chọn --</option>
-              {% for key, label in semester_types.items() %}
-              <option value="{{ key }}">{{ label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="col-6 col-sm-2">
-            <label class="form-label form-label-sm fw-semibold">Bắt đầu</label>
-            <input type="date" class="form-control form-control-sm" name="start_date">
-          </div>
-          <div class="col-6 col-sm-2">
-            <label class="form-label form-label-sm fw-semibold">Kết thúc</label>
-            <input type="date" class="form-control form-control-sm" name="end_date">
-          </div>
-          <div class="col-12 col-sm-1">
-            <button type="submit" class="btn btn-primary btn-sm w-100">
-              <i class="bi bi-plus"></i>
-            </button>
-          </div>
-        </div>
-      </form>
-    </div>
   </div>
 </div>
 {% else %}

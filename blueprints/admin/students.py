@@ -7,9 +7,12 @@ from datetime import date, datetime
 from sqlalchemy import func
 from extensions import db
 from models import (Student, User, Enrollment, Class, TuitionPayment, Score, Reward,
-                    StudentLevel, UserRole, Attendance, AttendanceStatus, Teacher, Schedule, School)
+                    StudentLevel, UserRole, Attendance, AttendanceStatus, Teacher, Schedule, School,
+                    GRADE_BY_LEVEL)
 from blueprints.admin import admin_bp, require_admin
 from blueprints.admin.account_utils import next_username, DEFAULT_TEMP_PASSWORD
+from blueprints.admin.academic import current_academic_year_start
+from services.schedule_service import find_student_schedule_conflict, schedule_conflict_message
 
 PHOTO_EXTS = {'jpg', 'jpeg', 'png', 'webp', 'gif'}
 
@@ -111,12 +114,15 @@ def students():
     all_classes  = Class.query.filter_by(is_active=True).order_by(Class.name).all()
     all_teachers = Teacher.query.join(Teacher.user).order_by(User.full_name).all()
 
+    is_filtered = bool(q or level or class_id or school_q or teacher_id or active_only != '1')
+
     return render_template('admin/students/list.html',
                            students=students,
                            pagination=pagination,
                            absent_counts=absent_counts,
                            q=q, level=level, active_only=active_only,
                            class_id=class_id, school_q=school_q, teacher_id=teacher_id,
+                           is_filtered=is_filtered,
                            per_page=per_page_raw,
                            levels=StudentLevel.LABELS,
                            all_classes=all_classes,
@@ -250,8 +256,8 @@ def student_add():
         gender = request.form.get('gender', 'male')
         school_id = request.form.get('school_id', type=int) or None
         school_custom = request.form.get('school_custom', '').strip()
-        grade = request.form.get('grade', '').strip()
-        level = request.form.get('level', StudentLevel.SECONDARY)
+        current_grade = request.form.get('current_grade', '').strip()
+        level = request.form.get('level', '').strip()
         parent_name = request.form.get('parent_name', '').strip()
         parent_phone = request.form.get('parent_phone', '').strip()
         note = request.form.get('note', '').strip()
@@ -264,10 +270,17 @@ def student_add():
         else:
             school = school_custom
 
-        if not full_name or not level:
-            flash('Vui lòng nhập họ tên và cấp học.', 'danger')
+        if not full_name or not level or not current_grade:
+            flash('Vui lòng nhập họ tên, cấp học và lớp.', 'danger')
             return render_template('admin/students/form.html',
                                    action='add', levels=StudentLevel.LABELS,
+                                   grade_by_level=GRADE_BY_LEVEL,
+                                   schools=schools, form=request.form)
+        if current_grade not in GRADE_BY_LEVEL.get(level, []):
+            flash('Lớp học không hợp lệ với cấp học đã chọn.', 'danger')
+            return render_template('admin/students/form.html',
+                                   action='add', levels=StudentLevel.LABELS,
+                                   grade_by_level=GRADE_BY_LEVEL,
                                    schools=schools, form=request.form)
 
         try:
@@ -285,7 +298,8 @@ def student_add():
             gender=gender,
             current_school=school,
             school_id=school_id,
-            current_grade=grade,
+            current_grade=current_grade,
+            grade_year=current_academic_year_start(),
             level=level,
             parent_name=parent_name,
             parent_phone=parent_phone,
@@ -299,6 +313,7 @@ def student_add():
 
     return render_template('admin/students/form.html',
                            action='add', levels=StudentLevel.LABELS,
+                           grade_by_level=GRADE_BY_LEVEL,
                            schools=schools, form={})
 
 
@@ -392,6 +407,15 @@ def student_edit(student_id):
     schools = School.query.filter_by(is_active=True).order_by(School.name).all()
 
     if request.method == 'POST':
+        current_grade = request.form.get('current_grade', '').strip()
+        level = request.form.get('level', '').strip()
+        if not current_grade or not level or current_grade not in GRADE_BY_LEVEL.get(level, []):
+            flash('Vui lòng chọn cấp học và lớp hợp lệ.', 'danger')
+            return render_template('admin/students/form.html',
+                                   action='edit', student=student,
+                                   levels=StudentLevel.LABELS, grade_by_level=GRADE_BY_LEVEL,
+                                   schools=schools, form=request.form)
+
         student.full_name = request.form.get('full_name', student.full_name).strip()
         dob_str = request.form.get('dob', '')
         try:
@@ -408,8 +432,10 @@ def student_edit(student_id):
         else:
             student.current_school = school_custom
             student.school_id = None
-        student.current_grade = request.form.get('grade', '').strip()
-        student.level = request.form.get('level', student.level)
+        if current_grade != student.current_grade:
+            student.grade_year = current_academic_year_start()
+        student.current_grade = current_grade
+        student.level = level
         student.parent_name = request.form.get('parent_name', '').strip()
         student.parent_phone = request.form.get('parent_phone', '').strip()
         student.note = request.form.get('note', '').strip()
@@ -420,7 +446,8 @@ def student_edit(student_id):
 
     return render_template('admin/students/form.html',
                            action='edit', student=student,
-                           levels=StudentLevel.LABELS, schools=schools, form=student)
+                           levels=StudentLevel.LABELS, grade_by_level=GRADE_BY_LEVEL,
+                           schools=schools, form=student)
 
 
 @admin_bp.route('/students/<int:student_id>/enroll', methods=['POST'])
@@ -434,6 +461,12 @@ def student_enroll(student_id):
 
     if not class_id:
         flash('Vui lòng chọn lớp.', 'danger')
+        return redirect(url_for('admin.student_detail', student_id=student_id))
+
+    target_class = Class.query.get_or_404(class_id)
+    conflict = find_student_schedule_conflict(student, target_class)
+    if conflict:
+        flash(schedule_conflict_message(student, target_class, conflict), 'danger')
         return redirect(url_for('admin.student_detail', student_id=student_id))
 
     existing = Enrollment.query.filter_by(student_id=student_id, class_id=class_id).first()

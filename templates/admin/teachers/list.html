@@ -25,6 +25,7 @@
           <th>Số điện thoại</th>
           <th>Phân loại</th>
           <th>Giới tính</th>
+          <th class="text-end">Lương cơ bản</th>
           <th class="text-center">Số lớp phụ trách</th>
           <th class="text-center">Số buổi dạy (1 tháng)</th>
           <th class="text-center">Thao tác</th>
@@ -56,6 +57,7 @@
             {% elif teacher.user.gender == 'female' %}Nữ
             {% else %}–{% endif %}
           </td>
+          <td class="text-end small">{{ teacher.base_salary | vnd if teacher.base_salary else '—' }}</td>
           <td class="text-center">
             <span class="badge bg-info-subtle text-info border border-info-subtle">
               {{ class_counts.get(teacher.id, 0) }}
@@ -75,7 +77,7 @@
         </tr>
         {% else %}
         <tr>
-          <td colspan="8" class="text-center text-muted py-5">
+          <td colspan="9" class="text-center text-muted py-5">
             <i class="bi bi-person-badge fs-3 d-block mb-2"></i>
             Chưa có giáo viên nào.
             <a href="{{ url_for('admin.teacher_add') }}">Thêm giáo viên đầu tiên</a>

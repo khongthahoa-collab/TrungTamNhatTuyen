@@ -21,12 +21,29 @@ class StudentLevel:
     PRIMARY = 'primary'           # Tiểu học
     SECONDARY = 'secondary'       # THCS
     HIGH_SCHOOL = 'high_school'   # THPT
-    
+
     LABELS = {
         'primary': 'Tiểu học',
         'secondary': 'THCS',
         'high_school': 'THPT'
     }
+
+
+# Grade labels grouped by education level — shared canonical source for both
+# the class form (course grade picker) and the student form (current grade).
+GRADE_BY_LEVEL = {
+    StudentLevel.PRIMARY:     ['Tiền tiểu học', 'Lớp 1', 'Lớp 2', 'Lớp 3', 'Lớp 4', 'Lớp 5'],
+    StudentLevel.SECONDARY:   ['Lớp 6', 'Lớp 7', 'Lớp 8', 'Lớp 9'],
+    StudentLevel.HIGH_SCHOOL: ['Lớp 10', 'Lớp 11', 'Lớp 12'],
+}
+# Ordered flat sequence, used to advance a student's grade by N years
+GRADE_SEQUENCE = (
+    GRADE_BY_LEVEL[StudentLevel.PRIMARY] +
+    GRADE_BY_LEVEL[StudentLevel.SECONDARY] +
+    GRADE_BY_LEVEL[StudentLevel.HIGH_SCHOOL]
+)
+# Reverse lookup: grade label -> level key
+GRADE_TO_LEVEL = {grade: level for level, grades in GRADE_BY_LEVEL.items() for grade in grades}
 
 
 class ScheduleType:
@@ -553,7 +570,8 @@ class Teacher(db.Model):
                             lazy='dynamic')
     classes = db.relationship('Class', secondary=teacher_classes, backref='teachers',
                              lazy='dynamic')
-    schedules = db.relationship('Schedule', backref='teacher', lazy='dynamic')
+    schedules = db.relationship('Schedule', foreign_keys='Schedule.teacher_id',
+                                backref='teacher', lazy='dynamic')
     salaries = db.relationship('Salary', backref='teacher', lazy='dynamic')
 
     @property
@@ -760,7 +778,8 @@ class Student(db.Model):
     gender = db.Column(db.String(10))  # male/female
     current_school = db.Column(db.String(200))  # School name (free text, kept for legacy/custom)
     school_id = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=True)
-    current_grade = db.Column(db.String(20))    # e.g., "6A1", "10B"
+    current_grade = db.Column(db.String(20))    # e.g., "Lớp 6" — one of GRADE_SEQUENCE
+    grade_year = db.Column(db.Integer)  # start-year of the academic year current_grade was last set/synced for
     level = db.Column(db.String(20), nullable=False)  # primary/secondary/high_school
     parent_name = db.Column(db.String(100))
     parent_phone = db.Column(db.String(15))
@@ -800,6 +819,7 @@ class Schedule(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False)
     teacher_id = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=True)
+    substitute_teacher_id = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=True)
     date = db.Column(db.Date, nullable=False)
     start_time = db.Column(db.Time, nullable=False)
     end_time = db.Column(db.Time, nullable=False)
@@ -819,6 +839,12 @@ class Schedule(db.Model):
                                   cascade='all, delete-orphan')
     semester = db.relationship('Semester', backref='schedules')
     room_obj = db.relationship('Room', foreign_keys=[room_id], backref='schedules')
+    substitute_teacher = db.relationship('Teacher', foreign_keys=[substitute_teacher_id])
+
+    @property
+    def effective_teacher(self):
+        """Teacher actually holding this session: substitute if assigned, else the regular one."""
+        return self.substitute_teacher or self.teacher
 
     @property
     def is_today(self):
@@ -998,6 +1024,7 @@ class Salary(db.Model):
     total = db.Column(db.Float, default=0)        # Final amount
     sessions_scheduled = db.Column(db.Integer, default=0)  # Total scheduled sessions
     sessions_checked_in = db.Column(db.Integer, default=0)  # Sessions teacher checked in
+    sessions_substituted = db.Column(db.Integer, default=0)  # Sessions taught as a substitute
     is_finalized = db.Column(db.Boolean, default=False)  # Salary locked/finalized
     paid_at = db.Column(db.DateTime)
     note = db.Column(db.Text)

@@ -70,6 +70,12 @@
             <option value="0" {% if not is_staff_val %}selected{% endif %}>Trợ giảng</option>
           </select>
         </div>
+        <div class="col-12 col-sm-6 col-md-4">
+          <label class="form-label fw-semibold">Lương cơ bản (VNĐ)</label>
+          <input type="text" inputmode="numeric" class="form-control money-input" name="base_salary"
+                 value="{{ (form.base_salary if form else (teacher.base_salary | int if action == 'edit' and teacher.base_salary else '')) or '' }}">
+          <div class="form-text">Dùng làm lương cơ bản mặc định mỗi khi tính lương hàng tháng.</div>
+        </div>
       </div>
 
       {% if action == 'add' %}
@@ -113,4 +119,23 @@
     {% endif %}
   </div>
 </div>
+
+<script>
+// ── Auto-format "Lương cơ bản" with thousand separators while typing ──────
+(function() {
+  const el = document.querySelector('.money-input');
+  if (!el) return;
+  function formatWithCommas(raw) {
+    const digits = raw.replace(/[^\d]/g, '');
+    return digits ? Number(digits).toLocaleString('en-US') : '';
+  }
+  el.value = formatWithCommas(el.value);
+  el.addEventListener('input', function() {
+    this.value = formatWithCommas(this.value);
+  });
+  el.closest('form').addEventListener('submit', function() {
+    el.value = el.value.replace(/,/g, '');
+  });
+})();
+</script>
 {% endblock %}

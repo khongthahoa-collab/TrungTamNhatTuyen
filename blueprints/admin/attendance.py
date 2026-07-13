@@ -38,6 +38,7 @@ def attendance_list():
                            summaries=summary_dict,
                            classes=classes,
                            selected_class_id=class_id,
+                           is_filtered=bool(class_id),
                            today=today)
 
 

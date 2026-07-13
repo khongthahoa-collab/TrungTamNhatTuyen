@@ -1,4 +1,5 @@
 {% extends 'admin/base.html' %}
+{% import 'admin/_filter_button.html' as filters %}
 
 {% block breadcrumb %}
 <li class="breadcrumb-item active">Tài liệu</li>
@@ -176,9 +177,8 @@
           {% endfor %}
         </select>
       </div>
-      <div class="col-12 col-md-3 d-flex gap-2">
-        <button type="submit" class="btn btn-primary btn-sm flex-grow-1">Lọc</button>
-        <a href="{{ url_for('admin.documents') }}" class="btn btn-outline-secondary btn-sm">Xóa</a>
+      <div class="col-12 col-md-3 d-flex align-items-end">
+        {{ filters.filter_toggle(is_filtered, url_for('admin.documents')) }}
       </div>
     </form>
   </div>

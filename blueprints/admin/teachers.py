@@ -48,6 +48,8 @@ def teacher_add():
         phone = request.form.get('phone', '').strip() or None
         gender = request.form.get('gender', '').strip() or None
         is_staff = request.form.get('is_staff') == '1'
+        base_salary_raw = request.form.get('base_salary', '').replace(',', '').strip()
+        base_salary = float(base_salary_raw) if base_salary_raw else 0
 
         if not full_name or not gender:
             flash('Vui lòng nhập tên giáo viên và giới tính.', 'danger')
@@ -69,7 +71,7 @@ def teacher_add():
         db.session.add(user)
         db.session.flush()
 
-        teacher = Teacher(user_id=user.id, is_staff=is_staff)
+        teacher = Teacher(user_id=user.id, is_staff=is_staff, base_salary=base_salary)
         db.session.add(teacher)
         db.session.commit()
 
@@ -93,6 +95,8 @@ def teacher_detail(teacher_id):
         phone = request.form.get('phone', '').strip() or None
         gender = request.form.get('gender', '').strip() or None
         is_staff = request.form.get('is_staff') == '1'
+        base_salary_raw = request.form.get('base_salary', '').replace(',', '').strip()
+        base_salary = float(base_salary_raw) if base_salary_raw else 0
 
         if not full_name or not username or not gender:
             flash('Vui lòng nhập tên giáo viên, tên đăng nhập và giới tính.', 'danger')
@@ -110,6 +114,7 @@ def teacher_detail(teacher_id):
         user.phone = phone
         user.gender = gender
         teacher.is_staff = is_staff
+        teacher.base_salary = base_salary
         db.session.commit()
         flash(f'Đã cập nhật thông tin {user.full_name}.', 'success')
         return redirect(url_for('admin.teachers'))

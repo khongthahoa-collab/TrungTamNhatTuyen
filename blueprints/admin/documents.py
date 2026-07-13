@@ -21,7 +21,8 @@ def documents():
     exam_folders = ExamFolder.query.order_by(ExamFolder.name).all()
     return render_template('admin/documents/list.html',
                            docs=docs, classes=classes, courses=courses,
-                           exam_folders=exam_folders, selected_class_id=class_id)
+                           exam_folders=exam_folders, selected_class_id=class_id,
+                           is_filtered=bool(class_id))
 
 
 @admin_bp.route('/documents/upload', methods=['POST'])

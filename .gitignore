@@ -65,6 +65,10 @@ backup.sql
 # One-off local feature spec notes (not project docs — see DATABASE_SCHEMA.md etc.)
 feature_*.md
 
+# Local-only migration scripts — run manually, kept out of GitHub per request
+migrate_substitute_teaching.py
+migrate_student_grade_year.py
+
 # Docker
 .docker/
 docker-compose.override.yml

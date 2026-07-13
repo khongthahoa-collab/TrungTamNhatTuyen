@@ -5,8 +5,9 @@ Salary Service — tạo bản ghi lương hàng tháng cho mọi giáo viên đ
 "Tính toán" chỉ TẠO bản ghi cho giáo viên chưa có lương tháng đó — không bao
 giờ ghi đè lên bản ghi đã tồn tại, để không mất chỉnh sửa thủ công của admin
 trên /admin/salary/detail (lương cơ bản, thưởng, khấu trừ, tạm ứng, ghi chú).
-Lương cơ bản mặc định lấy từ tháng gần nhất đã có của chính giáo viên đó,
-nếu chưa từng có thì lấy Teacher.base_salary, cuối cùng mới là 0.
+Mỗi tháng độc lập: lương cơ bản mặc định luôn lấy từ Teacher.base_salary
+(không lấy từ tháng trước) — chỉnh sửa lương cơ bản của một tháng không ảnh
+hưởng đến các tháng khác.
 """
 from sqlalchemy import extract
 from extensions import db
@@ -14,31 +15,37 @@ from models import Schedule, Teacher, Salary
 
 
 def _scheduled_sessions(teacher_id, month, year):
+    """Sessions this teacher is regularly assigned to and actually taught
+    (excludes sessions they were substituted out of)."""
     return Schedule.query.filter(
         Schedule.teacher_id == teacher_id,
+        Schedule.substitute_teacher_id.is_(None),
         Schedule.is_cancelled == False,
         extract('month', Schedule.date) == month,
         extract('year', Schedule.date) == year,
     ).count()
 
 
-def _carry_forward_base(teacher):
-    prev = (Salary.query.filter_by(teacher_id=teacher.id)
-            .order_by(Salary.year.desc(), Salary.month.desc()).first())
-    if prev:
-        return prev.base_amount
-    return teacher.base_salary or 0
+def _substituted_sessions(teacher_id, month, year):
+    """Sessions this teacher taught as a substitute for another teacher."""
+    return Schedule.query.filter(
+        Schedule.substitute_teacher_id == teacher_id,
+        Schedule.is_cancelled == False,
+        extract('month', Schedule.date) == month,
+        extract('year', Schedule.date) == year,
+    ).count()
 
 
 def get_or_create_salary(teacher, month, year):
     """Return (salary, created) — the existing row for this teacher/month/year,
-    or a freshly created one (carried-forward base amount, current scheduled-
-    session count). Never overwrites an existing row."""
+    or a freshly created one (base amount from Teacher.base_salary, current
+    scheduled-session count). Never overwrites an existing row, and never
+    derives its base amount from another month's record."""
     existing = Salary.query.filter_by(teacher_id=teacher.id, month=month, year=year).first()
     if existing:
         return existing, False
 
-    base = _carry_forward_base(teacher)
+    base = teacher.base_salary or 0
     salary = Salary(
         teacher_id=teacher.id,
         month=month,
@@ -49,6 +56,7 @@ def get_or_create_salary(teacher, month, year):
         advance=0,
         total=base,
         sessions_scheduled=_scheduled_sessions(teacher.id, month, year),
+        sessions_substituted=_substituted_sessions(teacher.id, month, year),
     )
     db.session.add(salary)
     return salary, True

@@ -61,21 +61,30 @@
             </div>
 
             <!-- Cấp học -->
+            {% set cur_level = (form.level if action == 'edit' else form.get('level','')) if form else '' %}
+            {% set cur_grade = (student.current_grade if action == 'edit' and student else (form.get('current_grade','') if form else '')) %}
             <div class="col-12 col-md-4">
-              <label for="level" class="form-label fw-semibold">Cấp học</label>
-              <select class="form-select" id="level" name="level">
+              <label for="level" class="form-label fw-semibold">Cấp học <span class="text-danger">*</span></label>
+              <select class="form-select" id="level" name="level" required>
                 <option value="">-- Chọn cấp --</option>
                 {% for key, label in levels.items() %}
-                <option value="{{ key }}" {% if (form.level if form else '') == key %}selected{% endif %}>{{ label }}</option>
+                <option value="{{ key }}" {% if cur_level == key %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
               </select>
             </div>
 
             <!-- Lớp đang học -->
             <div class="col-12 col-md-4">
-              <label for="grade" class="form-label fw-semibold">Lớp</label>
-              <input type="text" class="form-control" id="grade" name="grade"
-                     value="{{ form.current_grade if form else '' }}" placeholder="VD: 10A1, Lớp 5...">
+              <label for="grade" class="form-label fw-semibold">Lớp <span class="text-danger">*</span></label>
+              <select class="form-select" id="grade" name="current_grade" required>
+                <option value="">-- Chọn lớp --</option>
+                {% for lvl_key, grades in grade_by_level.items() %}
+                {% for g in grades %}
+                <option value="{{ g }}" data-level="{{ lvl_key }}"
+                  {% if cur_grade == g %}selected{% endif %}>{{ g }}</option>
+                {% endfor %}
+                {% endfor %}
+              </select>
             </div>
 
             <!-- Trường -->
@@ -191,6 +200,32 @@
   }
   sel.addEventListener('change', sync);
   sync();
+})();
+
+// ── Lớp phụ thuộc Cấp học ───────────────────────────────────────────
+(function() {
+  const levelSel = document.getElementById('level');
+  const gradeSel = document.getElementById('grade');
+  if (!levelSel || !gradeSel) return;
+  const gradeOptions = Array.from(gradeSel.options);
+
+  function syncGrades() {
+    const level = levelSel.value;
+    const currentValue = gradeSel.value;
+    gradeSel.innerHTML = '';
+    gradeSel.appendChild(new Option('-- Chọn lớp --', ''));
+    gradeOptions.forEach(opt => {
+      if (opt.value === '' || opt.dataset.level === level) {
+        const clone = new Option(opt.text, opt.value);
+        gradeSel.appendChild(clone);
+      }
+    });
+    // Keep the current selection only if it still belongs to this level
+    const stillValid = Array.from(gradeSel.options).some(o => o.value === currentValue);
+    gradeSel.value = stillValid ? currentValue : '';
+  }
+  levelSel.addEventListener('change', syncGrades);
+  syncGrades();
 })();
 </script>
 {% endblock %}

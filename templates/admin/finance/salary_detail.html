@@ -29,6 +29,11 @@
     <span class="badge bg-info-subtle text-info border border-info-subtle ms-auto">
       {{ salary.sessions_scheduled }} buổi dạy tháng {{ salary.month }}/{{ salary.year }}
     </span>
+    {% if salary.sessions_substituted %}
+    <span class="badge bg-warning-subtle text-warning border border-warning-subtle">
+      {{ salary.sessions_substituted }} tiết dạy thay
+    </span>
+    {% endif %}
   </div>
   <div class="card-body">
     <form method="post" id="salaryDetailForm">
@@ -37,28 +42,28 @@
       <div class="row g-3">
         <div class="col-6 col-md-3">
           <label class="form-label fw-semibold">Lương cơ bản (VNĐ)</label>
-          <input type="number" class="form-control salary-calc" name="base_amount" id="base_amount"
-                 min="0" step="1000" value="{{ salary.base_amount | int }}">
+          <input type="text" inputmode="numeric" class="form-control money-input" name="base_amount" id="base_amount"
+                 value="{{ salary.base_amount | int }}">
         </div>
         <div class="col-6 col-md-3">
           <label class="form-label fw-semibold">Thưởng (VNĐ)</label>
-          <input type="number" class="form-control salary-calc" name="bonus" id="bonus"
-                 min="0" step="1000" value="{{ salary.bonus | int }}">
+          <input type="text" inputmode="numeric" class="form-control money-input" name="bonus" id="bonus"
+                 value="{{ salary.bonus | int }}">
         </div>
         <div class="col-6 col-md-3">
           <label class="form-label fw-semibold">Khấu trừ (VNĐ)</label>
-          <input type="number" class="form-control salary-calc" name="deduction" id="deduction"
-                 min="0" step="1000" value="{{ salary.deduction | int }}">
+          <input type="text" inputmode="numeric" class="form-control money-input" name="deduction" id="deduction"
+                 value="{{ salary.deduction | int }}">
         </div>
         <div class="col-6 col-md-3">
           <label class="form-label fw-semibold">Tạm ứng (VNĐ)</label>
-          <input type="number" class="form-control salary-calc" name="advance" id="advance"
-                 min="0" step="1000" value="{{ salary.advance | int }}">
+          <input type="text" inputmode="numeric" class="form-control money-input" name="advance" id="advance"
+                 value="{{ salary.advance | int }}">
         </div>
         <div class="col-12 col-md-6">
           <label class="form-label fw-semibold">Lương thực nhận (VNĐ)</label>
-          <input type="number" class="form-control fw-bold" name="total" id="total"
-                 min="0" step="1000" value="{{ salary.total | int }}">
+          <input type="text" inputmode="numeric" class="form-control fw-bold money-input" name="total" id="total"
+                 value="{{ salary.total | int }}">
           <div class="form-text">Tự tính từ lương cơ bản + thưởng − khấu trừ − tạm ứng. Có thể sửa lại thủ công nếu cần.</div>
         </div>
         <div class="col-12 col-md-6">
@@ -97,17 +102,34 @@
 </div>
 
 <script>
+// ── Auto-format money inputs with thousand separators while typing ────────
+function formatWithCommas(raw) {
+  const digits = raw.replace(/[^\d]/g, '');
+  return digits ? Number(digits).toLocaleString('en-US') : '';
+}
+function rawNumber(value) {
+  return parseFloat(value.replace(/,/g, '')) || 0;
+}
+
 (function() {
-  const fields = ['base_amount', 'bonus', 'deduction', 'advance'];
+  const moneyInputs = document.querySelectorAll('.money-input');
   const total = document.getElementById('total');
+
   function recalc() {
-    const base = parseFloat(document.getElementById('base_amount').value) || 0;
-    const bonus = parseFloat(document.getElementById('bonus').value) || 0;
-    const deduction = parseFloat(document.getElementById('deduction').value) || 0;
-    const advance = parseFloat(document.getElementById('advance').value) || 0;
-    total.value = Math.round(base + bonus - deduction - advance);
+    const base = rawNumber(document.getElementById('base_amount').value);
+    const bonus = rawNumber(document.getElementById('bonus').value);
+    const deduction = rawNumber(document.getElementById('deduction').value);
+    const advance = rawNumber(document.getElementById('advance').value);
+    total.value = formatWithCommas(String(Math.round(base + bonus - deduction - advance)));
   }
-  fields.forEach(id => document.getElementById(id).addEventListener('input', recalc));
+
+  moneyInputs.forEach(el => {
+    el.value = formatWithCommas(el.value);
+    el.addEventListener('input', function() {
+      this.value = formatWithCommas(this.value);
+      if (this.id !== 'total') recalc();
+    });
+  });
 })();
 
 // Intercept "Lưu" — ask for confirmation before actually writing to the DB.
@@ -125,6 +147,9 @@ salaryForm.addEventListener('submit', function(e) {
 document.getElementById('confirmSalarySubmit').addEventListener('click', function() {
   confirmedSave = true;
   confirmModal.hide();
+  document.querySelectorAll('.money-input').forEach(el => {
+    el.value = el.value.replace(/,/g, '');
+  });
   salaryForm.submit();
 });
 </script>
