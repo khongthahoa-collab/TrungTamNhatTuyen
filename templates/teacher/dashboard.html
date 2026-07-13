@@ -10,41 +10,49 @@
 
   <!-- ===== THÔNG TIN CƠ BẢN ===== -->
   <div class="card border-0 shadow-sm mb-3">
-    <div class="card-header bg-white fw-semibold">Thông tin cơ bản</div>
-    <div class="card-body">
-      <form method="post" action="{{ url_for('teacher.update_profile') }}" id="profileForm">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="card-header bg-white d-flex align-items-center justify-content-between">
+      <span class="fw-semibold">Thông tin cơ bản</span>
+      <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse"
+              data-bs-target="#profileEditCollapse" title="Sửa thông tin">
+        <i class="bi bi-pencil"></i>
+      </button>
+    </div>
+    <div class="collapse" id="profileEditCollapse">
+      <div class="card-body">
+        <form method="post" action="{{ url_for('teacher.update_profile') }}" id="profileForm">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-        <div class="mb-3">
-          <label class="form-label small fw-semibold">Tên giáo viên</label>
-          <input type="text" class="form-control" value="{{ current_user.full_name }}" disabled>
-        </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Tên giáo viên</label>
+            <input type="text" class="form-control" value="{{ current_user.full_name }}" disabled>
+          </div>
 
-        <div class="mb-3">
-          <label class="form-label small fw-semibold">Tên đăng nhập</label>
-          <input type="text" class="form-control" value="{{ current_user.username }}" disabled>
-        </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Tên đăng nhập</label>
+            <input type="text" class="form-control" value="{{ current_user.username }}" disabled>
+          </div>
 
-        <div class="mb-3">
-          <label class="form-label small fw-semibold">Mật khẩu mới</label>
-          <input type="password" class="form-control" name="new_password"
-                 placeholder="Để trống nếu không đổi mật khẩu" minlength="6">
-        </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Mật khẩu mới</label>
+            <input type="password" class="form-control" name="new_password"
+                   placeholder="Để trống nếu không đổi mật khẩu" minlength="6">
+          </div>
 
-        <div class="mb-3">
-          <label class="form-label small fw-semibold">Xác nhận mật khẩu mới</label>
-          <input type="password" class="form-control" name="confirm_password" minlength="6">
-        </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Xác nhận mật khẩu mới</label>
+            <input type="password" class="form-control" name="confirm_password" minlength="6">
+          </div>
 
-        <div class="mb-3">
-          <label class="form-label small fw-semibold">Số điện thoại</label>
-          <input type="tel" class="form-control" name="phone" value="{{ current_user.phone or '' }}">
-        </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Số điện thoại</label>
+            <input type="tel" class="form-control" name="phone" value="{{ current_user.phone or '' }}">
+          </div>
 
-        <button type="submit" class="btn btn-primary w-100">
-          <i class="bi bi-check-lg me-1"></i>Lưu thay đổi
-        </button>
-      </form>
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-check-lg me-1"></i>Lưu thay đổi
+          </button>
+        </form>
+      </div>
     </div>
   </div>
 
