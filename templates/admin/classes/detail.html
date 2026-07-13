@@ -144,18 +144,36 @@
   </div>
   <div class="card-body">
 
-    <!-- Tóm tắt khung giờ hàng tuần đang áp dụng -->
-    {% if weekly_slots %}
-    <div class="d-flex flex-wrap gap-2 mb-3">
+    <!-- Danh sách khung giờ hàng tuần đang áp dụng -->
+    <div class="list-group mb-3">
       {% for slot in weekly_slots %}
-      <span class="badge bg-primary-subtle text-primary border border-primary-subtle py-2 px-2">
-        {{ weekdays[slot.date.weekday()] }} {{ slot.start_time.strftime('%H:%M') }}–{{ slot.end_time.strftime('%H:%M') }}
-        {% if slot.room_obj %} · {{ slot.room_obj.name }}{% endif %}
-        · {{ slot.effective_teacher.display_name if slot.effective_teacher else 'Chưa phân công' }}
-      </span>
+      <div class="list-group-item d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div>
+          <span class="fw-semibold">{{ weekdays[slot.date.weekday()] }}</span>
+          {{ slot.start_time.strftime('%H:%M') }}–{{ slot.end_time.strftime('%H:%M') }}
+          {% if slot.room_obj %}<span class="text-muted">Phòng: {{ slot.room_obj.name }}</span>{% endif %}
+          {{ slot.effective_teacher.display_name if slot.effective_teacher else 'Chưa phân công' }}
+        </div>
+        <div class="d-flex gap-1">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="collapse" data-bs-target="#reschedulePanel" title="Sửa">
+            <i class="bi bi-pencil"></i>
+          </button>
+          <form method="post" action="{{ url_for('admin.class_delete_weekly_slot', class_id=class_.id) }}"
+                onsubmit="return confirm('Xóa khung giờ này? Các buổi sắp tới của khung giờ này sẽ bị xóa (buổi đã qua vẫn giữ nguyên).')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="schedule_id" value="{{ slot.id }}">
+            <button type="submit" class="btn btn-outline-danger btn-sm" title="Xóa">
+              <i class="bi bi-trash"></i>
+            </button>
+          </form>
+        </div>
+      </div>
+      {% else %}
+      <div class="list-group-item text-center text-muted py-4">
+        <i class="bi bi-calendar-x d-block mb-2 fs-4"></i>Chưa có buổi học nào
+      </div>
       {% endfor %}
     </div>
-    {% endif %}
 
     <!-- Panel sửa lịch học hàng tuần (chỉ áp dụng từ hôm nay trở đi) -->
     <div class="collapse mb-3" id="reschedulePanel">
@@ -168,6 +186,46 @@
         <form method="post" action="{{ url_for('admin.class_reschedule', class_id=class_.id) }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div id="resched-rows" class="mb-2">
+            {% for slot in weekly_slots %}
+            <div class="resched-row row g-2 align-items-center mb-2">
+              <div class="col-6 col-sm-2">
+                <select class="form-select form-select-sm" name="sched_day[]">
+                  {% for val, label in day_options %}
+                  <option value="{{ val }}" {% if val == slot.date.weekday() | string %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-6 col-sm-2">
+                <select class="form-select form-select-sm resched-start" name="sched_start[]">
+                  <option value="">-- Từ --</option>
+                  {% for t in time_points %}
+                  <option value="{{ t }}" {% if t == slot.start_time.strftime('%H:%M') %}selected{% endif %}>{{ t }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-6 col-sm-2">
+                <select class="form-select form-select-sm resched-end" name="sched_end[]">
+                  <option value="">-- Đến --</option>
+                  {% for t in time_points %}
+                  <option value="{{ t }}" {% if t == slot.end_time.strftime('%H:%M') %}selected{% endif %}>{{ t }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-6 col-sm-3">
+                <select class="form-select form-select-sm" name="sched_room_id[]">
+                  <option value="">-- Phòng (tùy chọn) --</option>
+                  {% for room in rooms %}
+                  <option value="{{ room.id }}" {% if slot.room_id and room.id == slot.room_id %}selected{% endif %}>{{ room.display_name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              {% if not loop.first %}
+              <div class="col-auto">
+                <button type="button" class="btn btn-outline-danger btn-sm remove-resched-row" title="Xóa"><i class="bi bi-x-lg"></i></button>
+              </div>
+              {% endif %}
+            </div>
+            {% else %}
             <div class="resched-row row g-2 align-items-center mb-2">
               <div class="col-6 col-sm-2">
                 <select class="form-select form-select-sm" name="sched_day[]">
@@ -201,6 +259,7 @@
                 </select>
               </div>
             </div>
+            {% endfor %}
           </div>
           <button type="button" id="add-resched-row" class="btn btn-outline-secondary btn-sm mb-3">
             <i class="bi bi-plus-lg me-1"></i>Thêm khung giờ
@@ -213,116 +272,6 @@
         </form>
       </div>
     </div>
-
-    <!-- Danh sách buổi học -->
-    <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
-        <thead class="table-light">
-          <tr>
-            <th class="ps-3" style="width:30px;"></th>
-            <th>Ngày</th>
-            <th>Thứ</th>
-            <th>Giờ</th>
-            <th>Phòng</th>
-            <th>Giáo viên</th>
-            <th>Loại</th>
-            <th class="text-center">Điểm danh</th>
-            <th class="text-center">Thao tác</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for schedule in schedules %}
-          <tr class="{% if schedule.is_cancelled %}table-secondary{% elif schedule.date < today %}text-muted{% endif %}">
-            <td class="ps-3">
-              {% if schedule.date >= today and not schedule.is_cancelled %}
-              <input type="checkbox" class="form-check-input" name="schedule_ids" value="{{ schedule.id }}" form="substituteForm">
-              {% endif %}
-            </td>
-            <td class="small fw-semibold">{{ schedule.date | date_vn }}</td>
-            <td class="small">{{ weekdays[schedule.date.weekday()] if schedule.date else '—' }}</td>
-            <td class="small">{{ schedule.start_time.strftime('%H:%M') if schedule.start_time else '—' }}{% if schedule.end_time %} – {{ schedule.end_time.strftime('%H:%M') }}{% endif %}</td>
-            <td class="small">
-              {% if schedule.room_obj %}
-              <span title="{{ schedule.room_obj.display_name }}">{{ schedule.room_obj.name }}</span>
-              {% elif schedule.room %}
-              {{ schedule.room }}
-              {% else %}—{% endif %}
-            </td>
-            <td class="small">
-              {{ schedule.effective_teacher.display_name if schedule.effective_teacher else '—' }}
-              {% if schedule.substitute_teacher_id %}
-              <span class="badge bg-warning-subtle text-warning border border-warning-subtle"
-                    title="Dạy thay cho {{ schedule.teacher.display_name if schedule.teacher else '—' }}">Dạy thay</span>
-              {% endif %}
-            </td>
-            <td>
-              {% if schedule.schedule_type == 'intensive' %}
-              <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Tăng cường</span>
-              {% else %}
-              <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Thường</span>
-              {% endif %}
-            </td>
-            <td class="text-center">
-              {% if schedule.attendance_taken %}
-              <span class="badge bg-success-subtle text-success border border-success-subtle">Đã điểm danh</span>
-              {% if schedule.date < today %}
-              {% set absent = schedule.attendances | selectattr('status', 'equalto', 'absent') | list | length %}
-              {% if absent > 0 %}<span class="badge bg-danger rounded-pill ms-1">{{ absent }} vắng</span>{% endif %}
-              {% endif %}
-              {% else %}
-              <span class="badge bg-light text-muted border">Chưa</span>
-              {% endif %}
-            </td>
-            <td class="text-center">
-              {% if schedule.is_cancelled %}
-              <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Đã hủy</span>
-              {% elif schedule.date >= today %}
-              <div class="d-flex justify-content-center gap-1">
-                <button type="button" class="btn btn-outline-warning btn-sm"
-                        data-bs-toggle="modal" data-bs-target="#cancelModal"
-                        data-schedule-id="{{ schedule.id }}"
-                        title="Hủy buổi học">
-                  <i class="bi bi-x-circle"></i>
-                </button>
-                <form method="post" action="{{ url_for('admin.delete_schedule', schedule_id=schedule.id) }}"
-                      onsubmit="return confirm('Bạn có chắc muốn xóa buổi học này?')">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <button type="submit" class="btn btn-outline-danger btn-sm" title="Xóa buổi học">
-                    <i class="bi bi-trash"></i>
-                  </button>
-                </form>
-              </div>
-              {% else %}—{% endif %}
-            </td>
-          </tr>
-          {% else %}
-          <tr>
-            <td colspan="9" class="text-center text-muted py-4 ps-3">
-              <i class="bi bi-calendar-x d-block mb-2 fs-4"></i>Chưa có buổi học nào
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Phân công dạy thay cho các buổi đã chọn -->
-    <form id="substituteForm" method="post" action="{{ url_for('admin.schedule_substitute', class_id=class_.id) }}"
-          class="d-flex flex-wrap align-items-end gap-2 mt-3 pt-3 border-top">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div>
-        <label class="form-label form-label-sm fw-semibold mb-1">Dạy thay cho các buổi đã chọn</label>
-        <select class="form-select form-select-sm" name="substitute_teacher_id" form="substituteForm" style="min-width:220px;">
-          <option value="">-- Hủy phân công dạy thay --</option>
-          {% for t in teachers %}
-          <option value="{{ t.id }}">{{ t.display_name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <button type="submit" class="btn btn-primary btn-sm">
-        <i class="bi bi-arrow-left-right me-1"></i>Áp dụng
-      </button>
-    </form>
   </div>
 </div>
 
@@ -437,44 +386,7 @@
   </div>
 </div>
 
-<!-- Modal hủy buổi học -->
-<div class="modal fade" id="cancelModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h6 class="modal-title fw-bold">
-          <i class="bi bi-x-circle me-2 text-warning"></i>Hủy buổi học
-        </h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <form method="post" id="cancelScheduleForm" action="">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="modal-body">
-          <p class="text-muted small">Vui lòng nhập lý do hủy buổi học này.</p>
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Lý do hủy</label>
-            <textarea class="form-control" name="reason" rows="3" placeholder="Nhập lý do hủy buổi học..." required></textarea>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
-          <button type="submit" class="btn btn-warning">
-            <i class="bi bi-x-circle me-1"></i>Xác nhận hủy
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
 <script>
-// Cancel modal
-document.getElementById('cancelModal').addEventListener('show.bs.modal', function(event) {
-  const scheduleId = event.relatedTarget.getAttribute('data-schedule-id');
-  document.getElementById('cancelScheduleForm').action =
-    "{{ url_for('admin.cancel_schedule', schedule_id=0) }}".replace('/0/', '/' + scheduleId + '/');
-});
-
 // Live room availability check (thêm buổi học đơn lẻ)
 const dateEl = document.getElementById('single_date');
 const startEl = document.getElementById('single_start');

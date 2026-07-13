@@ -38,9 +38,11 @@
     <table>
       <tr><td class="label">Họ tên</td><td class="value">{{ sal.teacher.title }} {{ sal.teacher.full_name }}</td></tr>
       <tr><td class="label">Số buổi dạy (1 tháng)</td><td class="value">{{ sal.sessions_scheduled }}</td></tr>
+      {# Tạm ẩn: chức năng dạy thay sẽ cập nhật lại sau.
       {% if sal.sessions_substituted %}
       <tr><td class="label">Số tiết dạy thay</td><td class="value">{{ sal.sessions_substituted }}</td></tr>
       {% endif %}
+      #}
       <tr><td class="label">Lương cơ bản</td><td class="value">{{ sal.base_amount | vnd }}</td></tr>
       <tr><td class="label">Thưởng</td><td class="value">{{ sal.bonus | vnd }}</td></tr>
       <tr><td class="label">Khấu trừ</td><td class="value">-{{ sal.deduction | vnd }}</td></tr>

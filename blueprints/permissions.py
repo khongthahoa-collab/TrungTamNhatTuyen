@@ -80,7 +80,7 @@ ADMIN_ENDPOINT_MODULES = {
 
     # classes.py (schedule sub-actions belong to the class detail page)
     'classes': 'classes', 'class_add': 'classes', 'class_detail': 'classes', 'class_edit': 'classes',
-    'class_reschedule': 'classes', 'schedule_substitute': 'classes', 'class_add_students': 'classes',
+    'class_reschedule': 'classes', 'class_delete_weekly_slot': 'classes', 'class_add_students': 'classes',
     'add_schedule': 'classes', 'cancel_schedule': 'classes', 'delete_schedule': 'classes',
 
     # academic.py

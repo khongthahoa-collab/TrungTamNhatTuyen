@@ -67,7 +67,7 @@
             <th class="ps-3">Giáo viên</th>
             <th class="text-end">Lương cơ bản</th>
             <th class="text-center">Số buổi dạy (1 tháng)</th>
-            <th class="text-center">Số tiết dạy thay</th>
+            {# Tạm ẩn: chức năng dạy thay sẽ cập nhật lại sau. <th class="text-center">Số tiết dạy thay</th> #}
             <th class="text-end">Lương thực nhận</th>
             <th class="text-center">Trạng thái</th>
           </tr>
@@ -94,7 +94,7 @@
             </td>
             <td class="text-end small">{{ sal.base_amount | vnd if sal else '—' }}</td>
             <td class="text-center small">{{ session_counts.get(teacher.id, 0) }}</td>
-            <td class="text-center small">{{ sub_counts.get(teacher.id, 0) or '—' }}</td>
+            {# Tạm ẩn: chức năng dạy thay sẽ cập nhật lại sau. <td class="text-center small">{{ sub_counts.get(teacher.id, 0) or '—' }}</td> #}
             <td class="text-end small fw-bold">{{ sal.total | vnd if sal else '—' }}</td>
             <td class="text-center">
               {% if sal %}
@@ -117,7 +117,7 @@
           </tr>
           {% else %}
           <tr>
-            <td colspan="6" class="text-center text-muted py-4">
+            <td colspan="5" class="text-center text-muted py-4">
               <i class="bi bi-inbox d-block mb-2 fs-4"></i>
               Chưa có giáo viên chính nào.
             </td>
@@ -127,7 +127,7 @@
         {% if teachers %}
         <tfoot class="table-light">
           <tr>
-            <td colspan="4" class="ps-3 fw-semibold text-end">Tổng chi lương:</td>
+            <td colspan="3" class="ps-3 fw-semibold text-end">Tổng chi lương:</td>
             <td class="text-end fw-bold text-primary">
               {{ salaries_by_teacher.values() | sum(attribute='total') | vnd }}
             </td>

@@ -29,11 +29,13 @@
     <span class="badge bg-info-subtle text-info border border-info-subtle ms-auto">
       {{ salary.sessions_scheduled }} buổi dạy tháng {{ salary.month }}/{{ salary.year }}
     </span>
+    {# Tạm ẩn: chức năng dạy thay sẽ cập nhật lại sau.
     {% if salary.sessions_substituted %}
     <span class="badge bg-warning-subtle text-warning border border-warning-subtle">
       {{ salary.sessions_substituted }} tiết dạy thay
     </span>
     {% endif %}
+    #}
   </div>
   <div class="card-body">
     <form method="post" id="salaryDetailForm">

@@ -427,19 +427,21 @@ def class_detail(class_id):
     rooms = Room.query.filter_by(is_active=True).order_by(Room.branch, Room.floor, Room.room_number).all()
     today = date.today()
 
-    schedules = class_.schedules.order_by(Schedule.date, Schedule.start_time).all()
+    upcoming_schedules = class_.schedules.filter(
+        Schedule.date >= today, Schedule.is_cancelled == False
+    ).order_by(Schedule.date, Schedule.start_time).all()
 
-    # Tóm tắt các khung giờ hàng tuần đang áp dụng (dựa trên buổi sắp tới, chưa hủy)
+    # Khung giờ học hàng tuần đang áp dụng (dựa trên buổi sắp tới, chưa hủy) —
+    # dùng để hiển thị "Lịch học" gọn theo tuần thay vì liệt kê từng ngày cả năm.
     weekly_pattern = {}
-    for s in schedules:
-        if s.date >= today and not s.is_cancelled:
-            key = (s.date.weekday(), s.start_time, s.end_time, s.room_id, s.effective_teacher.id if s.effective_teacher else None)
-            weekly_pattern[key] = s
+    for s in upcoming_schedules:
+        key = (s.date.weekday(), s.start_time, s.end_time, s.room_id, s.teacher_id)
+        weekly_pattern[key] = s
     weekly_slots = sorted(weekly_pattern.values(), key=lambda s: (s.date.weekday(), s.start_time))
 
     return render_template('admin/classes/detail.html',
                            class_=class_, teachers=teachers, rooms=rooms,
-                           schedules=schedules, weekly_slots=weekly_slots,
+                           weekly_slots=weekly_slots,
                            suggested_students=_suggested_students(class_),
                            grade_label=GRADE_LEVEL_LABELS.get(class_.grade_level, class_.grade_level or ''),
                            day_options=DAY_OPTIONS, time_slots=TIME_SLOTS, time_points=TIME_POINTS,
@@ -539,44 +541,76 @@ def class_reschedule(class_id):
     return redirect(url_for('admin.class_detail', class_id=class_id))
 
 
-@admin_bp.route('/classes/<int:class_id>/schedule/substitute', methods=['POST'])
+@admin_bp.route('/classes/<int:class_id>/schedule/delete-weekly', methods=['POST'])
 @login_required
 @require_admin
-def schedule_substitute(class_id):
-    """Phân công (hoặc hủy) giáo viên dạy thay cho một hoặc nhiều buổi học sắp tới."""
-    schedule_ids = [int(x) for x in request.form.getlist('schedule_ids') if x]
-    substitute_teacher_id = request.form.get('substitute_teacher_id', type=int)
+def class_delete_weekly_slot(class_id):
+    """Xóa các buổi học TƯƠNG LAI (chưa hủy) của MỘT khung giờ trong tuần —
+    xác định qua schedule_id đại diện — không đụng các khung giờ khác hay
+    dữ liệu quá khứ."""
+    ref_id = request.form.get('schedule_id', type=int)
+    ref = Schedule.query.get_or_404(ref_id)
+    if ref.class_id != class_id:
+        abort(404)
 
-    if not schedule_ids:
-        flash('Vui lòng chọn ít nhất một buổi học.', 'danger')
-        return redirect(url_for('admin.class_detail', class_id=class_id))
+    today = date.today()
+    weekday, start_t, end_t = ref.date.weekday(), ref.start_time, ref.end_time
 
-    schedules = Schedule.query.filter(
-        Schedule.id.in_(schedule_ids),
+    future_schedules = Schedule.query.filter(
         Schedule.class_id == class_id,
-        Schedule.date >= date.today(),
+        Schedule.date >= today,
+        Schedule.is_cancelled == False,
     ).all()
+    deleted = 0
+    for s in future_schedules:
+        if s.date.weekday() == weekday and s.start_time == start_t and s.end_time == end_t:
+            db.session.delete(s)
+            deleted += 1
 
-    if substitute_teacher_id:
-        substitute = Teacher.query.get_or_404(substitute_teacher_id)
-        for s in schedules:
-            conflict = _teacher_busy_conflict(
-                substitute_teacher_id, s.date, s.start_time, s.end_time, exclude_schedule_id=s.id
-            )
-            if conflict:
-                flash(_conflict_message(substitute, conflict), 'danger')
-                return redirect(url_for('admin.class_detail', class_id=class_id))
-        for s in schedules:
-            s.substitute_teacher_id = substitute_teacher_id
-        db.session.commit()
-        flash(f'Đã phân công {substitute.display_name} dạy thay cho {len(schedules)} buổi học.', 'success')
-    else:
-        for s in schedules:
-            s.substitute_teacher_id = None
-        db.session.commit()
-        flash(f'Đã hủy phân công dạy thay cho {len(schedules)} buổi học.', 'success')
-
+    db.session.commit()
+    flash(f'Đã xóa {deleted} buổi học sắp tới của khung giờ này.', 'success')
     return redirect(url_for('admin.class_detail', class_id=class_id))
+
+
+# Tạm ẩn: chức năng phân công dạy thay sẽ cập nhật lại sau.
+# @admin_bp.route('/classes/<int:class_id>/schedule/substitute', methods=['POST'])
+# @login_required
+# @require_admin
+# def schedule_substitute(class_id):
+#     """Phân công (hoặc hủy) giáo viên dạy thay cho một hoặc nhiều buổi học sắp tới."""
+#     schedule_ids = [int(x) for x in request.form.getlist('schedule_ids') if x]
+#     substitute_teacher_id = request.form.get('substitute_teacher_id', type=int)
+#
+#     if not schedule_ids:
+#         flash('Vui lòng chọn ít nhất một buổi học.', 'danger')
+#         return redirect(url_for('admin.class_detail', class_id=class_id))
+#
+#     schedules = Schedule.query.filter(
+#         Schedule.id.in_(schedule_ids),
+#         Schedule.class_id == class_id,
+#         Schedule.date >= date.today(),
+#     ).all()
+#
+#     if substitute_teacher_id:
+#         substitute = Teacher.query.get_or_404(substitute_teacher_id)
+#         for s in schedules:
+#             conflict = _teacher_busy_conflict(
+#                 substitute_teacher_id, s.date, s.start_time, s.end_time, exclude_schedule_id=s.id
+#             )
+#             if conflict:
+#                 flash(_conflict_message(substitute, conflict), 'danger')
+#                 return redirect(url_for('admin.class_detail', class_id=class_id))
+#         for s in schedules:
+#             s.substitute_teacher_id = substitute_teacher_id
+#         db.session.commit()
+#         flash(f'Đã phân công {substitute.display_name} dạy thay cho {len(schedules)} buổi học.', 'success')
+#     else:
+#         for s in schedules:
+#             s.substitute_teacher_id = None
+#         db.session.commit()
+#         flash(f'Đã hủy phân công dạy thay cho {len(schedules)} buổi học.', 'success')
+#
+#     return redirect(url_for('admin.class_detail', class_id=class_id))
 
 
 @admin_bp.route('/classes/<int:class_id>/add-students', methods=['POST'])

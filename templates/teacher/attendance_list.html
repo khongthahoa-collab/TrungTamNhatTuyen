@@ -55,9 +55,11 @@
       <div class="d-flex justify-content-between align-items-start gap-2">
         <div class="flex-grow-1">
           <div class="fw-semibold">{{ schedule.class_.name }}</div>
+          {# Tạm ẩn: chức năng dạy thay sẽ cập nhật lại sau.
           {% if schedule.substitute_teacher_id == current_user.teacher_profile.id %}
           <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Dạy thay</span>
           {% endif %}
+          #}
           <div class="text-muted small">
             {{ schedule.date.strftime('%d/%m/%Y') }}
             · {{ schedule.start_time.strftime('%H:%M') }}–{{ schedule.end_time.strftime('%H:%M') }}
@@ -144,16 +146,16 @@
                 </td>
                 <td class="small text-muted d-none d-sm-table-cell">{{ student.parent_phone or 'Chưa có' }}</td>
                 <td class="text-center">
-                  <div class="btn-group btn-group-sm status-toggle" role="group">
-                    <button type="button" class="btn btn-outline-success status-btn {% if init_status == 'present' %}active{% endif %}"
+                  <div class="d-flex gap-1 justify-content-center flex-wrap status-toggle">
+                    <button type="button" class="btn btn-sm rounded-pill btn-outline-success status-btn {% if init_status == 'present' %}active{% endif %}"
                             data-value="present" {% if is_future %}disabled{% endif %}
-                            title="Có mặt"><span class="d-sm-none">C</span><span class="d-none d-sm-inline">Có</span></button>
-                    <button type="button" class="btn btn-outline-info status-btn {% if init_status == 'excused' %}active{% endif %}"
+                            title="Có mặt"><i class="bi bi-check-circle me-sm-1"></i><span class="d-sm-none">C</span><span class="d-none d-sm-inline">Có</span></button>
+                    <button type="button" class="btn btn-sm rounded-pill btn-outline-info status-btn {% if init_status == 'excused' %}active{% endif %}"
                             data-value="excused" {% if is_future %}disabled{% endif %}
-                            title="Vắng có phép"><span class="d-sm-none">P</span><span class="d-none d-sm-inline">Phép</span></button>
-                    <button type="button" class="btn btn-outline-danger status-btn {% if init_status == 'absent' %}active{% endif %}"
+                            title="Vắng có phép"><i class="bi bi-exclamation-circle me-sm-1"></i><span class="d-sm-none">P</span><span class="d-none d-sm-inline">Phép</span></button>
+                    <button type="button" class="btn btn-sm rounded-pill btn-outline-danger status-btn {% if init_status == 'absent' %}active{% endif %}"
                             data-value="absent" {% if is_future %}disabled{% endif %}
-                            title="Vắng"><span class="d-sm-none">V</span><span class="d-none d-sm-inline">Vắng</span></button>
+                            title="Vắng"><i class="bi bi-x-circle me-sm-1"></i><span class="d-sm-none">V</span><span class="d-none d-sm-inline">Vắng</span></button>
                   </div>
                 </td>
               </tr>
@@ -216,9 +218,13 @@
 <style>
 .chevron-icon { transition: transform 0.2s ease; }
 .attendance-row-toggle[aria-expanded="true"] .chevron-icon { transform: rotate(180deg); }
-.status-toggle .btn { padding-left:0.5rem; padding-right:0.5rem; }
+.status-toggle .status-btn { padding-left:0.6rem; padding-right:0.6rem; border-color:#ced4da; color:#495057; background:#fff; }
+.status-toggle .status-btn.active { background:#fff; }
+.status-toggle .status-btn.active.btn-outline-success { border-color:#198754; color:#198754; }
+.status-toggle .status-btn.active.btn-outline-info { border-color:#0dcaf0; color:#0a6b7c; }
+.status-toggle .status-btn.active.btn-outline-danger { border-color:#dc3545; color:#dc3545; }
 @media (max-width: 575.98px) {
-  .status-toggle .btn { padding-left:0.4rem; padding-right:0.4rem; min-width:2rem; }
+  .status-toggle .status-btn { padding-left:0.45rem; padding-right:0.45rem; min-width:2rem; }
   .attendance-table td, .attendance-table th { padding-left:0.35rem; padding-right:0.35rem; }
 }
 </style>

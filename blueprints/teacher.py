@@ -500,8 +500,9 @@ def attendance_list():
     except ValueError:
         selected_date = today
 
+    # Tạm ẩn: chức năng dạy thay sẽ cập nhật lại sau (chỉ xét teacher_id).
     schedules = Schedule.query.filter(
-        db.or_(Schedule.teacher_id == teacher.id, Schedule.substitute_teacher_id == teacher.id),
+        Schedule.teacher_id == teacher.id,
         Schedule.is_cancelled == False,
         Schedule.date == selected_date,
     ).order_by(Schedule.start_time).all()
@@ -542,9 +543,10 @@ def attendance_session(schedule_id):
     from models import AttendanceSummary
     schedule = Schedule.query.get_or_404(schedule_id)
 
-    # Allow access: the regular or substitute teacher assigned to this schedule, or admin
+    # Allow access: the teacher assigned to this schedule, or admin.
+    # Tạm ẩn: chức năng dạy thay sẽ cập nhật lại sau (chỉ xét teacher_id).
     teacher = current_user.teacher_profile
-    is_assigned = teacher and (schedule.teacher_id == teacher.id or schedule.substitute_teacher_id == teacher.id)
+    is_assigned = teacher and schedule.teacher_id == teacher.id
     if not current_user.is_admin and not is_assigned:
         abort(403)
 
@@ -597,10 +599,11 @@ def save_attendance(schedule_id):
         return jsonify({'error': 'Forbidden'}), 403
     schedule = Schedule.query.get_or_404(schedule_id)
 
-    # Teachers can only save attendance for their own (or substitute-covered) schedules
+    # Teachers can only save attendance for their own schedules.
+    # Tạm ẩn: chức năng dạy thay sẽ cập nhật lại sau (chỉ xét teacher_id).
     teacher = current_user.teacher_profile
     if current_user.is_teacher and not current_user.is_admin:
-        is_assigned = teacher and (schedule.teacher_id == teacher.id or schedule.substitute_teacher_id == teacher.id)
+        is_assigned = teacher and schedule.teacher_id == teacher.id
         if not is_assigned:
             return jsonify({'error': 'Unauthorized'}), 403
 
