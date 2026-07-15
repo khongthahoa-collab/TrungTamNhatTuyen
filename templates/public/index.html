@@ -235,18 +235,17 @@
                   {% for s in schedule_by_day[d] %}
                     <div class="schedule-card mb-2 p-2 rounded cursor-pointer {% if s.schedule_type == 'intensive' %}schedule-intensive{% else %}schedule-regular{% endif %}"
                          onclick="showScheduleDetail({{ s.id }})" role="button">
-                      <div class="fw-semibold small">{{ s.class_.public_name }}</div>
-                      <div class="text-muted" style="font-size:0.75rem">
-                        {{ s.start_time.strftime('%H:%M') }}–{{ s.end_time.strftime('%H:%M') }}
-                      </div>
-                      <div style="font-size:0.72rem" class="text-muted">
-                        {{ s.class_.course.name }}
+                      <div class="fw-semibold small">
+                        {{ s.class_.subject_grade_label }}
                         {% if s.schedule_type == 'intensive' %}
                           <span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem">TC</span>
                         {% endif %}
                       </div>
+                      <div class="text-muted" style="font-size:0.75rem">
+                        {{ s.start_time.strftime('%H:%M') }}–{{ s.end_time.strftime('%H:%M') }}
+                      </div>
                       <div style="font-size:0.7rem" class="text-muted">
-                        <i class="bi bi-people me-1"></i>{{ s.class_.current_enrollment }}/{{ s.class_.max_students }}
+                        <i class="bi bi-people me-1"></i>Sĩ số tối đa: {{ s.class_.max_students }}
                       </div>
                     </div>
                   {% endfor %}
@@ -277,14 +276,14 @@
                 <div class="card-body py-2 px-3">
                   <div class="d-flex justify-content-between align-items-start">
                     <div>
-                      <div class="fw-semibold">{{ s.class_.public_name }}</div>
-                      <div class="text-muted small">{{ s.class_.course.name }} · {{ s.start_time.strftime('%H:%M') }}–{{ s.end_time.strftime('%H:%M') }}</div>
+                      <div class="fw-semibold">{{ s.class_.subject_grade_label }}</div>
+                      <div class="text-muted small">{{ s.start_time.strftime('%H:%M') }}–{{ s.end_time.strftime('%H:%M') }}</div>
                     </div>
                     <div class="text-end">
                       {% if s.schedule_type == 'intensive' %}
                         <span class="badge bg-warning text-dark small">Tăng cường</span>
                       {% endif %}
-                      <div class="text-muted small"><i class="bi bi-people me-1"></i>{{ s.class_.current_enrollment }}/{{ s.class_.max_students }}</div>
+                      <div class="text-muted small"><i class="bi bi-people me-1"></i>Sĩ số tối đa: {{ s.class_.max_students }}</div>
                     </div>
                   </div>
                 </div>

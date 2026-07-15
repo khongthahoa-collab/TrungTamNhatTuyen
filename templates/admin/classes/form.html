@@ -245,8 +245,14 @@
 
 <script>
 {% if action == 'add' %}
-// ── Time slot auto-fill ───────────────────────────────────────────
-const TIME_SLOT_END = { {% for s, e in time_slots %}"{{ s }}": "{{ e }}"{% if not loop.last %},{% endif %}{% endfor %} };
+// ── Time slot auto-fill: giờ kết thúc = giờ bắt đầu + 90 phút, có thể sửa lại ──
+function addMinutes(timeStr, minutesToAdd) {
+  const [h, m] = timeStr.split(':').map(Number);
+  const total = h * 60 + m + minutesToAdd;
+  const hh = String(Math.floor(total / 60) % 24).padStart(2, '0');
+  const mm = String(total % 60).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
 
 const DAY_OPT    = `{% for v, l in day_options %}<option value="{{ v }}">{{ l }}</option>{% endfor %}`;
 const ROOM_OPT   = `<option value="">-- Phòng (tùy chọn) --</option>{% for r in rooms %}<option value="{{ r.id }}">{{ r.display_name }}</option>{% endfor %}`;
@@ -269,7 +275,10 @@ document.getElementById('sched-rows').addEventListener('change', e => {
   if (e.target.classList.contains('sched-start')) {
     const v = e.target.value;
     const endSelect = e.target.closest('.sched-row').querySelector('.sched-end');
-    if (endSelect && TIME_SLOT_END[v]) endSelect.value = TIME_SLOT_END[v];
+    if (endSelect && v) {
+      const computed = addMinutes(v, 90);
+      if ([...endSelect.options].some(o => o.value === computed)) endSelect.value = computed;
+    }
   }
 });
 

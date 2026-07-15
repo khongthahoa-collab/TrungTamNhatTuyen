@@ -17,20 +17,23 @@ ALL_GRADES = GRADE_SEQUENCE + ['Loại khác']
 GRADE_LEVEL_OPTIONS = [(g, g) for g in ALL_GRADES]
 GRADE_LEVEL_LABELS = {g: g for g in ALL_GRADES}
 
-# Preset time slots: start → end (+90 min)
-TIME_SLOTS = [
-    ('07:30', '09:00'),
-    ('09:00', '10:30'),
-    ('10:30', '12:00'),
-    ('13:30', '15:00'),
-    ('14:30', '16:00'),
-    ('16:00', '17:30'),
-    ('17:30', '19:00'),
-    ('19:00', '20:30'),
-    ('20:30', '22:00'),
-]
-# All distinct start/end time points, for the "Từ"/"Đến" dropdowns
-TIME_POINTS = sorted({t for pair in TIME_SLOTS for t in pair})
+def _generate_time_points(start='07:00', end='23:45', step_minutes=15):
+    """15-phút một mốc, từ 07:00 đến 23:45, dùng cho các dropdown "Từ"/"Đến"
+    của khung giờ học. Giờ kết thúc mặc định tự cộng thêm 90 phút ở phía JS,
+    nhưng admin có thể chọn lại giờ kết thúc khác trong danh sách này."""
+    points = []
+    h, m = map(int, start.split(':'))
+    eh, em = map(int, end.split(':'))
+    cur = h * 60 + m
+    end_total = eh * 60 + em
+    while cur <= end_total:
+        points.append(f'{cur // 60:02d}:{cur % 60:02d}')
+        cur += step_minutes
+    return points
+
+
+# All time points (07:00–23:45, mỗi 15 phút), dùng cho các dropdown "Từ"/"Đến"
+TIME_POINTS = _generate_time_points()
 
 # Vietnamese weekday names → Python weekday index (Mon=0)
 DAY_OPTIONS = [
@@ -332,7 +335,7 @@ def _form_context(action, courses, teachers, rooms, form=None, class_=None):
     return dict(
         action=action, courses=courses, teachers=teachers, rooms=rooms,
         grade_options=GRADE_LEVEL_OPTIONS,
-        time_slots=TIME_SLOTS, time_points=TIME_POINTS, day_options=DAY_OPTIONS,
+        time_points=TIME_POINTS, day_options=DAY_OPTIONS,
         form=form, class_=class_,
     )
 
@@ -514,7 +517,7 @@ def class_detail(class_id):
                            weekly_slots=weekly_slots,
                            suggested_students=_suggested_students(class_),
                            grade_label=GRADE_LEVEL_LABELS.get(class_.grade_level, class_.grade_level or ''),
-                           day_options=DAY_OPTIONS, time_slots=TIME_SLOTS, time_points=TIME_POINTS,
+                           day_options=DAY_OPTIONS, time_points=TIME_POINTS,
                            today=today)
 
 

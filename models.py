@@ -744,6 +744,15 @@ class Class(db.Model):
         return self.name.rsplit(' - ', 1)[0] if self.name else self.name
 
     @property
+    def subject_grade_label(self):
+        """'{Môn học} - {Lớp}', e.g. 'Hoá học - 7' — for the public homepage
+        schedule cards (course + grade only, no teacher)."""
+        grade = self.grade_level or ''
+        grade_short = grade[len('Lớp '):] if grade.startswith('Lớp ') else grade
+        course_name = self.course.name if self.course else ''
+        return f'{course_name} - {grade_short}'.strip(' -')
+
+    @property
     def current_enrollment(self):
         """Count active enrollments"""
         return self.enrollments.filter_by(is_active=True).count()

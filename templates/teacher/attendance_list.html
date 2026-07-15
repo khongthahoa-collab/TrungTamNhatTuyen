@@ -313,6 +313,9 @@ function updateCounters(scheduleId) {
   if (!table || !counters) return;
   let present = 0, excused = 0, absent = 0;
   table.querySelectorAll('.att-row').forEach(row => {
+    // Học sinh chưa được điểm danh (chưa "touched") không tính vào Vắng —
+    // mặc định Vắng: 0 cho đến khi giáo viên thực sự đánh dấu trạng thái.
+    if (row.dataset.touched !== '1') return;
     if (row.dataset.status === 'present') present++;
     else if (row.dataset.status === 'excused') excused++;
     else absent++;
