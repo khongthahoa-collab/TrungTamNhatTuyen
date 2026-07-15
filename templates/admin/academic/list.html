@@ -7,17 +7,30 @@
 {% block content %}
 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
   <h5 class="mb-0 fw-bold"><i class="bi bi-calendar3 me-2 text-primary"></i>Quản lý năm học</h5>
-  <div class="d-flex gap-2">
-    <a href="{{ url_for('admin.academic_year_rollover_preview') }}" class="btn btn-primary btn-sm">
-      <i class="bi bi-arrow-up-right-circle me-1"></i>Cuộn năm học
-    </a>
-    <form method="post" action="{{ url_for('admin.academic_sync_grades') }}"
-          onsubmit="return confirm('Đồng bộ lớp học cho tất cả học sinh theo năm học hiện tại? Học sinh sẽ được tự động lên lớp theo số năm đã trôi qua kể từ lần đồng bộ trước.')">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="btn btn-outline-primary btn-sm">
-        <i class="bi bi-arrow-repeat me-1"></i>Đồng bộ lớp học
+  <div class="d-flex flex-column align-items-end gap-1">
+    <div class="d-flex gap-2">
+      {% if rollover_window_open %}
+      <a href="{{ url_for('admin.academic_year_rollover_preview') }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-arrow-up-right-circle me-1"></i>Cuộn năm học
+      </a>
+      {% else %}
+      <button type="button" class="btn btn-primary btn-sm" disabled title="Chỉ dùng được từ ngày 01/07 hàng năm">
+        <i class="bi bi-arrow-up-right-circle me-1"></i>Cuộn năm học
       </button>
-    </form>
+      {% endif %}
+      <form method="post" action="{{ url_for('admin.academic_sync_grades') }}"
+            onsubmit="return confirm('Đồng bộ lớp học cho tất cả học sinh theo năm học hiện tại? Học sinh sẽ được tự động lên lớp theo số năm đã trôi qua kể từ lần đồng bộ trước.')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-outline-primary btn-sm" {% if not rollover_window_open %}disabled title="Chỉ dùng được từ ngày 01/07 hàng năm"{% endif %}>
+          <i class="bi bi-arrow-repeat me-1"></i>Đồng bộ lớp học
+        </button>
+      </form>
+    </div>
+    {% if not rollover_window_open %}
+    <div class="small text-muted">
+      <i class="bi bi-lock me-1"></i>Lên lớp chỉ mở từ ngày 01/07 hàng năm.
+    </div>
+    {% endif %}
   </div>
 </div>
 

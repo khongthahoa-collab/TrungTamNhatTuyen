@@ -20,13 +20,23 @@ def current_academic_year_start(today=None):
     return today.year if today.month >= 7 else today.year - 1
 
 
+def _rollover_window_open(today=None):
+    """Both grade-advancement actions ('Cuộn năm học' and 'Đồng bộ lớp học')
+    only make sense once the new school year has actually started — running
+    them in, say, March would advance everyone a year early. Open the
+    01/07–31/12 half of the calendar, locked the rest (01/01–30/06)."""
+    today = today or date.today()
+    return today.month >= 7
+
+
 @admin_bp.route('/academic-years')
 @login_required
 @require_admin
 def academic_years():
     years = AcademicYear.query.order_by(AcademicYear.start_date.desc()).all()
     return render_template('admin/academic/list.html', years=years,
-                           semester_types=SemesterType.LABELS)
+                           semester_types=SemesterType.LABELS,
+                           rollover_window_open=_rollover_window_open())
 
 
 @admin_bp.route('/academic-years/add', methods=['POST'])
@@ -171,6 +181,9 @@ def academic_sync_grades():
     """Đồng bộ lớp học cho năm học hiện tại — thao tác thủ công (bấm nút),
     chưa chạy tự động theo cron/queue. Xem _advance_student_grades() cho chi
     tiết logic lên lớp/tốt nghiệp."""
+    if not _rollover_window_open():
+        flash('Chỉ có thể lên lớp từ ngày 01/07 hàng năm.', 'danger')
+        return redirect(url_for('admin.academic_years'))
     current_year = current_academic_year_start()
     baselined, advanced, graduated = _advance_student_grades(current_year)
     db.session.commit()
@@ -235,6 +248,9 @@ def _rollover_plan():
 @login_required
 @require_admin
 def academic_year_rollover_preview():
+    if not _rollover_window_open():
+        flash('Chỉ có thể cuộn năm học từ ngày 01/07 hàng năm.', 'danger')
+        return redirect(url_for('admin.academic_years'))
     plan = _rollover_plan()
     rolling_info = [
         (cls, GRADE_SEQUENCE[GRADE_SEQUENCE.index(cls.grade_level) + 1],
@@ -249,6 +265,9 @@ def academic_year_rollover_preview():
 @login_required
 @require_admin
 def academic_year_rollover_execute():
+    if not _rollover_window_open():
+        flash('Chỉ có thể cuộn năm học từ ngày 01/07 hàng năm.', 'danger')
+        return redirect(url_for('admin.academic_years'))
     plan = _rollover_plan()
     if plan['already_rolled']:
         flash('Năm học tới đã được cuộn rồi — không thể cuộn lại.', 'danger')
