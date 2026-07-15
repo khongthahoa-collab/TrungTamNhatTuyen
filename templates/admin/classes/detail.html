@@ -372,19 +372,26 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="modal-body">
           {% if suggested_students %}
-          <p class="text-muted small">
+          <p class="text-muted small mb-2">
             Gợi ý học sinh cùng khối, chưa học môn {{ class_.course.name if class_.course else '' }}.
           </p>
-          <div class="list-group">
+          <div class="input-group input-group-sm mb-2">
+            <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+            <input type="text" id="studentSearchInput" class="form-control" placeholder="Tìm học sinh theo tên...">
+          </div>
+          <div class="list-group" id="suggestedStudentsList">
             {% for student in suggested_students %}
-            <label class="list-group-item d-flex align-items-center gap-2">
+            <label class="list-group-item d-flex align-items-center gap-2 suggested-student-item">
               <input type="checkbox" class="form-check-input" name="student_ids" value="{{ student.id }}">
               <span class="flex-grow-1">
-                <span class="fw-semibold small">{{ student.full_name }}</span>
+                <span class="fw-semibold small student-name">{{ student.full_name }}</span>
                 {% if student.current_grade %}<span class="text-muted small ms-2">{{ student.current_grade }}</span>{% endif %}
               </span>
             </label>
             {% endfor %}
+          </div>
+          <div class="text-center text-muted small py-3 d-none" id="studentSearchNoResults">
+            Không tìm thấy học sinh phù hợp.
           </div>
           {% else %}
           <div class="text-center text-muted py-4">
@@ -475,6 +482,20 @@ document.getElementById('resched-rows').addEventListener('click', e => {
 
 document.getElementById('add-resched-row').addEventListener('click', () => {
   document.getElementById('resched-rows').appendChild(buildReschedRow());
+});
+
+// Tìm học sinh theo tên trong danh sách gợi ý ở modal "Thêm học sinh"
+document.getElementById('studentSearchInput')?.addEventListener('input', function() {
+  const q = this.value.trim().toLowerCase();
+  const items = document.querySelectorAll('#suggestedStudentsList .suggested-student-item');
+  let visibleCount = 0;
+  items.forEach(item => {
+    const name = item.querySelector('.student-name').textContent.toLowerCase();
+    const match = !q || name.includes(q);
+    item.classList.toggle('d-none', !match);
+    if (match) visibleCount++;
+  });
+  document.getElementById('studentSearchNoResults')?.classList.toggle('d-none', visibleCount > 0);
 });
 </script>
 {% endblock %}
