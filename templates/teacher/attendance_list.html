@@ -481,11 +481,26 @@ document.querySelectorAll('.btn-export').forEach(btn => {
     const original = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    const filename = `diem-danh-${scheduleId}.jpg`;
     html2canvas(capture, { scale: 2, backgroundColor: '#16a34a' }).then(canvas => {
+      return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+    }).then(blob => {
+      if (!blob) return;
+      // iOS WebKit (Safari AND Chrome-for-iOS — both run on WebKit, Apple
+      // forbids other engines) ignores the <a download> attribute entirely;
+      // it just opens the image instead of saving it. The Share Sheet is
+      // the only reliable way to get a real "Save Image" action there.
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      const file = (isIOS && window.File) ? new File([blob], filename, { type: 'image/jpeg' }) : null;
+      if (isIOS && file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        return navigator.share({ files: [file], title: 'Điểm danh' }).catch(() => {});
+      }
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.download = `diem-danh-${scheduleId}.jpg`;
-      link.href = canvas.toDataURL('image/jpeg', 0.85);
+      link.download = filename;
+      link.href = url;
       link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     }).finally(() => {
       btn.disabled = false;
       btn.innerHTML = original;
