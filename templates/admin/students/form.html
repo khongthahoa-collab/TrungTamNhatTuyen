@@ -24,6 +24,34 @@
               action="{% if action == 'add' %}{{ url_for('admin.student_add') }}{% else %}{{ url_for('admin.student_edit', student_id=student.id) }}{% endif %}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
+          {% if duplicate_matches %}
+          <div class="alert alert-warning">
+            <div class="fw-semibold mb-2">
+              <i class="bi bi-exclamation-triangle me-1"></i>
+              Đã có {{ duplicate_matches|length }} học sinh tên "{{ form.full_name }}" trong hệ thống:
+            </div>
+            <ul class="mb-2 small">
+              {% for m in duplicate_matches %}
+              <li>
+                {{ m.current_grade or '—' }}{% if m.current_school %} · {{ m.current_school }}{% endif %}
+                {% if m.is_deleted %}<span class="badge bg-secondary ms-1">Đã xoá</span>{% endif %}
+                — <a href="{{ url_for('admin.student_detail', student_id=m.id) }}" target="_blank">xem hồ sơ</a>
+              </li>
+              {% endfor %}
+            </ul>
+            <div class="small text-muted mb-2">
+              Nếu đây là cùng một học sinh, hãy vào hồ sơ có sẵn để thêm lớp học thay vì tạo mới —
+              tạo mới sẽ làm học phí/điểm danh của học sinh bị tách rời giữa 2 hồ sơ.
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="confirm_duplicate" value="1" id="confirmDuplicate">
+              <label class="form-check-label small" for="confirmDuplicate">
+                Đây là học sinh khác trùng tên, vẫn tạo hồ sơ mới
+              </label>
+            </div>
+          </div>
+          {% endif %}
+
           <h6 class="fw-semibold text-primary mb-3 border-bottom pb-2">
             <i class="bi bi-person me-2"></i>Thông tin học sinh
           </h6>

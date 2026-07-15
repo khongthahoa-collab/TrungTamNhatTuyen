@@ -331,6 +331,20 @@ def student_add():
                                    grade_by_level=GRADE_BY_LEVEL,
                                    schools=schools, form=request.form)
 
+        # Same name already exists (active or soft-deleted) — surface it and
+        # require an explicit confirm before creating a second record. This
+        # is what let one real student end up scattered across duplicate
+        # rows in the past (their classes/tuition/attendance split across
+        # records with no link between them).
+        confirm_duplicate = request.form.get('confirm_duplicate') == '1'
+        duplicate_matches = Student.query.filter_by(full_name=full_name).all()
+        if duplicate_matches and not confirm_duplicate:
+            return render_template('admin/students/form.html',
+                                   action='add', levels=StudentLevel.LABELS,
+                                   grade_by_level=GRADE_BY_LEVEL,
+                                   schools=schools, form=request.form,
+                                   duplicate_matches=duplicate_matches)
+
         try:
             dob = date.fromisoformat(dob_str) if dob_str else None
         except ValueError:
