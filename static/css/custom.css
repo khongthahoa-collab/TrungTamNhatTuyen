@@ -636,7 +636,7 @@ footer a:hover { color: #fff !important; }
 
 /* ── Admin sidebar ── */
 .sidebar {
-  background: linear-gradient(180deg, #14532d 0%, #166534 100%);
+  background: #ffe0c5;
   box-shadow: 2px 0 12px rgba(17,26,20,.15);
   /* Collapse animations inside this flex column reflow every sibling below
      the opening group; contain the layout/paint cost to the sidebar itself
@@ -648,19 +648,19 @@ footer a:hover { color: #fff !important; }
   border-radius: 8px;
   padding: 10px 14px;
   transition: background-color .2s ease, color .2s ease, box-shadow .2s ease;
-  color: rgba(255,255,255,.82);
+  color: rgba(17,26,20,.75);
   font-size: 0.88rem;
   font-weight: 500;
 }
 .sidebar .nav-link:hover {
-  background: rgba(255,255,255,.12);
-  color: #fff;
+  background: rgba(17,26,20,.08);
+  color: #111a14;
 }
 .sidebar .nav-link.active {
-  background: rgba(22,163,74,.40);
-  color: #fff;
+  background: rgba(22,163,74,.22);
+  color: #14532d;
   font-weight: 600;
-  box-shadow: 0 2px 8px rgba(22,163,74,.30);
+  box-shadow: 0 2px 8px rgba(22,163,74,.25);
 }
 /* Collapsible group headers */
 .sidebar .sidebar-caret {

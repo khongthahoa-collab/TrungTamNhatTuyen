@@ -2,7 +2,7 @@
 {% block body %}
 
 <!-- Top Navbar -->
-<nav class="navbar navbar-dark sticky-top" style="background: linear-gradient(90deg, #06b6d4 0%, #0891b2 100%); z-index:200;">
+<nav class="navbar navbar-light sticky-top" style="background: #ffe0c5; z-index:200;">
   <div class="container-fluid">
     <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{{ url_for('parent.dashboard') }}">
       <img src="{{ url_for('static', filename='icons/logo-mark.png') }}" alt="Nhật Tuyền" height="28">
@@ -13,7 +13,7 @@
       {% if children and children | length > 1 %}
         {% set current_student = student if student is defined else children[0] %}
         <div class="dropdown">
-          <button class="btn btn-sm btn-outline-light dropdown-toggle d-flex align-items-center gap-1"
+          <button class="btn btn-sm btn-outline-dark dropdown-toggle d-flex align-items-center gap-1"
                   type="button" data-bs-toggle="dropdown">
             <i class="bi bi-person-circle"></i>
             <span class="d-none d-sm-inline text-truncate" style="max-width:100px;">
@@ -38,14 +38,14 @@
           </ul>
         </div>
       {% elif children and children | length == 1 %}
-        <span class="text-light small d-flex align-items-center gap-1">
+        <span class="text-dark small d-flex align-items-center gap-1">
           <i class="bi bi-person-circle"></i>
           {{ children[0].full_name }}
         </span>
       {% endif %}
 
       <!-- Bell notification -->
-      <a href="#" class="btn btn-sm btn-outline-light position-relative" title="Thông báo">
+      <a href="#" class="btn btn-sm btn-outline-dark position-relative" title="Thông báo">
         <i class="bi bi-bell{% if unread_notifications %}-fill{% endif %}"></i>
         {% if unread_notifications %}
         <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
@@ -56,12 +56,12 @@
       </a>
 
       <!-- Change password -->
-      <a href="{{ url_for('parent.change_password') }}" class="btn btn-sm btn-outline-light" title="Đổi mật khẩu">
+      <a href="{{ url_for('parent.change_password') }}" class="btn btn-sm btn-outline-dark" title="Đổi mật khẩu">
         <i class="bi bi-key"></i>
       </a>
 
       <!-- Logout -->
-      <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-light d-flex align-items-center gap-1" title="Đăng xuất">
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-dark d-flex align-items-center gap-1" title="Đăng xuất">
         <i class="bi bi-box-arrow-right"></i>
         <span class="d-none d-sm-inline" style="font-size:0.8rem;">Đăng xuất</span>
       </a>
