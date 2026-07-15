@@ -34,6 +34,20 @@
           </a>
         </li>
       </ul>
+      {% if center_address or center_phone %}
+      <div class="navbar-mobile-info">
+        {% if center_address %}
+        <div class="navbar-mobile-info-item">
+          <i class="bi bi-geo-alt-fill"></i><span>{{ center_address }}</span>
+        </div>
+        {% endif %}
+        {% if center_phone %}
+        <div class="navbar-mobile-info-item">
+          <i class="bi bi-telephone-fill"></i><a href="tel:{{ center_phone }}">{{ center_phone }}</a>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
     </div>
   </div>
 </nav>
