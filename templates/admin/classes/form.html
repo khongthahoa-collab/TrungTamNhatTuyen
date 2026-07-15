@@ -338,7 +338,10 @@ function syncTeacherColumns() {
   document.querySelector('.sched-teacher-hint')?.classList.toggle('d-none', !hasAssistant);
 }
 document.getElementById('teacherSelect').addEventListener('change', syncTeacherColumns);
-document.getElementById('assistantTeacherSelect')?.addEventListener('change', syncTeacherColumns);
+// Select2 phát sự kiện 'change' qua jQuery — addEventListener gốc không bắt
+// được, phải dùng $(...).on('change', ...) của jQuery mới nhận đúng lúc
+// admin chọn/bỏ chọn trợ giảng qua giao diện Select2.
+$('#assistantTeacherSelect').on('change', syncTeacherColumns);
 syncTeacherColumns();
 // Init
 updateSessionsPerWeek();
