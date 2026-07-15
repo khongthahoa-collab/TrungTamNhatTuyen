@@ -3,6 +3,7 @@ from extensions import db
 from flask_login import UserMixin
 from datetime import datetime, date
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy.orm import joinedload
 
 
 # ============================================================
@@ -766,7 +767,8 @@ class Class(db.Model):
     @property
     def active_students(self):
         """Get list of active students"""
-        return [e.student for e in self.enrollments.filter_by(is_active=True).all()]
+        return [e.student for e in self.enrollments.filter_by(is_active=True)
+                .options(joinedload(Enrollment.student)).all()]
 
     def is_student_enrolled(self, student_id):
         """Check if student is enrolled"""
@@ -829,7 +831,8 @@ class Student(db.Model):
     @property
     def active_classes(self):
         """Get list of active classes"""
-        return [e.class_ for e in self.enrollments.filter_by(is_active=True).all()]
+        return [e.class_ for e in self.enrollments.filter_by(is_active=True)
+                .options(joinedload(Enrollment.class_)).all()]
 
     @property
     def level_label(self):

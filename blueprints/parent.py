@@ -5,6 +5,7 @@ import re
 from flask import Blueprint, render_template, redirect, url_for, flash, abort, send_from_directory, current_app, request
 from flask_login import login_required, current_user
 from datetime import date, datetime, timedelta
+from sqlalchemy.orm import joinedload
 from extensions import db
 from models import (Student, Attendance, Score, Reward, TuitionPayment, Schedule, Enrollment,
                     ClassDocument, ScoreType, ScoreSource, ContactInquiry, Exam, ExamAttempt, ExamLog,
@@ -21,6 +22,20 @@ def _get_student_or_403(student_id):
     if student not in kids:
         abort(403)
     return student
+
+
+def _upcoming_schedules(student, start, end):
+    """Schedules across all of a student's active classes within [start, end],
+    already ordered — one batched query instead of one query per class."""
+    class_ids = [c.id for c in student.active_classes]
+    if not class_ids:
+        return []
+    return (Schedule.query.options(joinedload(Schedule.class_)).filter(
+                Schedule.class_id.in_(class_ids),
+                Schedule.date >= start,
+                Schedule.date <= end,
+                Schedule.is_cancelled == False,
+            ).order_by(Schedule.date, Schedule.start_time).all())
 
 
 @parent_bp.route('/change-password', methods=['GET', 'POST'])
@@ -65,15 +80,7 @@ def dashboard():
 
     monday = today - timedelta(days=today.weekday())
     sunday = monday + timedelta(days=6)
-    upcoming = []
-    for cl in student.active_classes:
-        scheds = cl.schedules.filter(
-            Schedule.date >= today,
-            Schedule.date <= sunday,
-            Schedule.is_cancelled == False,
-        ).order_by(Schedule.date, Schedule.start_time).all()
-        upcoming.extend(scheds)
-    upcoming.sort(key=lambda s: (s.date, s.start_time))
+    upcoming = _upcoming_schedules(student, today, sunday)
 
     current_month = today.month
     current_year = today.year
@@ -118,15 +125,7 @@ def student_detail(student_id):
 
     monday = today - timedelta(days=today.weekday())
     sunday = monday + timedelta(days=6)
-    upcoming = []
-    for cl in student.active_classes:
-        scheds = cl.schedules.filter(
-            Schedule.date >= today,
-            Schedule.date <= sunday,
-            Schedule.is_cancelled == False,
-        ).order_by(Schedule.date, Schedule.start_time).all()
-        upcoming.extend(scheds)
-    upcoming.sort(key=lambda s: (s.date, s.start_time))
+    upcoming = _upcoming_schedules(student, today, sunday)
 
     unpaid = student.tuition_payments.filter_by(is_paid=False).all()
     recent_att = student.attendances.order_by(Attendance.recorded_at.desc()).limit(5).all()
@@ -308,15 +307,7 @@ def schedule(student_id):
     today = date.today()
     end_date = today + timedelta(days=30)
 
-    schedules = []
-    for cl in student.active_classes:
-        scheds = cl.schedules.filter(
-            Schedule.date >= today,
-            Schedule.date <= end_date,
-            Schedule.is_cancelled == False,
-        ).order_by(Schedule.date, Schedule.start_time).all()
-        schedules.extend(scheds)
-    schedules.sort(key=lambda s: (s.date, s.start_time))
+    schedules = _upcoming_schedules(student, today, end_date)
 
     by_date = {}
     for s in schedules:
@@ -384,13 +375,15 @@ def documents(student_id):
     student = _get_student_or_403(student_id)
     children = current_user.children.filter_by(is_active=True).all()
 
+    classes = student.active_classes
     docs_by_class = {}
-    for cl in student.active_classes:
-        docs = cl.documents.filter_by(is_active=True).order_by(
-            ClassDocument.uploaded_at.desc()
-        ).all()
-        if docs:
-            docs_by_class[cl] = docs
+    if classes:
+        classes_by_id = {c.id: c for c in classes}
+        all_docs = (ClassDocument.query
+                   .filter(ClassDocument.class_id.in_(classes_by_id.keys()), ClassDocument.is_active == True)
+                   .order_by(ClassDocument.uploaded_at.desc()).all())
+        for doc in all_docs:
+            docs_by_class.setdefault(classes_by_id[doc.class_id], []).append(doc)
 
     return render_template('parent/documents.html',
                            student=student, children=children, docs_by_class=docs_by_class)
