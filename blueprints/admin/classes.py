@@ -440,9 +440,12 @@ def class_add():
             return render_template('admin/classes/form.html',
                                    **_form_context('add', courses, teachers, rooms, form=request.form))
 
-        # Teacher availability check across the whole school year (req 7)
+        # Teacher availability check from today onward — a past session that
+        # already happened can't actually double-book anyone, so don't let
+        # it block creating a new class (start_date is the school year's
+        # start, which can itself be in the past relative to today).
         primary_teacher = Teacher.query.get(primary_teacher_id)
-        conflict = _find_teacher_conflict(start_date, end_date, sched_rows)
+        conflict = _find_teacher_conflict(max(date.today(), start_date), end_date, sched_rows)
         if conflict:
             flash(_conflict_message(conflict.effective_teacher, conflict), 'danger')
             return render_template('admin/classes/form.html',
