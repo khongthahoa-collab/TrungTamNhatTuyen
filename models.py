@@ -738,6 +738,12 @@ class Class(db.Model):
                                         backref='assistant_classes')
 
     @property
+    def public_name(self):
+        """Class name without the trailing ' - <teacher>' suffix, for
+        public-facing display (the teacher shouldn't be advertised there)."""
+        return self.name.rsplit(' - ', 1)[0] if self.name else self.name
+
+    @property
     def current_enrollment(self):
         """Count active enrollments"""
         return self.enrollments.filter_by(is_active=True).count()

@@ -172,7 +172,7 @@ def schedule_detail(schedule_id):
     """API trả về chi tiết buổi học (không hiện học phí)."""
     s = Schedule.query.get_or_404(schedule_id)
     return jsonify({
-        'class_name': s.class_.name,
+        'class_name': s.class_.public_name,
         'course': s.class_.course.name,
         'level': s.class_.grade_level or '',
         'grade_level': s.class_.grade_level or '',

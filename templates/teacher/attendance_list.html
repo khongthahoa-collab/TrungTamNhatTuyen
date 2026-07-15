@@ -17,22 +17,39 @@
 
   <!-- Bộ lọc theo ngày -->
   <div class="card border-0 shadow-sm mb-3">
-    <div class="card-body py-2 d-flex align-items-center gap-2">
-      <a href="{{ url_for('teacher.attendance_list', date=prev_date.isoformat()) }}"
-         class="btn btn-outline-secondary btn-sm flex-shrink-0">
-        <i class="bi bi-chevron-left"></i>
-      </a>
-      <form method="get" class="flex-grow-1">
-        <input type="date" name="date" class="form-control form-control-sm text-center"
-               value="{{ selected_date.isoformat() }}" onchange="this.form.submit()">
-      </form>
-      <a href="{{ url_for('teacher.attendance_list', date=next_date.isoformat()) }}"
-         class="btn btn-outline-secondary btn-sm flex-shrink-0">
-        <i class="bi bi-chevron-right"></i>
-      </a>
-      {% if selected_date != today %}
-      <a href="{{ url_for('teacher.attendance_list') }}" class="btn btn-outline-primary btn-sm flex-shrink-0">Hôm nay</a>
-      {% endif %}
+    <div class="card-body py-2">
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <a href="{{ url_for('teacher.attendance_list', date=prev2_date.isoformat()) }}"
+           class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Lùi 2 tuần">
+          <i class="bi bi-chevron-double-left"></i>
+        </a>
+        <a href="{{ url_for('teacher.attendance_list', date=prev_date.isoformat()) }}"
+           class="btn btn-outline-secondary btn-sm flex-shrink-0">
+          <i class="bi bi-chevron-left"></i>
+        </a>
+        <form method="get" class="flex-grow-1">
+          <input type="date" name="date" class="form-control form-control-sm text-center"
+                 value="{{ selected_date.isoformat() }}" onchange="this.form.submit()">
+        </form>
+        <a href="{{ url_for('teacher.attendance_list', date=next_date.isoformat()) }}"
+           class="btn btn-outline-secondary btn-sm flex-shrink-0">
+          <i class="bi bi-chevron-right"></i>
+        </a>
+        <a href="{{ url_for('teacher.attendance_list', date=next2_date.isoformat()) }}"
+           class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Tiến 2 tuần">
+          <i class="bi bi-chevron-double-right"></i>
+        </a>
+      </div>
+      <div class="d-flex gap-2 justify-content-center flex-wrap small">
+        <a href="{{ url_for('teacher.attendance_list') }}"
+           class="text-decoration-none {% if selected_date == today %}fw-bold text-primary{% else %}text-muted{% endif %}">Hôm nay</a>
+        <span class="text-muted">|</span>
+        <a href="{{ url_for('teacher.attendance_list', date=this_week_start.isoformat()) }}"
+           class="text-decoration-none {% if selected_date == this_week_start %}fw-bold text-primary{% else %}text-muted{% endif %}">Tuần này</a>
+        <span class="text-muted">|</span>
+        <a href="{{ url_for('teacher.attendance_list', date=this_month_start.isoformat()) }}"
+           class="text-decoration-none {% if selected_date == this_month_start %}fw-bold text-primary{% else %}text-muted{% endif %}">Tháng này</a>
+      </div>
     </div>
   </div>
 
@@ -47,6 +64,7 @@
   {% set summary = summaries.get(schedule.id) %}
   {% set data = roster[schedule.id] %}
   {% set is_future = selected_date > today %}
+  {% set is_locked = (selected_date < today) and schedule.attendance_taken %}
   <div class="card border-0 shadow-sm mb-2 border-start border-3
               {% if is_future %}border-info{% elif not schedule.attendance_taken %}border-warning{% else %}border-success{% endif %}">
     <div class="card-body py-2 px-3 attendance-row-toggle" role="button" tabindex="0"
@@ -72,7 +90,7 @@
           <div class="small mt-1">
             <span class="text-success me-2"><i class="bi bi-check-circle"></i> {{ summary.present_count }} có mặt</span>
             {% if summary.absent_count %}<span class="text-danger me-2"><i class="bi bi-x-circle"></i> {{ summary.absent_count }} vắng</span>{% endif %}
-            {% if summary.excused_count %}<span class="text-info me-2"><i class="bi bi-file-earmark-check"></i> {{ summary.excused_count }} vắng phép</span>{% endif %}
+            {% if summary.excused_count %}<span class="text-warning-emphasis me-2"><i class="bi bi-file-earmark-check"></i> {{ summary.excused_count }} vắng phép</span>{% endif %}
           </div>
           {% endif %}
         </div>
@@ -92,37 +110,54 @@
         <div class="d-flex flex-wrap gap-2 mb-3" id="counters-{{ schedule.id }}">
           <span class="badge bg-secondary fs-6">Sĩ số: <span class="cnt-total">{{ data.enrollments | length }}</span></span>
           <span class="badge bg-success fs-6">Có: <span class="cnt-present">0</span></span>
-          <span class="badge bg-info text-dark fs-6">Phép: <span class="cnt-excused">0</span></span>
+          <span class="badge bg-warning text-dark fs-6">Phép: <span class="cnt-excused">0</span></span>
           <span class="badge bg-danger fs-6">Vắng: <span class="cnt-absent">0</span></span>
         </div>
 
         {% if not is_future and data.enrollments %}
         <!-- Đủ | Lưu điểm danh | Xuất ảnh -->
         <div class="row g-2 mb-3">
+          {% if not is_locked %}
           <div class="col-4">
-            <button type="button" class="btn btn-outline-success w-100 btn-mark-all" data-schedule="{{ schedule.id }}">
-              <i class="bi bi-check-all d-md-none"></i><span class="d-none d-md-inline">Đủ</span>
+            <button type="button" class="btn btn-outline-success w-100 btn-mark-all btn-attendance-action" data-schedule="{{ schedule.id }}">
+              <i class="bi bi-check-all me-1"></i><span>Đủ</span>
             </button>
           </div>
           <div class="col-4">
-            <button type="button" class="btn btn-primary w-100 btn-save" data-schedule="{{ schedule.id }}" disabled>
+            <button type="button" class="btn btn-primary w-100 btn-save btn-attendance-action" data-schedule="{{ schedule.id }}" disabled>
               <i class="bi bi-save me-md-1"></i><span class="d-none d-md-inline">Lưu điểm danh</span>
             </button>
           </div>
           <div class="col-4">
-            <button type="button" class="btn btn-outline-secondary w-100 btn-export" data-schedule="{{ schedule.id }}"
+            <button type="button" class="btn btn-outline-secondary w-100 btn-export btn-attendance-action" data-schedule="{{ schedule.id }}"
                     data-bs-toggle="modal" data-bs-target="#exportModal-{{ schedule.id }}">
               <i class="bi bi-image me-md-1"></i><span class="d-none d-md-inline">Xuất ảnh</span>
             </button>
           </div>
+          {% else %}
+          <div class="col-12">
+            <button type="button" class="btn btn-outline-secondary w-100 btn-export btn-attendance-action" data-schedule="{{ schedule.id }}"
+                    data-bs-toggle="modal" data-bs-target="#exportModal-{{ schedule.id }}">
+              <i class="bi bi-image me-md-1"></i><span class="d-none d-md-inline">Xuất ảnh</span>
+            </button>
+          </div>
+          {% endif %}
         </div>
+        {% if is_locked %}
+        <div class="alert alert-secondary small py-2 mb-3">
+          <i class="bi bi-lock me-1"></i>Buổi học đã qua và đã điểm danh — không thể chỉnh sửa lại.
+        </div>
+        {% endif %}
         {% endif %}
 
         <div class="table-responsive">
           <table class="table table-hover align-middle mb-0 attendance-table" data-schedule="{{ schedule.id }}">
             <thead class="table-light">
               <tr>
-                <th style="width:32px;"></th>
+                <th style="width:32px;">
+                  <input type="checkbox" class="form-check-input select-all-check" title="Chọn tất cả"
+                         {% if is_future or is_locked %}disabled{% endif %}>
+                </th>
                 <th class="d-none d-sm-table-cell" style="width:44px;">STT</th>
                 <th>Học sinh</th>
                 <th class="d-none d-sm-table-cell">SĐT</th>
@@ -134,9 +169,9 @@
               {% set student = enrollment.student %}
               {% set att = data.attendance.get(student.id) %}
               {% set init_status = att.status if att and att.status in ('present', 'excused') else 'absent' %}
-              <tr class="att-row" data-student="{{ student.id }}" data-status="{{ init_status }}">
+              <tr class="att-row" data-student="{{ student.id }}" data-status="{{ init_status }}" data-touched="{{ '1' if att else '0' }}">
                 <td>
-                  <input type="checkbox" class="form-check-input att-check" {% if is_future %}disabled{% endif %}
+                  <input type="checkbox" class="form-check-input att-check" {% if is_future or is_locked %}disabled{% endif %}
                          {% if init_status == 'present' %}checked{% endif %}>
                 </td>
                 <td class="small text-muted d-none d-sm-table-cell">{{ loop.index }}</td>
@@ -148,14 +183,14 @@
                 <td class="text-center">
                   <div class="d-flex gap-1 justify-content-center flex-wrap status-toggle">
                     <button type="button" class="btn btn-sm rounded-pill btn-outline-success status-btn {% if init_status == 'present' %}active{% endif %}"
-                            data-value="present" {% if is_future %}disabled{% endif %}
-                            title="Có mặt"><i class="bi bi-check-circle me-sm-1"></i><span class="d-sm-none">C</span><span class="d-none d-sm-inline">Có</span></button>
-                    <button type="button" class="btn btn-sm rounded-pill btn-outline-info status-btn {% if init_status == 'excused' %}active{% endif %}"
-                            data-value="excused" {% if is_future %}disabled{% endif %}
-                            title="Vắng có phép"><i class="bi bi-exclamation-circle me-sm-1"></i><span class="d-sm-none">P</span><span class="d-none d-sm-inline">Phép</span></button>
+                            data-value="present" {% if is_future or is_locked %}disabled{% endif %}
+                            title="Có mặt"><i class="bi bi-check-circle"></i><span class="d-none d-sm-inline ms-1">Có</span></button>
+                    <button type="button" class="btn btn-sm rounded-pill btn-outline-warning status-btn {% if init_status == 'excused' %}active{% endif %}"
+                            data-value="excused" {% if is_future or is_locked %}disabled{% endif %}
+                            title="Vắng có phép"><i class="bi bi-exclamation-circle"></i><span class="d-none d-sm-inline ms-1">Phép</span></button>
                     <button type="button" class="btn btn-sm rounded-pill btn-outline-danger status-btn {% if init_status == 'absent' %}active{% endif %}"
-                            data-value="absent" {% if is_future %}disabled{% endif %}
-                            title="Vắng"><i class="bi bi-x-circle me-sm-1"></i><span class="d-sm-none">V</span><span class="d-none d-sm-inline">Vắng</span></button>
+                            data-value="absent" {% if is_future or is_locked %}disabled{% endif %}
+                            title="Vắng"><i class="bi bi-x-circle"></i><span class="d-none d-sm-inline ms-1">Vắng</span></button>
                   </div>
                 </td>
               </tr>
@@ -181,17 +216,21 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <div id="exportCapture-{{ schedule.id }}" class="p-3 bg-white border rounded">
-            <div class="text-center mb-3">
-              <div class="fw-bold fs-5">{{ schedule.class_.name }}</div>
-              <div class="text-muted small">
-                {{ schedule.date.strftime('%d/%m/%Y') }}
-                · {{ schedule.start_time.strftime('%H:%M') }}–{{ schedule.end_time.strftime('%H:%M') }}
-              </div>
+          <div id="exportCapture-{{ schedule.id }}" class="p-3 rounded export-capture">
+            <div class="d-flex align-items-center gap-2 mb-3 pb-2 export-header">
+              <img src="{{ url_for('static', filename='icons/logo-mark.png') }}" height="36" alt="logo" class="export-logo">
+              <div class="fw-bold text-white">THÔNG BÁO ĐIỂM DANH</div>
             </div>
-            <div class="d-flex justify-content-center flex-wrap gap-2 mb-3 export-counts"></div>
-            <table class="table table-sm table-bordered mb-0 export-table">
-              <thead class="table-light"><tr><th>STT</th><th>Học sinh</th><th>Trạng thái</th></tr></thead>
+            <div class="small text-white mb-1"><strong>Lớp:</strong> {{ schedule.class_.name }}</div>
+            <div class="small text-white mb-1">
+              <strong>Ngày:</strong> {{ schedule.date.strftime('%d/%m/%Y') }}
+              &nbsp;&nbsp;<strong>Giờ:</strong> {{ schedule.start_time.strftime('%H:%M') }}–{{ schedule.end_time.strftime('%H:%M') }}
+            </div>
+            <div class="small text-white mb-3 export-counts"></div>
+            <table class="table table-sm mb-0 export-table">
+              <thead>
+                <tr><th class="text-white">STT</th><th class="text-white">Học sinh</th><th class="text-white">Tình trạng</th></tr>
+              </thead>
               <tbody></tbody>
             </table>
           </div>
@@ -218,15 +257,39 @@
 <style>
 .chevron-icon { transition: transform 0.2s ease; }
 .attendance-row-toggle[aria-expanded="true"] .chevron-icon { transform: rotate(180deg); }
-.status-toggle .status-btn { padding-left:0.6rem; padding-right:0.6rem; border-color:#ced4da; color:#495057; background:#fff; }
-.status-toggle .status-btn.active { background:#fff; }
-.status-toggle .status-btn.active.btn-outline-success { border-color:#198754; color:#198754; }
-.status-toggle .status-btn.active.btn-outline-info { border-color:#0dcaf0; color:#0a6b7c; }
-.status-toggle .status-btn.active.btn-outline-danger { border-color:#dc3545; color:#dc3545; }
+
+.status-toggle .status-btn { padding-left:0.6rem; padding-right:0.6rem; }
+@media (min-width: 576px) {
+  /* Desktop/tablet: neutral gray by default, colored outline only when selected */
+  .status-toggle .status-btn { border-color:#ced4da; color:#495057; background:#fff; }
+  .status-toggle .status-btn.active { background:#fff; }
+  .status-toggle .status-btn.active.btn-outline-success { border-color:#198754; color:#198754; }
+  .status-toggle .status-btn.active.btn-outline-warning { border-color:#ffc107; color:#a86a00; }
+  .status-toggle .status-btn.active.btn-outline-danger { border-color:#dc3545; color:#dc3545; }
+}
 @media (max-width: 575.98px) {
-  .status-toggle .status-btn { padding-left:0.45rem; padding-right:0.45rem; min-width:2rem; }
+  /* Mobile: no C/P/V letters — each button keeps its own semantic color as a
+     permanent border (green/yellow/red), filled solid when selected. */
+  .status-toggle .status-btn { padding-left:0.5rem; padding-right:0.5rem; min-width:2.25rem; }
   .attendance-table td, .attendance-table th { padding-left:0.35rem; padding-right:0.35rem; }
 }
+
+/* Đủ | Lưu điểm danh | Xuất ảnh: same fixed height regardless of icon/text mix */
+.btn-attendance-action { height:40px; display:flex; align-items:center; justify-content:center; }
+
+/* Disabled Lưu điểm danh reads as truly inactive (gray), not a faded blue */
+.btn-save:disabled {
+  background-color:#adb5bd !important;
+  border-color:#adb5bd !important;
+  color:#fff !important;
+  opacity:1;
+}
+
+/* Xuất ảnh capture: site's primary green as background, per the notification-card mockup */
+.export-capture { background:#16a34a; }
+.export-header { border-bottom:1px solid rgba(255,255,255,.35); }
+.export-logo { background:#fff; border-radius:8px; padding:2px; }
+.export-table, .export-table th, .export-table td { border-color: rgba(255,255,255,.3) !important; color:#fff; }
 </style>
 {% endblock %}
 
@@ -264,49 +327,88 @@ function enableSave(scheduleId) {
   if (btn) btn.disabled = false;
 }
 
+function syncSelectAll(table) {
+  const selectAll = table.querySelector('.select-all-check');
+  if (!selectAll) return;
+  const rows = table.querySelectorAll('.att-row');
+  const total = rows.length;
+  const presentCount = Array.from(rows).filter(r => r.dataset.status === 'present').length;
+  selectAll.checked = total > 0 && presentCount === total;
+  selectAll.indeterminate = presentCount > 0 && presentCount < total;
+}
+
 document.querySelectorAll('.attendance-table').forEach(table => {
   const scheduleId = table.dataset.schedule;
+  const selectAll = table.querySelector('.select-all-check');
 
   table.addEventListener('change', e => {
     if (!e.target.classList.contains('att-check')) return;
     const row = e.target.closest('.att-row');
+    row.dataset.touched = '1';
     setRowStatus(row, e.target.checked ? 'present' : 'absent');
     updateCounters(scheduleId);
     enableSave(scheduleId);
+    syncSelectAll(table);
   });
 
   table.addEventListener('click', e => {
     const btn = e.target.closest('.status-btn');
     if (!btn) return;
     const row = btn.closest('.att-row');
+    row.dataset.touched = '1';
     setRowStatus(row, btn.dataset.value);
     updateCounters(scheduleId);
     enableSave(scheduleId);
+    syncSelectAll(table);
   });
 
+  if (selectAll) {
+    selectAll.addEventListener('change', () => {
+      const status = selectAll.checked ? 'present' : 'absent';
+      table.querySelectorAll('.att-row').forEach(row => {
+        row.dataset.touched = '1';
+        setRowStatus(row, status);
+      });
+      updateCounters(scheduleId);
+      enableSave(scheduleId);
+      syncSelectAll(table);
+    });
+  }
+
   updateCounters(scheduleId);
+  syncSelectAll(table);
 });
 
 document.querySelectorAll('.btn-mark-all').forEach(btn => {
   btn.addEventListener('click', () => {
     const scheduleId = btn.dataset.schedule;
-    document.querySelectorAll(`.attendance-table[data-schedule="${scheduleId}"] .att-row`).forEach(row => {
+    const table = document.querySelector(`.attendance-table[data-schedule="${scheduleId}"]`);
+    table.querySelectorAll('.att-row').forEach(row => {
+      row.dataset.touched = '1';
       setRowStatus(row, 'present');
     });
     updateCounters(scheduleId);
     enableSave(scheduleId);
+    syncSelectAll(table);
   });
 });
 
 document.querySelectorAll('.btn-save').forEach(saveBtn => {
   saveBtn.addEventListener('click', async () => {
     const scheduleId = saveBtn.dataset.schedule;
+    const rows = document.querySelectorAll(`.attendance-table[data-schedule="${scheduleId}"] .att-row`);
+    const untouched = Array.from(rows).filter(r => r.dataset.touched !== '1').length;
+    if (untouched > 0) {
+      const proceed = confirm(`Còn ${untouched} học sinh chưa được điểm danh (mặc định Vắng). Bạn có chắc muốn lưu?`);
+      if (!proceed) return;
+    }
+
     const original = saveBtn.innerHTML;
     saveBtn.disabled = true;
     saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
     const attendance = [];
-    document.querySelectorAll(`.attendance-table[data-schedule="${scheduleId}"] .att-row`).forEach(row => {
+    rows.forEach(row => {
       attendance.push({ student_id: parseInt(row.dataset.student, 10), status: row.dataset.status, reason: '' });
     });
 
@@ -328,8 +430,9 @@ document.querySelectorAll('.btn-save').forEach(saveBtn => {
   });
 });
 
-// Xuất ảnh: build the printable summary from the live table state, then let
-// html2canvas turn it into a downloadable PNG.
+// Xuất ảnh: build the printable notification card from the live table state
+// (absent/excused students only — present students are omitted by design),
+// then let html2canvas turn it into a downloadable PNG.
 document.querySelectorAll('.btn-export').forEach(btn => {
   btn.addEventListener('click', () => {
     const scheduleId = btn.dataset.schedule;
@@ -339,26 +442,30 @@ document.querySelectorAll('.btn-export').forEach(btn => {
     const tbody = capture.querySelector('.export-table tbody');
     tbody.innerHTML = '';
 
-    let present = 0, excused = 0, absent = 0;
+    let present = 0, excused = 0, absent = 0, stt = 0;
     const rows = document.querySelectorAll(`.attendance-table[data-schedule="${scheduleId}"] .att-row`);
-    rows.forEach((row, i) => {
+    rows.forEach(row => {
       const status = row.dataset.status;
+      if (status === 'present') { present++; return; }
+      if (status === 'excused') excused++; else absent++;
+
+      stt++;
       const name = row.querySelector('td:nth-child(3) .fw-semibold').textContent.trim();
-      const label = status === 'present' ? 'Có mặt' : status === 'excused' ? 'Vắng phép' : 'Vắng';
-      const badgeClass = status === 'present' ? 'text-success' : status === 'excused' ? 'text-info' : 'text-danger';
-      if (status === 'present') present++;
-      else if (status === 'excused') excused++;
-      else absent++;
+      const label = status === 'excused' ? 'Vắng (có phép)' : 'Vắng (không phép)';
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${i + 1}</td><td>${name}</td><td class="${badgeClass} fw-semibold">${label}</td>`;
+      tr.innerHTML = `<td class="text-white">${stt}</td><td class="text-white">${name}</td><td class="text-white">${label}</td>`;
       tbody.appendChild(tr);
     });
 
-    countsEl.innerHTML = `
-      <span class="badge bg-secondary">Sĩ số: ${rows.length}</span>
-      <span class="badge bg-success">Có: ${present}</span>
-      <span class="badge bg-info text-dark">Phép: ${excused}</span>
-      <span class="badge bg-danger">Vắng: ${absent}</span>`;
+    if (stt === 0) {
+      tbody.innerHTML = '<tr><td colspan="3" class="text-center text-white py-2">Tất cả học sinh đều có mặt</td></tr>';
+    }
+
+    countsEl.innerHTML =
+      `Sĩ số: <strong>${rows.length}</strong> &nbsp;|&nbsp; ` +
+      `Có mặt: <strong>${present}</strong> &nbsp;|&nbsp; ` +
+      `Có phép: <strong>${excused}</strong> &nbsp;|&nbsp; ` +
+      `Không phép: <strong>${absent}</strong>`;
   });
 });
 
@@ -370,7 +477,7 @@ document.querySelectorAll('.btn-download-image').forEach(btn => {
     const original = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-    html2canvas(capture, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
+    html2canvas(capture, { scale: 2, backgroundColor: '#16a34a' }).then(canvas => {
       const link = document.createElement('a');
       link.download = `diem-danh-${scheduleId}.png`;
       link.href = canvas.toDataURL('image/png');

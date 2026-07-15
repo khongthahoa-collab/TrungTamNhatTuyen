@@ -13,42 +13,44 @@
 
   <!-- Week navigation bar -->
   <div class="card border-0 shadow-sm mb-3">
-    <div class="card-body py-2 d-flex align-items-center justify-content-between">
-      <a href="{{ url_for('teacher.schedule', week_offset=week_offset - 1) }}"
-         class="btn btn-outline-secondary btn-sm px-3">
-        <i class="bi bi-chevron-left"></i>
-      </a>
-
-      <div class="text-center">
-        {% if week_offset == 0 %}
-          <div class="fw-semibold text-primary">Tuần này</div>
-        {% elif week_offset == -1 %}
-          <div class="fw-semibold text-secondary">Tuần trước</div>
-        {% elif week_offset == 1 %}
-          <div class="fw-semibold text-success">Tuần sau</div>
-        {% else %}
-          <div class="fw-semibold">Tuần {{ week_offset | abs }}</div>
-        {% endif %}
-        <div class="text-muted small">
-          {{ monday | date_vn }} – {{ sunday | date_vn }}
-        </div>
+    <div class="card-body py-2">
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <a href="{{ url_for('teacher.schedule', date=prev2_date.isoformat()) }}"
+           class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Lùi 2 tuần">
+          <i class="bi bi-chevron-double-left"></i>
+        </a>
+        <a href="{{ url_for('teacher.schedule', date=prev_date.isoformat()) }}"
+           class="btn btn-outline-secondary btn-sm flex-shrink-0">
+          <i class="bi bi-chevron-left"></i>
+        </a>
+        <form method="get" class="flex-grow-1">
+          <input type="date" name="date" class="form-control form-control-sm text-center"
+                 value="{{ ref_date.isoformat() }}" onchange="this.form.submit()">
+        </form>
+        <a href="{{ url_for('teacher.schedule', date=next_date.isoformat()) }}"
+           class="btn btn-outline-secondary btn-sm flex-shrink-0">
+          <i class="bi bi-chevron-right"></i>
+        </a>
+        <a href="{{ url_for('teacher.schedule', date=next2_date.isoformat()) }}"
+           class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Tiến 2 tuần">
+          <i class="bi bi-chevron-double-right"></i>
+        </a>
       </div>
-
-      <a href="{{ url_for('teacher.schedule', week_offset=week_offset + 1) }}"
-         class="btn btn-outline-secondary btn-sm px-3">
-        <i class="bi bi-chevron-right"></i>
-      </a>
+      <div class="text-center text-muted small mb-2">
+        {{ monday | date_vn }} – {{ sunday | date_vn }}
+      </div>
+      <div class="d-flex gap-2 justify-content-center flex-wrap small">
+        <a href="{{ url_for('teacher.schedule') }}"
+           class="text-decoration-none {% if ref_date == today %}fw-bold text-primary{% else %}text-muted{% endif %}">Hôm nay</a>
+        <span class="text-muted">|</span>
+        <a href="{{ url_for('teacher.schedule', date=this_week_start.isoformat()) }}"
+           class="text-decoration-none {% if ref_date == this_week_start %}fw-bold text-primary{% else %}text-muted{% endif %}">Tuần này</a>
+        <span class="text-muted">|</span>
+        <a href="{{ url_for('teacher.schedule', date=this_month_start.isoformat()) }}"
+           class="text-decoration-none {% if ref_date == this_month_start %}fw-bold text-primary{% else %}text-muted{% endif %}">Tháng này</a>
+      </div>
     </div>
   </div>
-
-  <!-- Jump to current week -->
-  {% if week_offset != 0 %}
-  <div class="text-center mb-3">
-    <a href="{{ url_for('teacher.schedule', week_offset=0) }}" class="btn btn-sm btn-outline-primary">
-      <i class="bi bi-calendar-check me-1"></i>Về tuần hiện tại
-    </a>
-  </div>
-  {% endif %}
 
   <!-- Days list -->
   {% set day_names = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'] %}
@@ -111,20 +113,15 @@
 
             <!-- Action buttons -->
             <div class="d-flex gap-2 flex-wrap">
-              {% if not s.teacher_checked_in %}
-              <form method="post" action="{{ url_for('teacher.checkin', schedule_id=s.id) }}" class="flex-fill">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn btn-outline-success w-100" style="min-height:44px;">
-                  <i class="bi bi-box-arrow-in-right me-1"></i>Check-in
-                </button>
-              </form>
-              {% else %}
-              <button class="btn btn-success flex-fill" disabled style="min-height:44px;">
-                <i class="bi bi-check-circle-fill me-1"></i>Đã check-in
+              <!-- Placeholder cho v2: gửi yêu cầu nhờ dạy thay tới admin. Luôn
+                   disable ở bản này — chỉ hiển thị để người dùng biết tính năng
+                   sắp có. -->
+              <button type="button" class="btn btn-outline-secondary flex-fill" disabled style="min-height:44px;"
+                      title="Tính năng sẽ cập nhật ở phiên bản sau">
+                <i class="bi bi-people me-1"></i>Nhờ dạy thay
               </button>
-              {% endif %}
 
-              <a href="{{ url_for('teacher.attendance_session', schedule_id=s.id) }}"
+              <a href="{{ url_for('teacher.attendance_list', date=s.date.isoformat()) }}"
                  class="btn {% if s.attendance_taken %}btn-outline-info{% else %}btn-primary{% endif %} flex-fill"
                  style="min-height:44px;">
                 <i class="bi bi-person-check me-1"></i>

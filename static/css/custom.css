@@ -131,17 +131,30 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 2px 16px rgba(17,26,20,.25);
 }
 
-/* Mobile menu overlays the page instead of pushing content down */
+/* Mobile menu overlays the page as a full-height panel instead of a small
+   dropdown — easier to tap on a phone and matches the app's other full-screen
+   mobile menus. --nt-navbar-h is set from JS to the navbar's real height. */
 @media (max-width: 991.98px) {
   .navbar-public .navbar-collapse {
-    position: absolute;
-    top: 100%;
+    position: fixed;
+    top: var(--nt-navbar-h, 64px);
     left: 0;
     right: 0;
+    bottom: 0;
     background: var(--nt-dark-bg);
-    padding: 0.5rem 1rem 1rem;
+    padding: 1rem;
     box-shadow: 0 8px 16px rgba(17,26,20,.25);
     z-index: 1040;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .navbar-public .navbar-collapse .navbar-nav {
+    flex: 1;
+  }
+  .navbar-public .navbar-collapse .nav-link {
+    font-size: 1.05rem;
+    padding: 0.75rem 0.85rem;
   }
 }
 

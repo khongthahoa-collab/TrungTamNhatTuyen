@@ -89,8 +89,14 @@ def update_profile():
 def schedule():
     teacher = current_user.teacher_profile
     today = date.today()
-    week_offset = request.args.get('week', 0, type=int)
-    monday = today - timedelta(days=today.weekday()) + timedelta(weeks=week_offset)
+
+    date_str = request.args.get('date', '')
+    try:
+        ref_date = date.fromisoformat(date_str) if date_str else today
+    except ValueError:
+        ref_date = today
+
+    monday = ref_date - timedelta(days=ref_date.weekday())
     week_days = [(monday + timedelta(days=i)) for i in range(7)]
 
     schedules = Schedule.query.filter_by(
@@ -105,14 +111,23 @@ def schedule():
         if s.date in by_day:
             by_day[s.date].append(s)
 
+    this_week_start = today - timedelta(days=today.weekday())
+    this_month_start = today.replace(day=1)
+
     return render_template('teacher/schedule.html',
                            teacher=teacher,
                            week_days=week_days,
                            by_day=by_day,
-                           week_offset=week_offset,
+                           ref_date=ref_date,
                            today=today,
                            monday=monday,
-                           sunday=monday + timedelta(days=6))
+                           sunday=monday + timedelta(days=6),
+                           prev_date=ref_date - timedelta(days=7),
+                           next_date=ref_date + timedelta(days=7),
+                           prev2_date=ref_date - timedelta(days=14),
+                           next2_date=ref_date + timedelta(days=14),
+                           this_week_start=this_week_start,
+                           this_month_start=this_month_start)
 
 
 @teacher_bp.route('/check-in/<int:schedule_id>', methods=['POST'])
@@ -525,6 +540,9 @@ def attendance_list():
             'attendance': {a.student_id: a for a in attendances},
         }
 
+    this_week_start = today - timedelta(days=today.weekday())
+    this_month_start = today.replace(day=1)
+
     return render_template('teacher/attendance_list.html',
                          schedules=schedules,
                          summaries=summary_dict,
@@ -532,7 +550,11 @@ def attendance_list():
                          today=today,
                          selected_date=selected_date,
                          prev_date=selected_date - timedelta(days=1),
-                         next_date=selected_date + timedelta(days=1))
+                         next_date=selected_date + timedelta(days=1),
+                         prev2_date=selected_date - timedelta(days=14),
+                         next2_date=selected_date + timedelta(days=14),
+                         this_week_start=this_week_start,
+                         this_month_start=this_month_start)
 
 
 @teacher_bp.route('/attendance/<int:schedule_id>')
@@ -609,6 +631,9 @@ def save_attendance(schedule_id):
 
     if schedule.date > date.today():
         return jsonify({'error': 'Không thể điểm danh trước cho buổi học trong tương lai.'}), 403
+
+    if schedule.date < date.today() and schedule.attendance_taken:
+        return jsonify({'error': 'Buổi học đã qua và đã điểm danh — không thể điểm danh lại.'}), 403
 
     data = request.get_json()
     attendance_records = data.get('attendance', [])
