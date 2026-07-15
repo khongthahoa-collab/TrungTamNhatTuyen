@@ -4,7 +4,8 @@ from datetime import date, timedelta, time as time_type
 from sqlalchemy import or_, and_
 from extensions import db
 from models import (Class, Course, Teacher, Schedule, Semester, Enrollment, Student, Room,
-                    MonthlyClassFee, TuitionPayment, GRADE_BY_LEVEL, GRADE_SEQUENCE, User)
+                    MonthlyClassFee, TuitionPayment, GRADE_BY_LEVEL, GRADE_SEQUENCE, User,
+                    Attendance, AttendanceSummary)
 from blueprints.admin import admin_bp, require_admin
 from services.schedule_service import (find_student_schedule_conflict, schedule_conflict_message,
                                        notify_class_teachers)
@@ -555,13 +556,18 @@ def class_reschedule(class_id):
             return redirect(url_for('admin.class_detail', class_id=class_id))
 
     # Xóa các buổi học từ hôm nay trở đi (chưa hủy) — không đụng dữ liệu đã qua.
-    future_schedules = Schedule.query.filter(
+    # Xóa hàng loạt (bulk) thay vì từng dòng một: với cả năm học, xóa từng
+    # Schedule qua ORM tốn một round-trip riêng mỗi dòng tới DB ở xa, dễ vượt
+    # timeout của server (502) — bulk delete chỉ tốn vài câu lệnh cố định.
+    future_schedule_ids = [row[0] for row in db.session.query(Schedule.id).filter(
         Schedule.class_id == class_id,
         Schedule.date >= today,
         Schedule.is_cancelled == False,
-    ).all()
-    for s in future_schedules:
-        db.session.delete(s)
+    ).all()]
+    if future_schedule_ids:
+        Attendance.query.filter(Attendance.schedule_id.in_(future_schedule_ids)).delete(synchronize_session=False)
+        AttendanceSummary.query.filter(AttendanceSummary.schedule_id.in_(future_schedule_ids)).delete(synchronize_session=False)
+        Schedule.query.filter(Schedule.id.in_(future_schedule_ids)).delete(synchronize_session=False)
 
     semester = _semester_for_date(range_start)
     created, skipped = _generate_schedules(class_id, class_.primary_teacher_id, range_start, range_end, sched_rows,
@@ -600,11 +606,13 @@ def class_delete_weekly_slot(class_id):
         Schedule.date >= today,
         Schedule.is_cancelled == False,
     ).all()
-    deleted = 0
-    for s in future_schedules:
-        if s.date.weekday() == weekday and s.start_time == start_t and s.end_time == end_t:
-            db.session.delete(s)
-            deleted += 1
+    match_ids = [s.id for s in future_schedules
+                 if s.date.weekday() == weekday and s.start_time == start_t and s.end_time == end_t]
+    deleted = len(match_ids)
+    if match_ids:
+        Attendance.query.filter(Attendance.schedule_id.in_(match_ids)).delete(synchronize_session=False)
+        AttendanceSummary.query.filter(AttendanceSummary.schedule_id.in_(match_ids)).delete(synchronize_session=False)
+        Schedule.query.filter(Schedule.id.in_(match_ids)).delete(synchronize_session=False)
 
     db.session.commit()
     flash(f'Đã xóa {deleted} buổi học sắp tới của khung giờ này.', 'success')
