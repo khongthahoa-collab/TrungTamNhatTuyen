@@ -2,6 +2,7 @@ from flask import render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from datetime import date, datetime
 from sqlalchemy import extract, func
+from sqlalchemy.orm import joinedload
 from extensions import db
 from models import (TuitionPayment, Student, Class, Salary, Teacher,
                     Expense, ExpenseCategory, TuitionMethod, MonthlyClassFee, Enrollment)
@@ -526,8 +527,6 @@ def calculate_tuition():
 
     # Calculate stages for each class
     for cid, class_payments in by_class.items():
-        class_obj = Class.query.get(cid)
-        
         # Calculate stage amounts
         total_amount = sum(p.amount for p in class_payments)
         
@@ -625,17 +624,17 @@ def export_tuition_report():
         flash('Vui lòng chọn tháng và năm.', 'danger')
         return redirect(url_for('admin.tuition_report'))
     
-    reports = TuitionReport.query.filter_by(month=month, year=year).all()
-    
+    reports = TuitionReport.query.options(joinedload(TuitionReport.class_)).filter_by(month=month, year=year).all()
+
     # Create CSV
     output = StringIO()
     writer = csv.writer(output)
     writer.writerow(['Báo Cáo Học Phí - Tháng {}/{}'.format(month, year), '', '', '', '', ''])
     writer.writerow([''])
     writer.writerow(['Lớp Học', 'Sĩ Số', 'Tổng Học Phí', '25%', '50%', '75%', '100%', 'Tỉ Lệ Thu'])
-    
+
     for report in reports:
-        class_obj = Class.query.get(report.class_id)
+        class_obj = report.class_
         writer.writerow([
             class_obj.name if class_obj else 'N/A',
             report.total_students,

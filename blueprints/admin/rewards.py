@@ -1,6 +1,7 @@
 from flask import render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from datetime import date, datetime
+from sqlalchemy import func
 from extensions import db
 from models import Reward, Student
 from blueprints.admin import admin_bp, require_admin
@@ -19,7 +20,10 @@ def rewards():
         query = query.filter_by(is_confirmed=True)
 
     records = query.order_by(Reward.reward_date.desc()).all()
-    total_confirmed = sum(r.amount for r in Reward.query.filter_by(is_confirmed=True).all())
+    # Sum in SQL instead of pulling every confirmed reward ever recorded
+    # into Python just to add one number (grows unboundedly with history).
+    total_confirmed = db.session.query(func.coalesce(func.sum(Reward.amount), 0)) \
+        .filter_by(is_confirmed=True).scalar()
 
     return render_template('admin/rewards/list.html',
                            records=records, show=show, total_confirmed=total_confirmed)
