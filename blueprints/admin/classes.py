@@ -259,16 +259,22 @@ def _has_duplicate_slot(grade_level, course_id, teacher_id, sched_rows, exclude_
     existing = q.all()
     if not existing:
         return None
+
+    # One batched fetch of every candidate class's schedules instead of one
+    # query per (class, schedule-row) pair.
+    schedules_by_class = {}
+    for s in Schedule.query.filter(
+        Schedule.class_id.in_([cls.id for cls in existing]),
+        Schedule.is_cancelled == False,
+    ).all():
+        schedules_by_class.setdefault(s.class_id, []).append(s)
+
     for cls in existing:
         for (wd, start_str, end_str, room_id, room_text, row_teacher_id) in sched_rows:
             start_t = time_type.fromisoformat(start_str)
-            sched = Schedule.query.filter(
-                Schedule.class_id == cls.id,
-                Schedule.start_time == start_t,
-                Schedule.is_cancelled == False,
-            ).first()
-            if sched and sched.date.weekday() == wd:
-                return cls
+            for sched in schedules_by_class.get(cls.id, []):
+                if sched.start_time == start_t and sched.date.weekday() == wd:
+                    return cls
     return None
 
 
@@ -552,6 +558,20 @@ def class_edit(class_id):
             primary_teacher = Teacher.query.get(new_primary_id)
             class_.name = _make_class_name(course.name if course else '', grade_level or class_.grade_level, primary_teacher)
 
+        # Đổi giáo viên chính phải kéo theo các buổi học TỪ HÔM NAY trở đi vẫn
+        # đang gán cho giáo viên cũ — nếu không, Schedule.teacher_id cũ vẫn
+        # còn đó và làm giáo viên cũ bị coi là "bận" ở khung giờ đó khi tạo
+        # lớp khác, dù họ đã được thay thế trên lớp này. Buổi đã qua giữ
+        # nguyên (lịch sử), và buổi đang có người dạy thay (assistant) không
+        # bị đụng tới — chỉ những buổi vẫn còn gán đúng giáo viên chính cũ.
+        old_primary_id = class_.primary_teacher_id
+        if new_primary_id != old_primary_id and old_primary_id:
+            Schedule.query.filter(
+                Schedule.class_id == class_id,
+                Schedule.teacher_id == old_primary_id,
+                Schedule.date >= date.today(),
+            ).update({'teacher_id': new_primary_id}, synchronize_session=False)
+
         class_.course_id = new_course_id
         class_.grade_level = grade_level or class_.grade_level
         class_.max_students = request.form.get('max_students', type=int) or class_.max_students
@@ -712,19 +732,41 @@ def class_add_students(class_id):
         flash('Vui lòng chọn ít nhất một học sinh.', 'danger')
         return redirect(url_for('admin.class_detail', class_id=class_id))
 
+    # A schedule-conflicted student is skipped, not a reason to abort the
+    # whole batch — everyone else selected still gets added normally.
     students = Student.query.filter(Student.id.in_(student_ids)).all()
+    ok_student_ids = []
     for student in students:
         conflict = find_student_schedule_conflict(student, class_)
         if conflict:
             flash(schedule_conflict_message(student, class_, conflict), 'danger')
-            return redirect(url_for('admin.class_detail', class_id=class_id))
+        else:
+            ok_student_ids.append(student.id)
+
+    if not ok_student_ids:
+        return redirect(url_for('admin.class_detail', class_id=class_id))
 
     today = date.today()
     cfg = MonthlyClassFee.query.filter_by(class_id=class_id, month=today.month, year=today.year).first()
 
+    # Batch the existing-enrollment / existing-tuition-row checks into one
+    # query each instead of one per student.
+    existing_enrollments = {
+        e.student_id: e for e in
+        Enrollment.query.filter(Enrollment.student_id.in_(ok_student_ids), Enrollment.class_id == class_id).all()
+    }
+    students_with_tuition = set()
+    if cfg:
+        students_with_tuition = {
+            t.student_id for t in TuitionPayment.query.filter(
+                TuitionPayment.student_id.in_(ok_student_ids), TuitionPayment.class_id == class_id,
+                TuitionPayment.month == today.month, TuitionPayment.year == today.year,
+            ).all()
+        }
+
     added = tuition_added = 0
-    for student_id in student_ids:
-        existing = Enrollment.query.filter_by(student_id=student_id, class_id=class_id).first()
+    for student_id in ok_student_ids:
+        existing = existing_enrollments.get(student_id)
         if existing:
             if not existing.is_active:
                 existing.is_active = True
@@ -733,18 +775,14 @@ def class_add_students(class_id):
             db.session.add(Enrollment(student_id=student_id, class_id=class_id))
             added += 1
 
-        if cfg:
-            has_tuition = TuitionPayment.query.filter_by(
-                student_id=student_id, class_id=class_id, month=today.month, year=today.year
-            ).first()
-            if not has_tuition:
-                db.session.add(TuitionPayment(
-                    student_id=student_id, class_id=class_id,
-                    amount=cfg.adjusted_fee, amount_100pct=cfg.base_fee,
-                    month=today.month, year=today.year, is_paid=False,
-                    note=f'Tự động tạo khi thêm vào lớp: {cfg.weeks_billed}/{cfg.standard_weeks} tuần',
-                ))
-                tuition_added += 1
+        if cfg and student_id not in students_with_tuition:
+            db.session.add(TuitionPayment(
+                student_id=student_id, class_id=class_id,
+                amount=cfg.adjusted_fee, amount_100pct=cfg.base_fee,
+                month=today.month, year=today.year, is_paid=False,
+                note=f'Tự động tạo khi thêm vào lớp: {cfg.weeks_billed}/{cfg.standard_weeks} tuần',
+            ))
+            tuition_added += 1
 
     if added:
         notify_class_teachers(class_, 'Học sinh mới',
