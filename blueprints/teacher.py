@@ -11,6 +11,24 @@ from services.salary_service import scheduled_sessions, substituted_sessions
 teacher_bp = Blueprint('teacher', __name__)
 
 
+def _teacher_schedule_visibility(teacher):
+    """SQLAlchemy filter condition for "does this teacher get to see this
+    Schedule row on their Lịch dạy / Điểm danh": true if they're currently
+    the class's primary teacher or one of its trợ giảng (covers past,
+    today, and future), OR — for a class they're no longer attached to —
+    if the row is in the past and they were the one actually assigned to
+    teach it. This way, editing a class's trợ giảng list only changes what
+    a teacher sees from today onward; their history isn't erased."""
+    is_current_member = db.or_(
+        Class.primary_teacher_id == teacher.id,
+        Class.assistant_teachers.any(id=teacher.id),
+    )
+    return db.or_(
+        is_current_member,
+        db.and_(Schedule.date < date.today(), Schedule.teacher_id == teacher.id),
+    )
+
+
 def require_teacher(f):
     from functools import wraps
 
@@ -104,9 +122,11 @@ def schedule():
     if filter_mode not in ('all', 'mine'):
         filter_mode = 'all'
 
-    # "Tất cả": mọi buổi của lớp mà giáo viên này là GV chính HOẶC trợ giảng
-    # (kể cả buổi do người khác đứng lớp) — để thấy lịch đầy đủ của lớp.
-    # "Buổi dạy của tôi": chỉ những buổi chính họ thực sự đứng lớp.
+    # "Tất cả": mọi buổi của lớp mà giáo viên này ĐANG là GV chính HOẶC trợ
+    # giảng (kể cả buổi do người khác đứng lớp) — để thấy lịch đầy đủ của lớp.
+    # Nếu không còn là thành viên lớp nữa (bị gỡ khỏi trợ giảng), vẫn thấy các
+    # buổi ĐÃ QUA mà chính họ từng đứng lớp — đổi danh sách trợ giảng chỉ
+    # ảnh hưởng từ hôm nay trở đi, không xóa lịch sử.
     query = Schedule.query.join(Class, Schedule.class_id == Class.id).filter(
         Schedule.date >= monday,
         Schedule.date <= monday + timedelta(days=6),
@@ -114,9 +134,7 @@ def schedule():
     if filter_mode == 'mine':
         query = query.filter(Schedule.teacher_id == teacher.id)
     else:
-        query = query.filter(
-            db.or_(Class.primary_teacher_id == teacher.id, Class.assistant_teachers.any(id=teacher.id))
-        )
+        query = query.filter(_teacher_schedule_visibility(teacher))
     schedules = query.order_by(Schedule.date, Schedule.start_time).all()
 
     by_day = {d: [] for d in week_days}
@@ -559,7 +577,7 @@ def attendance_list():
     # Ai thực sự dạy buổi nào (và ai được phép điểm danh) vẫn theo
     # Schedule.teacher_id, xem can_edit trong template + save_attendance().
     schedules = Schedule.query.join(Class, Schedule.class_id == Class.id).filter(
-        db.or_(Class.primary_teacher_id == teacher.id, Class.assistant_teachers.any(id=teacher.id)),
+        _teacher_schedule_visibility(teacher),
         Schedule.is_cancelled == False,
         Schedule.date >= range_start,
         Schedule.date <= range_end,
