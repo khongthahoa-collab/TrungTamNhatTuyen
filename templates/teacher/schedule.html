@@ -9,29 +9,36 @@
     <h5 class="mb-0 fw-bold">
       <i class="bi bi-calendar-week me-1 text-primary"></i>Lịch dạy
     </h5>
+    <div class="btn-group btn-group-sm" role="group">
+      <a href="{{ url_for('teacher.schedule', date=ref_date.isoformat(), filter='all') }}"
+         class="btn {% if filter_mode == 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}">Tất cả</a>
+      <a href="{{ url_for('teacher.schedule', date=ref_date.isoformat(), filter='mine') }}"
+         class="btn {% if filter_mode == 'mine' %}btn-primary{% else %}btn-outline-primary{% endif %}">Buổi dạy của tôi</a>
+    </div>
   </div>
 
   <!-- Week navigation bar -->
   <div class="card border-0 shadow-sm mb-3">
     <div class="card-body py-2">
       <div class="d-flex align-items-center gap-2 mb-2">
-        <a href="{{ url_for('teacher.schedule', date=prev2_date.isoformat()) }}"
+        <a href="{{ url_for('teacher.schedule', date=prev2_date.isoformat(), filter=filter_mode) }}"
            class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Lùi 2 tuần">
           <i class="bi bi-chevron-double-left"></i>
         </a>
-        <a href="{{ url_for('teacher.schedule', date=prev_date.isoformat()) }}"
+        <a href="{{ url_for('teacher.schedule', date=prev_date.isoformat(), filter=filter_mode) }}"
            class="btn btn-outline-secondary btn-sm flex-shrink-0">
           <i class="bi bi-chevron-left"></i>
         </a>
         <form method="get" class="flex-grow-1">
+          <input type="hidden" name="filter" value="{{ filter_mode }}">
           <input type="date" name="date" class="form-control form-control-sm text-center"
                  value="{{ ref_date.isoformat() }}" onchange="this.form.submit()">
         </form>
-        <a href="{{ url_for('teacher.schedule', date=next_date.isoformat()) }}"
+        <a href="{{ url_for('teacher.schedule', date=next_date.isoformat(), filter=filter_mode) }}"
            class="btn btn-outline-secondary btn-sm flex-shrink-0">
           <i class="bi bi-chevron-right"></i>
         </a>
-        <a href="{{ url_for('teacher.schedule', date=next2_date.isoformat()) }}"
+        <a href="{{ url_for('teacher.schedule', date=next2_date.isoformat(), filter=filter_mode) }}"
            class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Tiến 2 tuần">
           <i class="bi bi-chevron-double-right"></i>
         </a>
@@ -40,13 +47,13 @@
         {{ monday | date_vn }} – {{ sunday | date_vn }}
       </div>
       <div class="d-flex gap-2 justify-content-center flex-wrap small">
-        <a href="{{ url_for('teacher.schedule') }}"
+        <a href="{{ url_for('teacher.schedule', filter=filter_mode) }}"
            class="text-decoration-none {% if ref_date == today %}fw-bold text-primary{% else %}text-muted{% endif %}">Hôm nay</a>
         <span class="text-muted">|</span>
-        <a href="{{ url_for('teacher.schedule', date=this_week_start.isoformat()) }}"
+        <a href="{{ url_for('teacher.schedule', date=this_week_start.isoformat(), filter=filter_mode) }}"
            class="text-decoration-none {% if ref_date == this_week_start %}fw-bold text-primary{% else %}text-muted{% endif %}">Tuần này</a>
         <span class="text-muted">|</span>
-        <a href="{{ url_for('teacher.schedule', date=this_month_start.isoformat()) }}"
+        <a href="{{ url_for('teacher.schedule', date=this_month_start.isoformat(), filter=filter_mode) }}"
            class="text-decoration-none {% if ref_date == this_month_start %}fw-bold text-primary{% else %}text-muted{% endif %}">Tháng này</a>
       </div>
     </div>
@@ -129,10 +136,10 @@
               </button>
 
               <a href="{{ url_for('teacher.attendance_list', date=s.date.isoformat()) }}"
-                 class="btn {% if s.attendance_taken or s.teacher_id != teacher.id %}btn-outline-info{% else %}btn-primary{% endif %} flex-fill"
+                 class="btn {% if s.attendance_taken %}btn-outline-info{% else %}btn-primary{% endif %} flex-fill"
                  style="min-height:44px;">
                 <i class="bi bi-person-check me-1"></i>
-                {% if s.attendance_taken or s.teacher_id != teacher.id %}Xem ĐD{% else %}Điểm danh{% endif %}
+                {% if s.attendance_taken %}Xem ĐD{% else %}Điểm danh{% endif %}
               </a>
             </div>
           </div>

@@ -100,14 +100,24 @@ def schedule():
     monday = ref_date - timedelta(days=ref_date.weekday())
     week_days = [(monday + timedelta(days=i)) for i in range(7)]
 
-    # Hiển thị cả các buổi của lớp mà giáo viên này là trợ giảng, không chỉ
-    # buổi do chính họ đứng lớp — để trợ giảng thấy được lịch đầy đủ của lớp.
-    # Ai thực sự dạy buổi nào vẫn theo Schedule.teacher_id (xem effective_teacher).
-    schedules = Schedule.query.join(Class, Schedule.class_id == Class.id).filter(
-        db.or_(Class.primary_teacher_id == teacher.id, Class.assistant_teachers.any(id=teacher.id)),
+    filter_mode = request.args.get('filter', 'all')
+    if filter_mode not in ('all', 'mine'):
+        filter_mode = 'all'
+
+    # "Tất cả": mọi buổi của lớp mà giáo viên này là GV chính HOẶC trợ giảng
+    # (kể cả buổi do người khác đứng lớp) — để thấy lịch đầy đủ của lớp.
+    # "Buổi dạy của tôi": chỉ những buổi chính họ thực sự đứng lớp.
+    query = Schedule.query.join(Class, Schedule.class_id == Class.id).filter(
         Schedule.date >= monday,
         Schedule.date <= monday + timedelta(days=6),
-    ).order_by(Schedule.date, Schedule.start_time).all()
+    )
+    if filter_mode == 'mine':
+        query = query.filter(Schedule.teacher_id == teacher.id)
+    else:
+        query = query.filter(
+            db.or_(Class.primary_teacher_id == teacher.id, Class.assistant_teachers.any(id=teacher.id))
+        )
+    schedules = query.order_by(Schedule.date, Schedule.start_time).all()
 
     by_day = {d: [] for d in week_days}
     for s in schedules:
@@ -125,6 +135,7 @@ def schedule():
                            today=today,
                            monday=monday,
                            sunday=monday + timedelta(days=6),
+                           filter_mode=filter_mode,
                            prev_date=ref_date - timedelta(days=7),
                            next_date=ref_date + timedelta(days=7),
                            prev2_date=ref_date - timedelta(days=14),
@@ -584,10 +595,11 @@ def attendance_list():
 
     this_week_start = today - timedelta(days=today.weekday())
     this_month_start = today.replace(day=1)
-    # Chỉ nhắc những buổi giáo viên này thực sự đứng lớp (không nhắc buổi của
-    # đồng nghiệp mà họ chỉ đang xem với tư cách trợ giảng/giáo viên chính).
-    pending_count = sum(1 for s in schedules
-                         if s.teacher_id == teacher.id and s.date <= today and not s.attendance_taken)
+    # Bất kỳ ai trong lớp (GV chính/trợ giảng) đều điểm danh được, nhưng chỉ
+    # buổi đúng hôm nay mới thật sự thao tác được (buổi đã qua luôn bị khóa) —
+    # nên chỉ nhắc "chưa điểm danh" cho đúng hôm nay, tránh nhắc việc không
+    # còn làm được nữa.
+    pending_count = sum(1 for s in schedules if s.date == today and not s.attendance_taken)
 
     return render_template('teacher/attendance_list.html',
                          schedules=schedules,
@@ -615,10 +627,11 @@ def attendance_session(schedule_id):
     from models import AttendanceSummary
     schedule = Schedule.query.get_or_404(schedule_id)
 
-    # Allow access: the teacher assigned to this schedule, or admin.
-    # Tạm ẩn: chức năng dạy thay sẽ cập nhật lại sau (chỉ xét teacher_id).
+    # Allow access: GV chính hoặc trợ giảng của lớp (không nhất thiết là
+    # người được gán đứng lớp buổi này), hoặc admin.
     teacher = current_user.teacher_profile
-    is_assigned = teacher and schedule.teacher_id == teacher.id
+    cls = schedule.class_
+    is_assigned = teacher and (cls.primary_teacher_id == teacher.id or teacher in cls.assistant_teachers)
     if not current_user.is_admin and not is_assigned:
         abort(403)
 
@@ -671,11 +684,13 @@ def save_attendance(schedule_id):
         return jsonify({'error': 'Forbidden'}), 403
     schedule = Schedule.query.get_or_404(schedule_id)
 
-    # Teachers can only save attendance for their own schedules.
-    # Tạm ẩn: chức năng dạy thay sẽ cập nhật lại sau (chỉ xét teacher_id).
+    # Giáo viên chỉ được điểm danh buổi thuộc lớp mà họ là GV chính hoặc trợ
+    # giảng — không nhất thiết phải là người được gán đứng lớp buổi đó (một
+    # trợ giảng có thể điểm danh thay buổi do GV chính/trợ giảng khác dạy).
     teacher = current_user.teacher_profile
     if current_user.is_teacher and not current_user.is_admin:
-        is_assigned = teacher and schedule.teacher_id == teacher.id
+        cls = schedule.class_
+        is_assigned = teacher and (cls.primary_teacher_id == teacher.id or teacher in cls.assistant_teachers)
         if not is_assigned:
             return jsonify({'error': 'Unauthorized'}), 403
 
