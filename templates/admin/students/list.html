@@ -201,6 +201,8 @@
             <td class="text-center">
               {% if student.status == 'pending_confirmation' %}
                 <span class="badge" style="background:#f59e0b;color:#fff;">Đang xác nhận</span>
+              {% elif student.status == 'graduated' %}
+                <span class="badge bg-info-subtle text-info border border-info-subtle">Đã tốt nghiệp</span>
               {% elif student.is_active %}
                 <span class="badge bg-success-subtle text-success border border-success-subtle">Đang học</span>
               {% else %}

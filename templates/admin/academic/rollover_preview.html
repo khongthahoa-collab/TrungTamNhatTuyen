@@ -1,0 +1,132 @@
+{% extends 'admin/base.html' %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ url_for('admin.academic_years') }}">Năm học</a></li>
+<li class="breadcrumb-item active">Cuộn năm học</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+  <h5 class="mb-0 fw-bold"><i class="bi bi-arrow-up-right-circle me-2 text-primary"></i>Cuộn năm học</h5>
+  <a href="{{ url_for('admin.academic_years') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Quay lại
+  </a>
+</div>
+
+<p class="text-muted small mb-4">
+  Chuyển từ năm học <strong>{{ plan.current_year }}-{{ plan.current_year + 1 }}</strong> sang
+  <strong>{{ plan.next_year }}-{{ plan.next_year + 1 }}</strong>: mỗi lớp bên dưới sẽ được đóng lại
+  (giữ nguyên lịch sử điểm danh/học phí/điểm số) và một lớp mới cùng lịch học, giáo viên, phòng học
+  sẽ được tạo cho khối kế tiếp, với toàn bộ học sinh đang học được chuyển sang. Học sinh sẽ được lên
+  lớp tương ứng; học sinh Lớp 12 sẽ tốt nghiệp.
+</p>
+
+{% if plan.already_rolled %}
+<div class="alert alert-warning">
+  <i class="bi bi-exclamation-triangle me-1"></i>
+  Năm học {{ plan.next_year }}-{{ plan.next_year + 1 }} đã được cuộn rồi — không thể cuộn lại.
+  Nếu cần điều chỉnh, hãy sửa từng lớp/học sinh thủ công.
+</div>
+{% else %}
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-semibold">
+    <i class="bi bi-journal-arrow-up me-2 text-primary"></i>
+    Lớp sẽ được cuộn lên khối kế tiếp ({{ rolling_info|length }})
+  </div>
+  <div class="card-body p-0">
+    {% if rolling_info %}
+    <div class="table-responsive">
+      <table class="table table-sm mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Lớp hiện tại</th>
+            <th>Sĩ số</th>
+            <th class="pe-3">Lớp mới sẽ tạo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cls, next_grade, new_name, roster_count in rolling_info %}
+          <tr>
+            <td class="ps-3">{{ cls.name }} <span class="text-muted small">({{ cls.grade_level }})</span></td>
+            <td>{{ roster_count }}</td>
+            <td class="pe-3 fw-semibold text-primary">{{ new_name }} <span class="text-muted small fw-normal">({{ next_grade }})</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted small p-3 mb-0">Không có lớp nào đủ điều kiện tự động cuộn.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-12 col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white fw-semibold">
+        <i class="bi bi-mortarboard me-2 text-warning"></i>Lớp 12 — sẽ đóng, học sinh tốt nghiệp ({{ plan.lop12|length }})
+      </div>
+      <div class="card-body">
+        {% if plan.lop12 %}
+        <ul class="mb-0 small">
+          {% for cls in plan.lop12 %}
+          <li>{{ cls.name }} — sĩ số {{ cls.current_enrollment }}</li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted small mb-0">Không có lớp Lớp 12 đang hoạt động.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white fw-semibold">
+        <i class="bi bi-exclamation-circle me-2 text-secondary"></i>Cần tạo lớp thủ công ({{ plan.manual|length }})
+      </div>
+      <div class="card-body">
+        {% if plan.manual %}
+        <ul class="mb-0 small">
+          {% for cls in plan.manual %}
+          <li>{{ cls.name }} <span class="text-muted">({{ cls.grade_level or 'Loại khác' }})</span></li>
+          {% endfor %}
+        </ul>
+        <div class="form-text mt-2">Lớp học khối tự do (không phải Lớp 1–12) sẽ đóng cùng năm học này nhưng
+          không thể tự xác định khối kế tiếp — tạo lớp mới thủ công nếu muốn tiếp tục.</div>
+        {% else %}
+        <p class="text-muted small mb-0">Không có lớp nào cần xử lý thủ công.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-semibold">
+    <i class="bi bi-award me-2 text-success"></i>Học sinh sẽ tốt nghiệp ({{ plan.graduating|length }})
+  </div>
+  <div class="card-body">
+    {% if plan.graduating %}
+    <ul class="mb-0 small">
+      {% for s in plan.graduating %}
+      <li>{{ s.full_name }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-muted small mb-0">Không có học sinh Lớp 12 nào.</p>
+    {% endif %}
+  </div>
+</div>
+
+<form method="post" action="{{ url_for('admin.academic_year_rollover_execute') }}"
+      onsubmit="return confirm('Xác nhận cuộn năm học? Thao tác này sẽ tạo lớp mới, chuyển học sinh, và không thể hoàn tác tự động.')">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button type="submit" class="btn btn-primary">
+    <i class="bi bi-check-circle me-1"></i>Xác nhận cuộn năm học
+  </button>
+</form>
+
+{% endif %}
+{% endblock %}
