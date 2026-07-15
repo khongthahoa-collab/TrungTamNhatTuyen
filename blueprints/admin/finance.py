@@ -194,22 +194,30 @@ def tuition_bulk_add():
             flash('Vui lòng điền đầy đủ.', 'danger')
         else:
             class_ = Class.query.get_or_404(class_id)
+            students = class_.active_students
+            student_ids = [s.id for s in students]
+            existing_ids = set()
+            if student_ids:
+                existing_ids = {
+                    t.student_id for t in TuitionPayment.query.filter(
+                        TuitionPayment.student_id.in_(student_ids), TuitionPayment.class_id == class_id,
+                        TuitionPayment.month == month, TuitionPayment.year == year,
+                    ).all()
+                }
             added = 0
-            for student in class_.active_students:
-                exists = TuitionPayment.query.filter_by(
-                    student_id=student.id, class_id=class_id, month=month, year=year
-                ).first()
-                if not exists:
-                    tp = TuitionPayment(
-                        student_id=student.id,
-                        class_id=class_id,
-                        amount=amount,
-                        month=month,
-                        year=year,
-                        is_paid=False,
-                    )
-                    db.session.add(tp)
-                    added += 1
+            for student in students:
+                if student.id in existing_ids:
+                    continue
+                tp = TuitionPayment(
+                    student_id=student.id,
+                    class_id=class_id,
+                    amount=amount,
+                    month=month,
+                    year=year,
+                    is_paid=False,
+                )
+                db.session.add(tp)
+                added += 1
             db.session.commit()
             flash(f'Đã thêm {added} bản ghi học phí cho lớp {class_.name}.', 'success')
             return redirect(url_for('admin.tuition', month=month, year=year, class_id=class_id))
@@ -323,28 +331,34 @@ def salary():
     teachers = (Teacher.query
                .join(Teacher.user).filter(User.is_deleted == False)
                .order_by(User.full_name).all())
+    teacher_ids = [t.id for t in teachers]
     salaries_by_teacher = {
         s.teacher_id: s for s in Salary.query.filter_by(month=month, year=year).all()
     }
-    session_counts = {
-        t.id: Schedule.query.filter(
-            Schedule.teacher_id == t.id,
-            Schedule.substitute_teacher_id.is_(None),
-            Schedule.is_cancelled == False,
-            extract('month', Schedule.date) == month,
-            extract('year', Schedule.date) == year,
-        ).count()
-        for t in teachers
-    }
-    sub_counts = {
-        t.id: Schedule.query.filter(
-            Schedule.substitute_teacher_id == t.id,
-            Schedule.is_cancelled == False,
-            extract('month', Schedule.date) == month,
-            extract('year', Schedule.date) == year,
-        ).count()
-        for t in teachers
-    }
+    session_counts = {}
+    sub_counts = {}
+    if teacher_ids:
+        session_counts = dict(
+            db.session.query(Schedule.teacher_id, func.count(Schedule.id))
+            .filter(
+                Schedule.teacher_id.in_(teacher_ids),
+                Schedule.substitute_teacher_id.is_(None),
+                Schedule.is_cancelled == False,
+                extract('month', Schedule.date) == month,
+                extract('year', Schedule.date) == year,
+            )
+            .group_by(Schedule.teacher_id).all()
+        )
+        sub_counts = dict(
+            db.session.query(Schedule.substitute_teacher_id, func.count(Schedule.id))
+            .filter(
+                Schedule.substitute_teacher_id.in_(teacher_ids),
+                Schedule.is_cancelled == False,
+                extract('month', Schedule.date) == month,
+                extract('year', Schedule.date) == year,
+            )
+            .group_by(Schedule.substitute_teacher_id).all()
+        )
 
     return render_template('admin/finance/salary.html',
                            teachers=teachers,
@@ -707,16 +721,27 @@ def monthly_fee_generate():
         flash('Chưa có cấu hình học phí tháng này. Hãy thiết lập số tuần cho từng lớp trước.', 'warning')
         return redirect(url_for('admin.monthly_fees', month=month, year=year))
 
+    # Batch every config's enrollments + existing tuition rows up front
+    # instead of 2 queries per (config, enrollment) pair.
+    all_class_ids = [cfg.class_id for cfg in configs]
+    enrollments_by_class = {}
+    for e in Enrollment.query.filter(Enrollment.class_id.in_(all_class_ids), Enrollment.is_active == True).all():
+        enrollments_by_class.setdefault(e.class_id, []).append(e)
+
+    all_student_ids = list({e.student_id for enrs in enrollments_by_class.values() for e in enrs})
+    existing_payments = {}
+    if all_student_ids:
+        for t in TuitionPayment.query.filter(
+            TuitionPayment.class_id.in_(all_class_ids), TuitionPayment.student_id.in_(all_student_ids),
+            TuitionPayment.month == month, TuitionPayment.year == year,
+        ).all():
+            existing_payments[(t.student_id, t.class_id)] = t
+
     created = updated = 0
     for cfg in configs:
-        enrollments = Enrollment.query.filter_by(
-            class_id=cfg.class_id, is_active=True
-        ).all()
+        enrollments = enrollments_by_class.get(cfg.class_id, [])
         for enr in enrollments:
-            existing = TuitionPayment.query.filter_by(
-                student_id=enr.student_id, class_id=cfg.class_id,
-                month=month, year=year
-            ).first()
+            existing = existing_payments.get((enr.student_id, cfg.class_id))
             if existing:
                 # Chỉ cập nhật nếu chưa thanh toán
                 if not existing.is_paid:

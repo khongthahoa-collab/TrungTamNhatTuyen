@@ -1,6 +1,6 @@
 from flask import render_template, redirect, url_for, flash, request
 from flask_login import login_required
-from sqlalchemy import extract
+from sqlalchemy import extract, func
 from datetime import date
 from extensions import db
 from models import Teacher, User, UserRole, Schedule
@@ -20,17 +20,27 @@ def teachers():
         .order_by(User.full_name)
         .all()
     )
+    teacher_ids = [t.id for t in teachers]
+
+    # Two grouped queries instead of two per teacher.
     class_counts = {}
     session_counts = {}
-    for t in teachers:
-        class_counts[t.id] = t.schedules.with_entities(
-            Schedule.class_id
-        ).distinct().count()
-        session_counts[t.id] = t.schedules.filter(
-            Schedule.is_cancelled == False,
-            extract('month', Schedule.date) == today.month,
-            extract('year', Schedule.date) == today.year,
-        ).count()
+    if teacher_ids:
+        class_counts = dict(
+            db.session.query(Schedule.teacher_id, func.count(func.distinct(Schedule.class_id)))
+            .filter(Schedule.teacher_id.in_(teacher_ids))
+            .group_by(Schedule.teacher_id).all()
+        )
+        session_counts = dict(
+            db.session.query(Schedule.teacher_id, func.count(Schedule.id))
+            .filter(
+                Schedule.teacher_id.in_(teacher_ids),
+                Schedule.is_cancelled == False,
+                extract('month', Schedule.date) == today.month,
+                extract('year', Schedule.date) == today.year,
+            )
+            .group_by(Schedule.teacher_id).all()
+        )
 
     return render_template('admin/teachers/list.html',
                            teachers=teachers,

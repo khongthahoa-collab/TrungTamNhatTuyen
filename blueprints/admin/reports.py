@@ -3,7 +3,7 @@ from flask_login import login_required
 from datetime import date
 from sqlalchemy import func, extract
 from extensions import db
-from models import TuitionPayment, Expense, Student, Class, Attendance, Schedule
+from models import TuitionPayment, Expense, Student, Class, Attendance, Schedule, Enrollment
 from blueprints.admin import admin_bp, require_admin
 
 
@@ -42,27 +42,47 @@ def reports():
         extract('year', Student.created_at) == year, Student.is_deleted == False
     ).count()
 
-    # Class efficiency (current active classes)
+    # Class efficiency (current active classes) — batched into grouped
+    # queries instead of 3-4 queries per class (was 1 + 4N).
+    active_classes = Class.query.filter_by(is_active=True).all()
+    class_ids = [cl.id for cl in active_classes]
+
+    session_counts, enrollment_counts, att_counts, absent_counts = {}, {}, {}, {}
+    if class_ids:
+        session_counts = dict(
+            db.session.query(Schedule.class_id, func.count(Schedule.id))
+            .filter(Schedule.class_id.in_(class_ids), Schedule.is_cancelled == False,
+                   extract('year', Schedule.date) == year)
+            .group_by(Schedule.class_id).all()
+        )
+        enrollment_counts = dict(
+            db.session.query(Enrollment.class_id, func.count(Enrollment.id))
+            .filter(Enrollment.class_id.in_(class_ids), Enrollment.is_active == True)
+            .group_by(Enrollment.class_id).all()
+        )
+        att_counts = dict(
+            db.session.query(Schedule.class_id, func.count(Attendance.id))
+            .join(Attendance, Attendance.schedule_id == Schedule.id)
+            .filter(Schedule.class_id.in_(class_ids), extract('year', Schedule.date) == year)
+            .group_by(Schedule.class_id).all()
+        )
+        absent_counts = dict(
+            db.session.query(Schedule.class_id, func.count(Attendance.id))
+            .join(Attendance, Attendance.schedule_id == Schedule.id)
+            .filter(Schedule.class_id.in_(class_ids), Attendance.status == 'absent',
+                   extract('year', Schedule.date) == year)
+            .group_by(Schedule.class_id).all()
+        )
+
     class_stats = []
-    for cl in Class.query.filter_by(is_active=True).all():
-        total_sessions = cl.schedules.filter(
-            Schedule.is_cancelled == False,
-            extract('year', Schedule.date) == year,
-        ).count()
-        total_att = Attendance.query.join(Attendance.schedule).filter(
-            Schedule.class_id == cl.id,
-            extract('year', Schedule.date) == year,
-        ).count()
-        absent_count = Attendance.query.join(Attendance.schedule).filter(
-            Schedule.class_id == cl.id,
-            Attendance.status == 'absent',
-            extract('year', Schedule.date) == year,
-        ).count()
+    for cl in active_classes:
+        total_att = att_counts.get(cl.id, 0)
+        absent_count = absent_counts.get(cl.id, 0)
         absence_rate = (absent_count / total_att * 100) if total_att > 0 else 0
         class_stats.append({
             'class': cl,
-            'enrollment': cl.current_enrollment,
-            'total_sessions': total_sessions,
+            'enrollment': enrollment_counts.get(cl.id, 0),
+            'total_sessions': session_counts.get(cl.id, 0),
             'absence_rate': round(absence_rate, 1),
         })
 
