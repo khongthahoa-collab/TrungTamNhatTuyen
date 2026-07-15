@@ -74,19 +74,35 @@
 </div>
 
 <!-- Danh sách học sinh -->
+<!-- Bulk-unenroll form lives outside the table (checkboxes below reference it
+     via the form="" attribute) so it doesn't nest inside each row's own
+     single-student unenroll <form> — nested <form> elements are invalid
+     HTML and browsers silently break the outer one. -->
+<form id="bulkUnenrollForm" method="post" action="{{ url_for('admin.class_bulk_unenroll', class_id=class_.id) }}"
+      onsubmit="return confirm('Rút ' + document.querySelectorAll('.enroll-select:checked').length + ' học sinh đã chọn khỏi lớp này?')">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
 <div class="card border-0 shadow-sm mb-4">
   <div class="card-header bg-white d-flex align-items-center justify-content-between flex-wrap gap-2">
     <span class="fw-semibold"><i class="bi bi-people me-2 text-primary"></i>Danh sách học sinh</span>
-    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addStudentsModal">
-      <i class="bi bi-person-plus me-1"></i>Thêm học sinh
-    </button>
+    <div class="d-flex gap-2">
+      <button type="submit" form="bulkUnenrollForm" id="bulkUnenrollBtn" class="btn btn-outline-danger btn-sm" disabled>
+        <i class="bi bi-person-dash me-1"></i>Rút (<span id="bulkUnenrollCount">0</span>) đã chọn
+      </button>
+      <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addStudentsModal">
+        <i class="bi bi-person-plus me-1"></i>Thêm học sinh
+      </button>
+    </div>
   </div>
   <div class="card-body p-0">
     <div class="table-responsive">
       <table class="table table-hover align-middle mb-0">
         <thead class="table-light">
           <tr>
-            <th class="ps-3">Học sinh</th>
+            <th class="ps-3" style="width:36px">
+              <input type="checkbox" class="form-check-input" id="selectAllEnrolled">
+            </th>
+            <th>Học sinh</th>
             <th>Chiết khấu</th>
             <th>Ghi chú</th>
             <th class="text-center">Thao tác</th>
@@ -97,6 +113,10 @@
           {% for enrollment in active_enrollments %}
           <tr>
             <td class="ps-3">
+              <input type="checkbox" class="form-check-input enroll-select" name="student_ids"
+                     value="{{ enrollment.student.id }}" form="bulkUnenrollForm">
+            </td>
+            <td>
               <a href="{{ url_for('admin.student_detail', student_id=enrollment.student.id) }}" class="fw-semibold text-decoration-none small">
                 {{ enrollment.student.full_name }}
               </a>
@@ -123,7 +143,7 @@
           </tr>
           {% else %}
           <tr>
-            <td colspan="4" class="text-center text-muted py-3 ps-3 small">
+            <td colspan="5" class="text-center text-muted py-3 ps-3 small">
               <i class="bi bi-people d-block mb-1 fs-5"></i>Chưa có học sinh nào
             </td>
           </tr>
@@ -497,5 +517,27 @@ document.getElementById('studentSearchInput')?.addEventListener('input', functio
   });
   document.getElementById('studentSearchNoResults')?.classList.toggle('d-none', visibleCount > 0);
 });
+
+// Chọn tất cả / chọn từng học sinh trong "Danh sách học sinh" để rút hàng loạt
+(function() {
+  const selectAll = document.getElementById('selectAllEnrolled');
+  const bulkBtn = document.getElementById('bulkUnenrollBtn');
+  const bulkCount = document.getElementById('bulkUnenrollCount');
+  if (!selectAll || !bulkBtn) return;
+
+  function rowCheckboxes() {
+    return document.querySelectorAll('.enroll-select');
+  }
+  function updateBulkState() {
+    const checked = document.querySelectorAll('.enroll-select:checked').length;
+    bulkBtn.disabled = checked === 0;
+    bulkCount.textContent = checked;
+  }
+  selectAll.addEventListener('change', () => {
+    rowCheckboxes().forEach(cb => { cb.checked = selectAll.checked; });
+    updateBulkState();
+  });
+  rowCheckboxes().forEach(cb => cb.addEventListener('change', updateBulkState));
+})();
 </script>
 {% endblock %}
