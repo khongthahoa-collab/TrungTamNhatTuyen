@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, jsonify, current_app, send_from_directory
 from datetime import date, timedelta
-from models import Schedule, Class, Course, Score, SystemConfig, StudentLevel, ContactInquiry, Student, School
+from sqlalchemy.orm import joinedload, contains_eager
+from models import Schedule, Class, Course, Score, SystemConfig, StudentLevel, ContactInquiry, Student, School, Reward
 from extensions import db
 
 public_bp = Blueprint('public', __name__)
@@ -29,12 +30,15 @@ def index():
     course_id = request.args.get('course_id', type=int)
     level = request.args.get('level', '')
 
-    # Build schedule query
+    # Build schedule query — contains_eager populates Schedule.class_ from
+    # this same join (the template accesses s.class_ twice, for a mobile and
+    # a desktop render of the same week grid), instead of a lazy-load per
+    # distinct class.
     q = Schedule.query.filter(
         Schedule.date >= monday,
         Schedule.date <= sunday,
         Schedule.is_cancelled == False,
-    ).join(Schedule.class_).filter(Class.is_active == True)
+    ).join(Schedule.class_).options(contains_eager(Schedule.class_)).filter(Class.is_active == True)
 
     if course_id:
         q = q.filter(Class.course_id == course_id)
@@ -60,15 +64,46 @@ def index():
             .distinct().order_by(Student.current_school).all())
     distinct_schools = [{'name': r[0], 'range': ''} for r in rows]
 
+    # Batch every SystemConfig lookup this route needs into one query instead
+    # of 12 sequential round trips (SystemConfig.get() issues its own query
+    # per call) — this is the highest-traffic page in the app.
+    config_keys = [
+        'hall_of_fame_min_score', 'center_name', 'center_address', 'center_phone',
+        'zalo_link', 'messenger_link', 'hero_bg', 'hero_badge',
+        'hero_headline1', 'hero_headline2', 'hero_sub', 'hero_note',
+    ]
+    _config_rows = {
+        row.key: row.value for row in
+        SystemConfig.query.filter(SystemConfig.key.in_(config_keys)).all()
+    }
+
+    def cfg(key, default=None):
+        # Matches SystemConfig.get()'s exact fallback semantics: missing key
+        # -> default, present-but-NULL value -> None (not default).
+        return _config_rows.get(key, default)
+
     # Hall of Fame
-    min_score_val = float(SystemConfig.get('hall_of_fame_min_score', '8'))
+    min_score_val = float(cfg('hall_of_fame_min_score', '8'))
     hall_of_fame = (
         Score.query
+        .options(joinedload(Score.class_), joinedload(Score.student))
         .filter(Score.score_value >= min_score_val)
         .order_by(Score.score_value.desc(), Score.exam_date.desc())
         .limit(60)
         .all()
     )
+
+    # Confirmed reward per hall-of-fame score, batched in one query instead
+    # of a per-row `s.rewards.filter_by(is_confirmed=True).first()` in the
+    # template (was the worst N+1 found in the whole codebase audit — a
+    # dynamic-relationship query per row on the public homepage).
+    _hof_score_ids = [s.id for s in hall_of_fame]
+    hof_rewards = {}
+    if _hof_score_ids:
+        for r in Reward.query.filter(
+            Reward.score_id.in_(_hof_score_ids), Reward.is_confirmed == True
+        ).all():
+            hof_rewards[r.score_id] = r
 
     # Group hall of fame by class name (ordered by class name)
     from collections import defaultdict
@@ -77,17 +112,17 @@ def index():
         _hof_grouped[_s.class_.name].append(_s)
     hall_of_fame_by_class = dict(sorted(_hof_grouped.items()))
 
-    center_name = SystemConfig.get('center_name', 'Trung tâm Nhật Tuyền')
-    center_address = SystemConfig.get('center_address', '')
-    center_phone = SystemConfig.get('center_phone', '')
-    zalo_link = SystemConfig.get('zalo_link', '')
-    messenger_link = SystemConfig.get('messenger_link', '')
-    hero_bg         = SystemConfig.get('hero_bg',         '#f8fdf9')
-    hero_badge      = SystemConfig.get('hero_badge',      '')
-    hero_headline1  = SystemConfig.get('hero_headline1',  center_name)
-    hero_headline2  = SystemConfig.get('hero_headline2',  '')
-    hero_sub        = SystemConfig.get('hero_sub',        '')
-    hero_note       = SystemConfig.get('hero_note',       '')
+    center_name = cfg('center_name', 'Trung tâm Nhật Tuyền')
+    center_address = cfg('center_address', '')
+    center_phone = cfg('center_phone', '')
+    zalo_link = cfg('zalo_link', '')
+    messenger_link = cfg('messenger_link', '')
+    hero_bg         = cfg('hero_bg',         '#f8fdf9')
+    hero_badge      = cfg('hero_badge',      '')
+    hero_headline1  = cfg('hero_headline1',  center_name)
+    hero_headline2  = cfg('hero_headline2',  '')
+    hero_sub        = cfg('hero_sub',        '')
+    hero_note       = cfg('hero_note',       '')
 
     return render_template(
         'public/index.html',
@@ -102,6 +137,7 @@ def index():
         selected_level=level,
         hall_of_fame=hall_of_fame,
         hall_of_fame_by_class=hall_of_fame_by_class,
+        hof_rewards=hof_rewards,
         hero_bg=hero_bg,
         hero_badge=hero_badge,
         hero_headline1=hero_headline1,

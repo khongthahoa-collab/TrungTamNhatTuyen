@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from datetime import date, timedelta, datetime, time as time_type
 import calendar
+from sqlalchemy.orm import contains_eager
 from extensions import db
 from models import Schedule, Attendance, Score, Class, Enrollment, Student, ClassDocument, Room, Notification, User, Salary
 from services.zalo_service import ZaloService
@@ -589,16 +590,39 @@ def attendance_list():
     ).all()
     summary_dict = {s.schedule_id: s for s in summaries}
 
-    # Full roster + existing attendance per schedule, for the inline panel
+    # Full roster + existing attendance per schedule, for the inline panel.
+    # Batched into 2 queries total instead of 2 per schedule (was 1 + 2N).
+    # contains_eager populates Enrollment.student from this same join (the
+    # template accesses enrollment.student per row) instead of a lazy-load
+    # per student.
+    class_ids = {s.class_id for s in schedules}
+    schedule_ids = [s.id for s in schedules]
+
+    enrollments_by_class = {}
+    if class_ids:
+        all_enrollments = (Enrollment.query.join(Student)
+                           .options(contains_eager(Enrollment.student))
+                           .filter(Enrollment.class_id.in_(class_ids), Enrollment.is_active == True)
+                           .order_by(Student.full_name).all())
+        for e in all_enrollments:
+            enrollments_by_class.setdefault(e.class_id, []).append(e)
+
+    attendance_by_schedule = {}
+    if schedule_ids:
+        all_attendances = Attendance.query.filter(Attendance.schedule_id.in_(schedule_ids)).all()
+        for a in all_attendances:
+            attendance_by_schedule.setdefault(a.schedule_id, {})[a.student_id] = a
+
+    # Sĩ số / "đã điểm danh chưa" also used to be a .count() query per
+    # schedule/class (Class.current_enrollment, Schedule.attendance_taken)
+    # — derive both from the same batched data above instead.
     roster = {}
     for s in schedules:
-        enrollments = (Enrollment.query.join(Student)
-                      .filter(Enrollment.class_id == s.class_id, Enrollment.is_active == True)
-                      .order_by(Student.full_name).all())
-        attendances = Attendance.query.filter_by(schedule_id=s.id).all()
         roster[s.id] = {
-            'enrollments': enrollments,
-            'attendance': {a.student_id: a for a in attendances},
+            'enrollments': enrollments_by_class.get(s.class_id, []),
+            'attendance': attendance_by_schedule.get(s.id, {}),
+            'enrollment_count': len(enrollments_by_class.get(s.class_id, [])),
+            'attendance_taken': bool(attendance_by_schedule.get(s.id)),
         }
 
     if view_mode == 'week':
@@ -617,7 +641,7 @@ def attendance_list():
     # buổi đúng hôm nay mới thật sự thao tác được (buổi đã qua luôn bị khóa) —
     # nên chỉ nhắc "chưa điểm danh" cho đúng hôm nay, tránh nhắc việc không
     # còn làm được nữa.
-    pending_count = sum(1 for s in schedules if s.date == today and not s.attendance_taken)
+    pending_count = sum(1 for s in schedules if s.date == today and not roster[s.id]['attendance_taken'])
 
     return render_template('teacher/attendance_list.html',
                          schedules=schedules,

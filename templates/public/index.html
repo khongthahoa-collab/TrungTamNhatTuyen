@@ -352,7 +352,7 @@
         <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="hof-pane-{{ loop.index }}">
           <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 g-3">
             {% for s in entries %}
-              {% set reward = s.rewards.filter_by(is_confirmed=True).first() %}
+              {% set reward = hof_rewards.get(s.id) %}
               <div class="col">
                 <div class="card border-0 shadow-sm h-100 text-center p-3 hall-card">
                   <div class="mb-2">

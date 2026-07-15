@@ -80,7 +80,12 @@ def create_app(config_name=None):
     @app.context_processor
     def inject_globals():
         try:
-            unread_inquiries = ContactInquiry.query.filter_by(is_read=False).count()
+            # Only rendered on the admin sidebar — skip the query entirely
+            # for every public/teacher/parent page view (the majority of traffic).
+            if current_user.is_authenticated and current_user.is_admin:
+                unread_inquiries = ContactInquiry.query.filter_by(is_read=False).count()
+            else:
+                unread_inquiries = 0
         except Exception:
             unread_inquiries = 0
         try:

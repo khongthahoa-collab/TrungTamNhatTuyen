@@ -724,9 +724,9 @@ class Class(db.Model):
     sessions_per_week = db.Column(db.Integer, default=1)  # Số buổi học trong 1 tuần
     start_date = db.Column(db.Date)
     end_date = db.Column(db.Date)
-    is_active = db.Column(db.Boolean, default=True)
+    is_active = db.Column(db.Boolean, default=True, index=True)
     description = db.Column(db.Text)
-    primary_teacher_id = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=True)
+    primary_teacher_id = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=True, index=True)
     zalo_group_id = db.Column(db.String(100))  # Zalo group ID for class notifications
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -782,7 +782,7 @@ class Enrollment(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
-    class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False)
+    class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False, index=True)
     enrolled_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
     discount_pct = db.Column(db.Float, default=0)  # Discount percentage
@@ -803,7 +803,7 @@ class Student(db.Model):
     date_of_birth = db.Column(db.Date)
     gender = db.Column(db.String(10))  # male/female
     current_school = db.Column(db.String(200))  # School name (free text, kept for legacy/custom)
-    school_id = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=True)
+    school_id = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=True, index=True)
     current_grade = db.Column(db.String(20))    # e.g., "Lớp 6" — one of GRADE_SEQUENCE
     grade_year = db.Column(db.Integer)  # start-year of the academic year current_grade was last set/synced for
     level = db.Column(db.String(20), nullable=False)  # primary/secondary/high_school
@@ -816,6 +816,8 @@ class Student(db.Model):
     status = db.Column(db.String(20), default='active', server_default='active')
     is_deleted = db.Column(db.Boolean, default=False, server_default='0')  # soft delete
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.Index('ix_student_active_deleted', 'is_active', 'is_deleted'),)
 
     # Relationships
     enrollments = db.relationship('Enrollment', backref='student', lazy='dynamic')
@@ -843,10 +845,10 @@ class Schedule(db.Model):
     __tablename__ = 'schedules'
     
     id = db.Column(db.Integer, primary_key=True)
-    class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False)
-    teacher_id = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=True)
+    class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False, index=True)
+    teacher_id = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=True, index=True)
     substitute_teacher_id = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=True)
-    date = db.Column(db.Date, nullable=False)
+    date = db.Column(db.Date, nullable=False, index=True)
     start_time = db.Column(db.Time, nullable=False)
     end_time = db.Column(db.Time, nullable=False)
     room = db.Column(db.String(50))
@@ -897,7 +899,7 @@ class Attendance(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     schedule_id = db.Column(db.Integer, db.ForeignKey('schedules.id'), nullable=False)
-    student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False, index=True)
     status = db.Column(db.String(20), nullable=False, default=AttendanceStatus.PRESENT)
     note = db.Column(db.String(255))
     reason = db.Column(db.String(255))  # Reason for absence (if excused)
@@ -932,8 +934,8 @@ class Score(db.Model):
     __tablename__ = 'scores'
     
     id = db.Column(db.Integer, primary_key=True)
-    student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
-    class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False, index=True)
+    class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False, index=True)
     score_source = db.Column(db.String(20), nullable=False, default=ScoreSource.CENTER)  # center/school
     score_type = db.Column(db.String(20), nullable=False)  # continuous/quiz_15/oral/midterm/final
     score_value = db.Column(db.Float, nullable=False)
@@ -990,8 +992,8 @@ class TuitionPayment(db.Model):
     __tablename__ = 'tuition_payments'
     
     id = db.Column(db.Integer, primary_key=True)
-    student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
-    class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False, index=True)
+    class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False, index=True)
     amount = db.Column(db.Float, nullable=False)
     payment_stage = db.Column(db.String(50), default='100')  # 25, 50, 75, 100
     amount_25pct = db.Column(db.Float, default=0)
@@ -1009,6 +1011,8 @@ class TuitionPayment(db.Model):
     is_paid = db.Column(db.Boolean, default=False)
     is_finalized = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.Index('ix_tuitionpayment_year_month', 'year', 'month'),)
 
     # Relationships
     class_ = db.relationship('Class', foreign_keys=[class_id])
@@ -1170,6 +1174,8 @@ class Notification(db.Model):
     is_read = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    __table_args__ = (db.Index('ix_notification_user_read', 'user_id', 'is_read'),)
+
     user = db.relationship('User', foreign_keys=[user_id], backref='notifications')
 
     def __repr__(self):
@@ -1188,7 +1194,7 @@ class ContactInquiry(db.Model):
     parent_phone = db.Column(db.String(20), nullable=False)
     note         = db.Column(db.Text)
     confirm_tuition = db.Column(db.Boolean, default=False)  # Parent wants tuition confirmed before starting
-    is_read      = db.Column(db.Boolean, default=False)
+    is_read      = db.Column(db.Boolean, default=False, index=True)
     created_at   = db.Column(db.DateTime, default=datetime.utcnow)
 
     def __repr__(self):
