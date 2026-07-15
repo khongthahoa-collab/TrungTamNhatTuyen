@@ -122,21 +122,28 @@ def migrate():
 
         # ── 7. classes (thêm các cột mới với giá trị mặc định)
         rows = rows_to_dicts(cur, 'classes')
+        assistant_pairs = []  # (class_id, assistant_teacher_id) — nguồn SQLite cũ chỉ có 1 trợ giảng/lớp
         for r in rows:
             r.setdefault('monthly_fee', 0)
             r.setdefault('sessions_per_week', 1)
             r.setdefault('primary_teacher_id', None)
-            r.setdefault('assistant_teacher_id', None)
             r.setdefault('zalo_group_id', None)
+            old_assistant_id = r.pop('assistant_teacher_id', None)
+            if old_assistant_id:
+                assistant_pairs.append((r['id'], old_assistant_id))
             db.session.execute(db.text(
                 'INSERT INTO classes (id, name, course_id, grade_level, max_students, monthly_fee, '
                 'sessions_per_week, start_date, end_date, is_active, description, '
-                'primary_teacher_id, assistant_teacher_id, zalo_group_id, created_at) '
+                'primary_teacher_id, zalo_group_id, created_at) '
                 'VALUES (:id, :name, :course_id, :grade_level, :max_students, :monthly_fee, '
                 ':sessions_per_week, :start_date, :end_date, :is_active, :description, '
-                ':primary_teacher_id, :assistant_teacher_id, :zalo_group_id, :created_at)'
+                ':primary_teacher_id, :zalo_group_id, :created_at)'
             ), r)
-        print(f'  classes: {len(rows)} dòng')
+        for class_id, teacher_id in assistant_pairs:
+            db.session.execute(db.text(
+                'INSERT INTO class_assistant_teachers (class_id, teacher_id) VALUES (:class_id, :teacher_id)'
+            ), {'class_id': class_id, 'teacher_id': teacher_id})
+        print(f'  classes: {len(rows)} dòng ({len(assistant_pairs)} trợ giảng)')
 
         # ── 8. students (thêm cột mới)
         rows = rows_to_dicts(cur, 'students')

@@ -63,12 +63,13 @@ def schedule_conflict_message(student, target_class, conflict):
 
 
 def notify_class_teachers(cls, title, body, link=None):
-    """Create an in-app Notification for the primary + assistant teacher of
-    a class (both count as "quản lý lớp"). No-op if neither is assigned."""
+    """Create an in-app Notification for the primary teacher + all assistant
+    teachers of a class (all count as "quản lý lớp"). No-op if none assigned."""
     user_ids = set()
     if cls.primary_teacher and cls.primary_teacher.user_id:
         user_ids.add(cls.primary_teacher.user_id)
-    if cls.assistant_teacher and cls.assistant_teacher.user_id:
-        user_ids.add(cls.assistant_teacher.user_id)
+    for t in cls.assistant_teachers:
+        if t.user_id:
+            user_ids.add(t.user_id)
     for uid in user_ids:
         db.session.add(Notification(user_id=uid, title=title, body=body, link=link))

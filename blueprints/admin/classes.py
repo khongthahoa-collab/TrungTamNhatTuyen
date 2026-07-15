@@ -404,13 +404,13 @@ def class_add():
 
         course_id = request.form.get('course_id', type=int)
         primary_teacher_id = request.form.get('primary_teacher_id', type=int) or None
-        assistant_teacher_id = request.form.get('assistant_teacher_id', type=int) or None
+        assistant_teacher_ids = [int(x) for x in request.form.getlist('assistant_teacher_ids[]') if x]
         max_students = request.form.get('max_students', type=int) or None
         monthly_fee = request.form.get('monthly_fee', 0, type=float)
         description = request.form.get('description', '').strip()
         start_date, end_date = _current_school_year_range()
 
-        allowed_teacher_ids = {tid for tid in (primary_teacher_id, assistant_teacher_id) if tid}
+        allowed_teacher_ids = {tid for tid in [primary_teacher_id, *assistant_teacher_ids] if tid}
         sched_rows = _parse_sched_rows(allowed_teacher_ids, primary_teacher_id)
         # sessions_per_week: from form override, else auto from schedule row count
         sessions_per_week = request.form.get('sessions_per_week', type=int) or len(sched_rows) or 1
@@ -462,12 +462,13 @@ def class_add():
             sessions_per_week=sessions_per_week,
             description=description,
             primary_teacher_id=primary_teacher_id,
-            assistant_teacher_id=assistant_teacher_id,
             start_date=start_date,
             end_date=end_date,
         )
         db.session.add(cl)
         db.session.flush()
+        if assistant_teacher_ids:
+            cl.assistant_teachers = Teacher.query.filter(Teacher.id.in_(assistant_teacher_ids)).all()
 
         # Học kỳ chỉ được gắn tự động cho mục đích thống kê, không bắt buộc chọn.
         semester = _semester_for_date(start_date)
@@ -556,7 +557,8 @@ def class_edit(class_id):
         class_.description = request.form.get('description', '').strip()
         class_.is_active = request.form.get('is_active') == '1'
         class_.primary_teacher_id = new_primary_id
-        class_.assistant_teacher_id = request.form.get('assistant_teacher_id', type=int) or None
+        assistant_teacher_ids = [int(x) for x in request.form.getlist('assistant_teacher_ids[]') if x]
+        class_.assistant_teachers = Teacher.query.filter(Teacher.id.in_(assistant_teacher_ids)).all() if assistant_teacher_ids else []
 
         db.session.commit()
         flash('Đã cập nhật thông tin lớp.', 'success')
@@ -573,7 +575,7 @@ def class_reschedule(class_id):
     """Thay đổi khung giờ học hàng tuần. Chỉ xóa/tạo lại các buổi TỪ HÔM NAY trở
     đi — các buổi đã qua giữ nguyên, không bị ảnh hưởng."""
     class_ = Class.query.get_or_404(class_id)
-    allowed_teacher_ids = {tid for tid in (class_.primary_teacher_id, class_.assistant_teacher_id) if tid}
+    allowed_teacher_ids = {tid for tid in [class_.primary_teacher_id, *[t.id for t in class_.assistant_teachers]] if tid}
     sched_rows = _parse_sched_rows(allowed_teacher_ids, class_.primary_teacher_id)
 
     if not sched_rows:

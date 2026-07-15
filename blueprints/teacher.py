@@ -100,9 +100,11 @@ def schedule():
     monday = ref_date - timedelta(days=ref_date.weekday())
     week_days = [(monday + timedelta(days=i)) for i in range(7)]
 
-    schedules = Schedule.query.filter_by(
-        teacher_id=teacher.id
-    ).filter(
+    # Hiển thị cả các buổi của lớp mà giáo viên này là trợ giảng, không chỉ
+    # buổi do chính họ đứng lớp — để trợ giảng thấy được lịch đầy đủ của lớp.
+    # Ai thực sự dạy buổi nào vẫn theo Schedule.teacher_id (xem effective_teacher).
+    schedules = Schedule.query.join(Class, Schedule.class_id == Class.id).filter(
+        db.or_(Class.primary_teacher_id == teacher.id, Class.assistant_teachers.any(id=teacher.id)),
         Schedule.date >= monday,
         Schedule.date <= monday + timedelta(days=6),
     ).order_by(Schedule.date, Schedule.start_time).all()
@@ -327,7 +329,7 @@ def create_intensive():
     ).filter(
         db.or_(
             Class.primary_teacher_id == teacher.id,
-            Class.assistant_teacher_id == teacher.id,
+            Class.assistant_teachers.any(id=teacher.id),
         )
     ).order_by(Class.name).all()
 
@@ -541,9 +543,12 @@ def attendance_list():
     else:
         range_start = range_end = ref_date
 
-    # Tạm ẩn: chức năng dạy thay sẽ cập nhật lại sau (chỉ xét teacher_id).
-    schedules = Schedule.query.filter(
-        Schedule.teacher_id == teacher.id,
+    # Hiển thị cả các buổi của lớp mà giáo viên này là trợ giảng, không chỉ
+    # buổi do chính họ đứng lớp — để trợ giảng thấy được lịch đầy đủ của lớp.
+    # Ai thực sự dạy buổi nào (và ai được phép điểm danh) vẫn theo
+    # Schedule.teacher_id, xem can_edit trong template + save_attendance().
+    schedules = Schedule.query.join(Class, Schedule.class_id == Class.id).filter(
+        db.or_(Class.primary_teacher_id == teacher.id, Class.assistant_teachers.any(id=teacher.id)),
         Schedule.is_cancelled == False,
         Schedule.date >= range_start,
         Schedule.date <= range_end,
@@ -579,7 +584,10 @@ def attendance_list():
 
     this_week_start = today - timedelta(days=today.weekday())
     this_month_start = today.replace(day=1)
-    pending_count = sum(1 for s in schedules if s.date <= today and not s.attendance_taken)
+    # Chỉ nhắc những buổi giáo viên này thực sự đứng lớp (không nhắc buổi của
+    # đồng nghiệp mà họ chỉ đang xem với tư cách trợ giảng/giáo viên chính).
+    pending_count = sum(1 for s in schedules
+                         if s.teacher_id == teacher.id and s.date <= today and not s.attendance_taken)
 
     return render_template('teacher/attendance_list.html',
                          schedules=schedules,

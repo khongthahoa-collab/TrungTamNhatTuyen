@@ -105,10 +105,17 @@
             </div>
 
             <!-- Time & room -->
-            <div class="text-muted small mb-3">
+            <div class="text-muted small mb-1">
               <i class="bi bi-clock me-1"></i>{{ s.start_time.strftime('%H:%M') }} – {{ s.end_time.strftime('%H:%M') }}
               &nbsp;|&nbsp;
               <i class="bi bi-door-open me-1"></i>{{ s.room or 'Chưa xếp phòng' }}
+            </div>
+            <!-- Người dạy buổi này (giáo viên chính hoặc trợ giảng đứng lớp) -->
+            <div class="text-muted small mb-3">
+              <i class="bi bi-person me-1"></i>Người dạy: {{ s.effective_teacher.display_name if s.effective_teacher else '—' }}
+              {% if s.teacher_id != teacher.id %}
+              <span class="badge bg-light text-muted border ms-1">Không phải buổi của bạn</span>
+              {% endif %}
             </div>
 
             <!-- Action buttons -->
@@ -122,10 +129,10 @@
               </button>
 
               <a href="{{ url_for('teacher.attendance_list', date=s.date.isoformat()) }}"
-                 class="btn {% if s.attendance_taken %}btn-outline-info{% else %}btn-primary{% endif %} flex-fill"
+                 class="btn {% if s.attendance_taken or s.teacher_id != teacher.id %}btn-outline-info{% else %}btn-primary{% endif %} flex-fill"
                  style="min-height:44px;">
                 <i class="bi bi-person-check me-1"></i>
-                {% if s.attendance_taken %}Xem ĐD{% else %}Điểm danh{% endif %}
+                {% if s.attendance_taken or s.teacher_id != teacher.id %}Xem ĐD{% else %}Điểm danh{% endif %}
               </a>
             </div>
           </div>

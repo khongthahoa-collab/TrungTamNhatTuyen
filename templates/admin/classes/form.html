@@ -86,17 +86,18 @@
             </div>
 
             <div class="col-12 col-md-4">
-              <label class="form-label fw-semibold">Trợ giảng</label>
-              <select class="form-select" name="assistant_teacher_id">
-                <option value="">-- Không chỉ định --</option>
+              <label class="form-label fw-semibold">Trợ giảng <span class="text-muted fw-normal small">(có thể chọn nhiều)</span></label>
+              {% set selected_assistant_ids = (class_.assistant_teachers | map(attribute='id') | list) if action == 'edit' else ((form.getlist('assistant_teacher_ids[]') | map('int') | list) if form else []) %}
+              <div class="border rounded p-2" id="assistantTeacherList" style="max-height:140px; overflow-y:auto;">
                 {% for t in teachers %}
-                <option value="{{ t.id }}"
-                  {% if action == 'edit' and class_.assistant_teacher_id == t.id %}selected
-                  {% elif form and form.get('assistant_teacher_id','') | string == t.id | string %}selected{% endif %}>
-                  {{ t.full_name }}
-                </option>
+                <div class="form-check">
+                  <input class="form-check-input assistant-teacher-check" type="checkbox"
+                         name="assistant_teacher_ids[]" value="{{ t.id }}" id="assistant_{{ t.id }}"
+                         {% if t.id in selected_assistant_ids %}checked{% endif %}>
+                  <label class="form-check-label small" for="assistant_{{ t.id }}">{{ t.full_name }}</label>
+                </div>
                 {% endfor %}
-              </select>
+              </div>
             </div>
 
             <div class="col-12 col-md-4">
@@ -309,13 +310,15 @@ document.getElementById('sessionsPerWeek')?.addEventListener('input', function()
 // tránh lỗi truy cập trước khi khởi tạo (temporal dead zone).
 function syncTeacherColumns() {
   const primarySelectEl = document.getElementById('teacherSelect');
-  const assistantSelectEl = document.querySelector('select[name="assistant_teacher_id"]');
-  const hasAssistant = assistantSelectEl && assistantSelectEl.value;
+  const assistantChecks = [...document.querySelectorAll('.assistant-teacher-check:checked')];
+  const hasAssistant = assistantChecks.length > 0;
   const primaryOpt = primarySelectEl.options[primarySelectEl.selectedIndex];
-  const assistantOpt = assistantSelectEl ? assistantSelectEl.options[assistantSelectEl.selectedIndex] : null;
   let optsHtml = '';
   if (primaryOpt && primaryOpt.value) optsHtml += `<option value="${primaryOpt.value}">${primaryOpt.text.trim()}</option>`;
-  if (assistantOpt && assistantOpt.value) optsHtml += `<option value="${assistantOpt.value}">${assistantOpt.text.trim()}</option>`;
+  assistantChecks.forEach(chk => {
+    const label = document.querySelector(`label[for="${chk.id}"]`);
+    optsHtml += `<option value="${chk.value}">${label ? label.textContent.trim() : chk.value}</option>`;
+  });
 
   document.querySelectorAll('.sched-teacher-col').forEach(col => {
     col.classList.toggle('d-none', !hasAssistant);
@@ -327,7 +330,7 @@ function syncTeacherColumns() {
   document.querySelector('.sched-teacher-hint')?.classList.toggle('d-none', !hasAssistant);
 }
 document.getElementById('teacherSelect').addEventListener('change', syncTeacherColumns);
-document.querySelector('select[name="assistant_teacher_id"]')?.addEventListener('change', syncTeacherColumns);
+document.getElementById('assistantTeacherList')?.addEventListener('change', syncTeacherColumns);
 syncTeacherColumns();
 // Init
 updateSessionsPerWeek();

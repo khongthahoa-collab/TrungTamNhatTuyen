@@ -165,6 +165,12 @@ teacher_classes = db.Table(
     db.Column('class_id', db.Integer, db.ForeignKey('classes.id'), primary_key=True)
 )
 
+class_assistant_teachers = db.Table(
+    'class_assistant_teachers',
+    db.Column('class_id', db.Integer, db.ForeignKey('classes.id'), primary_key=True),
+    db.Column('teacher_id', db.Integer, db.ForeignKey('teachers.id'), primary_key=True)
+)
+
 
 # ============================================================
 # Database Models - Core entities
@@ -721,7 +727,6 @@ class Class(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     description = db.Column(db.Text)
     primary_teacher_id = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=True)
-    assistant_teacher_id = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=True)
     zalo_group_id = db.Column(db.String(100))  # Zalo group ID for class notifications
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -734,8 +739,9 @@ class Class(db.Model):
                                 cascade='all, delete-orphan')
     primary_teacher = db.relationship('Teacher', foreign_keys=[primary_teacher_id],
                                       backref='primary_classes')
-    assistant_teacher = db.relationship('Teacher', foreign_keys=[assistant_teacher_id],
-                                        backref='assistant_classes')
+    # Nhiều trợ giảng mỗi lớp (many-to-many); chỉ giáo viên chính là đơn.
+    assistant_teachers = db.relationship('Teacher', secondary=class_assistant_teachers,
+                                         backref='assistant_classes')
 
     @property
     def public_name(self):
