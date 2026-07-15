@@ -145,15 +145,13 @@
             </button>
           </div>
           <div class="col-4">
-            <button type="button" class="btn btn-outline-secondary w-100 btn-export btn-attendance-action" data-schedule="{{ schedule.id }}"
-                    data-bs-toggle="modal" data-bs-target="#exportModal-{{ schedule.id }}">
+            <button type="button" class="btn btn-outline-secondary w-100 btn-export btn-attendance-action" data-schedule="{{ schedule.id }}">
               <i class="bi bi-image me-md-1"></i><span class="d-none d-md-inline">Xuất ảnh</span>
             </button>
           </div>
           {% else %}
           <div class="col-12">
-            <button type="button" class="btn btn-outline-secondary w-100 btn-export btn-attendance-action" data-schedule="{{ schedule.id }}"
-                    data-bs-toggle="modal" data-bs-target="#exportModal-{{ schedule.id }}">
+            <button type="button" class="btn btn-outline-secondary w-100 btn-export btn-attendance-action" data-schedule="{{ schedule.id }}">
               <i class="bi bi-image me-md-1"></i><span class="d-none d-md-inline">Xuất ảnh</span>
             </button>
           </div>
@@ -218,43 +216,26 @@
   </div>
 
   {% if not is_future and data.enrollments %}
-  <!-- Modal xuất ảnh -->
-  <div class="modal fade" id="exportModal-{{ schedule.id }}" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered modal-md">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h6 class="modal-title fw-bold"><i class="bi bi-image me-2 text-primary"></i>Xuất ảnh điểm danh</h6>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <div id="exportCapture-{{ schedule.id }}" class="p-3 rounded export-capture">
-            <div class="d-flex align-items-center gap-2 mb-3 pb-2 export-header">
-              <img src="{{ url_for('static', filename='icons/logo-mark.png') }}" height="36" alt="logo" class="export-logo">
-              <div class="fw-bold text-white">THÔNG BÁO ĐIỂM DANH</div>
-            </div>
-            <div class="small text-white mb-1"><strong>Lớp:</strong> {{ schedule.class_.name }}</div>
-            <div class="small text-white mb-3">
-              <strong>Ngày:</strong> {{ schedule.date.strftime('%d/%m/%Y') }}
-              &nbsp;&nbsp;<strong>Giờ:</strong> {{ schedule.start_time.strftime('%H:%M') }}–{{ schedule.end_time.strftime('%H:%M') }}
-            </div>
-            <div class="export-summary rounded p-2 p-sm-3">
-              <div class="small fw-semibold mb-2 export-counts"></div>
-              <table class="table table-sm mb-0 export-table">
-                <thead>
-                  <tr><th>STT</th><th>Học sinh</th><th>Tình trạng</th></tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
-          <button type="button" class="btn btn-primary btn-download-image" data-schedule="{{ schedule.id }}">
-            <i class="bi bi-download me-1"></i>Tải xuống ảnh
-          </button>
-        </div>
-      </div>
+  <!-- Off-screen capture template for html2canvas — never shown to the user;
+       "Xuất ảnh" renders it, snapshots it, and downloads the image directly. -->
+  <div id="exportCapture-{{ schedule.id }}" class="p-3 rounded export-capture export-capture-offscreen">
+    <div class="d-flex align-items-center gap-2 mb-3 pb-2 export-header">
+      <img src="{{ url_for('static', filename='icons/logo-mark.png') }}" height="36" alt="logo" class="export-logo">
+      <div class="fw-bold text-white">THÔNG BÁO ĐIỂM DANH</div>
+    </div>
+    <div class="small text-white mb-1"><strong>Lớp:</strong> {{ schedule.class_.name }}</div>
+    <div class="small text-white mb-3">
+      <strong>Ngày:</strong> {{ schedule.date.strftime('%d/%m/%Y') }}
+      &nbsp;&nbsp;<strong>Giờ:</strong> {{ schedule.start_time.strftime('%H:%M') }}–{{ schedule.end_time.strftime('%H:%M') }}
+    </div>
+    <div class="export-summary rounded p-2 p-sm-3">
+      <div class="small fw-semibold mb-2 export-counts"></div>
+      <table class="table table-sm mb-0 export-table">
+        <thead>
+          <tr><th>STT</th><th>Học sinh</th><th>Tình trạng</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
   </div>
   {% endif %}
@@ -312,6 +293,7 @@
 .export-summary { background:#fff; }
 .export-counts { color:#212529; }
 .export-table, .export-table th, .export-table td { border-color:#dee2e6 !important; color:#212529; background-color:transparent !important; }
+.export-capture-offscreen { position:absolute; left:-9999px; top:0; width:440px; }
 </style>
 {% endblock %}
 
@@ -457,12 +439,15 @@ document.querySelectorAll('.btn-save').forEach(saveBtn => {
 
 // Xuất ảnh: build the printable notification card from the live table state
 // (absent/excused students only — present students are omitted by design),
-// then let html2canvas turn it into a downloadable PNG.
+// then let html2canvas snapshot the off-screen card and download it directly
+// as a JPEG (much smaller than PNG for this flat-color/text content, so the
+// file stays light) — no preview popup, one click does the whole thing.
 document.querySelectorAll('.btn-export').forEach(btn => {
   btn.addEventListener('click', () => {
     const scheduleId = btn.dataset.schedule;
     const capture = document.getElementById(`exportCapture-${scheduleId}`);
-    if (!capture) return;
+    if (!capture || typeof html2canvas === 'undefined') return;
+
     const countsEl = capture.querySelector('.export-counts');
     const tbody = capture.querySelector('.export-table tbody');
     tbody.innerHTML = '';
@@ -492,25 +477,16 @@ document.querySelectorAll('.btn-export').forEach(btn => {
       `Có mặt: <strong>${present}</strong> &nbsp;|&nbsp; ` +
       `Có phép: <strong>${excused}</strong> &nbsp;|&nbsp; ` +
       `Không phép: <strong>${absent}</strong>`;
-  });
-});
 
-document.querySelectorAll('.btn-download-image').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const scheduleId = btn.dataset.schedule;
-    const capture = document.getElementById(`exportCapture-${scheduleId}`);
-    if (!capture || typeof html2canvas === 'undefined') return;
     const original = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
     html2canvas(capture, { scale: 2, backgroundColor: '#16a34a' }).then(canvas => {
       const link = document.createElement('a');
-      link.download = `diem-danh-${scheduleId}.png`;
-      link.href = canvas.toDataURL('image/png');
+      link.download = `diem-danh-${scheduleId}.jpg`;
+      link.href = canvas.toDataURL('image/jpeg', 0.85);
       link.click();
-      btn.disabled = false;
-      btn.innerHTML = original;
-    }).catch(() => {
+    }).finally(() => {
       btn.disabled = false;
       btn.innerHTML = original;
     });
