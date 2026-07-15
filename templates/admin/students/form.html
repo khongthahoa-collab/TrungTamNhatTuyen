@@ -196,7 +196,6 @@
   function sync() {
     const hide = sel.value !== '';
     custom.classList.toggle('d-none', hide);
-    custom.required = !hide;
   }
   sel.addEventListener('change', sync);
   sync();

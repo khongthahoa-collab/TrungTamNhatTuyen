@@ -248,17 +248,21 @@ def import_students():
             gender_raw = (row.get('Giới tính') or '').strip().lower()
             level_raw = (row.get('Cấp học') or '').strip()
 
-            gender = gender_map.get(gender_raw)
+            gender = gender_map.get(gender_raw)  # optional — None if blank/unrecognized
             level = level_map.get(level_raw) or (level_raw if level_raw in StudentLevel.LABELS else None)
             grade = _resolve_import_grade(row.get('Lớp học'), level) if level else None
 
-            if not full_name or not gender or not level or not grade:
+            if not full_name or not level or not grade:
                 missing_info += 1
                 continue
 
             parent_phone = (row.get('SĐT phụ huynh') or '').strip()
-            # Skip duplicate by name + parent_phone
-            if parent_phone and Student.query.filter_by(full_name=full_name, parent_phone=parent_phone).first():
+            # Skip duplicate by name + grade — parent_phone is often blank on
+            # these rows, so relying on it let the same student get imported
+            # again (and again) under a brand-new record every time, silently
+            # fragmenting their class enrollments/tuition/attendance history
+            # across duplicates instead of catching the re-import.
+            if Student.query.filter_by(full_name=full_name, current_grade=grade).first():
                 duplicates += 1
                 continue
 
@@ -277,7 +281,7 @@ def import_students():
 
         db.session.commit()
         if missing_info:
-            flash(f'Thiếu hoặc sai thông tin bắt buộc (Họ tên, Giới tính, Cấp học, Lớp học) — '
+            flash(f'Thiếu hoặc sai thông tin bắt buộc (Họ tên, Cấp học, Lớp học) — '
                   f'{missing_info} dòng bị bỏ qua.', 'danger')
         if added or duplicates:
             flash(f'Import thành công: {added} học sinh mới, bỏ qua {duplicates} dòng trùng thông tin.', 'success')

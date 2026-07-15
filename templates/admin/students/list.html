@@ -261,8 +261,9 @@
         <p class="text-muted small mb-3">
           File CSV cần có các cột:<br>
           <code>Họ tên, Giới tính, Cấp học, Lớp học, Trường, Tên phụ huynh, SĐT phụ huynh</code><br>
-          Bắt buộc: <strong>Họ tên, Giới tính (Nam/Nữ), Cấp học (Tiểu học/THCS/THPT), Lớp học</strong>.
+          Bắt buộc: <strong>Họ tên, Cấp học (Tiểu học/THCS/THPT), Lớp học</strong> — Giới tính là tùy chọn.
           Lớp học ghi số (VD: 6, 10) hoặc "Tiền tiểu học". Mã hoá <strong>UTF-8</strong>.
+          Dòng trùng <strong>Họ tên + Lớp học</strong> với học sinh đã có sẽ tự động bị bỏ qua.
         </p>
         <a href="{{ url_for('admin.students_import_template') }}" class="btn btn-sm btn-outline-secondary mb-3">
           <i class="bi bi-download me-1"></i>Tải file mẫu
