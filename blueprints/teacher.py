@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, jsonify
 from flask_login import login_required, current_user
 from datetime import date, timedelta, datetime, time as time_type
+import calendar
 from extensions import db
 from models import Schedule, Attendance, Score, Class, Enrollment, Student, ClassDocument, Room, Notification, User, Salary
 from services.zalo_service import ZaloService
@@ -499,28 +500,54 @@ def notifications():
 # Attendance Management Routes
 # ============================================================
 
+def _shift_month(d, months):
+    """Shift date d by `months` calendar months, clamping the day to the
+    target month's last day if needed (e.g. 31/01 + 1 tháng -> 28/02)."""
+    month_index = d.month - 1 + months
+    year = d.year + month_index // 12
+    month = month_index % 12 + 1
+    day = min(d.day, calendar.monthrange(year, month)[1])
+    return date(year, month, day)
+
+
 @teacher_bp.route('/attendance')
 @login_required
 @require_teacher
 def attendance_list():
-    """Schedules for one date (default today) — the teacher's own regular
-    assignments plus any sessions they're covering as a substitute."""
+    """Schedules for a day/week/month (default: today, day view) — the
+    teacher's own regular assignments. Only today's own session(s) can
+    actually be attended (see can_edit in the template / save_attendance);
+    everything else across the visible range is view-only."""
     from models import AttendanceSummary
     teacher = current_user.teacher_profile
     today = date.today()
 
+    view_mode = request.args.get('view', 'day')
+    if view_mode not in ('day', 'week', 'month'):
+        view_mode = 'day'
+
     date_str = request.args.get('date', '')
     try:
-        selected_date = date.fromisoformat(date_str) if date_str else today
+        ref_date = date.fromisoformat(date_str) if date_str else today
     except ValueError:
-        selected_date = today
+        ref_date = today
+
+    if view_mode == 'week':
+        range_start = ref_date - timedelta(days=ref_date.weekday())
+        range_end = range_start + timedelta(days=6)
+    elif view_mode == 'month':
+        range_start = ref_date.replace(day=1)
+        range_end = range_start.replace(day=calendar.monthrange(range_start.year, range_start.month)[1])
+    else:
+        range_start = range_end = ref_date
 
     # Tạm ẩn: chức năng dạy thay sẽ cập nhật lại sau (chỉ xét teacher_id).
     schedules = Schedule.query.filter(
         Schedule.teacher_id == teacher.id,
         Schedule.is_cancelled == False,
-        Schedule.date == selected_date,
-    ).order_by(Schedule.start_time).all()
+        Schedule.date >= range_start,
+        Schedule.date <= range_end,
+    ).order_by(Schedule.date, Schedule.start_time).all()
 
     # Load attendance summaries
     summaries = AttendanceSummary.query.filter(
@@ -540,19 +567,34 @@ def attendance_list():
             'attendance': {a.student_id: a for a in attendances},
         }
 
+    if view_mode == 'week':
+        prev_date, next_date = ref_date - timedelta(days=7), ref_date + timedelta(days=7)
+        prev2_date, next2_date = ref_date - timedelta(days=14), ref_date + timedelta(days=14)
+    elif view_mode == 'month':
+        prev_date, next_date = _shift_month(ref_date, -1), _shift_month(ref_date, 1)
+        prev2_date, next2_date = _shift_month(ref_date, -2), _shift_month(ref_date, 2)
+    else:
+        prev_date, next_date = ref_date - timedelta(days=1), ref_date + timedelta(days=1)
+        prev2_date, next2_date = ref_date - timedelta(days=14), ref_date + timedelta(days=14)
+
     this_week_start = today - timedelta(days=today.weekday())
     this_month_start = today.replace(day=1)
+    pending_count = sum(1 for s in schedules if s.date <= today and not s.attendance_taken)
 
     return render_template('teacher/attendance_list.html',
                          schedules=schedules,
                          summaries=summary_dict,
                          roster=roster,
                          today=today,
-                         selected_date=selected_date,
-                         prev_date=selected_date - timedelta(days=1),
-                         next_date=selected_date + timedelta(days=1),
-                         prev2_date=selected_date - timedelta(days=14),
-                         next2_date=selected_date + timedelta(days=14),
+                         view_mode=view_mode,
+                         ref_date=ref_date,
+                         range_start=range_start,
+                         range_end=range_end,
+                         pending_count=pending_count,
+                         prev_date=prev_date,
+                         next_date=next_date,
+                         prev2_date=prev2_date,
+                         next2_date=next2_date,
                          this_week_start=this_week_start,
                          this_month_start=this_month_start)
 
@@ -629,11 +671,10 @@ def save_attendance(schedule_id):
         if not is_assigned:
             return jsonify({'error': 'Unauthorized'}), 403
 
-    if schedule.date > date.today():
-        return jsonify({'error': 'Không thể điểm danh trước cho buổi học trong tương lai.'}), 403
-
-    if schedule.date < date.today() and schedule.attendance_taken:
-        return jsonify({'error': 'Buổi học đã qua và đã điểm danh — không thể điểm danh lại.'}), 403
+    # Chỉ được điểm danh đúng ngày diễn ra buổi học — không điểm danh trước
+    # (buổi tương lai) hay điểm danh sau (buổi đã qua), dù đã điểm danh hay chưa.
+    if schedule.date != date.today():
+        return jsonify({'error': 'Chỉ có thể điểm danh đúng ngày diễn ra buổi học.'}), 403
 
     data = request.get_json()
     attendance_records = data.get('attendance', [])

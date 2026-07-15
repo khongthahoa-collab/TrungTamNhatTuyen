@@ -8,7 +8,7 @@ from sqlalchemy import func
 from extensions import db
 from models import (Student, User, Enrollment, Class, TuitionPayment, Score, Reward,
                     StudentLevel, UserRole, Attendance, AttendanceStatus, Teacher, Schedule, School,
-                    GRADE_BY_LEVEL)
+                    GRADE_BY_LEVEL, GRADE_SEQUENCE)
 from blueprints.admin import admin_bp, require_admin
 from blueprints.admin.account_utils import next_username, DEFAULT_TEMP_PASSWORD
 from blueprints.admin.academic import current_academic_year_start
@@ -56,7 +56,7 @@ def students():
     q            = request.args.get('q', '').strip()
     level        = request.args.get('level', '')
     active_only  = request.args.get('active', '1')
-    class_id     = request.args.get('class_id', type=int)
+    grade        = request.args.get('grade', '').strip()
     school_q     = request.args.get('school_q', '').strip()
     teacher_id   = request.args.get('teacher_id', type=int)
 
@@ -74,11 +74,11 @@ def students():
         query = query.filter_by(is_active=True)
     if school_q:
         query = query.filter(Student.current_school.ilike(f'%{school_q}%'))
-    if class_id:
-        query = query.join(Student.enrollments).filter(
-            Enrollment.class_id == class_id,
-            Enrollment.is_active == True
-        ).distinct()
+    if grade:
+        # Lọc theo khối lớp của học sinh (current_grade, vd "Lớp 5") — không
+        # phải lớp học/môn học cụ thể đang theo (đó là filter teacher_id/lớp
+        # riêng nếu cần). Học sinh lớp 5 học Toán vẫn lọc ra khi chọn "Lớp 5".
+        query = query.filter(Student.current_grade == grade)
     if teacher_id:
         teacher_class_ids = (
             db.session.query(Schedule.class_id)
@@ -112,21 +112,20 @@ def students():
         )
         absent_counts = dict(rows)
 
-    all_classes  = Class.query.filter_by(is_active=True).order_by(Class.name).all()
     all_teachers = Teacher.query.join(Teacher.user).order_by(User.full_name).all()
 
-    is_filtered = bool(q or level or class_id or school_q or teacher_id or active_only != '1')
+    is_filtered = bool(q or level or grade or school_q or teacher_id or active_only != '1')
 
     return render_template('admin/students/list.html',
                            students=students,
                            pagination=pagination,
                            absent_counts=absent_counts,
                            q=q, level=level, active_only=active_only,
-                           class_id=class_id, school_q=school_q, teacher_id=teacher_id,
+                           grade=grade, school_q=school_q, teacher_id=teacher_id,
                            is_filtered=is_filtered,
                            per_page=per_page_raw,
                            levels=StudentLevel.LABELS,
-                           all_classes=all_classes,
+                           grade_options=GRADE_SEQUENCE,
                            all_teachers=all_teachers)
 
 

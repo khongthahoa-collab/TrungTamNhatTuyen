@@ -9,62 +9,68 @@
     <h5 class="fw-bold mb-0">
       <i class="bi bi-check-circle text-primary me-1"></i>Điểm Danh
     </h5>
-    {% set pending_count = schedules | selectattr('attendance_taken', 'equalto', false) | list | length %}
-    {% if pending_count > 0 and selected_date <= today %}
+    {% if pending_count > 0 %}
     <span class="badge bg-warning text-dark">{{ pending_count }} chưa điểm danh</span>
     {% endif %}
   </div>
 
-  <!-- Bộ lọc theo ngày -->
+  <!-- Bộ lọc theo ngày / tuần / tháng -->
   <div class="card border-0 shadow-sm mb-3">
     <div class="card-body py-2">
       <div class="d-flex align-items-center gap-2 mb-2">
-        <a href="{{ url_for('teacher.attendance_list', date=prev2_date.isoformat()) }}"
-           class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Lùi 2 tuần">
+        <a href="{{ url_for('teacher.attendance_list', date=prev2_date.isoformat(), view=view_mode) }}"
+           class="btn btn-outline-secondary btn-sm flex-shrink-0"
+           title="Lùi 2 {{ 'tháng' if view_mode == 'month' else 'tuần' }}">
           <i class="bi bi-chevron-double-left"></i>
         </a>
-        <a href="{{ url_for('teacher.attendance_list', date=prev_date.isoformat()) }}"
+        <a href="{{ url_for('teacher.attendance_list', date=prev_date.isoformat(), view=view_mode) }}"
            class="btn btn-outline-secondary btn-sm flex-shrink-0">
           <i class="bi bi-chevron-left"></i>
         </a>
         <form method="get" class="flex-grow-1">
+          <input type="hidden" name="view" value="{{ view_mode }}">
           <input type="date" name="date" class="form-control form-control-sm text-center"
-                 value="{{ selected_date.isoformat() }}" onchange="this.form.submit()">
+                 value="{{ ref_date.isoformat() }}" onchange="this.form.submit()">
         </form>
-        <a href="{{ url_for('teacher.attendance_list', date=next_date.isoformat()) }}"
+        <a href="{{ url_for('teacher.attendance_list', date=next_date.isoformat(), view=view_mode) }}"
            class="btn btn-outline-secondary btn-sm flex-shrink-0">
           <i class="bi bi-chevron-right"></i>
         </a>
-        <a href="{{ url_for('teacher.attendance_list', date=next2_date.isoformat()) }}"
-           class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Tiến 2 tuần">
+        <a href="{{ url_for('teacher.attendance_list', date=next2_date.isoformat(), view=view_mode) }}"
+           class="btn btn-outline-secondary btn-sm flex-shrink-0"
+           title="Tiến 2 {{ 'tháng' if view_mode == 'month' else 'tuần' }}">
           <i class="bi bi-chevron-double-right"></i>
         </a>
       </div>
+      <div class="text-center small text-muted mb-2">
+        {% if view_mode == 'week' %}
+          {{ range_start | weekday_vn }} {{ range_start.strftime('%d/%m/%Y') }} – {{ range_end | weekday_vn }} {{ range_end.strftime('%d/%m/%Y') }}
+        {% elif view_mode == 'month' %}
+          Tháng {{ ref_date.month }}/{{ ref_date.year }}
+        {% else %}
+          {{ ref_date | weekday_vn }} {{ ref_date.strftime('%d/%m/%Y') }}
+        {% endif %}
+      </div>
       <div class="d-flex gap-2 justify-content-center flex-wrap small">
         <a href="{{ url_for('teacher.attendance_list') }}"
-           class="text-decoration-none {% if selected_date == today %}fw-bold text-primary{% else %}text-muted{% endif %}">Hôm nay</a>
+           class="text-decoration-none {% if view_mode == 'day' and ref_date == today %}fw-bold text-primary{% else %}text-muted{% endif %}">Hôm nay</a>
         <span class="text-muted">|</span>
-        <a href="{{ url_for('teacher.attendance_list', date=this_week_start.isoformat()) }}"
-           class="text-decoration-none {% if selected_date == this_week_start %}fw-bold text-primary{% else %}text-muted{% endif %}">Tuần này</a>
+        <a href="{{ url_for('teacher.attendance_list', view='week') }}"
+           class="text-decoration-none {% if view_mode == 'week' %}fw-bold text-primary{% else %}text-muted{% endif %}">Tuần này</a>
         <span class="text-muted">|</span>
-        <a href="{{ url_for('teacher.attendance_list', date=this_month_start.isoformat()) }}"
-           class="text-decoration-none {% if selected_date == this_month_start %}fw-bold text-primary{% else %}text-muted{% endif %}">Tháng này</a>
+        <a href="{{ url_for('teacher.attendance_list', view='month') }}"
+           class="text-decoration-none {% if view_mode == 'month' %}fw-bold text-primary{% else %}text-muted{% endif %}">Tháng này</a>
       </div>
     </div>
   </div>
-
-  {% if selected_date > today %}
-  <div class="alert alert-info small py-2">
-    <i class="bi bi-eye me-1"></i>Ngày trong tương lai — chỉ xem, chưa thể điểm danh trước.
-  </div>
-  {% endif %}
 
   {% if schedules %}
   {% for schedule in schedules %}
   {% set summary = summaries.get(schedule.id) %}
   {% set data = roster[schedule.id] %}
-  {% set is_future = selected_date > today %}
-  {% set is_locked = (selected_date < today) and schedule.attendance_taken %}
+  {% set is_future = schedule.date > today %}
+  {% set is_past = schedule.date < today %}
+  {% set can_edit = schedule.date == today %}
   <div class="card border-0 shadow-sm mb-2 border-start border-3
               {% if is_future %}border-info{% elif not schedule.attendance_taken %}border-warning{% else %}border-success{% endif %}">
     <div class="card-body py-2 px-3 attendance-row-toggle" role="button" tabindex="0"
@@ -79,7 +85,7 @@
           {% endif %}
           #}
           <div class="text-muted small">
-            {{ schedule.date.strftime('%d/%m/%Y') }}
+            {{ schedule.date | weekday_vn }} {{ schedule.date.strftime('%d/%m/%Y') }}
             · {{ schedule.start_time.strftime('%H:%M') }}–{{ schedule.end_time.strftime('%H:%M') }}
             {% if schedule.room %}· {{ schedule.room }}{% endif %}
           </div>
@@ -104,6 +110,10 @@
         <div class="alert alert-info small py-2 mb-3">
           <i class="bi bi-eye me-1"></i>Buổi học trong tương lai — chỉ xem, chưa thể điểm danh trước.
         </div>
+        {% elif is_past %}
+        <div class="alert alert-secondary small py-2 mb-3">
+          <i class="bi bi-lock me-1"></i>Buổi học đã qua — chỉ xem, không thể điểm danh sau ngày học.
+        </div>
         {% endif %}
 
         <!-- Sĩ số | Có | Phép | Vắng -->
@@ -117,7 +127,7 @@
         {% if not is_future and data.enrollments %}
         <!-- Đủ | Lưu điểm danh | Xuất ảnh -->
         <div class="row g-2 mb-3">
-          {% if not is_locked %}
+          {% if can_edit %}
           <div class="col-4">
             <button type="button" class="btn btn-outline-success w-100 btn-mark-all btn-attendance-action" data-schedule="{{ schedule.id }}">
               <i class="bi bi-check-all me-1"></i><span>Đủ</span>
@@ -143,11 +153,6 @@
           </div>
           {% endif %}
         </div>
-        {% if is_locked %}
-        <div class="alert alert-secondary small py-2 mb-3">
-          <i class="bi bi-lock me-1"></i>Buổi học đã qua và đã điểm danh — không thể chỉnh sửa lại.
-        </div>
-        {% endif %}
         {% endif %}
 
         <div class="table-responsive">
@@ -156,7 +161,7 @@
               <tr>
                 <th style="width:32px;">
                   <input type="checkbox" class="form-check-input select-all-check" title="Chọn tất cả"
-                         {% if is_future or is_locked %}disabled{% endif %}>
+                         {% if not can_edit %}disabled{% endif %}>
                 </th>
                 <th class="d-none d-sm-table-cell" style="width:44px;">STT</th>
                 <th>Học sinh</th>
@@ -171,7 +176,7 @@
               {% set init_status = att.status if att and att.status in ('present', 'excused') else 'absent' %}
               <tr class="att-row" data-student="{{ student.id }}" data-status="{{ init_status }}" data-touched="{{ '1' if att else '0' }}">
                 <td>
-                  <input type="checkbox" class="form-check-input att-check" {% if is_future or is_locked %}disabled{% endif %}
+                  <input type="checkbox" class="form-check-input att-check" {% if not can_edit %}disabled{% endif %}
                          {% if init_status == 'present' %}checked{% endif %}>
                 </td>
                 <td class="small text-muted d-none d-sm-table-cell">{{ loop.index }}</td>
@@ -183,13 +188,13 @@
                 <td class="text-center">
                   <div class="d-flex gap-1 justify-content-center flex-wrap status-toggle">
                     <button type="button" class="btn btn-sm rounded-pill btn-outline-success status-btn {% if init_status == 'present' %}active{% endif %}"
-                            data-value="present" {% if is_future or is_locked %}disabled{% endif %}
+                            data-value="present" {% if not can_edit %}disabled{% endif %}
                             title="Có mặt"><i class="bi bi-check-circle"></i><span class="d-none d-sm-inline ms-1">Có</span></button>
                     <button type="button" class="btn btn-sm rounded-pill btn-outline-warning status-btn {% if init_status == 'excused' %}active{% endif %}"
-                            data-value="excused" {% if is_future or is_locked %}disabled{% endif %}
+                            data-value="excused" {% if not can_edit %}disabled{% endif %}
                             title="Vắng có phép"><i class="bi bi-exclamation-circle"></i><span class="d-none d-sm-inline ms-1">Phép</span></button>
                     <button type="button" class="btn btn-sm rounded-pill btn-outline-danger status-btn {% if init_status == 'absent' %}active{% endif %}"
-                            data-value="absent" {% if is_future or is_locked %}disabled{% endif %}
+                            data-value="absent" {% if not can_edit %}disabled{% endif %}
                             title="Vắng"><i class="bi bi-x-circle"></i><span class="d-none d-sm-inline ms-1">Vắng</span></button>
                   </div>
                 </td>
@@ -248,7 +253,14 @@
   {% endfor %}
   {% else %}
   <div class="alert alert-info">
-    <i class="bi bi-info-circle me-2"></i>Không có lớp nào có lịch học ngày {{ selected_date.strftime('%d/%m/%Y') }}.
+    <i class="bi bi-info-circle me-2"></i>
+    {% if view_mode == 'week' %}
+      Không có lớp nào có lịch học tuần {{ range_start.strftime('%d/%m') }} – {{ range_end.strftime('%d/%m/%Y') }}.
+    {% elif view_mode == 'month' %}
+      Không có lớp nào có lịch học tháng {{ ref_date.month }}/{{ ref_date.year }}.
+    {% else %}
+      Không có lớp nào có lịch học ngày {{ ref_date.strftime('%d/%m/%Y') }}.
+    {% endif %}
   </div>
   {% endif %}
 

@@ -51,10 +51,10 @@
       </div>
       <div class="col-6 col-md-2">
         <label class="form-label small fw-semibold mb-1">Lớp học</label>
-        <select name="class_id" class="form-select form-select-sm">
+        <select name="grade" class="form-select form-select-sm">
           <option value="">Tất cả lớp</option>
-          {% for cls in all_classes %}
-          <option value="{{ cls.id }}" {% if class_id == cls.id %}selected{% endif %}>{{ cls.name }}</option>
+          {% for g in grade_options %}
+          <option value="{{ g }}" {% if grade == g %}selected{% endif %}>{{ g }}</option>
           {% endfor %}
         </select>
       </div>
@@ -220,21 +220,21 @@
 <nav class="mt-3 d-flex justify-content-center" aria-label="Phân trang">
   <ul class="pagination pagination-sm mb-0">
     <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-      <a class="page-link" href="{{ url_for('admin.students', page=pagination.prev_num, q=q, level=level, active=active_only, class_id=class_id or '', school_q=school_q, teacher_id=teacher_id or '', per_page=per_page) }}">
+      <a class="page-link" href="{{ url_for('admin.students', page=pagination.prev_num, q=q, level=level, active=active_only, grade=grade or '', school_q=school_q, teacher_id=teacher_id or '', per_page=per_page) }}">
         <i class="bi bi-chevron-left"></i>
       </a>
     </li>
     {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
       {% if p %}
         <li class="page-item {% if p == pagination.page %}active{% endif %}">
-          <a class="page-link" href="{{ url_for('admin.students', page=p, q=q, level=level, active=active_only, class_id=class_id or '', school_q=school_q, teacher_id=teacher_id or '', per_page=per_page) }}">{{ p }}</a>
+          <a class="page-link" href="{{ url_for('admin.students', page=p, q=q, level=level, active=active_only, grade=grade or '', school_q=school_q, teacher_id=teacher_id or '', per_page=per_page) }}">{{ p }}</a>
         </li>
       {% else %}
         <li class="page-item disabled"><span class="page-link">…</span></li>
       {% endif %}
     {% endfor %}
     <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-      <a class="page-link" href="{{ url_for('admin.students', page=pagination.next_num, q=q, level=level, active=active_only, class_id=class_id or '', school_q=school_q, teacher_id=teacher_id or '', per_page=per_page) }}">
+      <a class="page-link" href="{{ url_for('admin.students', page=pagination.next_num, q=q, level=level, active=active_only, grade=grade or '', school_q=school_q, teacher_id=teacher_id or '', per_page=per_page) }}">
         <i class="bi bi-chevron-right"></i>
       </a>
     </li>
