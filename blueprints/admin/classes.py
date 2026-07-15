@@ -84,27 +84,41 @@ def _teacher_busy_conflict(teacher_id, sched_date, start_time, end_time,
     return q.first()
 
 
-def _find_teacher_conflict(teacher_id, start_date, end_date, sched_rows, exclude_class_id=None):
-    """Return the first existing Schedule that conflicts with teacher_id's
-    commitments, checked against sched_rows across [start_date, end_date].
-    Fetches the teacher's schedules in that range with a single query instead
-    of one per day, since day-by-day queries over a full school year against
-    a remote DB are what caused request timeouts (502) on class creation."""
+def _find_teacher_conflict(start_date, end_date, sched_rows, exclude_class_id=None):
+    """Return the first existing Schedule that conflicts with any row's own
+    assigned teacher (rows can carry different teachers when a class has a
+    trợ giảng), checked across [start_date, end_date]. Fetches all of those
+    teachers' schedules in that range with a single query instead of one per
+    day, since day-by-day queries over a full school year against a remote DB
+    are what caused request timeouts (502) on class creation."""
     if not sched_rows:
+        return None
+    teacher_ids = {t for (_, _, _, _, _, t) in sched_rows if t}
+    if not teacher_ids:
         return None
     q = Schedule.query.filter(
         Schedule.is_cancelled == False,
         Schedule.date >= start_date,
         Schedule.date <= end_date,
         or_(
-            and_(Schedule.teacher_id == teacher_id, Schedule.substitute_teacher_id.is_(None)),
-            Schedule.substitute_teacher_id == teacher_id,
+            and_(Schedule.teacher_id.in_(teacher_ids), Schedule.substitute_teacher_id.is_(None)),
+            Schedule.substitute_teacher_id.in_(teacher_ids),
         ),
     )
     if exclude_class_id:
         q = q.filter(Schedule.class_id != exclude_class_id)
-    slots = [(wd, time_type.fromisoformat(s), time_type.fromisoformat(e)) for (wd, s, e, _, _) in sched_rows]
+
+    slots_by_teacher = {}
+    for (wd, s, e, _, _, t) in sched_rows:
+        if not t:
+            continue
+        slots_by_teacher.setdefault(t, []).append((wd, time_type.fromisoformat(s), time_type.fromisoformat(e)))
+
     for sched in q.all():
+        busy_teacher_id = sched.substitute_teacher_id or sched.teacher_id
+        slots = slots_by_teacher.get(busy_teacher_id)
+        if not slots:
+            continue
         wd = sched.date.weekday()
         for (target_wd, start_t, end_t) in slots:
             if wd == target_wd and sched.start_time < end_t and sched.end_time > start_t:
@@ -142,10 +156,12 @@ def _semester_for_date(d):
     ).first()
 
 
-def _generate_schedules(class_id, teacher_id, start_date, end_date, sched_rows, semester_id=None):
+def _generate_schedules(class_id, start_date, end_date, sched_rows, semester_id=None):
     """
-    Generate Schedule rows for each (weekday, start_time, end_time, room_id) entry
-    across [start_date, end_date]. Skip conflicts. Return (created, skipped_conflict) counts.
+    Generate Schedule rows for each (weekday, start_time, end_time, room_id, room_text,
+    teacher_id) entry across [start_date, end_date]. Skip conflicts. Return
+    (created, skipped_conflict) counts. Each row carries its own teacher_id
+    (a class with a trợ giảng can split sessions between the two teachers).
     semester_id is optional metadata, kept only for future statistics.
 
     Existing class schedules and room bookings in the date range are fetched with
@@ -167,7 +183,7 @@ def _generate_schedules(class_id, teacher_id, start_date, end_date, sched_rows, 
         ).all()
     }
 
-    room_ids = {room_id for (_, _, _, room_id, _) in sched_rows if room_id}
+    room_ids = {room_id for (_, _, _, room_id, _, _) in sched_rows if room_id}
     room_bookings = {}
     if room_ids:
         for s in Schedule.query.filter(
@@ -181,7 +197,7 @@ def _generate_schedules(class_id, teacher_id, start_date, end_date, sched_rows, 
     current = start_date
     while current <= end_date:
         wd = current.weekday()
-        for (target_wd, start_str, end_str, room_id, room_text) in sched_rows:
+        for (target_wd, start_str, end_str, room_id, room_text, teacher_id) in sched_rows:
             if wd == target_wd:
                 start_t = time_type.fromisoformat(start_str)
                 end_t = time_type.fromisoformat(end_str)
@@ -241,7 +257,7 @@ def _has_duplicate_slot(grade_level, course_id, teacher_id, sched_rows, exclude_
     if not existing:
         return None
     for cls in existing:
-        for (wd, start_str, end_str, room_id, room_text) in sched_rows:
+        for (wd, start_str, end_str, room_id, room_text, row_teacher_id) in sched_rows:
             start_t = time_type.fromisoformat(start_str)
             sched = Schedule.query.filter(
                 Schedule.class_id == cls.id,
@@ -253,13 +269,19 @@ def _has_duplicate_slot(grade_level, course_id, teacher_id, sched_rows, exclude_
     return None
 
 
-def _parse_sched_rows(teachers_by_id, default_teacher_id):
+def _parse_sched_rows(allowed_teacher_ids, default_teacher_id):
     """Parse schedule rows from POST form data. "Từ"/"Đến" are independent
-    dropdowns (Đến only auto-fills client-side, admin can override it)."""
+    dropdowns (Đến only auto-fills client-side, admin can override it).
+    Each row may carry its own teacher_id (sched_teacher_id[]) — only
+    meaningful when the class has a trợ giảng, letting sessions be split
+    between the giáo viên chính and trợ giảng. Falls back to
+    default_teacher_id (the primary teacher) when absent or not one of the
+    allowed teachers for this class."""
     days = request.form.getlist('sched_day[]')
     starts = request.form.getlist('sched_start[]')
     ends = request.form.getlist('sched_end[]')
     room_ids_raw = request.form.getlist('sched_room_id[]')
+    teacher_ids_raw = request.form.getlist('sched_teacher_id[]')
     rows = []
     rooms_by_id = {r.id: r for r in Room.query.all()}
     for i in range(len(days)):
@@ -276,7 +298,13 @@ def _parse_sched_rows(teachers_by_id, default_teacher_id):
         except ValueError:
             room_id = None
         room_text = rooms_by_id[room_id].display_name if room_id and room_id in rooms_by_id else ''
-        rows.append((wd, start_str, end_str, room_id, room_text))
+        try:
+            row_teacher_id = int(teacher_ids_raw[i]) if i < len(teacher_ids_raw) and teacher_ids_raw[i] else None
+        except ValueError:
+            row_teacher_id = None
+        if row_teacher_id not in allowed_teacher_ids:
+            row_teacher_id = default_teacher_id
+        rows.append((wd, start_str, end_str, room_id, room_text, row_teacher_id))
     return rows
 
 
@@ -379,7 +407,8 @@ def class_add():
         description = request.form.get('description', '').strip()
         start_date, end_date = _current_school_year_range()
 
-        sched_rows = _parse_sched_rows({t.id: t for t in teachers}, primary_teacher_id)
+        allowed_teacher_ids = {tid for tid in (primary_teacher_id, assistant_teacher_id) if tid}
+        sched_rows = _parse_sched_rows(allowed_teacher_ids, primary_teacher_id)
         # sessions_per_week: from form override, else auto from schedule row count
         sessions_per_week = request.form.get('sessions_per_week', type=int) or len(sched_rows) or 1
 
@@ -410,15 +439,16 @@ def class_add():
 
         # Teacher availability check across the whole school year (req 7)
         primary_teacher = Teacher.query.get(primary_teacher_id)
-        conflict = _find_teacher_conflict(primary_teacher_id, start_date, end_date, sched_rows)
+        conflict = _find_teacher_conflict(start_date, end_date, sched_rows)
         if conflict:
-            flash(_conflict_message(primary_teacher, conflict), 'danger')
+            flash(_conflict_message(conflict.effective_teacher, conflict), 'danger')
             return render_template('admin/classes/form.html',
                                    **_form_context('add', courses, teachers, rooms, form=request.form))
 
-        # Auto-generate class name
+        # Tên lớp: dùng tên admin nhập nếu có, không thì tự sinh như trước.
         course = Course.query.get(course_id)
-        name = _make_class_name(course.name if course else '', grade_level, primary_teacher)
+        custom_name = request.form.get('name', '').strip()
+        name = custom_name or _make_class_name(course.name if course else '', grade_level, primary_teacher)
 
         cl = Class(
             name=name,
@@ -438,7 +468,7 @@ def class_add():
 
         # Học kỳ chỉ được gắn tự động cho mục đích thống kê, không bắt buộc chọn.
         semester = _semester_for_date(start_date)
-        created, skipped = _generate_schedules(cl.id, primary_teacher_id, start_date, end_date, sched_rows,
+        created, skipped = _generate_schedules(cl.id, start_date, end_date, sched_rows,
                                                semester_id=semester.id if semester else None)
         msg_extra = f' Đã tạo {created} buổi học'
         if skipped:
@@ -504,8 +534,12 @@ def class_edit(class_id):
         new_course_id = request.form.get('course_id', type=int) or class_.course_id
         new_primary_id = request.form.get('primary_teacher_id', type=int) or None
 
-        # Auto-update name if grade, course, or primary teacher changed
-        if (grade_level and grade_level != class_.grade_level) or new_course_id != class_.course_id \
+        # Tên lớp: admin có thể tự sửa trực tiếp (ngoài tên hệ thống tự đặt lúc
+        # tạo lớp). Chỉ tự sinh lại tên khi admin để trống ô này.
+        custom_name = request.form.get('name', '').strip()
+        if custom_name:
+            class_.name = custom_name
+        elif (grade_level and grade_level != class_.grade_level) or new_course_id != class_.course_id \
                 or new_primary_id != class_.primary_teacher_id:
             course = Course.query.get(new_course_id)
             primary_teacher = Teacher.query.get(new_primary_id)
@@ -536,8 +570,8 @@ def class_reschedule(class_id):
     """Thay đổi khung giờ học hàng tuần. Chỉ xóa/tạo lại các buổi TỪ HÔM NAY trở
     đi — các buổi đã qua giữ nguyên, không bị ảnh hưởng."""
     class_ = Class.query.get_or_404(class_id)
-    teachers = Teacher.query.join(Teacher.user).all()
-    sched_rows = _parse_sched_rows({t.id: t for t in teachers}, class_.primary_teacher_id)
+    allowed_teacher_ids = {tid for tid in (class_.primary_teacher_id, class_.assistant_teacher_id) if tid}
+    sched_rows = _parse_sched_rows(allowed_teacher_ids, class_.primary_teacher_id)
 
     if not sched_rows:
         flash('Vui lòng thêm ít nhất một khung giờ học.', 'danger')
@@ -547,13 +581,10 @@ def class_reschedule(class_id):
     range_start = max(today, class_.start_date) if class_.start_date else today
     range_end = class_.end_date or today
 
-    if class_.primary_teacher_id:
-        conflict = _find_teacher_conflict(class_.primary_teacher_id, range_start, range_end, sched_rows,
-                                          exclude_class_id=class_id)
-        if conflict:
-            teacher = Teacher.query.get(class_.primary_teacher_id)
-            flash(_conflict_message(teacher, conflict), 'danger')
-            return redirect(url_for('admin.class_detail', class_id=class_id))
+    conflict = _find_teacher_conflict(range_start, range_end, sched_rows, exclude_class_id=class_id)
+    if conflict:
+        flash(_conflict_message(conflict.effective_teacher, conflict), 'danger')
+        return redirect(url_for('admin.class_detail', class_id=class_id))
 
     # Xóa các buổi học từ hôm nay trở đi (chưa hủy) — không đụng dữ liệu đã qua.
     # Xóa hàng loạt (bulk) thay vì từng dòng một: với cả năm học, xóa từng
@@ -570,7 +601,7 @@ def class_reschedule(class_id):
         Schedule.query.filter(Schedule.id.in_(future_schedule_ids)).delete(synchronize_session=False)
 
     semester = _semester_for_date(range_start)
-    created, skipped = _generate_schedules(class_id, class_.primary_teacher_id, range_start, range_end, sched_rows,
+    created, skipped = _generate_schedules(class_id, range_start, range_end, sched_rows,
                                            semester_id=semester.id if semester else None)
 
     if created:

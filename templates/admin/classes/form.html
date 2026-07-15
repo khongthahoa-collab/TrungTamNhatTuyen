@@ -130,19 +130,22 @@
               <div class="form-text">Tự động điền từ số khung giờ đã chọn bên dưới.</div>
             </div>
 
-            <!-- Tên lớp tự động (hiển thị preview khi add) -->
+            <!-- Tên lớp học (admin có thể tự sửa, ngoài tên hệ thống tự đặt) -->
             {% if action == 'add' %}
-            <div class="col-12">
-              <div class="alert alert-info py-2 mb-0 small">
-                <i class="bi bi-info-circle me-1"></i>
-                Tên lớp sẽ được tạo tự động, ví dụ: <strong id="namePreview">Toán 5 - Cô Gấu</strong>
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">Tên lớp học</label>
+              <input type="text" class="form-control" name="name" id="classNameInput"
+                     placeholder="Để trống sẽ tự đặt tên"
+                     value="{{ form.get('name','') if form else '' }}">
+              <div class="form-text">
+                Gợi ý: <strong id="namePreview">Toán 5 - Cô Gấu</strong> — có thể sửa lại tên khác nếu muốn.
               </div>
             </div>
             {% else %}
             <div class="col-12 col-md-6">
-              <label class="form-label fw-semibold">Tên lớp hiện tại</label>
-              <input type="text" class="form-control" value="{{ class_.name }}" readonly disabled>
-              <div class="form-text">Tên sẽ tự động cập nhật nếu đổi lớp, môn học hoặc giáo viên chính.</div>
+              <label class="form-label fw-semibold">Tên lớp học</label>
+              <input type="text" class="form-control" name="name" value="{{ class_.name }}" required>
+              <div class="form-text">Có thể sửa tên lớp trực tiếp tại đây.</div>
             </div>
             <!-- Trạng thái -->
             <div class="col-12 col-md-6 d-flex align-items-end pb-1">
@@ -198,12 +201,19 @@
                   {% endfor %}
                 </select>
               </div>
+              <div class="col-6 col-sm-2 sched-teacher-col d-none">
+                <label class="form-label form-label-sm small text-muted mb-0 d-sm-none">Giáo viên dạy</label>
+                <select class="form-select form-select-sm sched-teacher" name="sched_teacher_id[]"></select>
+              </div>
             </div>
           </div>
 
           <button type="button" id="add-sched-row" class="btn btn-outline-secondary btn-sm mb-4">
             <i class="bi bi-plus-lg me-1"></i>Thêm khung giờ
           </button>
+          <div class="form-text mt-n3 mb-4 sched-teacher-hint d-none">
+            <i class="bi bi-info-circle me-1"></i>Lớp có trợ giảng — chọn giáo viên dạy cho từng khung giờ nếu cần.
+          </div>
           {% else %}
           <div class="alert alert-info small mb-4">
             <i class="bi bi-info-circle me-1"></i>
@@ -250,6 +260,7 @@ function buildRow() {
     <div class="col-6 col-sm-2"><select class="form-select form-select-sm sched-start" name="sched_start[]"><option value="">-- Từ --</option>${TIME_OPT}</select></div>
     <div class="col-6 col-sm-2"><select class="form-select form-select-sm sched-end" name="sched_end[]"><option value="">-- Đến --</option>${TIME_OPT}</select></div>
     <div class="col-6 col-sm-3"><select class="form-select form-select-sm" name="sched_room_id[]">${ROOM_OPT}</select></div>
+    <div class="col-6 col-sm-2 sched-teacher-col d-none"><select class="form-select form-select-sm sched-teacher" name="sched_teacher_id[]"></select></div>
     <div class="col-auto"><button type="button" class="btn btn-outline-danger btn-sm remove-row" title="Xóa"><i class="bi bi-x-lg"></i></button></div>`;
   return div;
 }
@@ -278,10 +289,37 @@ function updateSessionsPerWeek() {
 document.getElementById('add-sched-row').addEventListener('click', () => {
   document.getElementById('sched-rows').appendChild(buildRow());
   updateSessionsPerWeek();
+  syncTeacherColumns();
 });
 document.getElementById('sessionsPerWeek')?.addEventListener('input', function() {
   this.dataset.manuallySet = this.value ? '1' : '';
 });
+
+// ── Giáo viên dạy theo từng khung giờ: chỉ hiện khi lớp có Trợ giảng ────────
+// Dùng getElementById thay vì biến teacherSelect (khai báo ở dưới file) để
+// tránh lỗi truy cập trước khi khởi tạo (temporal dead zone).
+function syncTeacherColumns() {
+  const primarySelectEl = document.getElementById('teacherSelect');
+  const assistantSelectEl = document.querySelector('select[name="assistant_teacher_id"]');
+  const hasAssistant = assistantSelectEl && assistantSelectEl.value;
+  const primaryOpt = primarySelectEl.options[primarySelectEl.selectedIndex];
+  const assistantOpt = assistantSelectEl ? assistantSelectEl.options[assistantSelectEl.selectedIndex] : null;
+  let optsHtml = '';
+  if (primaryOpt && primaryOpt.value) optsHtml += `<option value="${primaryOpt.value}">${primaryOpt.text.trim()}</option>`;
+  if (assistantOpt && assistantOpt.value) optsHtml += `<option value="${assistantOpt.value}">${assistantOpt.text.trim()}</option>`;
+
+  document.querySelectorAll('.sched-teacher-col').forEach(col => {
+    col.classList.toggle('d-none', !hasAssistant);
+    const sel = col.querySelector('.sched-teacher');
+    const prevValue = sel.value;
+    sel.innerHTML = optsHtml;
+    if ([...sel.options].some(o => o.value === prevValue)) sel.value = prevValue;
+  });
+  document.querySelector('.sched-teacher-hint')?.classList.toggle('d-none', !hasAssistant);
+}
+document.getElementById('teacherSelect').addEventListener('change', syncTeacherColumns);
+document.querySelector('select[name="assistant_teacher_id"]')?.addEventListener('change', syncTeacherColumns);
+syncTeacherColumns();
 // Init
 updateSessionsPerWeek();
 
@@ -324,15 +362,24 @@ function updatePreview() {
   const left = (courseName + ' ' + gradeShort).trim();
 
   const teacherOpt = teacherSelect.options[teacherSelect.selectedIndex];
-  const preview = document.getElementById('namePreview');
-  if (!preview) return;
+  let suggested;
   if (teacherOpt && teacherOpt.value) {
     const right = (teacherOpt.dataset.title + ' ' + teacherOpt.dataset.givenName).trim();
-    preview.textContent = left + ' - ' + right;
+    suggested = left + ' - ' + right;
   } else {
-    preview.textContent = left + ' - Thầy/Cô ...';
+    suggested = left + ' - Thầy/Cô ...';
   }
+
+  const preview = document.getElementById('namePreview');
+  if (preview) preview.textContent = suggested;
+
+  // Tự điền gợi ý vào ô tên, trừ khi admin đã tự gõ tên riêng.
+  const nameInput = document.getElementById('classNameInput');
+  if (nameInput && !nameInput.dataset.manuallySet) nameInput.value = suggested;
 }
+document.getElementById('classNameInput')?.addEventListener('input', function() {
+  this.dataset.manuallySet = this.value ? '1' : '';
+});
 courseSelect.addEventListener('change', updatePreview);
 gradeSelect.addEventListener('change', updatePreview);
 gradeCustom.addEventListener('input', updatePreview);

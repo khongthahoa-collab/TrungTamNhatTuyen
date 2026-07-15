@@ -206,6 +206,16 @@
                   {% endfor %}
                 </select>
               </div>
+              {% if class_.assistant_teacher_id %}
+              <div class="col-6 col-sm-2">
+                <select class="form-select form-select-sm" name="sched_teacher_id[]">
+                  {% if class_.primary_teacher %}
+                  <option value="{{ class_.primary_teacher_id }}" {% if slot.teacher_id == class_.primary_teacher_id %}selected{% endif %}>{{ class_.primary_teacher.full_name }}</option>
+                  {% endif %}
+                  <option value="{{ class_.assistant_teacher_id }}" {% if slot.teacher_id == class_.assistant_teacher_id %}selected{% endif %}>{{ class_.assistant_teacher.full_name }}</option>
+                </select>
+              </div>
+              {% endif %}
               {% if not loop.first %}
               <div class="col-auto">
                 <button type="button" class="btn btn-outline-danger btn-sm remove-resched-row" title="Xóa"><i class="bi bi-x-lg"></i></button>
@@ -245,9 +255,24 @@
                   {% endfor %}
                 </select>
               </div>
+              {% if class_.assistant_teacher_id %}
+              <div class="col-6 col-sm-2">
+                <select class="form-select form-select-sm" name="sched_teacher_id[]">
+                  {% if class_.primary_teacher %}
+                  <option value="{{ class_.primary_teacher_id }}">{{ class_.primary_teacher.full_name }}</option>
+                  {% endif %}
+                  <option value="{{ class_.assistant_teacher_id }}">{{ class_.assistant_teacher.full_name }}</option>
+                </select>
+              </div>
+              {% endif %}
             </div>
             {% endfor %}
           </div>
+          {% if class_.assistant_teacher_id %}
+          <div class="form-text mb-2">
+            <i class="bi bi-info-circle me-1"></i>Lớp có trợ giảng — chọn giáo viên dạy cho từng khung giờ nếu cần.
+          </div>
+          {% endif %}
           <button type="button" id="add-resched-row" class="btn btn-outline-secondary btn-sm mb-3">
             <i class="bi bi-plus-lg me-1"></i>Thêm khung giờ
           </button>
@@ -405,6 +430,7 @@ const RESCHED_TIME_SLOT_END = { {% for s, e in time_slots %}"{{ s }}": "{{ e }}"
 const RESCHED_DAY_OPT  = `{% for v, l in day_options %}<option value="{{ v }}">{{ l }}</option>{% endfor %}`;
 const RESCHED_ROOM_OPT = `<option value="">-- Phòng (tùy chọn) --</option>{% for r in rooms %}<option value="{{ r.id }}">{{ r.display_name }}</option>{% endfor %}`;
 const RESCHED_TIME_OPT = `{% for t in time_points %}<option value="{{ t }}">{{ t }}</option>{% endfor %}`;
+const RESCHED_TEACHER_COL = `{% if class_.assistant_teacher_id %}<div class="col-6 col-sm-2"><select class="form-select form-select-sm" name="sched_teacher_id[]">{% if class_.primary_teacher %}<option value="{{ class_.primary_teacher_id }}">{{ class_.primary_teacher.full_name }}</option>{% endif %}<option value="{{ class_.assistant_teacher_id }}">{{ class_.assistant_teacher.full_name }}</option></select></div>{% endif %}`;
 
 function buildReschedRow() {
   const div = document.createElement('div');
@@ -414,6 +440,7 @@ function buildReschedRow() {
     <div class="col-6 col-sm-2"><select class="form-select form-select-sm resched-start" name="sched_start[]"><option value="">-- Từ --</option>${RESCHED_TIME_OPT}</select></div>
     <div class="col-6 col-sm-2"><select class="form-select form-select-sm resched-end" name="sched_end[]"><option value="">-- Đến --</option>${RESCHED_TIME_OPT}</select></div>
     <div class="col-6 col-sm-3"><select class="form-select form-select-sm" name="sched_room_id[]">${RESCHED_ROOM_OPT}</select></div>
+    ${RESCHED_TEACHER_COL}
     <div class="col-auto"><button type="button" class="btn btn-outline-danger btn-sm remove-resched-row" title="Xóa"><i class="bi bi-x-lg"></i></button></div>`;
   return div;
 }
