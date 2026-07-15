@@ -6,7 +6,7 @@
 
   <!-- Sidebar -->
   <nav class="sidebar d-flex flex-column flex-shrink-0 p-3" id="sidebar"
-       style="background: #ffe0c5; width:240px; height:100vh; overflow-y:auto; position:fixed; top:0; left:0; z-index:100; transition:transform .3s;{% if start_collapsed %} transform:translateX(-100%);{% endif %}">
+       style="width:240px; height:100vh; overflow-y:auto; position:fixed; top:0; left:0; z-index:100; transition:transform .3s;{% if start_collapsed %} transform:translateX(-100%);{% endif %}">
     <a href="{{ url_for('admin.dashboard') }}" class="d-flex align-items-center mb-3 text-decoration-none">
       <img src="{{ url_for('static', filename='icons/logo-mark.png') }}" alt="Nhật Tuyền" height="28">
     </a>
@@ -233,8 +233,8 @@
         {{ current_user.full_name[0] }}
       </div>
       <div class="flex-grow-1 overflow-hidden">
-        <div class="small fw-semibold text-truncate">{{ current_user.full_name }}</div>
-        <div class="text-muted" style="font-size:0.7rem">Admin</div>
+        <div class="small fw-semibold text-truncate text-white">{{ current_user.full_name }}</div>
+        <div class="text-white-50" style="font-size:0.7rem">Admin</div>
       </div>
     </div>
   </nav>

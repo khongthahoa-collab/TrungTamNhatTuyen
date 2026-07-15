@@ -2,7 +2,7 @@
 {% block body %}
 
 <!-- Top Navbar -->
-<nav class="navbar navbar-light sticky-top" style="background: #ffe0c5; z-index:200;">
+<nav class="navbar navbar-dark sticky-top" style="background: var(--nt-dark-bg); z-index:200;">
   <div class="container-fluid">
     <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{{ url_for('teacher.dashboard') }}">
       <img src="{{ url_for('static', filename='icons/logo-mark.png') }}" alt="Nhật Tuyền" height="28">
@@ -10,13 +10,13 @@
 
     <div class="d-flex align-items-center gap-2">
       <!-- Teacher name -->
-      <span class="text-dark small d-none d-sm-flex align-items-center gap-1">
+      <span class="text-light small d-none d-sm-flex align-items-center gap-1">
         <i class="bi bi-person-circle"></i>
         {{ current_user.full_name }}
       </span>
 
       <!-- Logout -->
-      <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-dark d-flex align-items-center gap-1" title="Đăng xuất">
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-light d-flex align-items-center gap-1" title="Đăng xuất">
         <i class="bi bi-box-arrow-right"></i>
         <span class="d-none d-sm-inline" style="font-size:0.8rem;">Đăng xuất</span>
       </a>
