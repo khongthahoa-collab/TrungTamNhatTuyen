@@ -21,7 +21,7 @@
   --nt-dark-bg:   #1a3a2a;        /* navbar + footer dark-green */
 
   /* ── Surfaces ── */
-  --nt-light:     #f8fdf9;
+  --nt-light:     #fffafa;
   --nt-white:     #ffffff;
 
   /* ── Typography ── */
@@ -276,7 +276,7 @@ h1, h2, h3, h4, h5, h6 {
   min-height: 82vh;
   display: flex;
   align-items: center;
-  background: #f8fdf9; /* JS will override from data-bg */
+  background: #fffafa; /* JS will override from data-bg */
 }
 
 /* Decorative background icons */

@@ -143,12 +143,12 @@
             <label class="form-label fw-semibold" for="hero_bg">Màu nền Hero</label>
             <div class="input-group">
               <input type="color" class="form-control form-control-color" id="hero_bg_picker"
-                     value="{{ configs.get('hero_bg', '#f8fdf9') }}"
+                     value="{{ configs.get('hero_bg', '#fffafa') }}"
                      title="Chọn màu nền"
                      oninput="document.getElementById('hero_bg').value=this.value">
               <input type="text" class="form-control" name="hero_bg" id="hero_bg"
-                     value="{{ configs.get('hero_bg', '#f8fdf9') }}"
-                     placeholder="#f8fdf9 hoặc linear-gradient(…)"
+                     value="{{ configs.get('hero_bg', '#fffafa') }}"
+                     placeholder="#fffafa hoặc linear-gradient(…)"
                      oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))document.getElementById('hero_bg_picker').value=this.value">
             </div>
             <div class="form-text">Nhập mã hex (ví dụ <code>#f0fdf4</code>) hoặc CSS gradient. Chọn màu từ bộ chọn bên trái.</div>
