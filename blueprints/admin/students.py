@@ -73,7 +73,7 @@ def students():
     if active_only == '1':
         query = query.filter_by(is_active=True)
     if school_q:
-        query = query.filter(Student.current_school.ilike(f'%{school_q}%'))
+        query = query.filter(Student.current_school == school_q)
     if grade:
         # Lọc theo khối lớp của học sinh (current_grade, vd "Lớp 5") — không
         # phải lớp học/môn học cụ thể đang theo (đó là filter teacher_id/lớp
@@ -113,6 +113,10 @@ def students():
         absent_counts = dict(rows)
 
     all_teachers = Teacher.query.join(Teacher.user).order_by(User.full_name).all()
+    school_rows = (db.session.query(Student.current_school)
+                   .filter(Student.current_school.isnot(None), Student.current_school != '')
+                   .distinct().order_by(Student.current_school).all())
+    school_options = [r[0] for r in school_rows]
 
     is_filtered = bool(q or level or grade or school_q or teacher_id or active_only != '1')
 
@@ -126,6 +130,7 @@ def students():
                            per_page=per_page_raw,
                            levels=StudentLevel.LABELS,
                            grade_options=GRADE_SEQUENCE,
+                           school_options=school_options,
                            all_teachers=all_teachers)
 
 
