@@ -233,17 +233,19 @@
               <div class="fw-bold text-white">THÔNG BÁO ĐIỂM DANH</div>
             </div>
             <div class="small text-white mb-1"><strong>Lớp:</strong> {{ schedule.class_.name }}</div>
-            <div class="small text-white mb-1">
+            <div class="small text-white mb-3">
               <strong>Ngày:</strong> {{ schedule.date.strftime('%d/%m/%Y') }}
               &nbsp;&nbsp;<strong>Giờ:</strong> {{ schedule.start_time.strftime('%H:%M') }}–{{ schedule.end_time.strftime('%H:%M') }}
             </div>
-            <div class="small text-white mb-3 export-counts"></div>
-            <table class="table table-sm mb-0 export-table">
-              <thead>
-                <tr><th class="text-white">STT</th><th class="text-white">Học sinh</th><th class="text-white">Tình trạng</th></tr>
-              </thead>
-              <tbody></tbody>
-            </table>
+            <div class="export-summary rounded p-2 p-sm-3">
+              <div class="small fw-semibold mb-2 export-counts"></div>
+              <table class="table table-sm mb-0 export-table">
+                <thead>
+                  <tr><th>STT</th><th>Học sinh</th><th>Tình trạng</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
           </div>
         </div>
         <div class="modal-footer">
@@ -307,7 +309,9 @@
 .export-capture { background:#16a34a; }
 .export-header { border-bottom:1px solid rgba(255,255,255,.35); }
 .export-logo { background:#fff; border-radius:8px; padding:2px; }
-.export-table, .export-table th, .export-table td { border-color: rgba(255,255,255,.3) !important; color:#fff; }
+.export-summary { background:#fff; }
+.export-counts { color:#212529; }
+.export-table, .export-table th, .export-table td { border-color:#dee2e6 !important; color:#212529; background-color:transparent !important; }
 </style>
 {% endblock %}
 
@@ -472,14 +476,15 @@ document.querySelectorAll('.btn-export').forEach(btn => {
 
       stt++;
       const name = row.querySelector('td:nth-child(3) .fw-semibold').textContent.trim();
+      const statusClass = status === 'excused' ? 'text-warning-emphasis' : 'text-danger';
       const label = status === 'excused' ? 'Vắng (có phép)' : 'Vắng (không phép)';
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td class="text-white">${stt}</td><td class="text-white">${name}</td><td class="text-white">${label}</td>`;
+      tr.innerHTML = `<td>${stt}</td><td>${name}</td><td class="${statusClass} fw-semibold">${label}</td>`;
       tbody.appendChild(tr);
     });
 
     if (stt === 0) {
-      tbody.innerHTML = '<tr><td colspan="3" class="text-center text-white py-2">Tất cả học sinh đều có mặt</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-2">Tất cả học sinh đều có mặt</td></tr>';
     }
 
     countsEl.innerHTML =
