@@ -159,28 +159,44 @@ h1, h2, h3, h4, h5, h6 {
   .navbar-public .navbar-collapse.collapsing {
     display: flex;
   }
+  /* Center the whole menu (items + branch info) as one compact group in the
+     middle of the panel instead of stretching the item list to fill the
+     full height — that used to leave a large dead gap before the info
+     block sat pinned to the very bottom. Grouping + centering keeps
+     everything within a single screen, no scrolling needed. */
+  .navbar-public .navbar-collapse {
+    justify-content: center;
+  }
   .navbar-public .navbar-collapse .navbar-nav {
-    flex: 1;
+    flex: 0 0 auto;
+    width: 100%;
+    margin-left: 0 !important;
+  }
+  .navbar-public .navbar-collapse .nav-item {
+    text-align: center;
   }
   .navbar-public .navbar-collapse .nav-link {
-    font-size: 0.95rem;
-    padding: 0.65rem 0.85rem;
+    font-size: 1.15rem;
+    padding: 0.85rem 1rem;
   }
   .navbar-public .navbar-collapse .nav-link.btn {
-    font-size: 0.85rem !important;
-    margin-top: 0.25rem;
+    font-size: 1rem !important;
+    display: inline-block;
+    margin-top: 0.5rem;
   }
   .navbar-mobile-info {
-    margin-top: auto;
+    margin-top: 1.5rem;
     padding-top: 0.85rem;
     border-top: 1px solid rgba(255,255,255,.15);
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 0.5rem;
   }
   .navbar-mobile-info-item {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
     color: rgba(255,255,255,.7);
     font-size: 0.82rem;
