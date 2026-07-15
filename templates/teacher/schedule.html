@@ -61,9 +61,18 @@
 
   <!-- Days list -->
   {% set day_names = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'] %}
+  {% set has_any = namespace(val=false) %}
+  {% for day in week_days %}{% if by_day.get(day) %}{% set has_any.val = true %}{% endif %}{% endfor %}
+
+  {% if not has_any.val %}
+  <div class="alert alert-info small">
+    <i class="bi bi-info-circle me-1"></i>Không có lịch dạy trong khoảng thời gian này.
+  </div>
+  {% endif %}
 
   {% for day in week_days %}
     {% set schedules_today = by_day.get(day, []) %}
+    {% if schedules_today %}
     {% set is_today = (day == today) %}
     <div class="mb-3">
       <!-- Day header -->
@@ -77,7 +86,6 @@
         {% endif %}
       </div>
 
-      {% if schedules_today %}
         {% for s in schedules_today %}
         <div class="card mb-2 shadow-sm border-0 {% if is_today %}border-start border-primary border-3{% endif %}">
           <div class="card-body py-3">
@@ -145,10 +153,8 @@
           </div>
         </div>
         {% endfor %}
-      {% else %}
-        <div class="text-muted small fst-italic ps-2 py-1">Không có lịch</div>
-      {% endif %}
     </div>
+    {% endif %}
   {% endfor %}
 
 </div>
