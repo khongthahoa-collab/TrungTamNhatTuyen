@@ -756,31 +756,6 @@ def class_add_students(class_id):
     return redirect(url_for('admin.class_detail', class_id=class_id))
 
 
-@admin_bp.route('/classes/<int:class_id>/unenroll-students', methods=['POST'])
-@login_required
-@require_admin
-def class_bulk_unenroll(class_id):
-    """Rút hàng loạt học sinh đã chọn (checkbox + chọn tất cả) khỏi lớp —
-    đối xứng với 'Thêm học sinh' hàng loạt ở trên. Giữ nguyên lịch sử
-    điểm danh/học phí, chỉ tắt is_active trên Enrollment (giống thao tác
-    rút từng em một)."""
-    class_ = Class.query.get_or_404(class_id)
-    student_ids = [int(x) for x in request.form.getlist('student_ids') if x]
-
-    if not student_ids:
-        flash('Vui lòng chọn ít nhất một học sinh.', 'danger')
-        return redirect(url_for('admin.class_detail', class_id=class_id))
-
-    count = Enrollment.query.filter(
-        Enrollment.class_id == class_id,
-        Enrollment.student_id.in_(student_ids),
-        Enrollment.is_active == True,
-    ).update({'is_active': False}, synchronize_session=False)
-    db.session.commit()
-    flash(f'Đã rút {count} học sinh khỏi lớp {class_.name}.', 'success')
-    return redirect(url_for('admin.class_detail', class_id=class_id))
-
-
 @admin_bp.route('/classes/<int:class_id>/add-schedule', methods=['POST'])
 @login_required
 @require_admin

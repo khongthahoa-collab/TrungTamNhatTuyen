@@ -565,6 +565,11 @@ def student_unenroll(student_id, class_id):
     e.is_active = False
     db.session.commit()
     flash('Đã hủy ghi danh.', 'success')
+    # Called from both the student's own page and the class's roster page;
+    # stay on whichever one the request came from instead of always
+    # bouncing to the student page.
+    if request.form.get('redirect_to') == 'class':
+        return redirect(url_for('admin.class_detail', class_id=class_id))
     return redirect(url_for('admin.student_detail', student_id=student_id))
 
 
