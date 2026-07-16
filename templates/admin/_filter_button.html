@@ -1,11 +1,11 @@
-{% macro filter_toggle(is_filtered, clear_url) %}
+{% macro filter_toggle(is_filtered, clear_url, search_icon='bi-funnel') %}
 {% if is_filtered %}
 <a href="{{ clear_url }}" class="btn btn-primary btn-sm" title="Bỏ lọc">
   <i class="bi bi-funnel-fill"></i>
 </a>
 {% else %}
-<button type="submit" class="btn btn-outline-primary btn-sm" title="Lọc">
-  <i class="bi bi-funnel"></i>
+<button type="submit" class="btn btn-outline-primary btn-sm" title="Tìm kiếm">
+  <i class="bi {{ search_icon }}"></i>
 </button>
 {% endif %}
 {% endmacro %}

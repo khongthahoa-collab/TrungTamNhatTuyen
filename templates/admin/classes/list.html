@@ -46,7 +46,7 @@
                placeholder="Tìm theo bất kỳ thông tin nào..." value="{{ q or '' }}">
       </div>
       <div class="col-12 col-md-2">
-        {{ filters.filter_toggle(is_filtered, url_for('admin.classes')) }}
+        {{ filters.filter_toggle(is_filtered, url_for('admin.classes'), search_icon='bi-search') }}
       </div>
     </form>
   </div>
