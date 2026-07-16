@@ -1,10 +1,11 @@
 from datetime import date, datetime
 from flask import request, g
 from extensions import db
-from models import TuitionPayment, Class, Course
+from models import TuitionPayment, Class, Course, Student
 from blueprints.api import (api_bp, api_ok, api_error, api_login_required, api_require_module,
-                            get_page_args, pagination_meta, get_body, body_int)
+                            get_page_args, pagination_meta, get_body, body_int, parse_amount)
 from services.tuition_service import create_tuition_payment, record_payment, record_fee_adjustment
+from services.academic_year_service import FrozenPeriodError
 
 
 @api_bp.route('/tuition/overview', methods=['GET'])
@@ -98,15 +99,28 @@ def tuition_create():
     class_id = body_int(body, 'class_id')
     month = body_int(body, 'month')
     year = body_int(body, 'year')
-    amount = body.get('amount')
 
-    if not all([student_id, class_id, month, year]) or amount is None:
+    if not all([student_id, class_id, month, year]):
         return api_error('student_id, class_id, month, year, amount là bắt buộc.', 400, code='validation_error')
 
-    payment, created = create_tuition_payment(
-        student_id, class_id, month, year, float(amount),
-        method=body.get('method', 'cash'), note=body.get('note'),
-    )
+    try:
+        amount = parse_amount(body, 'amount')
+    except ValueError as e:
+        return api_error(str(e), 400, code='validation_error')
+
+    if not Student.query.get(student_id):
+        return api_error(f'Không tìm thấy học sinh có ID {student_id}.', 404, code='not_found')
+    if not Class.query.get(class_id):
+        return api_error(f'Không tìm thấy lớp học có ID {class_id}.', 404, code='not_found')
+
+    try:
+        payment, created = create_tuition_payment(
+            student_id, class_id, month, year, amount,
+            method=body.get('method', 'cash'), note=body.get('note'),
+        )
+    except FrozenPeriodError as e:
+        return api_error(str(e), 400, code='frozen_period')
+
     if not created:
         return api_error('Đã có bản ghi học phí tháng này rồi.', 409, code='duplicate')
     db.session.commit()
@@ -127,8 +141,14 @@ def tuition_update(payment_id):
 
     body = get_body()
     if 'amount' in body:
-        payment = record_fee_adjustment(payment_id, float(body.get('amount')),
-                                        g.api_user.id, note=body.get('note'))
+        try:
+            new_amount = parse_amount(body, 'amount')
+        except ValueError as e:
+            return api_error(str(e), 400, code='validation_error')
+        try:
+            payment = record_fee_adjustment(payment_id, new_amount, g.api_user.id, note=body.get('note'))
+        except FrozenPeriodError as e:
+            return api_error(str(e), 400, code='frozen_period')
     if 'note' in body and 'amount' not in body:
         payment.note = body.get('note')
         db.session.commit()
@@ -151,9 +171,15 @@ def tuition_pay(payment_id):
         return api_error('Không tìm thấy bản ghi học phí.', 404, code='not_found')
 
     body = get_body()
-    amount = body.get('amount')
+    try:
+        amount = parse_amount(body, 'amount', required=False)
+    except ValueError as e:
+        return api_error(str(e), 400, code='validation_error')
+
     method = body.get('method', 'cash')
     note = body.get('note')
-    payment = record_payment(payment_id, float(amount) if amount else None,
-                             method, g.api_user.id, note=note)
+    try:
+        payment = record_payment(payment_id, amount, method, g.api_user.id, note=note)
+    except FrozenPeriodError as e:
+        return api_error(str(e), 400, code='frozen_period')
     return api_ok(payment.to_dict())

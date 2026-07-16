@@ -72,6 +72,27 @@ def body_bool(body, key, default=None):
     return str(value).strip().lower() in ('1', 'true', 'yes', 'on')
 
 
+def parse_amount(body, key='amount', required=True):
+    """Parse a monetary amount from a request body. Unlike body_int (which
+    tolerates bad input with a default, for optional filter params), a
+    malformed/missing/negative amount is a hard validation failure for a
+    financial write — raises ValueError with a clean message; callers
+    catch it and return a 400 instead of letting a bare float(...) crash
+    with an uncaught 500."""
+    value = body.get(key)
+    if value in (None, ''):
+        if required:
+            raise ValueError(f"Trường '{key}' là bắt buộc.")
+        return None
+    try:
+        amount = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"Giá trị '{key}' không hợp lệ, phải là một số.")
+    if amount < 0:
+        raise ValueError(f"Giá trị '{key}' không được nhỏ hơn 0.")
+    return amount
+
+
 def api_login_required(f):
     """Bearer-token auth — looks up User.api_token instead of the
     session-cookie Flask-Login mechanism the HTML routes use."""
