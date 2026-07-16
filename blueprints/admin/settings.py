@@ -5,6 +5,7 @@ from models import SystemConfig, User, Course, UserRole, ContactInquiry
 from blueprints.admin import admin_bp, require_admin
 from blueprints.admin.account_utils import next_username, DEFAULT_TEMP_PASSWORD
 from blueprints.permissions import ADMIN_PERMISSION_MODULES
+from blueprints.pagination_utils import paginate_list
 
 PERMISSION_LEVELS = ('read', 'write', 'deny')
 
@@ -37,11 +38,13 @@ def settings_save():
 @login_required
 @require_admin
 def inquiries():
-    items = ContactInquiry.query.order_by(ContactInquiry.created_at.desc()).all()
+    page = request.args.get('page', 1, type=int)
+    pagination = ContactInquiry.query.order_by(ContactInquiry.created_at.desc()) \
+        .paginate(page=page, per_page=50, error_out=False)
     # Mark all as read when admin opens the page
     ContactInquiry.query.filter_by(is_read=False).update({'is_read': True})
     db.session.commit()
-    return render_template('admin/inquiries.html', inquiries=items)
+    return render_template('admin/inquiries.html', inquiries=pagination.items, pagination=pagination)
 
 
 @admin_bp.route('/inquiries/<int:inquiry_id>/delete', methods=['POST'])
@@ -70,9 +73,10 @@ def _parse_permission_matrix(form):
 def users():
     """Admin-only account management — teacher accounts live on /admin/teachers,
     parent accounts are created from the student pages."""
-    users = (User.query.filter_by(is_deleted=False, role=UserRole.ADMIN)
-             .order_by(User.full_name).all())
-    return render_template('admin/users.html', users=users,
+    page = request.args.get('page', 1, type=int)
+    pagination = (User.query.filter_by(is_deleted=False, role=UserRole.ADMIN)
+                 .order_by(User.full_name).paginate(page=page, per_page=50, error_out=False))
+    return render_template('admin/users.html', users=pagination.items, pagination=pagination,
                            admin_modules=ADMIN_PERMISSION_MODULES)
 
 
@@ -250,7 +254,9 @@ def courses():
             db.session.delete(c)
         db.session.commit()
     items = sorted(seen.values(), key=lambda c: c.name)
-    return render_template('admin/courses.html', courses=items)
+    page = request.args.get('page', 1, type=int)
+    pagination = paginate_list(items, page, per_page=50)
+    return render_template('admin/courses.html', courses=pagination.items, pagination=pagination)
 
 
 @admin_bp.route('/courses/add', methods=['POST'])
