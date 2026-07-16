@@ -243,7 +243,10 @@ def _rollover_plan():
     current_year = current_academic_year_start()
     next_year = current_year + 1
     next_start = date(next_year, 7, 1)
-    already_rolled = Class.query.filter_by(start_date=next_start).first() is not None
+    already_rolled = (
+        Class.query.filter_by(start_date=next_start).first() is not None
+        or AcademicYear.query.filter_by(start_date=next_start).first() is not None
+    )
     active = Class.query.filter_by(is_active=True).all()
     rolling = [c for c in active if c.grade_level in GRADE_SEQUENCE and c.grade_level != 'Lớp 12']
     lop12 = [c for c in active if c.grade_level == 'Lớp 12']
@@ -277,6 +280,22 @@ def academic_year_rollover_execute():
     if not _rollover_window_open():
         flash('Chỉ có thể cuộn năm học từ ngày 01/07 hàng năm.', 'danger')
         return redirect(url_for('admin.academic_years'))
+
+    # Lock the currently active AcademicYear row (if one exists) for the
+    # rest of this transaction — a second concurrent POST (an admin
+    # double-click, or two admins both clicking "Cuộn năm học") blocks
+    # here until this request commits or rolls back, then re-evaluates
+    # already_rolled against the now-committed state instead of both
+    # requests reading the same stale "not yet rolled" snapshot and both
+    # proceeding to create duplicate classes. Real row lock on Postgres;
+    # SQLite has no row-level locking (dev-only limitation, same as
+    # services/tuition_service.record_payment) so this specific race can
+    # still be demonstrated on the dev DB — it cannot happen in production.
+    active_year_query = AcademicYear.query.filter_by(is_active=True)
+    if db.engine.dialect.name == 'postgresql':
+        active_year_query = active_year_query.with_for_update()
+    active_year = active_year_query.first()
+
     plan = _rollover_plan()
     if plan['already_rolled']:
         flash('Năm học tới đã được cuộn rồi — không thể cuộn lại.', 'danger')
@@ -304,6 +323,7 @@ def academic_year_rollover_execute():
             primary_teacher_id=cls.primary_teacher_id,
             start_date=new_start,
             end_date=new_end,
+            rolled_over_from_id=cls.id,
         )
         db.session.add(new_cls)
         db.session.flush()
@@ -327,6 +347,22 @@ def academic_year_rollover_execute():
         cls.is_active = False
 
     baselined, advanced, graduated = _advance_student_grades(next_year)
+
+    # AcademicYear lifecycle — previously missing entirely: this route only
+    # ever touched Class/Student/Enrollment, so academic_years never
+    # actually tracked which year was "current" through a rollover (the
+    # rest of the app fell back to pure Jul-Jun calendar math instead).
+    # Same transaction as everything above — one commit for the whole
+    # rollover, all-or-nothing.
+    new_academic_year = AcademicYear.query.filter_by(start_date=new_start).first()
+    if not new_academic_year:
+        new_academic_year = AcademicYear(
+            name=f'{next_year}-{next_year + 1}', start_date=new_start, end_date=new_end, is_active=True)
+        db.session.add(new_academic_year)
+    else:
+        new_academic_year.is_active = True
+    if active_year:
+        active_year.is_active = False
 
     db.session.commit()
     flash(f'Đã cuộn năm học: {classes_rolled} lớp được tạo mới, {advanced} học sinh lên lớp, '
