@@ -10,7 +10,8 @@ from blueprints.admin import admin_bp, require_admin, require_master
 from services.salary_service import calculate_all_salaries, get_or_create_salary
 from services.zalo_service import ZaloService
 from services.tuition_service import (create_tuition_payment, record_payment, get_previous_month_debt,
-                                      record_fee_adjustment)
+                                      record_fee_adjustment, batch_previous_month_debts)
+from services.academic_year_service import FrozenPeriodError, is_period_writable, list_academic_year_months
 
 
 # ────────────────────────────────────────────────────────────────
@@ -99,6 +100,17 @@ def tuition():
         _tuition_overview_aggregate(month, year, class_id, course_id)
 
     courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
+    # Newest-first; bounds both the dropdown and prev/next nav to periods
+    # that actually belong to a registered academic year, instead of
+    # unconditional +/-1 month arithmetic that could wander outside any
+    # known year.
+    year_months = list_academic_year_months()
+    try:
+        idx = year_months.index((year, month))
+        prev_period = year_months[idx + 1] if idx + 1 < len(year_months) else None
+        next_period = year_months[idx - 1] if idx > 0 else None
+    except ValueError:
+        prev_period = next_period = None
 
     return render_template('admin/finance/tuition.html',
                            classes=classes,
@@ -111,6 +123,10 @@ def tuition():
                            total_collected=total_collected,
                            total_outstanding=total_outstanding,
                            total_expected=total_expected,
+                           year_months=year_months,
+                           prev_period=prev_period,
+                           next_period=next_period,
+                           is_writable=is_period_writable(month, year),
                            today=today)
 
 
@@ -158,6 +174,7 @@ def tuition_class_detail(class_id):
                            unpaid_count=unpaid_count or 0,
                            collected_amount=collected_amount or 0,
                            outstanding_amount=outstanding_amount or 0,
+                           is_writable=is_period_writable(month, year),
                            month=month, year=year, today=today)
 
 
@@ -232,7 +249,12 @@ def tuition_add():
         flash('Vui lòng điền đầy đủ thông tin.', 'danger')
         return redirect(url_for('admin.tuition'))
 
-    tp, created = create_tuition_payment(student_id, class_id, month, year, amount, note=note)
+    try:
+        tp, created = create_tuition_payment(student_id, class_id, month, year, amount, note=note)
+    except (FrozenPeriodError, ValueError) as e:
+        flash(str(e), 'danger')
+        return redirect(url_for('admin.tuition', month=month, year=year))
+
     if not created:
         flash('Đã có bản ghi học phí tháng này rồi.', 'warning')
     else:
@@ -248,7 +270,11 @@ def tuition_mark_paid(payment_id):
     method = request.form.get('method', 'cash')
     amount = request.form.get('amount', type=float)
     note = request.form.get('note', '').strip() or None
-    tp = record_payment(payment_id, amount, method, current_user.id, note=note)
+    try:
+        tp = record_payment(payment_id, amount, method, current_user.id, note=note)
+    except FrozenPeriodError as e:
+        flash(str(e), 'danger')
+        return redirect(request.referrer or url_for('admin.tuition'))
     if not tp:
         abort(404)
     flash(f'Đã ghi nhận thanh toán học phí cho {tp.student.full_name}.', 'success')
@@ -744,6 +770,10 @@ def monthly_fee_generate():
         flash('Vui lòng chọn một lớp để tạo học phí.', 'danger')
         return redirect(url_for('admin.tuition', month=month, year=year))
 
+    if not is_period_writable(month, year):
+        flash('Không thể sửa đổi dữ liệu tài chính của năm học đã đóng băng', 'danger')
+        return redirect(url_for('admin.tuition', month=month, year=year))
+
     cls = Class.query.get_or_404(class_id)
 
     enrollments = Enrollment.query.filter_by(class_id=class_id, is_active=True).all()
@@ -757,14 +787,29 @@ def monthly_fee_generate():
             ).all()
         }
 
+    # Batch every student's previous-month debt in 1-2 queries instead of
+    # one SELECT per student inside the loop — the N+1 pattern that
+    # already caused a 502 once this session, just in this route instead.
+    # skip_period_check=True below: already checked once above for the
+    # whole batch, so create_tuition_payment() doesn't re-run the same
+    # AcademicYear query per student (which would otherwise silently
+    # cancel out this exact batching).
+    to_create_ids = [sid for sid in student_ids if sid not in existing_student_ids]
+    debt_map = batch_previous_month_debts(to_create_ids, class_id, month, year)
+
     fee = cls.monthly_fee or 0
     created = 0
-    for enr in enrollments:
-        if enr.student_id in existing_student_ids:
-            continue
-        _, was_created = create_tuition_payment(enr.student_id, class_id, month, year, fee)
-        if was_created:
-            created += 1
+    try:
+        for student_id in to_create_ids:
+            _, was_created = create_tuition_payment(
+                student_id, class_id, month, year, fee,
+                debt_override=debt_map.get(student_id, 0), skip_period_check=True)
+            if was_created:
+                created += 1
+    except FrozenPeriodError as e:
+        db.session.rollback()
+        flash(str(e), 'danger')
+        return redirect(url_for('admin.tuition', month=month, year=year))
 
     db.session.commit()
     flash(f'Đã tạo {created} học phí mới cho lớp {cls.name} tháng {month}/{year}.', 'success')
@@ -784,7 +829,10 @@ def tuition_adjust_amount(payment_id):
 
     new_amount = request.form.get('amount', type=float)
     note = request.form.get('note', '').strip() or None
-    if new_amount is not None and new_amount >= 0:
-        record_fee_adjustment(payment_id, new_amount, current_user.id, note=note)
-        flash(f'Đã cập nhật học phí {tp.student.full_name}: {int(new_amount):,}₫.', 'success')
+    if new_amount is not None:
+        try:
+            record_fee_adjustment(payment_id, new_amount, current_user.id, note=note)
+            flash(f'Đã cập nhật học phí {tp.student.full_name}: {int(new_amount):,}₫.', 'success')
+        except (FrozenPeriodError, ValueError) as e:
+            flash(str(e), 'danger')
     return redirect(request.referrer or url_for('admin.tuition', month=tp.month, year=tp.year))

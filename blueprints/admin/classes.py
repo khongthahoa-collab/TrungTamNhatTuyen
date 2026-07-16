@@ -10,6 +10,7 @@ from blueprints.admin import admin_bp, require_admin
 from services.schedule_service import (find_student_schedule_conflict, schedule_conflict_message,
                                        notify_class_teachers)
 from services.tuition_service import create_tuition_payment
+from services.academic_year_service import is_period_writable
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
@@ -763,6 +764,11 @@ def class_add_students(class_id):
             TuitionPayment.month == today.month, TuitionPayment.year == today.year,
         ).all()
     }
+    # If the current month somehow isn't the active academic year (no
+    # AcademicYear configured for "now"), skip auto-creating tuition
+    # rather than raising mid-loop — enrollment itself should still
+    # succeed; the school just needs to set up this year's AcademicYear.
+    can_bill_this_month = is_period_writable(today.month, today.year)
 
     added = tuition_added = 0
     for student_id in ok_student_ids:
@@ -775,7 +781,7 @@ def class_add_students(class_id):
             db.session.add(Enrollment(student_id=student_id, class_id=class_id))
             added += 1
 
-        if student_id not in students_with_tuition:
+        if can_bill_this_month and student_id not in students_with_tuition:
             _, was_created = create_tuition_payment(
                 student_id, class_id, today.month, today.year, class_.monthly_fee or 0,
                 note='Tự động tạo khi thêm vào lớp',
