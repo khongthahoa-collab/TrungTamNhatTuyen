@@ -374,7 +374,9 @@ def classes():
                     Course.name.ilike(f'%{q}%'),
                     User.full_name.ilike(f'%{q}%'),
                 )))
-    classes = query.order_by(Class.name).all()
+    page = request.args.get('page', 1, type=int)
+    pagination = query.order_by(Class.name).paginate(page=page, per_page=30, error_out=False)
+    classes = pagination.items
 
     courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
     teachers = Teacher.query.join(Teacher.user).order_by('full_name').all()
@@ -390,7 +392,7 @@ def classes():
                            classes=classes, q=q, course_id=course_id,
                            grade_level=grade_level, teacher_id=teacher_id,
                            courses=courses, teachers=teachers, grade_options=grade_options,
-                           is_filtered=is_filtered,
+                           is_filtered=is_filtered, pagination=pagination,
                            grade_labels=GRADE_LEVEL_LABELS)
 
 

@@ -19,14 +19,19 @@ def rewards():
     elif show == 'confirmed':
         query = query.filter_by(is_confirmed=True)
 
-    records = query.order_by(Reward.reward_date.desc()).all()
+    page = request.args.get('page', 1, type=int)
+    pagination = query.order_by(Reward.reward_date.desc()).paginate(page=page, per_page=30, error_out=False)
+    records = pagination.items
+
     # Sum in SQL instead of pulling every confirmed reward ever recorded
     # into Python just to add one number (grows unboundedly with history).
     total_confirmed = db.session.query(func.coalesce(func.sum(Reward.amount), 0)) \
         .filter_by(is_confirmed=True).scalar()
+    pending_count = Reward.query.filter_by(is_suggested=True, is_confirmed=False).count()
 
     return render_template('admin/rewards/list.html',
-                           records=records, show=show, total_confirmed=total_confirmed)
+                           records=records, show=show, total_confirmed=total_confirmed,
+                           pagination=pagination, pending_count=pending_count)
 
 
 @admin_bp.route('/rewards/<int:reward_id>/confirm', methods=['POST'])

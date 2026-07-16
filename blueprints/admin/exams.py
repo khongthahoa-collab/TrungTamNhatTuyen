@@ -37,9 +37,17 @@ def exams_list():
     if creator_id:
         query = query.filter_by(created_by=creator_id)
 
-    exams = query.order_by(Exam.created_at.desc()).all()
+    query = query.order_by(Exam.created_at.desc())
+    pagination = None
     if class_id:
-        exams = [e for e in exams if class_id in e.class_list]
+        # class_list is parsed from a comma-separated text column in Python,
+        # not a real SQL-filterable column — can't paginate a query whose
+        # true row count isn't known until after this Python-side filter.
+        exams = [e for e in query.all() if class_id in e.class_list]
+    else:
+        page = request.args.get('page', 1, type=int)
+        pagination = query.paginate(page=page, per_page=30, error_out=False)
+        exams = pagination.items
 
     folders = ExamFolder.query.order_by(ExamFolder.name).all()
     classes = Class.query.filter_by(is_active=True).order_by(Class.name).all()
@@ -49,7 +57,8 @@ def exams_list():
     return render_template('exams/admin_list.html', exams=exams, folders=folders, classes=classes,
                            courses=courses, creators=creators, exam_types=EXAM_TYPES,
                            folder_id=folder_id, subject=subject, exam_type=exam_type,
-                           class_id=class_id, status=status, creator_id=creator_id)
+                           class_id=class_id, status=status, creator_id=creator_id,
+                           pagination=pagination)
 
 
 @admin_bp.route('/exam/folders/new', methods=['POST'])

@@ -2,8 +2,9 @@ import os
 import uuid
 from flask import render_template, redirect, url_for, flash, request, current_app, send_from_directory
 from flask_login import login_required, current_user
+from sqlalchemy import func
 from extensions import db
-from models import ClassDocument, Class, Course, ExamFolder
+from models import ClassDocument, Class, Course, ExamFolder, Exam
 from blueprints.admin import admin_bp, require_admin
 
 
@@ -15,14 +16,24 @@ def documents():
     query = ClassDocument.query.filter_by(is_active=True)
     if class_id:
         query = query.filter_by(class_id=class_id)
-    docs = query.order_by(ClassDocument.uploaded_at.desc()).all()
+    page = request.args.get('page', 1, type=int)
+    pagination = query.order_by(ClassDocument.uploaded_at.desc()).paginate(page=page, per_page=30, error_out=False)
+    docs = pagination.items
     classes = Class.query.filter_by(is_active=True).order_by(Class.name).all()
     courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
     exam_folders = ExamFolder.query.order_by(ExamFolder.name).all()
+    # One grouped count query instead of folder.exams.count() per folder
+    # (Exam.folder_id, ExamFolder.exams is lazy='dynamic') in the template.
+    exam_counts = dict(
+        db.session.query(Exam.folder_id, func.count(Exam.id))
+        .filter(Exam.folder_id.in_([f.id for f in exam_folders]))
+        .group_by(Exam.folder_id).all()
+    ) if exam_folders else {}
     return render_template('admin/documents/list.html',
                            docs=docs, classes=classes, courses=courses,
                            exam_folders=exam_folders, selected_class_id=class_id,
-                           is_filtered=bool(class_id))
+                           is_filtered=bool(class_id), pagination=pagination,
+                           exam_counts=exam_counts)
 
 
 @admin_bp.route('/documents/upload', methods=['POST'])
