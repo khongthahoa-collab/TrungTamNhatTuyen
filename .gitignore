@@ -70,6 +70,7 @@ migrate_substitute_teaching.py
 migrate_student_grade_year.py
 migrate_multi_assistant_teachers.py
 migrate_add_performance_indexes.py
+migrate_add_api_token.py
 
 # Docker
 .docker/

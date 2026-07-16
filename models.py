@@ -481,6 +481,7 @@ class User(UserMixin, db.Model):
     is_master = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
     must_change_password = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
     is_deleted = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+    api_token = db.Column(db.String(64), unique=True, nullable=True, index=True)
 
     # Relationships
     teacher_profile = db.relationship('Teacher', backref='user', uselist=False)
@@ -558,6 +559,18 @@ class User(UserMixin, db.Model):
         """Whether this user is allowed to create/edit/delete within the given module."""
         return self.permission_level(module_key) == 'write'
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'full_name': self.full_name,
+            'username': self.username,
+            'phone': self.phone,
+            'role': self.role,
+            'role_label': self.role_label,
+            'is_master': self.is_master,
+            'is_active': self.is_active,
+        }
+
     def __repr__(self):
         return f'<User {self.username}>'
 
@@ -622,6 +635,18 @@ class Teacher(db.Model):
         """Get list of courses this teacher teaches"""
         return [c.name for c in self.courses.all()]
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'full_name': self.full_name,
+            'phone': self.phone,
+            'title': self.title,
+            'is_staff': self.is_staff,
+            'base_salary': self.base_salary,
+            'note': self.note,
+        }
+
     def __repr__(self):
         return f'<Teacher {self.full_name}>'
 
@@ -644,6 +669,16 @@ class Course(db.Model):
     def level_label(self):
         """Get human-readable level label"""
         return StudentLevel.LABELS.get(self.level, 'All levels')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'level': self.level,
+            'level_label': self.level_label,
+            'description': self.description,
+            'is_active': self.is_active,
+        }
 
     def __repr__(self):
         return f'<Course {self.name}>'
@@ -672,6 +707,17 @@ class Room(db.Model):
         if self.branch:
             parts.append(self.branch)
         return ' – '.join(parts) if parts else self.name
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'branch': self.branch,
+            'floor': self.floor,
+            'room_number': self.room_number,
+            'capacity': self.capacity,
+            'is_active': self.is_active,
+        }
 
     def __repr__(self):
         return f'<Room {self.name}>'
@@ -707,6 +753,16 @@ class School(db.Model):
         elif self.grade_to is not None:
             return f'Đến {self.grade_name(self.grade_to)}'
         return ''
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'grade_from': self.grade_from,
+            'grade_to': self.grade_to,
+            'grade_range_label': self.grade_range_label,
+            'is_active': self.is_active,
+        }
 
     def __repr__(self):
         return f'<School {self.name}>'
@@ -774,6 +830,25 @@ class Class(db.Model):
         """Check if student is enrolled"""
         return self.enrollments.filter_by(student_id=student_id, is_active=True).first() is not None
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'course_id': self.course_id,
+            'course_name': self.course.name if self.course else None,
+            'grade_level': self.grade_level,
+            'max_students': self.max_students,
+            'monthly_fee': self.monthly_fee,
+            'sessions_per_week': self.sessions_per_week,
+            'start_date': self.start_date.isoformat() if self.start_date else None,
+            'end_date': self.end_date.isoformat() if self.end_date else None,
+            'is_active': self.is_active,
+            'description': self.description,
+            'primary_teacher_id': self.primary_teacher_id,
+            'primary_teacher_name': self.primary_teacher.full_name if self.primary_teacher else None,
+            'assistant_teacher_ids': [t.id for t in self.assistant_teachers],
+        }
+
     def __repr__(self):
         return f'<Class {self.name}>'
 
@@ -839,6 +914,25 @@ class Student(db.Model):
         """Get human-readable education level"""
         return StudentLevel.LABELS.get(self.level, self.level)
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'full_name': self.full_name,
+            'date_of_birth': self.date_of_birth.isoformat() if self.date_of_birth else None,
+            'gender': self.gender,
+            'current_school': self.current_school,
+            'school_id': self.school_id,
+            'current_grade': self.current_grade,
+            'level': self.level,
+            'level_label': self.level_label,
+            'parent_name': self.parent_name,
+            'parent_phone': self.parent_phone,
+            'parent_user_id': self.parent_user_id,
+            'note': self.note,
+            'is_active': self.is_active,
+            'status': self.status,
+        }
+
     def __repr__(self):
         return f'<Student {self.full_name}>'
 
@@ -892,6 +986,24 @@ class Schedule(db.Model):
         """Get human-readable schedule type"""
         return ScheduleType.LABELS.get(self.schedule_type, self.schedule_type)
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'class_id': self.class_id,
+            'class_name': self.class_.name if self.class_ else None,
+            'teacher_id': self.teacher_id,
+            'substitute_teacher_id': self.substitute_teacher_id,
+            'date': self.date.isoformat() if self.date else None,
+            'start_time': self.start_time.strftime('%H:%M') if self.start_time else None,
+            'end_time': self.end_time.strftime('%H:%M') if self.end_time else None,
+            'room': self.room,
+            'room_id': self.room_id,
+            'topic': self.topic,
+            'schedule_type': self.schedule_type,
+            'is_cancelled': self.is_cancelled,
+            'cancel_reason': self.cancel_reason,
+        }
+
     def __repr__(self):
         return f'<Schedule class={self.class_id} date={self.date}>'
 
@@ -927,6 +1039,19 @@ class Attendance(db.Model):
             AttendanceStatus.LATE: 'warning',
             AttendanceStatus.EXCUSED: 'secondary',
         }.get(self.status, 'secondary')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'schedule_id': self.schedule_id,
+            'student_id': self.student_id,
+            'status': self.status,
+            'status_label': self.status_label,
+            'note': self.note,
+            'reason': self.reason,
+            'is_late_approval': self.is_late_approval,
+            'recorded_at': self.recorded_at.isoformat() if self.recorded_at else None,
+        }
 
     def __repr__(self):
         return f'<Attendance student={self.student_id} status={self.status}>'
@@ -964,6 +1089,22 @@ class Score(db.Model):
         """Get human-readable score source"""
         return ScoreSource.LABELS.get(self.score_source, self.score_source)
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'student_id': self.student_id,
+            'class_id': self.class_id,
+            'score_source': self.score_source,
+            'score_source_label': self.score_source_label,
+            'score_type': self.score_type,
+            'score_type_label': self.score_type_label,
+            'score_value': self.score_value,
+            'max_score': self.max_score,
+            'exam_date': self.exam_date.isoformat() if self.exam_date else None,
+            'school_name': self.school_name,
+            'note': self.note,
+        }
+
     def __repr__(self):
         return f'<Score student={self.student_id} value={self.score_value}>'
 
@@ -985,6 +1126,20 @@ class Reward(db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
     confirmed_by = db.Column(db.Integer, db.ForeignKey('users.id'))
     confirmed_at = db.Column(db.DateTime)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'student_id': self.student_id,
+            'reason': self.reason,
+            'amount': self.amount,
+            'reward_type': self.reward_type,
+            'reward_date': self.reward_date.isoformat() if self.reward_date else None,
+            'note': self.note,
+            'is_suggested': self.is_suggested,
+            'is_confirmed': self.is_confirmed,
+            'score_id': self.score_id,
+        }
 
     def __repr__(self):
         return f'<Reward student={self.student_id} amount={self.amount}>'
@@ -1037,6 +1192,24 @@ class TuitionPayment(db.Model):
         elif self.amount_25pct > 0:
             return '25%'
         return 'Chưa thanh toán'
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'student_id': self.student_id,
+            'class_id': self.class_id,
+            'amount': self.amount,
+            'payment_stage': self.payment_stage,
+            'month': self.month,
+            'year': self.year,
+            'paid_at': self.paid_at.isoformat() if self.paid_at else None,
+            'method': self.method,
+            'method_label': self.method_label,
+            'note': self.note,
+            'is_paid': self.is_paid,
+            'is_finalized': self.is_finalized,
+            'payment_status': self.payment_status,
+        }
 
     def __repr__(self):
         return f'<TuitionPayment student={self.student_id} month_year={self.month}/{self.year}>'
@@ -1180,6 +1353,18 @@ class Notification(db.Model):
     __table_args__ = (db.Index('ix_notification_user_read', 'user_id', 'is_read'),)
 
     user = db.relationship('User', foreign_keys=[user_id], backref='notifications')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'title': self.title,
+            'body': self.body,
+            'notif_type': self.notif_type,
+            'link': self.link,
+            'is_read': self.is_read,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
 
     def __repr__(self):
         return f'<Notification user={self.user_id} title={self.title}>'
