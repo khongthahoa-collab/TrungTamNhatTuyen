@@ -329,29 +329,49 @@ qualify for one).
 | GET | `/tuition-payments/<id>` | |
 | POST | `/tuition-payments` | ✓ |
 | PUT | `/tuition-payments/<id>` | ✓ |
+| POST | `/tuition-payments/<id>/pay` | ✓ |
 
 Each `TuitionPayment` row is one student's bill for one class for one
-month. `amount` is that month's fee only. `debt_carried_over` is any
-unpaid `total_due` automatically rolled over from the same student+class's
-previous-month row (0 if none, or if that month was fully paid — this
-happens automatically wherever a row is created; there's no separate
-"run carryover" endpoint). `total_due` (`amount + debt_carried_over`) and
-`amount_collected` (cumulative amount actually received) are what
-`status` is derived from: `paid` (`is_paid`) / `partial`
+month. `amount` is that month's fee only (defaults to `Class.monthly_fee`
+when generated — there's no per-month fee-proration config, the standard
+class fee applies to every actively-enrolled student unless edited per
+row). `debt_carried_over` is any unpaid `total_due` automatically rolled
+over from the same student+class's previous-month row (0 if none, or if
+that month was fully paid — this happens automatically wherever a row is
+created; there's no separate "run carryover" endpoint). `total_due`
+(`amount + debt_carried_over`) and `amount_collected` (cumulative amount
+actually received — a live sum of the underlying payment ledger, see
+below) are what `status` is derived from: `paid` (`is_paid`) / `partial`
 (`amount_collected > 0` but not fully paid) / `unpaid`.
 
-**`GET /tuition/overview`** — `?month=&year=&class_id=` (all optional,
-month/year default to today). KPI totals plus a per-class breakdown:
+**Payment ledger.** Every payment is an append-only `TuitionTransaction`
+row (amount, method, note, who received it, when) — `amount_collected`
+is always `SUM()` of these, recomputed inside the same DB transaction
+every time a payment is recorded. A correction is a new transaction, not
+an edit to history; this is what makes the numbers trustworthy for
+accounting reconciliation. There's no endpoint to list individual
+transactions yet (out of scope for this pass) — `amount_collected` /
+`status` on the payment itself is the aggregate view.
+
+**Fee-change audit log.** Every time a payment's `amount` is edited via
+`PUT`, a `TuitionFeeAuditLog` row is written (old amount, new amount, who,
+when) — not exposed via its own endpoint yet, but every fee override is
+attributable in the database for financial transparency.
+
+**`GET /tuition/overview`** — `?month=&year=&class_id=&course_id=` (all
+optional, month/year default to today). KPI totals plus a per-class
+breakdown:
 ```json
 {"data": {
   "month": 7, "year": 2026,
   "total_expected": 45000000, "total_collected": 32000000, "total_outstanding": 13000000,
   "classes": [{"class_id": 3, "class_name": "Toán 7", "total_students": 20,
                "paid_count": 15, "unpaid_count": 5,
-               "collected_amount": 12000000, "outstanding_amount": 3000000}]
+               "collected_amount": 12000000, "outstanding_amount": 3000000,
+               "carried_debt_amount": 500000}]
 }}
 ```
-If `class_id` is given and doesn't exist, `404`.
+If `class_id` or `course_id` is given and doesn't exist, `404`.
 
 List filters (`GET /tuition-payments`): `student_id`, `class_id`,
 `month`, `year`, `is_paid` (`1`/`0`). `404` if `class_id` is given and
@@ -364,15 +384,18 @@ that student+class+month already exists (the API enforces the same
 one-row-per-student-per-class-per-month rule as the web app, backed by
 a DB-level unique constraint).
 
-Update: plain field edits (`amount`, `note`, `method`) apply directly.
-Setting `{"is_paid": true}` is treated as **recording a payment** —
-it's routed through the same lock-and-verify path the web app's
-"Thu tiền" button uses, so two concurrent requests marking the same row
-paid can't both succeed or double-collect. Optionally include
-`{"amount_collected": 500000}` to record a **partial** payment instead
-of collecting the full remaining balance (status becomes `partial`
-rather than `paid` until the balance reaches zero); omit it to collect
-everything owed, same as leaving the web form's amount field blank.
+**Update (`PUT`)** is pure field edits — `amount`, `note`, `method`.
+Changing `amount` is a fee override for that one month, and writes a
+`TuitionFeeAuditLog` row automatically. This endpoint does **not** record
+payments (it no longer accepts `is_paid`/`amount_collected` — use `/pay`
+below for that).
+
+**`POST /tuition-payments/<id>/pay`** — records a payment. Body:
+`{"amount":, "method": "cash", "note": "..."}` — `amount` omitted or `0`
+collects the full remaining balance (same as leaving the web form's
+amount field blank); a smaller amount records a **partial** payment.
+Row-locked on Postgres and inserts a new ledger transaction, so two
+concurrent requests against the same bill can't double-collect or race.
 
 No delete endpoint — matches the web app, which doesn't offer one
 either (tuition records are financial history, not deletable).

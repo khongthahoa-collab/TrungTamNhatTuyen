@@ -12,3 +12,4 @@ WeasyPrint==62.3
 reportlab==4.2.2
 psycopg[binary]
 gunicorn==21.2.0
+openpyxl==3.1.5

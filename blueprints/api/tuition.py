@@ -1,10 +1,10 @@
 from datetime import date, datetime
 from flask import request, g
 from extensions import db
-from models import TuitionPayment, Class
+from models import TuitionPayment, Class, Course
 from blueprints.api import (api_bp, api_ok, api_error, api_login_required, api_require_module,
                             get_page_args, pagination_meta, get_body, body_int)
-from services.tuition_service import create_tuition_payment, record_payment
+from services.tuition_service import create_tuition_payment, record_payment, record_fee_adjustment
 
 
 @api_bp.route('/tuition/overview', methods=['GET'])
@@ -20,11 +20,14 @@ def tuition_overview():
     month = request.args.get('month', today.month, type=int)
     year = request.args.get('year', today.year, type=int)
     class_id = request.args.get('class_id', type=int)
+    course_id = request.args.get('course_id', type=int)
     if class_id and not Class.query.get(class_id):
         return api_error('Không tìm thấy lớp học.', 404, code='not_found')
+    if course_id and not Course.query.get(course_id):
+        return api_error('Không tìm thấy môn học.', 404, code='not_found')
 
     _, class_summaries, total_collected, total_outstanding, total_expected = \
-        _tuition_overview_aggregate(month, year, class_id)
+        _tuition_overview_aggregate(month, year, class_id, course_id)
 
     return api_ok({
         'month': month,
@@ -114,28 +117,43 @@ def tuition_create():
 @api_login_required
 @api_require_module('tuition', write=True)
 def tuition_update(payment_id):
+    """Pure field edits. An `amount` change is a fee adjustment — routed
+    through record_fee_adjustment() so it's captured in TuitionFeeAuditLog
+    (who changed this student's fee, from what to what). Recording an
+    actual payment is a separate operation: POST /tuition-payments/<id>/pay."""
     payment = TuitionPayment.query.get(payment_id)
     if not payment:
         return api_error('Không tìm thấy bản ghi học phí.', 404, code='not_found')
 
     body = get_body()
     if 'amount' in body:
-        payment.amount = float(body.get('amount'))
-    if 'note' in body:
+        payment = record_fee_adjustment(payment_id, float(body.get('amount')),
+                                        g.api_user.id, note=body.get('note'))
+    if 'note' in body and 'amount' not in body:
         payment.note = body.get('note')
+        db.session.commit()
     if 'method' in body:
         payment.method = body.get('method')
+        db.session.commit()
+    return api_ok(payment.to_dict())
 
-    # Flipping is_paid is a real money-changing operation — route it
-    # through the same race-safe/amount_collected-aware path the web app's
-    # tuition_mark_paid uses (services.tuition_service.record_payment),
-    # rather than setting the boolean directly here.
-    is_paid = body.get('is_paid')
-    if is_paid is not None and str(is_paid).lower() in ('1', 'true', 'yes') and not payment.is_paid:
-        db.session.commit()
-        collected = body.get('amount_collected')
-        payment = record_payment(payment_id, float(collected) if collected else None,
-                                 payment.method, g.api_user.id)
-    else:
-        db.session.commit()
+
+@api_bp.route('/tuition-payments/<int:payment_id>/pay', methods=['POST'])
+@api_login_required
+@api_require_module('tuition', write=True)
+def tuition_pay(payment_id):
+    """Record a payment (full or partial) — inserts an immutable
+    TuitionTransaction ledger row and recomputes amount_collected from it,
+    row-locked on Postgres. Body: {"amount":, "method":, "note":}. amount
+    omitted/0 collects the full remaining balance."""
+    payment = TuitionPayment.query.get(payment_id)
+    if not payment:
+        return api_error('Không tìm thấy bản ghi học phí.', 404, code='not_found')
+
+    body = get_body()
+    amount = body.get('amount')
+    method = body.get('method', 'cash')
+    note = body.get('note')
+    payment = record_payment(payment_id, float(amount) if amount else None,
+                             method, g.api_user.id, note=note)
     return api_ok(payment.to_dict())
