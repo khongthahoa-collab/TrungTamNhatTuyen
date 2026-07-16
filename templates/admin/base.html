@@ -108,8 +108,8 @@
       {% endif %}
 
       {# ── Tài chính ── #}
-      {% if current_user.can_access('tuition') or current_user.can_access('tuition_report') or current_user.can_access('expenses') or current_user.can_access('salary') %}
-      {% set group_active = current_admin_module in ('tuition', 'tuition_report', 'expenses', 'salary') %}
+      {% if current_user.can_access('tuition') or current_user.can_access('expenses') or current_user.can_access('salary') %}
+      {% set group_active = current_admin_module in ('tuition', 'expenses', 'salary') %}
       <li class="nav-item mb-1">
         <a href="#group-finance" class="nav-link d-flex align-items-center {% if not group_active %}collapsed{% endif %}" data-bs-toggle="collapse" role="button" aria-expanded="{{ 'true' if group_active else 'false' }}">
           <i class="bi bi-cash-stack me-2"></i>Tài chính
@@ -120,13 +120,6 @@
           <li class="nav-item mb-1">
             <a href="{{ url_for('admin.tuition') }}" class="nav-link {% if current_admin_module == 'tuition' %}active{% endif %}">
               <i class="bi bi-cash-stack me-2"></i>Học phí
-            </a>
-          </li>
-          {% endif %}
-          {% if current_user.can_access('tuition_report') %}
-          <li class="nav-item mb-1">
-            <a href="{{ url_for('admin.tuition_report') }}" class="nav-link {% if current_admin_module == 'tuition_report' %}active{% endif %}">
-              <i class="bi bi-bar-chart me-2"></i>Thống kê HP
             </a>
           </li>
           {% endif %}

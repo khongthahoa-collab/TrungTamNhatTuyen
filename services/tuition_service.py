@@ -200,6 +200,60 @@ def record_payment(payment_id, amount, method, received_by, note=None):
     return tp
 
 
+def reverse_payment(payment_id, reason, reversed_by):
+    """Undo a payment that was collected in error (wrong amount, wrong
+    student, double-entry) — distinct from void_tuition_payment(), which
+    cancels a bill *before* any money changes hands. This is the opposite
+    case: money WAS recorded, and that recording needs to be undone.
+
+    Never overwrites amount_collected directly — inserts a compensating
+    negative TuitionTransaction (amount = -amount_collected) so the
+    ledger stays append-only and the reversal itself is auditable (who,
+    when, why) via that same transaction row, then recomputes
+    amount_collected from SUM(transactions) exactly like record_payment()
+    does. Resets is_paid/paid_at so the bill returns to its unpaid/partial
+    state ready to be re-collected correctly.
+
+    Raises ValueError if the reason is blank, the bill has nothing
+    collected against it, or the bill is voided (unvoid first). Raises
+    FrozenPeriodError if the row's (month, year) isn't the active academic
+    year. Returns None if no such row exists."""
+    reason = (reason or '').strip()
+    if not reason:
+        raise ValueError("Vui lòng nhập lý do hoàn tác thanh toán.")
+
+    query = TuitionPayment.query.filter_by(id=payment_id)
+    if db.engine.dialect.name == 'postgresql':
+        query = query.with_for_update()
+    tp = query.first()
+    if not tp:
+        return None
+
+    assert_period_writable(tp.month, tp.year)
+
+    if tp.is_voided:
+        raise ValueError("Học phí này đã bị hủy — hãy khôi phục trước khi hoàn tác thanh toán.")
+    collected = round(tp.amount_collected or 0)
+    if collected <= 0:
+        raise ValueError("Học phí này chưa có khoản thu nào để hoàn tác.")
+
+    db.session.add(TuitionTransaction(
+        tuition_payment_id=tp.id, amount=-collected, method=tp.method,
+        received_by=reversed_by, note=f'Hoàn tác thanh toán: {reason}',
+    ))
+    db.session.flush()
+
+    tp.amount_collected = db.session.query(
+        func.coalesce(func.sum(TuitionTransaction.amount), 0)
+    ).filter_by(tuition_payment_id=tp.id).scalar()
+    tp.is_paid = False
+    tp.paid_at = None
+    tp.note = reason
+
+    db.session.commit()
+    return tp
+
+
 def record_fee_adjustment(payment_id, new_amount, changed_by, note=None):
     """Change a TuitionPayment's current-month fee (the admin "Sửa" action),
     writing a TuitionFeeAuditLog row in the same locked transaction so the

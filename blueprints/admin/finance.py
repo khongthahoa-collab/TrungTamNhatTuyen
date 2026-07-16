@@ -11,7 +11,7 @@ from services.salary_service import calculate_all_salaries, get_or_create_salary
 from services.zalo_service import ZaloService
 from services.tuition_service import (create_tuition_payment, record_payment, get_previous_month_debt,
                                       record_fee_adjustment, batch_previous_month_debts,
-                                      void_tuition_payment, unvoid_tuition_payment)
+                                      void_tuition_payment, unvoid_tuition_payment, reverse_payment)
 from services.academic_year_service import FrozenPeriodError, is_period_writable, list_academic_year_months
 
 
@@ -575,205 +575,6 @@ def salary_print():
                            salaries=salaries, month=month, year=year)
 
 
-# ────────────────────────────────────────────────────────────────
-# Tuition Calculation & Reports
-# ────────────────────────────────────────────────────────────────
-
-@admin_bp.route('/tuition/report')
-@login_required
-@require_admin
-def tuition_report():
-    """Tuition statistics by class and month"""
-    from models import TuitionReport
-    today = date.today()
-    month = request.args.get('month', today.month, type=int)
-    year = request.args.get('year', today.year, type=int)
-    class_id = request.args.get('class_id', type=int)
-    page = request.args.get('page', 1, type=int)
-
-    query = TuitionReport.query.filter_by(month=month, year=year)
-    if class_id:
-        query = query.filter_by(class_id=class_id)
-
-    total_amount, total_fully_paid, total_students = query.with_entities(
-        func.coalesce(func.sum(TuitionReport.total_amount), 0),
-        func.coalesce(func.sum(TuitionReport.fully_paid_count), 0),
-        func.coalesce(func.sum(TuitionReport.total_students), 0),
-    ).first()
-
-    pagination = query.paginate(page=page, per_page=50, error_out=False)
-    reports = pagination.items
-    classes = Class.query.filter_by(is_active=True).all()
-
-    is_filtered = bool(class_id or month != today.month or year != today.year)
-
-    return render_template('admin/finance/tuition_report.html',
-                           reports=reports,
-                           pagination=pagination,
-                           classes=classes,
-                           month=month,
-                           year=year,
-                           selected_class_id=class_id,
-                           is_filtered=is_filtered,
-                           total_amount=total_amount,
-                           total_fully_paid=total_fully_paid,
-                           total_students=total_students)
-
-
-@admin_bp.route('/tuition/calculate', methods=['POST'])
-@login_required
-@require_admin
-def calculate_tuition():
-    """Calculate tuition stages (25%, 50%, 75%, 100%) for a month"""
-    from models import TuitionReport
-    
-    month = request.form.get('month', type=int)
-    year = request.form.get('year', type=int)
-    class_id = request.form.get('class_id', type=int)
-
-    if not month or not year:
-        flash('Vui lòng chọn tháng và năm.', 'danger')
-        return redirect(url_for('admin.tuition_report'))
-
-    # Get all tuition payments for the month
-    query = TuitionPayment.query.filter_by(month=month, year=year)
-    if class_id:
-        query = query.filter_by(class_id=class_id)
-
-    payments = query.all()
-
-    # Group by class
-    by_class = {}
-    for payment in payments:
-        if payment.class_id not in by_class:
-            by_class[payment.class_id] = []
-        by_class[payment.class_id].append(payment)
-
-    # Calculate stages for each class
-    for cid, class_payments in by_class.items():
-        # Calculate stage amounts
-        total_amount = sum(p.amount for p in class_payments)
-        
-        for payment in class_payments:
-            stage_25 = payment.amount * 0.25
-            stage_50 = payment.amount * 0.50
-            stage_75 = payment.amount * 0.75
-            stage_100 = payment.amount * 1.0
-            
-            payment.amount_25pct = stage_25
-            payment.amount_50pct = stage_50
-            payment.amount_75pct = stage_75
-            payment.amount_100pct = stage_100
-            
-            # Set default payment stage
-            if not payment.payment_stage or payment.payment_stage == '100':
-                payment.payment_stage = '100'
-        
-        # Create or update report
-        report = TuitionReport.query.filter_by(
-            class_id=cid,
-            month=month,
-            year=year
-        ).first()
-        
-        if not report:
-            report = TuitionReport(
-                class_id=cid,
-                month=month,
-                year=year
-            )
-            db.session.add(report)
-        
-        report.total_students = len(class_payments)
-        report.total_amount = total_amount
-        report.amount_25pct_total = sum(p.amount_25pct for p in class_payments if p.amount_25pct)
-        report.amount_50pct_total = sum(p.amount_50pct for p in class_payments if p.amount_50pct)
-        report.amount_75pct_total = sum(p.amount_75pct for p in class_payments if p.amount_75pct)
-        report.amount_100pct_total = sum(p.amount_100pct for p in class_payments if p.amount_100pct)
-        report.fully_paid_count = sum(1 for p in class_payments if p.is_paid)
-        report.partial_paid_count = sum(1 for p in class_payments if p.is_paid and not p.is_finalized)
-        report.unpaid_count = sum(1 for p in class_payments if not p.is_paid)
-
-    db.session.commit()
-    flash('Tính toán học phí thành công!', 'success')
-    
-    return redirect(url_for('admin.tuition_report', month=month, year=year, class_id=class_id))
-
-
-@admin_bp.route('/tuition/<int:payment_id>/update-stage', methods=['POST'])
-@login_required
-@require_admin
-def update_tuition_stage(payment_id):
-    """Update payment stage for a tuition payment"""
-    payment = TuitionPayment.query.get_or_404(payment_id)
-    
-    stage = request.form.get('stage', '100')
-    school_name = request.form.get('school_name', '').strip()
-    note_special = request.form.get('note_special', '').strip()
-    
-    payment.payment_stage = stage
-    payment.school_name = school_name
-    payment.note_special = note_special
-    
-    # Update amount based on stage
-    if stage == '25':
-        payment.amount = payment.amount_25pct
-    elif stage == '50':
-        payment.amount = payment.amount_50pct
-    elif stage == '75':
-        payment.amount = payment.amount_75pct
-    else:  # 100
-        payment.amount = payment.amount_100pct
-    
-    db.session.commit()
-    flash('Cập nhật giai đoạn học phí thành công!', 'success')
-    
-    return redirect(url_for('admin.tuition', month=payment.month, year=payment.year))
-
-
-@admin_bp.route('/tuition/export', methods=['POST'])
-@login_required
-@require_admin
-def export_tuition_report():
-    """Export tuition report to Excel"""
-    import csv
-    from io import StringIO
-    from flask import make_response
-    from models import TuitionReport
-    
-    month = request.form.get('month', type=int)
-    year = request.form.get('year', type=int)
-    
-    if not month or not year:
-        flash('Vui lòng chọn tháng và năm.', 'danger')
-        return redirect(url_for('admin.tuition_report'))
-    
-    reports = TuitionReport.query.options(joinedload(TuitionReport.class_)).filter_by(month=month, year=year).all()
-
-    # Create CSV
-    output = StringIO()
-    writer = csv.writer(output)
-    writer.writerow(['Báo Cáo Học Phí - Tháng {}/{}'.format(month, year), '', '', '', '', ''])
-    writer.writerow([''])
-    writer.writerow(['Lớp Học', 'Sĩ Số', 'Tổng Học Phí', '25%', '50%', '75%', '100%', 'Tỉ Lệ Thu'])
-
-    for report in reports:
-        class_obj = report.class_
-        writer.writerow([
-            class_obj.name if class_obj else 'N/A',
-            report.total_students,
-            '{:,.0f}'.format(report.total_amount),
-            '{:,.0f}'.format(report.amount_25pct_total),
-            '{:,.0f}'.format(report.amount_50pct_total),
-            '{:,.0f}'.format(report.amount_75pct_total),
-            '{:,.0f}'.format(report.amount_100pct_total),
-            '{}%'.format(report.collection_rate)
-        ])
-    
-    response = make_response(output.getvalue())
-    response.headers['Content-Disposition'] = 'attachment; filename="tuition_report_{}_{}.csv"'.format(month, year)
-    response.headers['Content-Type'] = 'text/csv; charset=utf-8'
-    return response
 
 
 # ────────────────────────────────────────────────────────────────
@@ -907,6 +708,24 @@ def tuition_unvoid(payment_id):
     try:
         unvoid_tuition_payment(payment_id)
         flash(f'Đã khôi phục học phí {tp.student.full_name} tháng {tp.month}/{tp.year}.', 'success')
+    except (FrozenPeriodError, ValueError) as e:
+        flash(str(e), 'danger')
+    return redirect(request.referrer or url_for('admin.tuition', month=tp.month, year=tp.year))
+
+
+@admin_bp.route('/tuition/<int:payment_id>/reverse-payment', methods=['POST'])
+@login_required
+@require_admin
+def tuition_reverse_payment(payment_id):
+    """Hoàn tác một khoản thu đã ghi nhận nhầm (sai số tiền, nhầm học
+    sinh…) — khác với "Hủy" (hủy hoá đơn chưa thu tiền). Không sửa trực
+    tiếp amount_collected, mà ghi một giao dịch bù trừ âm vào sổ quỹ
+    (reverse_payment)."""
+    tp = TuitionPayment.query.get_or_404(payment_id)
+    reason = request.form.get('reason', '')
+    try:
+        reverse_payment(payment_id, reason, current_user.id)
+        flash(f'Đã hoàn tác thanh toán của {tp.student.full_name} tháng {tp.month}/{tp.year}.', 'success')
     except (FrozenPeriodError, ValueError) as e:
         flash(str(e), 'danger')
     return redirect(request.referrer or url_for('admin.tuition', month=tp.month, year=tp.year))

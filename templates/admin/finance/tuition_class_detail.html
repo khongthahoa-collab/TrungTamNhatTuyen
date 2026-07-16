@@ -206,9 +206,29 @@
                       title="Hủy hoá đơn">
                 <i class="bi bi-x-lg"></i>
               </button>
+              {% if r.status == 'partial' %}
+              <button type="button" class="btn btn-outline-warning btn-sm"
+                      data-bs-toggle="modal" data-bs-target="#reverseModal"
+                      data-record-id="{{ r.id }}"
+                      data-student-name="{{ r.student.full_name }}"
+                      title="Hoàn tác khoản đã thu">
+                <i class="bi bi-arrow-counterclockwise"></i>
+              </button>
+              {% endif %}
             </div>
             {% elif not r.is_paid %}
             <span class="text-muted small">—</span>
+            {% elif is_writable %}
+            <div class="d-flex flex-column align-items-center gap-1">
+              <span class="text-muted small">{{ r.method_label if r.method else '—' }}<br>{{ r.paid_at | date_vn if r.paid_at else '—' }}</span>
+              <button type="button" class="btn btn-outline-warning btn-sm"
+                      data-bs-toggle="modal" data-bs-target="#reverseModal"
+                      data-record-id="{{ r.id }}"
+                      data-student-name="{{ r.student.full_name }}"
+                      title="Hoàn tác khoản đã thu">
+                <i class="bi bi-arrow-counterclockwise me-1"></i>Hoàn tác
+              </button>
+            </div>
             {% else %}
             <span class="text-muted small">{{ r.method_label if r.method else '—' }}<br>{{ r.paid_at | date_vn if r.paid_at else '—' }}</span>
             {% endif %}
@@ -338,6 +358,41 @@
   </div>
 </div>
 
+<!-- Modal hoàn tác khoản đã thu -->
+<div class="modal fade" id="reverseModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title fw-bold">
+          <i class="bi bi-arrow-counterclockwise me-2 text-warning"></i>Hoàn tác khoản đã thu
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" id="reverseForm" action="">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <p class="mb-3 small">
+            Hoàn tác toàn bộ khoản đã thu của <strong id="reverseStudentName"></strong> tháng {{ month }}/{{ year }}
+            — dùng khi ghi nhận thanh toán bị nhầm (sai số tiền, nhầm học sinh…). Hoá đơn sẽ trở về trạng thái
+            <strong>Chưa đóng</strong> để thu lại cho đúng.
+          </p>
+          <div class="mb-2">
+            <label class="form-label fw-semibold">Lý do hoàn tác <span class="text-danger">*</span></label>
+            <textarea name="reason" class="form-control" rows="2" required
+                      placeholder="Ví dụ: ghi nhầm số tiền, nhầm học sinh…"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+          <button type="submit" class="btn btn-warning">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Xác nhận hoàn tác
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <script>
 document.getElementById('markPaidModal').addEventListener('show.bs.modal', function(e) {
   const btn = e.relatedTarget;
@@ -355,6 +410,12 @@ document.getElementById('voidModal').addEventListener('show.bs.modal', function(
   document.getElementById('voidStudentName').textContent = btn.dataset.studentName;
   document.getElementById('voidForm').action =
     "{{ url_for('admin.tuition_void', payment_id=0) }}".replace('/0/', '/' + btn.dataset.recordId + '/');
+});
+document.getElementById('reverseModal').addEventListener('show.bs.modal', function(e) {
+  const btn = e.relatedTarget;
+  document.getElementById('reverseStudentName').textContent = btn.dataset.studentName;
+  document.getElementById('reverseForm').action =
+    "{{ url_for('admin.tuition_reverse_payment', payment_id=0) }}".replace('/0/', '/' + btn.dataset.recordId + '/');
 });
 </script>
 {% endblock %}
