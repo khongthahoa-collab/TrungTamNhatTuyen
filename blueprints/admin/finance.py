@@ -90,6 +90,30 @@ def tuition():
         for cls in (classes if not class_id else [c for c in classes if c.id == class_id])
     ]
 
+    # Batched for the "Cấu hình học phí" (enrollment count per class) and
+    # "Thêm học phí thủ công" (student dropdown) sections below — these
+    # render for every active class on every page load regardless of the
+    # month/class filter, so a per-class query here (cls.current_enrollment,
+    # cls.enrollments.filter_by(...)) was an unconditional N+1 that got
+    # worse as the number of classes grew, independent of how much tuition
+    # data existed for the selected month.
+    all_class_ids = [c.id for c in classes]
+    enrollment_counts = {}
+    enrollments_by_class = {}
+    if all_class_ids:
+        enrollment_counts = dict(
+            db.session.query(Enrollment.class_id, func.count(Enrollment.id))
+            .filter(Enrollment.class_id.in_(all_class_ids), Enrollment.is_active == True)
+            .group_by(Enrollment.class_id)
+            .all()
+        )
+        for e in (Enrollment.query
+                  .filter(Enrollment.class_id.in_(all_class_ids), Enrollment.is_active == True)
+                  .options(joinedload(Enrollment.student))
+                  .join(Student).order_by(Student.full_name)
+                  .all()):
+            enrollments_by_class.setdefault(e.class_id, []).append(e)
+
     return render_template('admin/finance/tuition.html',
                            classes=classes,
                            class_summaries=class_summaries,
@@ -100,6 +124,8 @@ def tuition():
                            total_outstanding=total_outstanding,
                            total_expected=total_expected,
                            fee_configs=fee_configs,
+                           enrollment_counts=enrollment_counts,
+                           enrollments_by_class=enrollments_by_class,
                            today=today)
 
 

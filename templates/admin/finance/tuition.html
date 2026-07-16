@@ -56,7 +56,7 @@
               <a href="{{ url_for('admin.class_detail', class_id=cls.id) }}" class="text-decoration-none">
                 {{ cls.name }}
               </a>
-              <div class="text-muted" style="font-size:0.72rem;">{{ cls.current_enrollment }} HS</div>
+              <div class="text-muted" style="font-size:0.72rem;">{{ enrollment_counts.get(cls.id, 0) }} HS</div>
             </td>
             <td class="text-center small">{{ cls.sessions_per_week or 1 }}</td>
             <td class="text-end small">{{ cls.monthly_fee | vnd if cls.monthly_fee else '—' }}</td>
@@ -340,7 +340,7 @@
             <select name="student_id" class="form-select" required>
               <option value="">-- Chọn học sinh --</option>
               {% for cls in classes %}
-              {% for enr in cls.enrollments.filter_by(is_active=True).all() %}
+              {% for enr in enrollments_by_class.get(cls.id, []) %}
               <option value="{{ enr.student.id }}">{{ enr.student.full_name }} ({{ cls.name }})</option>
               {% endfor %}
               {% endfor %}
