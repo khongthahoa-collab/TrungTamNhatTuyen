@@ -72,6 +72,7 @@ migrate_multi_assistant_teachers.py
 migrate_add_performance_indexes.py
 migrate_add_api_token.py
 migrate_add_tuition_debt_carryover.py
+migrate_add_tuition_ledger.py
 
 # Docker
 .docker/

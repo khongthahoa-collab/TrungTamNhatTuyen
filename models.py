@@ -1253,6 +1253,66 @@ class TuitionPayment(db.Model):
         return f'<TuitionPayment student={self.student_id} month_year={self.month}/{self.year}>'
 
 
+class TuitionTransaction(db.Model):
+    """Immutable payment ledger entry — one row per actual payment received
+    against a TuitionPayment bill. Never updated or deleted; this is the
+    accounting source of truth. TuitionPayment.amount_collected is a cache
+    of SUM(these rows' amount) for fast list/aggregate queries, always
+    recomputed from here, never written to directly anywhere else."""
+    __tablename__ = 'tuition_transactions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    tuition_payment_id = db.Column(db.Integer, db.ForeignKey('tuition_payments.id'), nullable=False, index=True)
+    amount = db.Column(db.Float, nullable=False)
+    method = db.Column(db.String(20))
+    note = db.Column(db.String(255))
+    received_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    payment = db.relationship('TuitionPayment', backref=db.backref(
+        'transactions', lazy='dynamic', order_by='TuitionTransaction.created_at.desc()'))
+
+    @property
+    def method_label(self):
+        return TuitionMethod.LABELS.get(self.method, self.method)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'tuition_payment_id': self.tuition_payment_id,
+            'amount': self.amount,
+            'method': self.method,
+            'method_label': self.method_label,
+            'note': self.note,
+            'received_by': self.received_by,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+    def __repr__(self):
+        return f'<TuitionTransaction payment={self.tuition_payment_id} amount={self.amount}>'
+
+
+class TuitionFeeAuditLog(db.Model):
+    """Who changed a student's tuition amount for a given month, and from
+    what to what — separate from the payment ledger above (this tracks fee
+    edits, not money received)."""
+    __tablename__ = 'tuition_fee_audit_logs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    tuition_payment_id = db.Column(db.Integer, db.ForeignKey('tuition_payments.id'), nullable=False, index=True)
+    old_amount = db.Column(db.Float, nullable=False)
+    new_amount = db.Column(db.Float, nullable=False)
+    changed_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    note = db.Column(db.String(255))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    payment = db.relationship('TuitionPayment', backref=db.backref(
+        'fee_audit_logs', lazy='dynamic', order_by='TuitionFeeAuditLog.created_at.desc()'))
+
+    def __repr__(self):
+        return f'<TuitionFeeAuditLog payment={self.tuition_payment_id} {self.old_amount}->{self.new_amount}>'
+
+
 class Salary(db.Model):
     """Teacher monthly salary record"""
     __tablename__ = 'salaries'
