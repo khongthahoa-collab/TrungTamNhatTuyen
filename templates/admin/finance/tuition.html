@@ -137,24 +137,33 @@
 <!-- ── Section 2: Tóm tắt thu chi ─────────────────────────────── -->
 <div class="row g-3 mb-3">
   <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm h-100 border-start border-primary border-3">
+      <div class="card-body py-2">
+        <div class="small text-muted mb-1">Dự kiến thu</div>
+        <div class="fw-bold fs-6 text-primary">{{ total_expected | vnd }}</div>
+        <div class="small text-muted">{{ class_summaries | sum(attribute='total') }} HS</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
     <div class="card border-0 shadow-sm h-100 border-start border-success border-3">
       <div class="card-body py-2">
         <div class="small text-muted mb-1">Đã thu</div>
         <div class="fw-bold fs-6 text-success">{{ total_collected | vnd }}</div>
-        <div class="small text-muted">{{ records | selectattr('is_paid') | list | length }} HS</div>
+        <div class="small text-muted">{{ class_summaries | sum(attribute='paid_count') }} HS</div>
       </div>
     </div>
   </div>
   <div class="col-6 col-md-3">
     <div class="card border-0 shadow-sm h-100 border-start border-danger border-3">
       <div class="card-body py-2">
-        <div class="small text-muted mb-1">Chưa thu</div>
-        <div class="fw-bold fs-6 text-danger">{{ total_pending | vnd }}</div>
-        <div class="small text-muted">{{ records | rejectattr('is_paid') | list | length }} HS</div>
+        <div class="small text-muted mb-1">Còn nợ</div>
+        <div class="fw-bold fs-6 text-danger">{{ total_outstanding | vnd }}</div>
+        <div class="small text-muted">{{ class_summaries | sum(attribute='unpaid_count') }} HS</div>
       </div>
     </div>
   </div>
-  <div class="col-12 col-md-6 d-flex align-items-center gap-2">
+  <div class="col-6 col-md-3 d-flex align-items-center gap-2">
     <form method="post" action="{{ url_for('admin.tuition_remind_zalo') }}" class="flex-grow-1">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="month" value="{{ month }}">
@@ -237,6 +246,7 @@
             <th class="text-center">Tổng<br>học sinh</th>
             <th class="text-center text-success">Đã đóng</th>
             <th class="text-center text-danger">Chưa đóng</th>
+            <th class="text-end">Nợ cũ</th>
             <th class="text-end">Đã thu</th>
             <th class="text-end">Còn lại</th>
             <th class="text-center">Chi tiết</th>
@@ -267,6 +277,9 @@
               <span class="badge bg-success-subtle text-success border border-success-subtle">0</span>
               {% endif %}
             </td>
+            <td class="text-end small {% if item.carried_debt > 0 %}text-warning-emphasis fw-semibold{% else %}text-muted{% endif %}">
+              {{ item.carried_debt | vnd if item.carried_debt else '—' }}
+            </td>
             <td class="text-end small text-success">{{ item.paid_amount | vnd }}</td>
             <td class="text-end small {% if item.unpaid_amount > 0 %}text-danger fw-semibold{% else %}text-muted{% endif %}">
               {{ item.unpaid_amount | vnd if item.unpaid_amount else '—' }}
@@ -280,7 +293,7 @@
           </tr>
           {% else %}
           <tr>
-            <td colspan="8" class="text-center text-muted py-4">
+            <td colspan="9" class="text-center text-muted py-4">
               <i class="bi bi-inbox d-block mb-2 fs-4"></i>
               Chưa có dữ liệu học phí — dùng <strong>Tạo học phí tất cả lớp</strong> ở trên.
             </td>
@@ -294,6 +307,7 @@
             <td class="text-center">{{ class_summaries | sum(attribute='total') }}</td>
             <td class="text-center text-success">{{ class_summaries | sum(attribute='paid_count') }}</td>
             <td class="text-center text-danger">{{ class_summaries | sum(attribute='unpaid_count') }}</td>
+            <td class="text-end">{{ class_summaries | sum(attribute='carried_debt') | vnd }}</td>
             <td class="text-end text-success">{{ class_summaries | sum(attribute='paid_amount') | vnd }}</td>
             <td class="text-end text-danger">{{ class_summaries | sum(attribute='unpaid_amount') | vnd }}</td>
             <td></td>

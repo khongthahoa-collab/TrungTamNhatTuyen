@@ -25,7 +25,7 @@
     <div class="card border-0 shadow-sm border-start border-secondary border-3">
       <div class="card-body py-2">
         <div class="small text-muted">Tổng học sinh</div>
-        <div class="fw-bold fs-5">{{ records | length }}</div>
+        <div class="fw-bold fs-5">{{ total }}</div>
       </div>
     </div>
   </div>
@@ -33,17 +33,17 @@
     <div class="card border-0 shadow-sm border-start border-success border-3">
       <div class="card-body py-2">
         <div class="small text-muted">Đã đóng</div>
-        <div class="fw-bold fs-5 text-success">{{ paid | length }}</div>
-        <div class="small text-success">{{ paid | sum(attribute='amount') | vnd }}</div>
+        <div class="fw-bold fs-5 text-success">{{ paid_count }}</div>
+        <div class="small text-success">{{ collected_amount | vnd }}</div>
       </div>
     </div>
   </div>
   <div class="col-6 col-md-3">
     <div class="card border-0 shadow-sm border-start border-danger border-3">
       <div class="card-body py-2">
-        <div class="small text-muted">Chưa đóng</div>
-        <div class="fw-bold fs-5 text-danger">{{ unpaid | length }}</div>
-        <div class="small text-danger">{{ unpaid | sum(attribute='amount') | vnd }}</div>
+        <div class="small text-muted">Chưa đóng đủ</div>
+        <div class="fw-bold fs-5 text-danger">{{ unpaid_count }}</div>
+        <div class="small text-danger">{{ outstanding_amount | vnd }}</div>
       </div>
     </div>
   </div>
@@ -54,19 +54,20 @@
       <input type="hidden" name="year" value="{{ year }}">
       <input type="hidden" name="class_id" value="{{ cls.id }}">
       <button type="submit" class="btn btn-outline-success btn-sm w-100"
-              onclick="return confirm('Gửi nhắc Zalo cho {{ unpaid | length }} phụ huynh chưa đóng?')">
-        <i class="bi bi-chat-dots me-1"></i>Nhắc Zalo ({{ unpaid | length }})
+              onclick="return confirm('Gửi nhắc Zalo cho {{ unpaid_count }} phụ huynh chưa đóng?')">
+        <i class="bi bi-chat-dots me-1"></i>Nhắc Zalo ({{ unpaid_count }})
       </button>
     </form>
   </div>
 </div>
 
-<!-- Học sinh CHƯA đóng -->
-{% if unpaid %}
-<div class="card border-0 shadow-sm mb-3 border-top border-danger border-3">
-  <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
-    <span class="fw-semibold text-danger">
-      <i class="bi bi-x-circle me-2"></i>Chưa đóng học phí ({{ unpaid | length }})
+<!-- Danh sách học sinh -->
+{% if records %}
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-header bg-white py-2">
+    <span class="fw-semibold">
+      <i class="bi bi-list-check me-2 text-primary"></i>Danh sách học sinh
+      <span class="badge bg-secondary ms-1">{{ total }} HS</span>
     </span>
   </div>
   <div class="table-responsive">
@@ -75,40 +76,40 @@
         <tr>
           <th class="ps-3" width="45">STT</th>
           <th>Học sinh</th>
-          <th>SĐT phụ huynh</th>
-          <th class="text-end">Số tiền</th>
-          <th class="text-center">Điều chỉnh</th>
-          <th class="text-center">Thu tiền</th>
+          <th class="text-end">Học phí tháng này</th>
+          <th class="text-end">Nợ cũ</th>
+          <th class="text-end">Tổng cộng cần thu</th>
+          <th class="text-end">Đã đóng</th>
+          <th class="text-center">Trạng thái</th>
+          <th class="text-center">Thao tác</th>
         </tr>
       </thead>
       <tbody>
-        {% for r in unpaid %}
+        {% for r in records %}
         <tr>
-          <td class="ps-3 text-muted small">{{ loop.index }}</td>
+          <td class="ps-3 text-muted small">{{ loop.index + (pagination.page - 1) * pagination.per_page }}</td>
           <td>
             <a href="{{ url_for('admin.student_detail', student_id=r.student.id) }}"
                class="fw-semibold small text-decoration-none">
               {{ r.student.full_name }}
             </a>
-            {% if r.note %}
-            <div class="text-muted" style="font-size:0.72rem;">{{ r.note }}</div>
-            {% endif %}
-          </td>
-          <td class="small text-muted">{{ r.student.parent_phone or '—' }}</td>
-          <td class="text-end fw-semibold small">
-            {{ r.amount | vnd }}
+            {% if not r.is_paid %}
             <button class="btn btn-link p-0 ms-1" type="button"
                     data-bs-toggle="collapse"
                     data-bs-target="#adj{{ r.id }}"
-                    title="Điều chỉnh số tiền">
+                    title="Điều chỉnh học phí tháng này">
               <i class="bi bi-pencil text-muted" style="font-size:0.7rem;"></i>
             </button>
-          </td>
-          <td class="text-center" style="min-width:220px;">
-            <div class="collapse" id="adj{{ r.id }}">
+            {% endif %}
+            <div class="text-muted" style="font-size:0.72rem;">{{ r.student.parent_phone or '' }}</div>
+            {% if r.note %}
+            <div class="text-muted" style="font-size:0.72rem;">{{ r.note }}</div>
+            {% endif %}
+            {% if not r.is_paid %}
+            <div class="collapse mt-1" id="adj{{ r.id }}">
               <form method="post"
                     action="{{ url_for('admin.tuition_adjust_amount', payment_id=r.id) }}"
-                    class="d-flex gap-1 align-items-center justify-content-center">
+                    class="d-flex gap-1 align-items-center">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="number" name="amount" class="form-control form-control-sm"
                        style="width:110px;" value="{{ r.amount | int }}" min="0" step="1000">
@@ -117,15 +118,35 @@
                 <button type="submit" class="btn btn-primary btn-sm">Lưu</button>
               </form>
             </div>
+            {% endif %}
+          </td>
+          <td class="text-end small">{{ r.amount | vnd }}</td>
+          <td class="text-end small {% if r.debt_carried_over %}text-warning-emphasis fw-semibold{% else %}text-muted{% endif %}">
+            {{ r.debt_carried_over | vnd if r.debt_carried_over else '—' }}
+          </td>
+          <td class="text-end fw-semibold small">{{ r.total_due | vnd }}</td>
+          <td class="text-end small">{{ r.amount_collected | vnd if r.amount_collected else '—' }}</td>
+          <td class="text-center">
+            {% if r.status == 'paid' %}
+            <span class="badge bg-success-subtle text-success border border-success-subtle">Đã đóng đủ</span>
+            {% elif r.status == 'partial' %}
+            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">Đóng một phần</span>
+            {% else %}
+            <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Chưa đóng</span>
+            {% endif %}
           </td>
           <td class="text-center">
+            {% if not r.is_paid %}
             <button type="button" class="btn btn-success btn-sm"
                     data-bs-toggle="modal" data-bs-target="#markPaidModal"
                     data-record-id="{{ r.id }}"
                     data-student-name="{{ r.student.full_name }}"
-                    data-amount="{{ r.amount | int }}">
+                    data-remaining="{{ (r.total_due - r.amount_collected) | int }}">
               <i class="bi bi-check-circle me-1"></i>Thu
             </button>
+            {% else %}
+            <span class="text-muted small">{{ r.method_label if r.method else '—' }}<br>{{ r.paid_at | date_vn if r.paid_at else '—' }}</span>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}
@@ -133,52 +154,33 @@
     </table>
   </div>
 </div>
-{% endif %}
 
-<!-- Học sinh ĐÃ đóng -->
-{% if paid %}
-<div class="card border-0 shadow-sm mb-3 border-top border-success border-3">
-  <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
-    <span class="fw-semibold text-success">
-      <i class="bi bi-check-circle me-2"></i>Đã đóng học phí ({{ paid | length }})
-    </span>
-    <button class="btn btn-sm btn-outline-secondary" type="button"
-            data-bs-toggle="collapse" data-bs-target="#paidList">
-      <i class="bi bi-chevron-down"></i>
-    </button>
-  </div>
-  <div class="collapse show" id="paidList">
-    <div class="table-responsive">
-      <table class="table table-sm align-middle mb-0">
-        <thead class="table-light">
-          <tr>
-            <th class="ps-3" width="45">STT</th>
-            <th>Học sinh</th>
-            <th class="text-end">Số tiền</th>
-            <th>Hình thức</th>
-            <th>Ngày đóng</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in paid %}
-          <tr>
-            <td class="ps-3 text-muted small">{{ loop.index }}</td>
-            <td>
-              <a href="{{ url_for('admin.student_detail', student_id=r.student.id) }}"
-                 class="small text-decoration-none">
-                {{ r.student.full_name }}
-              </a>
-            </td>
-            <td class="text-end small fw-semibold text-success">{{ r.amount | vnd }}</td>
-            <td class="small text-muted">{{ r.method_label if r.method else '—' }}</td>
-            <td class="small text-muted">{{ r.paid_at | date_vn if r.paid_at else '—' }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
+<!-- Phân trang -->
+{% if pagination.pages > 1 %}
+<nav class="mt-3 mb-4 d-flex justify-content-center" aria-label="Phân trang">
+  <ul class="pagination pagination-sm mb-0">
+    <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+      <a class="page-link" href="{{ url_for('admin.tuition_class_detail', class_id=cls.id, month=month, year=year, page=pagination.prev_num) }}">
+        <i class="bi bi-chevron-left"></i>
+      </a>
+    </li>
+    {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+      {% if p %}
+        <li class="page-item {% if p == pagination.page %}active{% endif %}">
+          <a class="page-link" href="{{ url_for('admin.tuition_class_detail', class_id=cls.id, month=month, year=year, page=p) }}">{{ p }}</a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">…</span></li>
+      {% endif %}
+    {% endfor %}
+    <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+      <a class="page-link" href="{{ url_for('admin.tuition_class_detail', class_id=cls.id, month=month, year=year, page=pagination.next_num) }}">
+        <i class="bi bi-chevron-right"></i>
+      </a>
+    </li>
+  </ul>
+</nav>
+{% endif %}
 {% endif %}
 
 {% if not records %}
@@ -197,7 +199,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h6 class="modal-title fw-bold">
-          <i class="bi bi-check-circle me-2 text-success"></i>Xác nhận thu học phí
+          <i class="bi bi-check-circle me-2 text-success"></i>Ghi nhận thanh toán
         </h6>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
@@ -205,20 +207,21 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="modal-body">
           <p class="mb-3 small">
-            Xác nhận học sinh <strong id="markPaidStudentName"></strong> đã đóng
-            <strong id="markPaidAmount"></strong>?
+            Học sinh <strong id="markPaidStudentName"></strong> còn nợ
+            <strong id="markPaidRemaining"></strong>.
           </p>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Số tiền thu</label>
+            <input type="number" name="amount" id="markPaidAmountInput" class="form-control"
+                   min="0" step="1000">
+            <div class="form-text">Để trống nếu thu đủ toàn bộ số tiền còn nợ.</div>
+          </div>
           <div class="mb-3">
             <label class="form-label fw-semibold">Hình thức thanh toán</label>
             <select name="method" class="form-select">
               <option value="cash">Tiền mặt</option>
               <option value="transfer">Chuyển khoản</option>
             </select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Ngày đóng</label>
-            <input type="date" name="paid_date" class="form-control"
-                   value="{{ today | string }}">
           </div>
         </div>
         <div class="modal-footer">
@@ -235,9 +238,12 @@
 <script>
 document.getElementById('markPaidModal').addEventListener('show.bs.modal', function(e) {
   const btn = e.relatedTarget;
+  const remaining = parseInt(btn.dataset.remaining);
   document.getElementById('markPaidStudentName').textContent = btn.dataset.studentName;
-  document.getElementById('markPaidAmount').textContent =
-    parseInt(btn.dataset.amount).toLocaleString('vi-VN') + '₫';
+  document.getElementById('markPaidRemaining').textContent = remaining.toLocaleString('vi-VN') + '₫';
+  document.getElementById('markPaidAmountInput').placeholder = remaining.toLocaleString('vi-VN');
+  document.getElementById('markPaidAmountInput').max = remaining;
+  document.getElementById('markPaidAmountInput').value = '';
   document.getElementById('markPaidForm').action =
     "{{ url_for('admin.tuition_mark_paid', payment_id=0) }}".replace('/0/', '/' + btn.dataset.recordId + '/');
 });
