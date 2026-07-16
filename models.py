@@ -1158,6 +1158,13 @@ class TuitionPayment(db.Model):
     amount_50pct = db.Column(db.Float, default=0)
     amount_75pct = db.Column(db.Float, default=0)
     amount_100pct = db.Column(db.Float, default=0)
+    # Unpaid total_due rolled over from the previous month's row for this
+    # same student+class (0 if none, or if that month was fully paid).
+    debt_carried_over = db.Column(db.Float, default=0)
+    # Cumulative amount actually received against this row — separate from
+    # `amount` (which is only this month's fee) so a partial payment can be
+    # recorded without prematurely flipping is_paid.
+    amount_collected = db.Column(db.Float, default=0)
     month = db.Column(db.Integer, nullable=False)
     year = db.Column(db.Integer, nullable=False)
     school_name = db.Column(db.String(200))  # Student's school name
@@ -1170,10 +1177,36 @@ class TuitionPayment(db.Model):
     is_finalized = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    __table_args__ = (db.Index('ix_tuitionpayment_year_month', 'year', 'month'),)
+    __table_args__ = (
+        db.Index('ix_tuitionpayment_year_month', 'year', 'month'),
+        db.Index('ix_tuitionpayment_class_year_month', 'class_id', 'year', 'month'),
+        db.Index('ux_tuitionpayment_student_class_month_year',
+                'student_id', 'class_id', 'month', 'year', unique=True),
+    )
 
     # Relationships
     class_ = db.relationship('Class', foreign_keys=[class_id])
+
+    @property
+    def total_due(self):
+        """Current month's fee plus any unpaid debt carried over from the
+        previous month — the real amount that needs to be collected."""
+        return (self.amount or 0) + (self.debt_carried_over or 0)
+
+    @property
+    def status(self):
+        """'paid' / 'partial' / 'unpaid', derived from amount_collected vs
+        total_due (not stored — always consistent with the underlying
+        numbers, can't drift)."""
+        if self.is_paid:
+            return 'paid'
+        if (self.amount_collected or 0) > 0:
+            return 'partial'
+        return 'unpaid'
+
+    @property
+    def status_label(self):
+        return {'paid': 'Đã đóng đủ', 'partial': 'Đóng một phần', 'unpaid': 'Chưa đóng'}[self.status]
 
     @property
     def method_label(self):
@@ -1199,6 +1232,9 @@ class TuitionPayment(db.Model):
             'student_id': self.student_id,
             'class_id': self.class_id,
             'amount': self.amount,
+            'debt_carried_over': self.debt_carried_over,
+            'total_due': self.total_due,
+            'amount_collected': self.amount_collected,
             'payment_stage': self.payment_stage,
             'month': self.month,
             'year': self.year,
@@ -1209,6 +1245,8 @@ class TuitionPayment(db.Model):
             'is_paid': self.is_paid,
             'is_finalized': self.is_finalized,
             'payment_status': self.payment_status,
+            'status': self.status,
+            'status_label': self.status_label,
         }
 
     def __repr__(self):
