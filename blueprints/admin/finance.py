@@ -280,48 +280,6 @@ def tuition_remind_zalo():
     return redirect(url_for('admin.tuition', month=month, year=year))
 
 
-@admin_bp.route('/tuition/bulk-add', methods=['GET', 'POST'])
-@login_required
-@require_admin
-def tuition_bulk_add():
-    """Thêm học phí hàng loạt cho một lớp trong một tháng."""
-    if request.method == 'POST':
-        class_id = request.form.get('class_id', type=int)
-        month = request.form.get('month', type=int)
-        year = request.form.get('year', type=int)
-        amount = request.form.get('amount', type=float)
-
-        if not all([class_id, month, year, amount]):
-            flash('Vui lòng điền đầy đủ.', 'danger')
-        else:
-            class_ = Class.query.get_or_404(class_id)
-            students = class_.active_students
-            student_ids = [s.id for s in students]
-            existing_ids = set()
-            if student_ids:
-                existing_ids = {
-                    t.student_id for t in TuitionPayment.query.filter(
-                        TuitionPayment.student_id.in_(student_ids), TuitionPayment.class_id == class_id,
-                        TuitionPayment.month == month, TuitionPayment.year == year,
-                    ).all()
-                }
-            added = 0
-            for student in students:
-                if student.id in existing_ids:
-                    continue
-                _, created = create_tuition_payment(student.id, class_id, month, year, amount)
-                if created:
-                    added += 1
-            db.session.commit()
-            flash(f'Đã thêm {added} bản ghi học phí cho lớp {class_.name}.', 'success')
-            return redirect(url_for('admin.tuition', month=month, year=year, class_id=class_id))
-
-    today = date.today()
-    classes = Class.query.filter_by(is_active=True).all()
-    return render_template('admin/finance/tuition_bulk.html',
-                           classes=classes, today=today)
-
-
 # ────────────────────────────────────────────────────────────────
 # Expenses
 # ────────────────────────────────────────────────────────────────
