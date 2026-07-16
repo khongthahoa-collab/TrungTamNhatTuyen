@@ -46,8 +46,18 @@ class ProductionConfig(Config):
     # REQUIRED: Set DATABASE_URL in Render.com environment variables
     SQLALCHEMY_DATABASE_URI = _fix_db_url(os.environ.get('DATABASE_URL'))
     WTF_CSRF_SSL_STRICT = True
-    # pool_pre_ping: reconnect tự động nếu connection bị drop
-    SQLALCHEMY_ENGINE_OPTIONS = {'pool_pre_ping': True}
+    # pool_pre_ping: reconnect tự động nếu connection bị drop.
+    # pool_recycle: chủ động đóng/mở lại connection trước khi Supabase pooler
+    # tự ngắt do idle — tránh phải dựa hoàn toàn vào pre_ping (vẫn tốn 1 round
+    # trip kiểm tra mỗi lần checkout nếu connection đã chết).
+    # pool_size/max_overflow: giới hạn rõ ràng thay vì mặc định của SQLAlchemy,
+    # để không mở quá nhiều connection tới Supabase khi traffic tăng.
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_pre_ping': True,
+        'pool_recycle': 280,
+        'pool_size': 5,
+        'max_overflow': 10,
+    }
 
     def __init__(self):
         if not self.SQLALCHEMY_DATABASE_URI:
