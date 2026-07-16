@@ -14,6 +14,7 @@ from blueprints.exams_shared import (
     EXAM_TYPES, DURATION_OPTIONS, SESSION_KEY,
     parse_groups_payload, require_owns_or_admin, session_draft, parse_confirm_settings,
 )
+from blueprints.pagination_utils import paginate_list
 
 
 @teacher_bp.route('/exams')
@@ -124,7 +125,10 @@ def exams_results(exam_id):
         })
     rows.sort(key=lambda r: r['student'].full_name if r['student'] else '')
 
-    return render_template('teacher/exams_results.html', exam=exam, rows=rows)
+    page = request.args.get('page', 1, type=int)
+    pagination = paginate_list(rows, page, per_page=50)
+
+    return render_template('teacher/exams_results.html', exam=exam, rows=pagination.items, pagination=pagination)
 
 
 @teacher_bp.route('/exams/create', methods=['GET', 'POST'])
