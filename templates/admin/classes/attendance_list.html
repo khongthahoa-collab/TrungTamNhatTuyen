@@ -32,14 +32,12 @@
 </div>
 
 <!-- Summary -->
-{% set pending_list = schedules | selectattr('attendance_taken', 'equalto', false) | list %}
-{% set done_list = schedules | selectattr('attendance_taken', 'equalto', true) | list %}
 <div class="row g-3 mb-4">
   <div class="col-6 col-md-3">
     <div class="card border-0 shadow-sm border-start border-warning border-3">
       <div class="card-body py-2">
         <div class="small text-muted">Chưa điểm danh</div>
-        <div class="fw-bold fs-5 text-warning">{{ pending_list|length }}</div>
+        <div class="fw-bold fs-5 text-warning">{{ pending_pagination.total }}</div>
       </div>
     </div>
   </div>
@@ -47,17 +45,17 @@
     <div class="card border-0 shadow-sm border-start border-success border-3">
       <div class="card-body py-2">
         <div class="small text-muted">Đã điểm danh</div>
-        <div class="fw-bold fs-5 text-success">{{ done_list|length }}</div>
+        <div class="fw-bold fs-5 text-success">{{ done_pagination.total }}</div>
       </div>
     </div>
   </div>
 </div>
 
-{% if schedules %}
+{% if pending_pagination.total or done_pagination.total %}
 <!-- Pending first -->
 {% if pending_list %}
 <h6 class="fw-semibold text-warning mb-2">
-  <i class="bi bi-exclamation-circle me-1"></i>Chưa điểm danh ({{ pending_list|length }})
+  <i class="bi bi-exclamation-circle me-1"></i>Chưa điểm danh ({{ pending_pagination.total }})
 </h6>
 <div class="card border-0 shadow-sm mb-4">
   <div class="table-responsive">
@@ -74,7 +72,7 @@
         </tr>
       </thead>
       <tbody>
-        {% for s in pending_list | sort(attribute='date', reverse=True) %}
+        {% for s in pending_list %}
         <tr>
           <td class="ps-3 fw-semibold small">{{ s.class_.name }}</td>
           <td class="small">
@@ -84,7 +82,7 @@
           <td class="small">{{ s.start_time.strftime('%H:%M') }}–{{ s.end_time.strftime('%H:%M') }}</td>
           <td class="small">{{ s.teacher.full_name if s.teacher else '—' }}</td>
           <td class="small">{{ s.room or '—' }}</td>
-          <td class="small">{{ s.class_.current_enrollment }}</td>
+          <td class="small">{{ enrollment_counts.get(s.class_id, 0) }}</td>
           <td class="text-center">
             <a href="{{ url_for('admin.attendance_session', schedule_id=s.id) }}"
                class="btn btn-warning btn-sm">
@@ -97,11 +95,36 @@
     </table>
   </div>
 </div>
+{% if pending_pagination.pages > 1 %}
+<nav class="mt-n2 mb-4 d-flex justify-content-center" aria-label="Phân trang chưa điểm danh">
+  <ul class="pagination pagination-sm mb-0">
+    <li class="page-item {% if not pending_pagination.has_prev %}disabled{% endif %}">
+      <a class="page-link" href="{{ url_for('admin.attendance_list', class_id=selected_class_id, pending_page=pending_pagination.prev_num, done_page=done_pagination.page) }}">
+        <i class="bi bi-chevron-left"></i>
+      </a>
+    </li>
+    {% for p in pending_pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+      {% if p %}
+        <li class="page-item {% if p == pending_pagination.page %}active{% endif %}">
+          <a class="page-link" href="{{ url_for('admin.attendance_list', class_id=selected_class_id, pending_page=p, done_page=done_pagination.page) }}">{{ p }}</a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">…</span></li>
+      {% endif %}
+    {% endfor %}
+    <li class="page-item {% if not pending_pagination.has_next %}disabled{% endif %}">
+      <a class="page-link" href="{{ url_for('admin.attendance_list', class_id=selected_class_id, pending_page=pending_pagination.next_num, done_page=done_pagination.page) }}">
+        <i class="bi bi-chevron-right"></i>
+      </a>
+    </li>
+  </ul>
+</nav>
+{% endif %}
 {% endif %}
 
 {% if done_list %}
 <h6 class="fw-semibold text-success mb-2">
-  <i class="bi bi-check-circle me-1"></i>Đã điểm danh ({{ done_list|length }})
+  <i class="bi bi-check-circle me-1"></i>Đã điểm danh ({{ done_pagination.total }})
 </h6>
 <div class="card border-0 shadow-sm mb-4">
   <div class="table-responsive">
@@ -120,7 +143,7 @@
         </tr>
       </thead>
       <tbody>
-        {% for s in done_list | sort(attribute='date', reverse=True) %}
+        {% for s in done_list %}
         {% set sm = summaries.get(s.id) %}
         <tr>
           <td class="ps-3 fw-semibold small">{{ s.class_.name }}</td>
@@ -152,6 +175,31 @@
     </table>
   </div>
 </div>
+{% if done_pagination.pages > 1 %}
+<nav class="mt-n2 mb-4 d-flex justify-content-center" aria-label="Phân trang đã điểm danh">
+  <ul class="pagination pagination-sm mb-0">
+    <li class="page-item {% if not done_pagination.has_prev %}disabled{% endif %}">
+      <a class="page-link" href="{{ url_for('admin.attendance_list', class_id=selected_class_id, done_page=done_pagination.prev_num, pending_page=pending_pagination.page) }}">
+        <i class="bi bi-chevron-left"></i>
+      </a>
+    </li>
+    {% for p in done_pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+      {% if p %}
+        <li class="page-item {% if p == done_pagination.page %}active{% endif %}">
+          <a class="page-link" href="{{ url_for('admin.attendance_list', class_id=selected_class_id, done_page=p, pending_page=pending_pagination.page) }}">{{ p }}</a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">…</span></li>
+      {% endif %}
+    {% endfor %}
+    <li class="page-item {% if not done_pagination.has_next %}disabled{% endif %}">
+      <a class="page-link" href="{{ url_for('admin.attendance_list', class_id=selected_class_id, done_page=done_pagination.next_num, pending_page=pending_pagination.page) }}">
+        <i class="bi bi-chevron-right"></i>
+      </a>
+    </li>
+  </ul>
+</nav>
+{% endif %}
 {% endif %}
 
 {% else %}

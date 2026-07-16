@@ -11,31 +11,60 @@ from services.zalo_service import ZaloService
 @login_required
 @require_admin
 def attendance_list():
-    """Admin: list of upcoming and recent class sessions with attendance status"""
+    """Admin: list of upcoming and recent class sessions with attendance
+    status. Pending/done are split at the SQL level (Schedule.attendances.any())
+    and paginated independently — the 60-day-back + 7-day-forward window
+    across every class could otherwise return hundreds of rows in one shot."""
     today = date.today()
     class_id = request.args.get('class_id', type=int)
+    pending_page = request.args.get('pending_page', 1, type=int)
+    done_page = request.args.get('done_page', 1, type=int)
 
-    query = Schedule.query.filter_by(is_cancelled=False)
-    if class_id:
-        query = query.filter_by(class_id=class_id)
-
-    # Show recent 60 days + upcoming 7 days
     from datetime import timedelta
-    schedules = query.filter(
+    base_query = Schedule.query.filter_by(is_cancelled=False)
+    if class_id:
+        base_query = base_query.filter_by(class_id=class_id)
+    base_query = base_query.filter(
         Schedule.date >= today - timedelta(days=60),
         Schedule.date <= today + timedelta(days=7),
-    ).order_by(Schedule.date.desc(), Schedule.start_time).all()
+    )
 
+    pending_pagination = (
+        base_query.filter(~Schedule.attendances.any())
+        .order_by(Schedule.date.desc(), Schedule.start_time)
+        .paginate(page=pending_page, per_page=50, error_out=False)
+    )
+    done_pagination = (
+        base_query.filter(Schedule.attendances.any())
+        .order_by(Schedule.date.desc(), Schedule.start_time)
+        .paginate(page=done_page, per_page=50, error_out=False)
+    )
+
+    page_schedules = pending_pagination.items + done_pagination.items
     summaries = AttendanceSummary.query.filter(
-        AttendanceSummary.schedule_id.in_([s.id for s in schedules])
+        AttendanceSummary.schedule_id.in_([s.id for s in page_schedules])
     ).all()
     summary_dict = {s.schedule_id: s for s in summaries}
+
+    # Batch enrollment counts for the classes shown on this page instead of
+    # the per-row Class.current_enrollment property (1 COUNT query/row).
+    class_ids = {s.class_id for s in page_schedules}
+    enrollment_counts = dict(
+        db.session.query(Enrollment.class_id, db.func.count(Enrollment.id))
+        .filter(Enrollment.class_id.in_(class_ids), Enrollment.is_active == True)
+        .group_by(Enrollment.class_id)
+        .all()
+    ) if class_ids else {}
 
     classes = Class.query.filter_by(is_active=True).order_by(Class.name).all()
 
     return render_template('admin/classes/attendance_list.html',
-                           schedules=schedules,
+                           pending_list=pending_pagination.items,
+                           done_list=done_pagination.items,
+                           pending_pagination=pending_pagination,
+                           done_pagination=done_pagination,
                            summaries=summary_dict,
+                           enrollment_counts=enrollment_counts,
                            classes=classes,
                            selected_class_id=class_id,
                            is_filtered=bool(class_id),
