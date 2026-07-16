@@ -154,6 +154,54 @@ def create_app(config_name=None):
         except Exception:
             return ''
 
+    # Friendly, on-brand error pages instead of Flask/Werkzeug's default
+    # plain-text ones — see templates/errors/error.html. Note: a 502 raised
+    # by Railway's edge proxy when the app process itself is unreachable
+    # never reaches this handler (the app isn't running to respond at all);
+    # this only covers a 502 the app itself explicitly returns.
+    def _render_error(code, icon, title, message, show_retry=False):
+        from flask import render_template
+        return render_template(
+            'errors/error.html',
+            code=code, icon=icon, title=title, message=message, show_retry=show_retry,
+            center_name=SystemConfig.get('center_name', 'Trung tâm Nhật Tuyền'),
+        ), code
+
+    @app.errorhandler(403)
+    def handle_403(e):
+        return _render_error(
+            403, 'bi-shield-lock',
+            'Bạn không có quyền truy cập',
+            'Trang này yêu cầu quyền truy cập mà tài khoản của bạn hiện chưa có. Nếu đây là nhầm lẫn, hãy liên hệ quản trị viên.',
+        )
+
+    @app.errorhandler(404)
+    def handle_404(e):
+        return _render_error(
+            404, 'bi-signpost-2',
+            'Không tìm thấy trang',
+            'Đường dẫn bạn truy cập không tồn tại hoặc đã được thay đổi. Vui lòng kiểm tra lại địa chỉ hoặc quay về trang chủ.',
+        )
+
+    @app.errorhandler(500)
+    def handle_500(e):
+        db.session.rollback()
+        return _render_error(
+            500, 'bi-tools',
+            'Đã có lỗi xảy ra',
+            'Hệ thống gặp sự cố ngoài ý muốn. Đội ngũ kỹ thuật đã được ghi nhận lỗi này — vui lòng thử lại sau ít phút.',
+            show_retry=True,
+        )
+
+    @app.errorhandler(502)
+    def handle_502(e):
+        return _render_error(
+            502, 'bi-cloud-slash',
+            'Hệ thống đang khởi động lại',
+            'Máy chủ đang tạm thời quá tải hoặc đang khởi động lại. Vui lòng tải lại trang sau ít phút.',
+            show_retry=True,
+        )
+
     @app.template_filter('error_id_render')
     def error_id_render(text, reveal=True):
         """Render '[A:seg]' / '[*B:seg]' error-identification markers as underlined, labeled spans.
