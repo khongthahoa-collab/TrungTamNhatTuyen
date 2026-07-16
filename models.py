@@ -785,6 +785,12 @@ class Class(db.Model):
     description = db.Column(db.Text)
     primary_teacher_id = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=True, index=True)
     zalo_group_id = db.Column(db.String(100))  # Zalo group ID for class notifications
+    # Set when this class was created by academic-year rollover, pointing
+    # at the prior year's class it was rolled over from — lets debt
+    # carryover follow a student across the class_id change at the year
+    # boundary instead of being orphaned (see
+    # services/tuition_service.get_previous_month_debt).
+    rolled_over_from_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -796,6 +802,7 @@ class Class(db.Model):
                                 cascade='all, delete-orphan')
     primary_teacher = db.relationship('Teacher', foreign_keys=[primary_teacher_id],
                                       backref='primary_classes')
+    rolled_over_from = db.relationship('Class', remote_side=[id], foreign_keys=[rolled_over_from_id])
     # Nhiều trợ giảng mỗi lớp (many-to-many); chỉ giáo viên chính là đơn.
     assistant_teachers = db.relationship('Teacher', secondary=class_assistant_teachers,
                                          backref='assistant_classes')
