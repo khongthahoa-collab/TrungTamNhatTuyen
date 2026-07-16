@@ -200,13 +200,22 @@ def _weekly_pattern(cls):
     the source pattern for rolling it into next year. Latest (not first)
     picks up a mid-year room/time change if one happened. Shape matches what
     _generate_schedules() expects: (weekday, start_str, end_str, room_id,
-    room_text, teacher_id)."""
+    room_text, teacher_id).
+
+    teacher_id falls back to the class's current primary teacher if the
+    stored Schedule row's teacher isn't (or is no longer) that class's
+    primary/assistant teacher — a stored row can go stale relative to the
+    class's actual current teacher (e.g. a teacher swap between two classes
+    whose schedules predate that reassignment being cascaded), and rollover
+    must not carry that staleness into the new school year's class."""
     rows = Schedule.query.filter_by(class_id=cls.id, schedule_type='regular',
                                     is_cancelled=False).order_by(Schedule.date).all()
     latest_by_weekday = {s.date.weekday(): s for s in rows}
+    valid_teacher_ids = {cls.primary_teacher_id} | {t.id for t in cls.assistant_teachers}
     return [
         (wd, s.start_time.strftime('%H:%M'), s.end_time.strftime('%H:%M'),
-         s.room_id, s.room, s.teacher_id)
+         s.room_id, s.room,
+         s.teacher_id if s.teacher_id in valid_teacher_ids else cls.primary_teacher_id)
         for wd, s in sorted(latest_by_weekday.items())
     ]
 
