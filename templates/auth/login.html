@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}Đăng nhập — Nhật Tuyền{% endblock %}
 {% block body %}
-<div class="min-vh-100 d-flex align-items-center" style="background: linear-gradient(180deg, #7c5cdb 0%, #8b7ce0 100%);">
+<div class="min-vh-100 d-flex align-items-center" style="background: var(--nt-light);">
   <div class="container">
     <div class="row justify-content-center">
       <div class="col-12 col-sm-8 col-md-5 col-lg-4">
@@ -9,7 +9,7 @@
           <a href="{{ url_for('public.index') }}" class="text-decoration-none">
             <img src="{{ url_for('static', filename='icons/logo-mark.png') }}" alt="Nhật Tuyền" height="44">
           </a>
-          <p class="text-white-50 small">Trung tâm học thêm</p>
+          <p class="text-muted small">Trung tâm học thêm</p>
         </div>
         <div class="card shadow-lg border-0 rounded-4">
           <div class="card-body p-4">
@@ -53,7 +53,7 @@
           </div>
         </div>
         <div class="text-center mt-3">
-          <a href="{{ url_for('public.index') }}" class="text-white-50 small text-decoration-none">
+          <a href="{{ url_for('public.index') }}" class="text-muted small text-decoration-none">
             <i class="bi bi-arrow-left me-1"></i>Về trang chủ
           </a>
         </div>
