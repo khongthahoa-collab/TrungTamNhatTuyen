@@ -257,6 +257,11 @@
                       <div class="text-muted" style="font-size:0.75rem">{{ c.time_label }}</div>
                     </div>
                   {% endfor %}
+                  {% if hidden_count_by_day.get(d) %}
+                    <div class="text-center text-muted" style="font-size:0.7rem">
+                      +{{ hidden_count_by_day[d] }} buổi khác — chọn bộ lọc để xem đầy đủ
+                    </div>
+                  {% endif %}
                 {% else %}
                   <p class="text-muted small text-center mt-2">—</p>
                 {% endif %}
@@ -305,6 +310,11 @@
                     </div>
                   </div>
                 {% endfor %}
+                {% if hidden_count_by_day.get(d) %}
+                  <div class="text-center text-muted small">
+                    +{{ hidden_count_by_day[d] }} buổi khác — chọn bộ lọc để xem đầy đủ
+                  </div>
+                {% endif %}
               </div>
             </div>
           </div>

@@ -70,6 +70,18 @@ def index():
             'is_intensive': s.schedule_type == 'intensive',
         })
 
+    # Per-day teaser: with no course/level filter selected, cap each day at
+    # its first 5 (chronological) cards so a busy day doesn't overwhelm the
+    # week view — unlike the earlier whole-week cap, this can't starve other
+    # days since the limit is applied independently per day. A filter
+    # bypasses the cap for that day entirely.
+    hidden_count_by_day = {}
+    if not (course_id or level):
+        for d, cards in schedule_by_day.items():
+            if len(cards) > 5:
+                hidden_count_by_day[d] = len(cards) - 5
+                schedule_by_day[d] = cards[:5]
+
     # Courses for filter
     courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
 
@@ -144,6 +156,7 @@ def index():
         'public/index.html',
         week_days=week_days,
         schedule_by_day=schedule_by_day,
+        hidden_count_by_day=hidden_count_by_day,
         week_offset=week_offset,
         monday=monday,
         sunday=sunday,
