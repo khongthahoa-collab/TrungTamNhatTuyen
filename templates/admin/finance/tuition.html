@@ -8,15 +8,6 @@
 {% block content %}
 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
   <h5 class="mb-0 fw-bold"><i class="bi bi-cash-stack me-2 text-primary"></i>Quản lý học phí</h5>
-  <form method="post" action="{{ url_for('admin.monthly_fee_generate') }}"
-        onsubmit="return confirm('Tạo học phí tháng {{ month }}/{{ year }} cho tất cả học sinh chưa có bản ghi?')">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <input type="hidden" name="month" value="{{ month }}">
-    <input type="hidden" name="year" value="{{ year }}">
-    <button type="submit" class="btn btn-success btn-sm">
-      <i class="bi bi-magic me-1"></i>Tạo học phí tháng này
-    </button>
-  </form>
 </div>
 
 <!-- ── Tóm tắt thu chi ─────────────────────────────── -->
@@ -152,8 +143,13 @@
                  class="fw-semibold text-decoration-none small">
                 {{ item.class.name }}
               </a>
+              {% if not item.generated %}
+              <div class="text-muted" style="font-size:0.72rem;">Chưa tạo học phí</div>
+              {% endif %}
             </td>
-            <td class="text-center fw-semibold">{{ item.total }}</td>
+            <td class="text-center fw-semibold">
+              {{ item.total if item.generated else item.enrolled_count }}
+            </td>
             <td class="text-center">
               <span class="badge bg-success-subtle text-success border border-success-subtle">
                 {{ item.paid_count }}
@@ -176,17 +172,32 @@
               {{ item.unpaid_amount | vnd if item.unpaid_amount else '—' }}
             </td>
             <td class="text-center">
+              {% if item.generated %}
               <a href="{{ url_for('admin.tuition_class_detail', class_id=item.class.id, month=month, year=year) }}"
                  class="btn btn-sm btn-outline-primary">
                 <i class="bi bi-eye me-1"></i>Xem
               </a>
+              {% elif item.enrolled_count > 0 %}
+              <form method="post" action="{{ url_for('admin.monthly_fee_generate') }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="month" value="{{ month }}">
+                <input type="hidden" name="year" value="{{ year }}">
+                <input type="hidden" name="class_id" value="{{ item.class.id }}">
+                <button type="submit" class="btn btn-sm btn-success"
+                        onclick="return confirm('Tạo học phí tháng {{ month }}/{{ year }} cho {{ item.enrolled_count }} học sinh lớp {{ item.class.name }}?')">
+                  <i class="bi bi-magic me-1"></i>Tạo HP
+                </button>
+              </form>
+              {% else %}
+              <span class="text-muted small">—</span>
+              {% endif %}
             </td>
           </tr>
           {% else %}
           <tr>
             <td colspan="9" class="text-center text-muted py-4">
               <i class="bi bi-inbox d-block mb-2 fs-4"></i>
-              Chưa có dữ liệu học phí — dùng <strong>Tạo học phí tháng này</strong> ở trên.
+              Chưa có lớp học nào đang hoạt động.
             </td>
           </tr>
           {% endfor %}

@@ -21,12 +21,27 @@ def _tuition_overview_aggregate(month, year, class_id=None, course_id=None):
     """Shared by the /admin/tuition web view and the /api/v1/tuition/overview
     JSON endpoint, so the two can't drift. Tổng hợp bằng SQL, không tải toàn
     bộ bản ghi học phí của tháng vào Python (tránh chậm/502 khi dữ liệu lớn
-    dần). Returns (classes, class_summaries, total_collected,
-    total_outstanding, total_expected)."""
+    dần). Lists every active class (not just ones with tuition already
+    generated) so a class with zero rows this month still shows up, with
+    its live enrollment count, for the per-class "Tạo học phí" action.
+    Returns (classes, class_summaries, total_collected, total_outstanding,
+    total_expected)."""
     classes_q = Class.query.filter_by(is_active=True)
     if course_id:
         classes_q = classes_q.filter_by(course_id=course_id)
+    if class_id:
+        classes_q = classes_q.filter_by(id=class_id)
     classes = classes_q.order_by(Class.name).all()
+    class_ids = [c.id for c in classes]
+
+    enrolled_counts = {}
+    if class_ids:
+        enrolled_counts = dict(
+            db.session.query(Enrollment.class_id, func.count(Enrollment.id))
+            .filter(Enrollment.class_id.in_(class_ids), Enrollment.is_active == True)
+            .group_by(Enrollment.class_id)
+            .all()
+        )
 
     total_due_expr = TuitionPayment.amount + TuitionPayment.debt_carried_over
     class_agg_query = (
@@ -51,19 +66,17 @@ def _tuition_overview_aggregate(month, year, class_id=None, course_id=None):
 
     class_summaries = []
     for cls in classes:
-        if class_id and cls.id != class_id:
-            continue
         row = by_class.get(cls.id)
-        if not row:
-            continue
         class_summaries.append({
-            'class':         cls,
-            'total':         row.total,
-            'paid_count':    row.paid_count,
-            'unpaid_count':  row.unpaid_count,
-            'paid_amount':   row.collected_amount,
-            'unpaid_amount': row.outstanding_amount,
-            'carried_debt':  row.carried_debt_amount,
+            'class':          cls,
+            'enrolled_count': enrolled_counts.get(cls.id, 0),
+            'generated':      row is not None,
+            'total':          row.total if row else 0,
+            'paid_count':     row.paid_count if row else 0,
+            'unpaid_count':   row.unpaid_count if row else 0,
+            'paid_amount':    row.collected_amount if row else 0,
+            'unpaid_amount':  row.outstanding_amount if row else 0,
+            'carried_debt':   row.carried_debt_amount if row else 0,
         })
 
     total_collected = sum(r['paid_amount'] for r in class_summaries)
@@ -745,46 +758,44 @@ def export_tuition_report():
 @login_required
 @require_admin
 def monthly_fee_generate():
-    """Tạo hàng loạt TuitionPayment cho tất cả học sinh đang học trong tháng,
-    dùng học phí chuẩn của lớp (Class.monthly_fee) làm mặc định."""
+    """Tạo hàng loạt TuitionPayment cho tất cả học sinh đang học trong một
+    lớp cụ thể, dùng học phí chuẩn của lớp (Class.monthly_fee) làm mặc định.
+
+    Luôn giới hạn theo một lớp — generate cho toàn bộ trường trong một
+    request từng gây 502 khi số học sinh lớn (mỗi học sinh cần vài query
+    độc lập: tính nợ cũ, kiểm tra tồn tại, insert). Bó buộc theo lớp giữ
+    kích thước mỗi request nhỏ và cố định, bất kể trường có bao nhiêu lớp."""
     month = request.form.get('month', type=int)
     year = request.form.get('year', type=int)
-    class_id = request.form.get('class_id', type=int)  # None = tất cả lớp
+    class_id = request.form.get('class_id', type=int)
+    if not class_id:
+        flash('Vui lòng chọn một lớp để tạo học phí.', 'danger')
+        return redirect(url_for('admin.tuition', month=month, year=year))
 
-    classes_q = Class.query.filter_by(is_active=True)
-    if class_id:
-        classes_q = classes_q.filter_by(id=class_id)
-    classes = classes_q.all()
+    cls = Class.query.get_or_404(class_id)
 
-    # Batch enrollments + existing tuition rows up front instead of 2
-    # queries per (class, enrollment) pair.
-    all_class_ids = [c.id for c in classes]
-    enrollments_by_class = {}
-    if all_class_ids:
-        for e in Enrollment.query.filter(Enrollment.class_id.in_(all_class_ids), Enrollment.is_active == True).all():
-            enrollments_by_class.setdefault(e.class_id, []).append(e)
+    enrollments = Enrollment.query.filter_by(class_id=class_id, is_active=True).all()
+    student_ids = [e.student_id for e in enrollments]
+    existing_student_ids = set()
+    if student_ids:
+        existing_student_ids = {
+            t.student_id for t in TuitionPayment.query.filter(
+                TuitionPayment.class_id == class_id, TuitionPayment.student_id.in_(student_ids),
+                TuitionPayment.month == month, TuitionPayment.year == year,
+            ).all()
+        }
 
-    all_student_ids = list({e.student_id for enrs in enrollments_by_class.values() for e in enrs})
-    existing_payments = {}
-    if all_student_ids:
-        for t in TuitionPayment.query.filter(
-            TuitionPayment.class_id.in_(all_class_ids), TuitionPayment.student_id.in_(all_student_ids),
-            TuitionPayment.month == month, TuitionPayment.year == year,
-        ).all():
-            existing_payments[(t.student_id, t.class_id)] = t
-
+    fee = cls.monthly_fee or 0
     created = 0
-    for cls in classes:
-        fee = cls.monthly_fee or 0
-        for enr in enrollments_by_class.get(cls.id, []):
-            if (enr.student_id, cls.id) in existing_payments:
-                continue
-            _, was_created = create_tuition_payment(enr.student_id, cls.id, month, year, fee)
-            if was_created:
-                created += 1
+    for enr in enrollments:
+        if enr.student_id in existing_student_ids:
+            continue
+        _, was_created = create_tuition_payment(enr.student_id, class_id, month, year, fee)
+        if was_created:
+            created += 1
 
     db.session.commit()
-    flash(f'Đã tạo {created} học phí mới cho tháng {month}/{year}.', 'success')
+    flash(f'Đã tạo {created} học phí mới cho lớp {cls.name} tháng {month}/{year}.', 'success')
     return redirect(url_for('admin.tuition', month=month, year=year))
 
 
