@@ -161,6 +161,10 @@
               </a>
               {% if not item.generated %}
               <div class="text-muted" style="font-size:0.72rem;">Chưa tạo học phí</div>
+              {% elif item.missing_count > 0 %}
+              <div class="text-warning-emphasis" style="font-size:0.72rem;">
+                <i class="bi bi-exclamation-triangle-fill me-1"></i>{{ item.missing_count }} HS chưa có học phí
+              </div>
               {% endif %}
             </td>
             <td class="text-center fw-semibold">

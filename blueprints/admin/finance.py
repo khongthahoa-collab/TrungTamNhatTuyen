@@ -68,11 +68,16 @@ def _tuition_overview_aggregate(month, year, class_id=None, course_id=None):
     class_summaries = []
     for cls in classes:
         row = by_class.get(cls.id)
+        enrolled_count = enrolled_counts.get(cls.id, 0)
+        total = row.total if row else 0
         class_summaries.append({
             'class':          cls,
-            'enrolled_count': enrolled_counts.get(cls.id, 0),
+            'enrolled_count': enrolled_count,
             'generated':      row is not None,
-            'total':          row.total if row else 0,
+            # Enrolled but not yet billed — e.g. a student added to the
+            # class after tuition was already generated for this month.
+            'missing_count':  max(0, enrolled_count - total),
+            'total':          total,
             'paid_count':     row.paid_count if row else 0,
             'unpaid_count':   row.unpaid_count if row else 0,
             'paid_amount':    row.collected_amount if row else 0,
@@ -168,12 +173,25 @@ def tuition_class_detail(class_id):
         .first()
     )
 
+    # Students enrolled in the class but with no TuitionPayment row this
+    # month — happens whenever a student is added to the class *after*
+    # tuition was already generated for that month (monthly_fee_generate
+    # itself already skips students who already have a row, so it's safe
+    # to re-run; the gap was that there was previously no way to trigger
+    # it again once a class had any tuition at all — see the "Tạo học
+    # phí cho N học sinh còn thiếu" button below).
+    enrolled_ids = {e.student_id for e in Enrollment.query.filter_by(class_id=class_id, is_active=True).all()}
+    billed_ids = {t.student_id for t in TuitionPayment.query.filter_by(
+        class_id=class_id, month=month, year=year).all()}
+    missing_count = len(enrolled_ids - billed_ids)
+
     return render_template('admin/finance/tuition_class_detail.html',
                            cls=cls, records=records, pagination=pagination,
                            total=total or 0, paid_count=paid_count or 0,
                            unpaid_count=unpaid_count or 0,
                            collected_amount=collected_amount or 0,
                            outstanding_amount=outstanding_amount or 0,
+                           missing_count=missing_count,
                            is_writable=is_period_writable(month, year),
                            month=month, year=year, today=today)
 
@@ -766,13 +784,24 @@ def monthly_fee_generate():
     month = request.form.get('month', type=int)
     year = request.form.get('year', type=int)
     class_id = request.form.get('class_id', type=int)
+    # Re-running this for a class that already has tuition generated is
+    # exactly how a class picks up students who were enrolled *after* the
+    # first generate — the loop below already skips anyone who already has
+    # a row, so this is always safe to call again. When triggered from the
+    # class-detail page ("Tạo học phí cho N học sinh còn thiếu"), send the
+    # admin back there instead of the overview.
+    redirect_target = (
+        url_for('admin.tuition_class_detail', class_id=class_id, month=month, year=year)
+        if request.form.get('redirect_to') == 'class_detail' and class_id
+        else url_for('admin.tuition', month=month, year=year)
+    )
     if not class_id:
         flash('Vui lòng chọn một lớp để tạo học phí.', 'danger')
-        return redirect(url_for('admin.tuition', month=month, year=year))
+        return redirect(redirect_target)
 
     if not is_period_writable(month, year):
         flash('Không thể sửa đổi dữ liệu tài chính của năm học đã đóng băng', 'danger')
-        return redirect(url_for('admin.tuition', month=month, year=year))
+        return redirect(redirect_target)
 
     cls = Class.query.get_or_404(class_id)
 
@@ -809,11 +838,11 @@ def monthly_fee_generate():
     except FrozenPeriodError as e:
         db.session.rollback()
         flash(str(e), 'danger')
-        return redirect(url_for('admin.tuition', month=month, year=year))
+        return redirect(redirect_target)
 
     db.session.commit()
     flash(f'Đã tạo {created} học phí mới cho lớp {cls.name} tháng {month}/{year}.', 'success')
-    return redirect(url_for('admin.tuition', month=month, year=year))
+    return redirect(redirect_target)
 
 
 @admin_bp.route('/tuition/<int:payment_id>/adjust-amount', methods=['POST'])

@@ -32,6 +32,29 @@
   </div>
 </div>
 
+{% if missing_count > 0 %}
+<div class="alert alert-warning d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+  <div>
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+    <strong>{{ missing_count }} học sinh</strong> đang học lớp này nhưng chưa có học phí tháng {{ month }}/{{ year }}
+    — thường là do được thêm vào lớp sau khi đã tạo học phí.
+  </div>
+  {% if is_writable %}
+  <form method="post" action="{{ url_for('admin.monthly_fee_generate') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="month" value="{{ month }}">
+    <input type="hidden" name="year" value="{{ year }}">
+    <input type="hidden" name="class_id" value="{{ cls.id }}">
+    <input type="hidden" name="redirect_to" value="class_detail">
+    <button type="submit" class="btn btn-warning btn-sm"
+            onclick="return confirm('Tạo học phí tháng {{ month }}/{{ year }} cho {{ missing_count }} học sinh còn thiếu?')">
+      <i class="bi bi-magic me-1"></i>Tạo học phí cho {{ missing_count }} học sinh còn thiếu
+    </button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+
 <!-- Tóm tắt -->
 <div class="row g-3 mb-4">
   <div class="col-6 col-md-3">
