@@ -4,7 +4,7 @@ from datetime import date, timedelta, time as time_type
 from sqlalchemy import or_, and_
 from extensions import db
 from models import (Class, Course, Teacher, Schedule, Semester, Enrollment, Student, Room,
-                    MonthlyClassFee, TuitionPayment, GRADE_BY_LEVEL, GRADE_SEQUENCE, User,
+                    TuitionPayment, GRADE_BY_LEVEL, GRADE_SEQUENCE, User,
                     Attendance, AttendanceSummary)
 from blueprints.admin import admin_bp, require_admin
 from services.schedule_service import (find_student_schedule_conflict, schedule_conflict_message,
@@ -727,7 +727,7 @@ def class_delete_weekly_slot(class_id):
 @require_admin
 def class_add_students(class_id):
     """Ghi danh hàng loạt học sinh được gợi ý (cùng khối, chưa học môn này), và
-    tự tạo học phí tháng hiện tại nếu lớp đã có cấu hình học phí tháng đó."""
+    tự tạo học phí tháng hiện tại theo học phí chuẩn của lớp."""
     class_ = Class.query.get_or_404(class_id)
     student_ids = [int(x) for x in request.form.getlist('student_ids') if x]
 
@@ -750,7 +750,6 @@ def class_add_students(class_id):
         return redirect(url_for('admin.class_detail', class_id=class_id))
 
     today = date.today()
-    cfg = MonthlyClassFee.query.filter_by(class_id=class_id, month=today.month, year=today.year).first()
 
     # Batch the existing-enrollment / existing-tuition-row checks into one
     # query each instead of one per student.
@@ -758,14 +757,12 @@ def class_add_students(class_id):
         e.student_id: e for e in
         Enrollment.query.filter(Enrollment.student_id.in_(ok_student_ids), Enrollment.class_id == class_id).all()
     }
-    students_with_tuition = set()
-    if cfg:
-        students_with_tuition = {
-            t.student_id for t in TuitionPayment.query.filter(
-                TuitionPayment.student_id.in_(ok_student_ids), TuitionPayment.class_id == class_id,
-                TuitionPayment.month == today.month, TuitionPayment.year == today.year,
-            ).all()
-        }
+    students_with_tuition = {
+        t.student_id for t in TuitionPayment.query.filter(
+            TuitionPayment.student_id.in_(ok_student_ids), TuitionPayment.class_id == class_id,
+            TuitionPayment.month == today.month, TuitionPayment.year == today.year,
+        ).all()
+    }
 
     added = tuition_added = 0
     for student_id in ok_student_ids:
@@ -778,11 +775,10 @@ def class_add_students(class_id):
             db.session.add(Enrollment(student_id=student_id, class_id=class_id))
             added += 1
 
-        if cfg and student_id not in students_with_tuition:
+        if student_id not in students_with_tuition:
             _, was_created = create_tuition_payment(
-                student_id, class_id, today.month, today.year, cfg.adjusted_fee,
-                amount_100pct=cfg.base_fee,
-                note=f'Tự động tạo khi thêm vào lớp: {cfg.weeks_billed}/{cfg.standard_weeks} tuần',
+                student_id, class_id, today.month, today.year, class_.monthly_fee or 0,
+                note='Tự động tạo khi thêm vào lớp',
             )
             if was_created:
                 tuition_added += 1

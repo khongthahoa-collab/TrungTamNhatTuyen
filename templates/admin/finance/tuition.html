@@ -6,135 +6,20 @@
 {% endblock %}
 
 {% block content %}
-<h5 class="mb-3 fw-bold"><i class="bi bi-cash-stack me-2 text-primary"></i>Quản lý học phí</h5>
-
-<!-- ── Section 1: Cấu hình học phí theo lớp ───────────────────── -->
-<div class="card border-0 shadow-sm mb-3">
-  <div class="card-header bg-white d-flex justify-content-between align-items-center py-2">
-    <span class="fw-semibold">
-      <i class="bi bi-sliders me-2 text-primary"></i>
-      Cấu hình học phí tháng {{ month }}/{{ year }}
-    </span>
-    <div class="d-flex gap-2 align-items-center">
-      <!-- Generate all -->
-      <form method="post" action="{{ url_for('admin.monthly_fee_generate') }}"
-            onsubmit="return confirm('Tạo/cập nhật học phí cho tất cả lớp tháng {{ month }}/{{ year }}?')">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="month" value="{{ month }}">
-        <input type="hidden" name="year" value="{{ year }}">
-        <button type="submit" class="btn btn-success btn-sm">
-          <i class="bi bi-magic me-1"></i>Tạo học phí tất cả lớp
-        </button>
-      </form>
-      <button class="btn btn-sm btn-outline-secondary" type="button"
-              data-bs-toggle="collapse" data-bs-target="#feeConfigTable">
-        <i class="bi bi-chevron-down"></i>
-      </button>
-    </div>
-  </div>
-  <div class="collapse" id="feeConfigTable">
-    <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
-        <thead class="table-light">
-          <tr>
-            <th class="ps-3">Lớp học</th>
-            <th class="text-center">Buổi/<br>tuần</th>
-            <th class="text-end">HP gốc<br>(4 tuần)</th>
-            <th class="text-center" style="min-width:70px;">Tuần<br>chuẩn</th>
-            <th class="text-center" style="min-width:70px;">Tuần<br>tính phí</th>
-            <th class="text-end" style="min-width:110px;">Học phí tháng<br><small class="fw-normal text-muted">T{{ month }}/{{ year }}</small></th>
-            <th style="min-width:130px;">Ghi chú</th>
-            <th class="text-center">Lưu / Tạo</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for item in fee_configs %}
-          {% set cls = item.class %}
-          {% set cfg = item.config %}
-          <tr>
-            <td class="ps-3 fw-semibold small">
-              <a href="{{ url_for('admin.class_detail', class_id=cls.id) }}" class="text-decoration-none">
-                {{ cls.name }}
-              </a>
-              <div class="text-muted" style="font-size:0.72rem;">{{ enrollment_counts.get(cls.id, 0) }} HS</div>
-            </td>
-            <td class="text-center small">{{ cls.sessions_per_week or 1 }}</td>
-            <td class="text-end small">{{ cls.monthly_fee | vnd if cls.monthly_fee else '—' }}</td>
-
-            <form method="post" action="{{ url_for('admin.monthly_fee_update') }}" class="d-contents">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <input type="hidden" name="class_id" value="{{ cls.id }}">
-              <input type="hidden" name="month" value="{{ month }}">
-              <input type="hidden" name="year" value="{{ year }}">
-
-              <td class="text-center">
-                <input type="number" name="standard_weeks"
-                       class="form-control form-control-sm text-center fee-standard"
-                       style="width:60px;" min="1" max="6"
-                       value="{{ cfg.standard_weeks if cfg else 4 }}"
-                       onchange="calcRow(this)">
-              </td>
-              <td class="text-center">
-                <input type="number" name="weeks_billed"
-                       class="form-control form-control-sm text-center fee-billed"
-                       style="width:60px;" min="0" max="6" step="0.5"
-                       value="{{ cfg.weeks_billed if cfg else 4 }}"
-                       onchange="calcRow(this)">
-              </td>
-              <td class="text-end">
-                <strong class="fee-adjusted text-primary"
-                        data-base="{{ cls.monthly_fee or 0 }}">
-                  {% if cfg %}
-                    {{ cfg.adjusted_fee | vnd }}
-                  {% else %}
-                    {{ cls.monthly_fee | vnd if cls.monthly_fee else '—' }}
-                  {% endif %}
-                </strong>
-              </td>
-              <td>
-                <input type="text" name="note"
-                       class="form-control form-control-sm"
-                       placeholder="Lý do…"
-                       value="{{ cfg.note or '' if cfg else '' }}">
-              </td>
-              <td class="text-center">
-                <div class="d-flex gap-1 justify-content-center">
-                  <button type="submit" class="btn btn-sm btn-primary" title="Lưu cấu hình">
-                    <i class="bi bi-check-lg"></i>
-                  </button>
-                </div>
-              </td>
-            </form>
-
-            <!-- Nút tạo học phí riêng lớp này -->
-            <form method="post" action="{{ url_for('admin.monthly_fee_generate') }}" class="d-none"
-                  id="genForm{{ cls.id }}"
-                  onsubmit="return confirm('Tạo học phí lớp {{ cls.name }}?')">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <input type="hidden" name="month" value="{{ month }}">
-              <input type="hidden" name="year" value="{{ year }}">
-              <input type="hidden" name="class_id" value="{{ cls.id }}">
-            </form>
-          </tr>
-          {% else %}
-          <tr>
-            <td colspan="8" class="text-center text-muted py-3 small">
-              Chưa có lớp học nào đang hoạt động.
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    <div class="card-footer bg-white small text-muted py-2">
-      <i class="bi bi-info-circle me-1"></i>
-      Điều chỉnh <strong>tuần tính phí</strong> (ví dụ 1/4 tuần = chỉ thu 25% học phí), nhấn
-      <i class="bi bi-check-lg"></i> để lưu, sau đó nhấn <strong>Tạo học phí</strong> để sinh phiếu thu.
-    </div>
-  </div>
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+  <h5 class="mb-0 fw-bold"><i class="bi bi-cash-stack me-2 text-primary"></i>Quản lý học phí</h5>
+  <form method="post" action="{{ url_for('admin.monthly_fee_generate') }}"
+        onsubmit="return confirm('Tạo học phí tháng {{ month }}/{{ year }} cho tất cả học sinh chưa có bản ghi?')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="month" value="{{ month }}">
+    <input type="hidden" name="year" value="{{ year }}">
+    <button type="submit" class="btn btn-success btn-sm">
+      <i class="bi bi-magic me-1"></i>Tạo học phí tháng này
+    </button>
+  </form>
 </div>
 
-<!-- ── Section 2: Tóm tắt thu chi ─────────────────────────────── -->
+<!-- ── Tóm tắt thu chi ─────────────────────────────── -->
 <div class="row g-3 mb-3">
   <div class="col-6 col-md-3">
     <div class="card border-0 shadow-sm h-100 border-start border-primary border-3">
@@ -179,8 +64,7 @@
   </div>
 </div>
 
-<!-- ── Section 3: Danh sách học phí theo lớp ──────────────────── -->
-<!-- Bộ lọc gộp: tháng + lớp + nhập hàng loạt -->
+<!-- ── Danh sách học phí theo lớp ──────────────────── -->
 {% set prev_month = month - 1 if month > 1 else 12 %}
 {% set prev_year  = year if month > 1 else year - 1 %}
 {% set next_month = month + 1 if month < 12 else 1 %}
@@ -202,6 +86,7 @@
       {% endfor %}
     </select>
     {% if selected_class_id %}<input type="hidden" name="class_id" value="{{ selected_class_id }}">{% endif %}
+    {% if selected_course_id %}<input type="hidden" name="course_id" value="{{ selected_course_id }}">{% endif %}
   </form>
   <a href="{{ url_for('admin.tuition', month=next_month, year=next_year) }}"
      class="btn btn-outline-secondary btn-sm" title="Tháng sau">
@@ -211,13 +96,19 @@
   <form method="get" class="d-flex gap-1 align-items-center">
     <input type="hidden" name="month" value="{{ month }}">
     <input type="hidden" name="year" value="{{ year }}">
+    <select name="course_id" class="form-select form-select-sm" style="min-width:160px;" onchange="this.form.submit()">
+      <option value="">-- Tất cả các môn --</option>
+      {% for c in courses %}
+      <option value="{{ c.id }}" {% if selected_course_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+      {% endfor %}
+    </select>
     <select name="class_id" class="form-select form-select-sm" style="min-width:180px;" onchange="this.form.submit()">
       <option value="">-- Tất cả lớp --</option>
       {% for cls in classes %}
       <option value="{{ cls.id }}" {% if selected_class_id == cls.id %}selected{% endif %}>{{ cls.name }}</option>
       {% endfor %}
     </select>
-    {% if selected_class_id %}
+    {% if selected_class_id or selected_course_id %}
     <a href="{{ url_for('admin.tuition', month=month, year=year) }}" class="btn btn-outline-secondary btn-sm">
       <i class="bi bi-x-lg"></i>
     </a>
@@ -295,7 +186,7 @@
           <tr>
             <td colspan="9" class="text-center text-muted py-4">
               <i class="bi bi-inbox d-block mb-2 fs-4"></i>
-              Chưa có dữ liệu học phí — dùng <strong>Tạo học phí tất cả lớp</strong> ở trên.
+              Chưa có dữ liệu học phí — dùng <strong>Tạo học phí tháng này</strong> ở trên.
             </td>
           </tr>
           {% endfor %}
@@ -318,87 +209,4 @@
     </div>
   </div>
 </div>
-
-<!-- ── Thêm học phí thủ công (collapsed) ─────────────────────── -->
-<div class="card border-0 shadow-sm mb-4">
-  <div class="card-header bg-white d-flex justify-content-between align-items-center">
-    <span class="fw-semibold small">
-      <i class="bi bi-plus-circle me-2 text-primary"></i>Thêm học phí thủ công
-    </span>
-    <button class="btn btn-sm btn-outline-secondary" type="button"
-            data-bs-toggle="collapse" data-bs-target="#addTuitionForm">
-      <i class="bi bi-chevron-down"></i>
-    </button>
-  </div>
-  <div class="collapse" id="addTuitionForm">
-    <div class="card-body">
-      <form method="post" action="{{ url_for('admin.tuition_add') }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="row g-3">
-          <div class="col-12 col-md-4">
-            <label class="form-label fw-semibold">Học sinh <span class="text-danger">*</span></label>
-            <select name="student_id" class="form-select" required>
-              <option value="">-- Chọn học sinh --</option>
-              {% for cls in classes %}
-              {% for enr in enrollments_by_class.get(cls.id, []) %}
-              <option value="{{ enr.student.id }}">{{ enr.student.full_name }} ({{ cls.name }})</option>
-              {% endfor %}
-              {% endfor %}
-            </select>
-          </div>
-          <div class="col-12 col-md-4">
-            <label class="form-label fw-semibold">Lớp học <span class="text-danger">*</span></label>
-            <select name="class_id" class="form-select" required>
-              <option value="">-- Chọn lớp --</option>
-              {% for cls in classes %}
-              <option value="{{ cls.id }}">{{ cls.name }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="col-12 col-md-4">
-            <label class="form-label fw-semibold">Số tiền (VND) <span class="text-danger">*</span></label>
-            <input type="number" name="amount" class="form-control" min="0" step="1000" required>
-          </div>
-          <div class="col-6 col-md-2">
-            <label class="form-label fw-semibold">Tháng <span class="text-danger">*</span></label>
-            <select name="month" class="form-select" required>
-              {% for m in range(1, 13) %}
-              <option value="{{ m }}" {% if month == m %}selected{% endif %}>{{ m }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="col-6 col-md-2">
-            <label class="form-label fw-semibold">Năm <span class="text-danger">*</span></label>
-            <input type="number" name="year" class="form-control" value="{{ year }}"
-                   min="2020" max="2100" required>
-          </div>
-          <div class="col-12 col-md-4">
-            <label class="form-label fw-semibold">Ghi chú</label>
-            <input type="text" name="note" class="form-control" placeholder="Ghi chú...">
-          </div>
-          <div class="col-12 col-md-4 d-flex align-items-end">
-            <button type="submit" class="btn btn-primary w-100">
-              <i class="bi bi-plus-lg me-1"></i>Thêm học phí
-            </button>
-          </div>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
-<script>
-// Real-time fee calculation
-function calcRow(el) {
-  const row = el.closest('tr');
-  const base   = parseFloat(row.querySelector('.fee-adjusted').dataset.base) || 0;
-  const std    = parseFloat(row.querySelector('.fee-standard').value) || 4;
-  const billed = parseFloat(row.querySelector('.fee-billed').value)   || 0;
-  const adj    = std > 0 ? Math.round(base * billed / std) : base;
-  row.querySelector('.fee-adjusted').textContent =
-    adj.toLocaleString('vi-VN') + '₫';
-}
-</script>
-
-<style>.d-contents { display: contents; }</style>
 {% endblock %}

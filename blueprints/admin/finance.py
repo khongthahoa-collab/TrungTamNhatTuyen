@@ -4,25 +4,29 @@ from datetime import date, datetime
 from sqlalchemy import extract, func, case
 from sqlalchemy.orm import joinedload
 from extensions import db
-from models import (TuitionPayment, Student, Class, Salary, Teacher,
-                    Expense, ExpenseCategory, TuitionMethod, MonthlyClassFee, Enrollment)
+from models import (TuitionPayment, Student, Class, Salary, Teacher, Course,
+                    Expense, ExpenseCategory, TuitionMethod, Enrollment)
 from blueprints.admin import admin_bp, require_admin, require_master
 from services.salary_service import calculate_all_salaries, get_or_create_salary
 from services.zalo_service import ZaloService
-from services.tuition_service import create_tuition_payment, record_payment, get_previous_month_debt
+from services.tuition_service import (create_tuition_payment, record_payment, get_previous_month_debt,
+                                      record_fee_adjustment)
 
 
 # ────────────────────────────────────────────────────────────────
 # Tuition
 # ────────────────────────────────────────────────────────────────
 
-def _tuition_overview_aggregate(month, year, class_id=None):
+def _tuition_overview_aggregate(month, year, class_id=None, course_id=None):
     """Shared by the /admin/tuition web view and the /api/v1/tuition/overview
     JSON endpoint, so the two can't drift. Tổng hợp bằng SQL, không tải toàn
     bộ bản ghi học phí của tháng vào Python (tránh chậm/502 khi dữ liệu lớn
     dần). Returns (classes, class_summaries, total_collected,
     total_outstanding, total_expected)."""
-    classes = Class.query.filter_by(is_active=True).order_by(Class.name).all()
+    classes_q = Class.query.filter_by(is_active=True)
+    if course_id:
+        classes_q = classes_q.filter_by(course_id=course_id)
+    classes = classes_q.order_by(Class.name).all()
 
     total_due_expr = TuitionPayment.amount + TuitionPayment.debt_carried_over
     class_agg_query = (
@@ -76,56 +80,24 @@ def tuition():
     month = request.args.get('month', today.month, type=int)
     year = request.args.get('year', today.year, type=int)
     class_id = request.args.get('class_id', type=int)
+    course_id = request.args.get('course_id', type=int)
 
     classes, class_summaries, total_collected, total_outstanding, total_expected = \
-        _tuition_overview_aggregate(month, year, class_id)
+        _tuition_overview_aggregate(month, year, class_id, course_id)
 
-    # Cấu hình học phí theo lớp (MonthlyClassFee)
-    existing_fees = {
-        f.class_id: f for f in
-        MonthlyClassFee.query.filter_by(month=month, year=year).all()
-    }
-    fee_configs = [
-        {'class': cls, 'config': existing_fees.get(cls.id)}
-        for cls in (classes if not class_id else [c for c in classes if c.id == class_id])
-    ]
-
-    # Batched for the "Cấu hình học phí" (enrollment count per class) and
-    # "Thêm học phí thủ công" (student dropdown) sections below — these
-    # render for every active class on every page load regardless of the
-    # month/class filter, so a per-class query here (cls.current_enrollment,
-    # cls.enrollments.filter_by(...)) was an unconditional N+1 that got
-    # worse as the number of classes grew, independent of how much tuition
-    # data existed for the selected month.
-    all_class_ids = [c.id for c in classes]
-    enrollment_counts = {}
-    enrollments_by_class = {}
-    if all_class_ids:
-        enrollment_counts = dict(
-            db.session.query(Enrollment.class_id, func.count(Enrollment.id))
-            .filter(Enrollment.class_id.in_(all_class_ids), Enrollment.is_active == True)
-            .group_by(Enrollment.class_id)
-            .all()
-        )
-        for e in (Enrollment.query
-                  .filter(Enrollment.class_id.in_(all_class_ids), Enrollment.is_active == True)
-                  .options(joinedload(Enrollment.student))
-                  .join(Student).order_by(Student.full_name)
-                  .all()):
-            enrollments_by_class.setdefault(e.class_id, []).append(e)
+    courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
 
     return render_template('admin/finance/tuition.html',
                            classes=classes,
+                           courses=courses,
                            class_summaries=class_summaries,
                            month=month,
                            year=year,
                            selected_class_id=class_id,
+                           selected_course_id=course_id,
                            total_collected=total_collected,
                            total_outstanding=total_outstanding,
                            total_expected=total_expected,
-                           fee_configs=fee_configs,
-                           enrollment_counts=enrollment_counts,
-                           enrollments_by_class=enrollments_by_class,
                            today=today)
 
 
@@ -176,6 +148,62 @@ def tuition_class_detail(class_id):
                            month=month, year=year, today=today)
 
 
+@admin_bp.route('/tuition/class/<int:class_id>/export.xlsx')
+@login_required
+@require_admin
+def tuition_class_export(class_id):
+    """Xuất Excel toàn bộ danh sách học phí của lớp trong tháng — không giới
+    hạn theo trang (khác với bảng hiển thị trên màn hình, vốn phân trang
+    50/trang)."""
+    from io import BytesIO
+    from flask import send_file
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    today = date.today()
+    month = request.args.get('month', today.month, type=int)
+    year = request.args.get('year', today.year, type=int)
+
+    cls = Class.query.get_or_404(class_id)
+    records = (
+        TuitionPayment.query
+        .filter_by(class_id=class_id, month=month, year=year)
+        .join(Student, TuitionPayment.student_id == Student.id)
+        .options(joinedload(TuitionPayment.student))
+        .order_by(TuitionPayment.is_paid, Student.full_name)
+        .all()
+    )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = f'HP T{month}-{year}'
+    ws.append([f'Học phí {cls.name} — Tháng {month}/{year}'])
+    ws['A1'].font = Font(bold=True, size=13)
+    ws.append([])
+    headers = ['STT', 'Học sinh', 'SĐT phụ huynh', 'Học phí tháng này', 'Nợ cũ',
+              'Tổng cộng cần thu', 'Đã đóng', 'Trạng thái', 'Ghi chú']
+    ws.append(headers)
+    for cell in ws[3]:
+        cell.font = Font(bold=True)
+
+    for i, r in enumerate(records, start=1):
+        ws.append([
+            i, r.student.full_name, r.student.parent_phone or '',
+            r.amount, r.debt_carried_over or 0, r.total_due, r.amount_collected or 0,
+            r.status_label, r.note or '',
+        ])
+
+    for col, width in zip('ABCDEFGHI', (5, 24, 14, 16, 14, 18, 14, 14, 26)):
+        ws.column_dimensions[col].width = width
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    filename = f'hoc_phi_{cls.name}_{month}_{year}.xlsx'.replace(' ', '_')
+    return send_file(buf, as_attachment=True, download_name=filename,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+
 @admin_bp.route('/tuition/add', methods=['POST'])
 @login_required
 @require_admin
@@ -206,7 +234,8 @@ def tuition_add():
 def tuition_mark_paid(payment_id):
     method = request.form.get('method', 'cash')
     amount = request.form.get('amount', type=float)
-    tp = record_payment(payment_id, amount, method, current_user.id)
+    note = request.form.get('note', '').strip() or None
+    tp = record_payment(payment_id, amount, method, current_user.id, note=note)
     if not tp:
         abort(404)
     flash(f'Đã ghi nhận thanh toán học phí cho {tp.student.full_name}.', 'success')
@@ -704,79 +733,36 @@ def export_tuition_report():
 
 
 # ────────────────────────────────────────────────────────────────
-# Monthly Class Fee Management (học phí theo tháng)
+# Monthly tuition generation — default fee is simply Class.monthly_fee ×
+# each actively-enrolled student; no per-month proration config. (The old
+# "Cấu hình học phí" week-proration feature and its MonthlyClassFee table
+# were removed — this app no longer needs to bill a fraction of a month.
+# A per-student exception for a given month is handled by editing that
+# one row's fee directly on the class-detail page instead.)
 # ────────────────────────────────────────────────────────────────
-
-@admin_bp.route('/tuition/monthly')
-@login_required
-@require_admin
-def monthly_fees():
-    """Redirect về trang học phí gộp"""
-    month = request.args.get('month', date.today().month, type=int)
-    year  = request.args.get('year',  date.today().year,  type=int)
-    return redirect(url_for('admin.tuition', month=month, year=year))
-
-
-@admin_bp.route('/tuition/monthly/update', methods=['POST'])
-@login_required
-@require_admin
-def monthly_fee_update():
-    """Cập nhật cấu hình học phí (số tuần) cho một lớp trong một tháng"""
-    class_id = request.form.get('class_id', type=int)
-    month = request.form.get('month', type=int)
-    year = request.form.get('year', type=int)
-    standard_weeks = request.form.get('standard_weeks', 4, type=int)
-    weeks_billed = request.form.get('weeks_billed', type=float)
-    note = request.form.get('note', '').strip()
-
-    cls = Class.query.get_or_404(class_id)
-
-    cfg = MonthlyClassFee.query.filter_by(
-        class_id=class_id, month=month, year=year
-    ).first()
-    if not cfg:
-        cfg = MonthlyClassFee(
-            class_id=class_id, month=month, year=year,
-            created_by=current_user.id
-        )
-        db.session.add(cfg)
-
-    cfg.standard_weeks = standard_weeks
-    cfg.weeks_billed = weeks_billed if weeks_billed is not None else standard_weeks
-    cfg.base_fee = cls.monthly_fee
-    cfg.note = note
-    cfg.recalculate()
-    db.session.commit()
-
-    flash(f'Đã cập nhật học phí lớp {cls.name} tháng {month}/{year}: '
-          f'{int(cfg.adjusted_fee):,}₫ ({cfg.weeks_billed}/{cfg.standard_weeks} tuần).', 'success')
-    return redirect(url_for('admin.monthly_fees', month=month, year=year))
-
 
 @admin_bp.route('/tuition/monthly/generate', methods=['POST'])
 @login_required
 @require_admin
 def monthly_fee_generate():
-    """Tạo hàng loạt TuitionPayment cho tất cả học sinh đang học trong tháng"""
+    """Tạo hàng loạt TuitionPayment cho tất cả học sinh đang học trong tháng,
+    dùng học phí chuẩn của lớp (Class.monthly_fee) làm mặc định."""
     month = request.form.get('month', type=int)
     year = request.form.get('year', type=int)
     class_id = request.form.get('class_id', type=int)  # None = tất cả lớp
 
-    configs_q = MonthlyClassFee.query.filter_by(month=month, year=year)
+    classes_q = Class.query.filter_by(is_active=True)
     if class_id:
-        configs_q = configs_q.filter_by(class_id=class_id)
-    configs = configs_q.all()
+        classes_q = classes_q.filter_by(id=class_id)
+    classes = classes_q.all()
 
-    if not configs:
-        flash('Chưa có cấu hình học phí tháng này. Hãy thiết lập số tuần cho từng lớp trước.', 'warning')
-        return redirect(url_for('admin.monthly_fees', month=month, year=year))
-
-    # Batch every config's enrollments + existing tuition rows up front
-    # instead of 2 queries per (config, enrollment) pair.
-    all_class_ids = [cfg.class_id for cfg in configs]
+    # Batch enrollments + existing tuition rows up front instead of 2
+    # queries per (class, enrollment) pair.
+    all_class_ids = [c.id for c in classes]
     enrollments_by_class = {}
-    for e in Enrollment.query.filter(Enrollment.class_id.in_(all_class_ids), Enrollment.is_active == True).all():
-        enrollments_by_class.setdefault(e.class_id, []).append(e)
+    if all_class_ids:
+        for e in Enrollment.query.filter(Enrollment.class_id.in_(all_class_ids), Enrollment.is_active == True).all():
+            enrollments_by_class.setdefault(e.class_id, []).append(e)
 
     all_student_ids = list({e.student_id for enrs in enrollments_by_class.values() for e in enrs})
     existing_payments = {}
@@ -787,30 +773,18 @@ def monthly_fee_generate():
         ).all():
             existing_payments[(t.student_id, t.class_id)] = t
 
-    created = updated = 0
-    for cfg in configs:
-        enrollments = enrollments_by_class.get(cfg.class_id, [])
-        for enr in enrollments:
-            existing = existing_payments.get((enr.student_id, cfg.class_id))
-            if existing:
-                # Chỉ cập nhật nếu chưa thanh toán
-                if not existing.is_paid:
-                    existing.amount = cfg.adjusted_fee
-                    existing.amount_100pct = cfg.base_fee
-                    existing.debt_carried_over = get_previous_month_debt(
-                        enr.student_id, cfg.class_id, month, year)
-                    updated += 1
-            else:
-                _, was_created = create_tuition_payment(
-                    enr.student_id, cfg.class_id, month, year, cfg.adjusted_fee,
-                    amount_100pct=cfg.base_fee,
-                    note=f'Tự động tạo: {cfg.weeks_billed}/{cfg.standard_weeks} tuần',
-                )
-                if was_created:
-                    created += 1
+    created = 0
+    for cls in classes:
+        fee = cls.monthly_fee or 0
+        for enr in enrollments_by_class.get(cls.id, []):
+            if (enr.student_id, cls.id) in existing_payments:
+                continue
+            _, was_created = create_tuition_payment(enr.student_id, cls.id, month, year, fee)
+            if was_created:
+                created += 1
 
     db.session.commit()
-    flash(f'Đã tạo {created} học phí mới, cập nhật {updated} học phí cũ cho tháng {month}/{year}.', 'success')
+    flash(f'Đã tạo {created} học phí mới cho tháng {month}/{year}.', 'success')
     return redirect(url_for('admin.tuition', month=month, year=year))
 
 
@@ -818,18 +792,16 @@ def monthly_fee_generate():
 @login_required
 @require_admin
 def tuition_adjust_amount(payment_id):
-    """Admin điều chỉnh số tiền học phí cho từng học sinh cụ thể"""
+    """Admin điều chỉnh học phí tháng này cho một học sinh cụ thể — chỉ áp
+    dụng cho tháng đang xem, ghi lại vào TuitionFeeAuditLog (record_fee_adjustment)."""
     tp = TuitionPayment.query.get_or_404(payment_id)
     if tp.is_paid:
         flash('Học phí đã được thanh toán, không thể chỉnh sửa số tiền.', 'danger')
         return redirect(url_for('admin.tuition', month=tp.month, year=tp.year))
 
     new_amount = request.form.get('amount', type=float)
-    note = request.form.get('note', '').strip()
+    note = request.form.get('note', '').strip() or None
     if new_amount is not None and new_amount >= 0:
-        tp.amount = new_amount
-        if note:
-            tp.note = note
-        db.session.commit()
+        record_fee_adjustment(payment_id, new_amount, current_user.id, note=note)
         flash(f'Đã cập nhật học phí {tp.student.full_name}: {int(new_amount):,}₫.', 'success')
     return redirect(request.referrer or url_for('admin.tuition', month=tp.month, year=tp.year))
