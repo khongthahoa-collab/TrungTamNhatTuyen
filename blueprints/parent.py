@@ -5,6 +5,7 @@ import re
 from flask import Blueprint, render_template, redirect, url_for, flash, abort, send_from_directory, current_app, request
 from flask_login import login_required, current_user
 from datetime import date, datetime, timedelta
+from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 from extensions import db
 from models import (Student, Attendance, Score, Reward, TuitionPayment, Schedule, Enrollment,
@@ -164,14 +165,27 @@ def attendance(student_id):
     student = _get_student_or_403(student_id)
     children = current_user.children.filter_by(is_active=True).all()
 
-    records = (
-        Attendance.query
+    page = request.args.get('page', 1, type=int)
+    base_query = Attendance.query.filter_by(student_id=student.id)
+
+    # Status counts via SQL over the full history, not just the current
+    # page — the template's summary cards need true totals.
+    status_counts = dict(
+        db.session.query(Attendance.status, func.count(Attendance.id))
         .filter_by(student_id=student.id)
-        .order_by(Attendance.recorded_at.desc())
+        .group_by(Attendance.status)
         .all()
     )
+
+    pagination = base_query.order_by(Attendance.recorded_at.desc()) \
+        .paginate(page=page, per_page=50, error_out=False)
+    records = pagination.items
     return render_template('parent/attendance.html',
-                           student=student, children=children, records=records)
+                           student=student, children=children, records=records, pagination=pagination,
+                           present_count=status_counts.get('present', 0),
+                           absent_count=status_counts.get('absent', 0),
+                           late_count=status_counts.get('late', 0),
+                           excused_count=status_counts.get('excused', 0))
 
 
 @parent_bp.route('/students/<int:student_id>/scores')
@@ -327,11 +341,15 @@ def rewards(student_id):
     student = _get_student_or_403(student_id)
     children = current_user.children.filter_by(is_active=True).all()
 
-    records = student.rewards.filter_by(is_confirmed=True).order_by(
-        Reward.reward_date.desc()).all()
-    total = sum(r.amount for r in records)
+    page = request.args.get('page', 1, type=int)
+    base_query = student.rewards.filter_by(is_confirmed=True)
+    total = base_query.with_entities(func.coalesce(func.sum(Reward.amount), 0)).scalar()
+    pagination = base_query.order_by(Reward.reward_date.desc()) \
+        .paginate(page=page, per_page=50, error_out=False)
+    records = pagination.items
     return render_template('parent/rewards.html',
-                           student=student, children=children, records=records, total=total)
+                           student=student, children=children, records=records,
+                           pagination=pagination, total=total)
 
 
 @parent_bp.route('/students/<int:student_id>/tuition')
@@ -343,27 +361,40 @@ def tuition(student_id):
     children = current_user.children.filter_by(is_active=True).all()
 
     today = date.today()
-    records = student.tuition_payments.order_by(
-        TuitionPayment.year.desc(), TuitionPayment.month.desc()
-    ).all()
+    page = request.args.get('page', 1, type=int)
 
-    # Nhóm theo tháng/năm để hiển thị tổng
+    # Current month's status — fetched directly (not from the paginated
+    # history below), so it's always correct regardless of which page of
+    # older history the parent happens to be viewing.
+    current_records = student.tuition_payments.filter_by(year=today.year, month=today.month).all()
+    current_total = sum(r.amount for r in current_records)
+    current_unpaid = sum(r.amount for r in current_records if not r.is_paid)
+
+    # Full-history unpaid warning banner — true total across every month,
+    # not just whatever's on the current page.
+    unpaid_count, unpaid_total = student.tuition_payments.filter_by(is_paid=False).with_entities(
+        func.count(TuitionPayment.id), func.coalesce(func.sum(TuitionPayment.amount), 0)
+    ).first()
+
+    pagination = student.tuition_payments.order_by(
+        TuitionPayment.year.desc(), TuitionPayment.month.desc()
+    ).paginate(page=page, per_page=50, error_out=False)
+    records = pagination.items
+
+    # Nhóm theo tháng/năm để hiển thị tổng (chỉ trong trang hiện tại)
     from collections import defaultdict
     by_month = defaultdict(list)
     for r in records:
         by_month[(r.year, r.month)].append(r)
 
-    # Học phí tháng hiện tại
-    current_records = by_month.get((today.year, today.month), [])
-    current_total = sum(r.amount for r in current_records)
-    current_unpaid = sum(r.amount for r in current_records if not r.is_paid)
-
     return render_template('parent/tuition.html',
                            student=student, children=children,
-                           records=records, by_month=by_month,
+                           records=records, by_month=by_month, pagination=pagination,
                            current_records=current_records,
                            current_total=current_total,
                            current_unpaid=current_unpaid,
+                           unpaid_count=unpaid_count,
+                           unpaid_total=unpaid_total,
                            today=today)
 
 
