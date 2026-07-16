@@ -122,14 +122,14 @@
       </thead>
       <tbody>
         {% for r in records %}
-        <tr>
+        <tr class="{% if r.is_voided %}text-muted{% endif %}">
           <td class="ps-3 text-muted small">{{ loop.index + (pagination.page - 1) * pagination.per_page }}</td>
           <td>
             <a href="{{ url_for('admin.student_detail', student_id=r.student.id) }}"
-               class="fw-semibold small text-decoration-none">
+               class="fw-semibold small text-decoration-none {% if r.is_voided %}text-decoration-line-through{% endif %}">
               {{ r.student.full_name }}
             </a>
-            {% if not r.is_paid and is_writable %}
+            {% if not r.is_paid and not r.is_voided and is_writable %}
             <button class="btn btn-link p-0 ms-1" type="button"
                     data-bs-toggle="collapse"
                     data-bs-target="#adj{{ r.id }}"
@@ -138,10 +138,14 @@
             </button>
             {% endif %}
             <div class="text-muted" style="font-size:0.72rem;">{{ r.student.parent_phone or '' }}</div>
-            {% if r.note %}
+            {% if r.is_voided %}
+            <div class="text-danger-emphasis" style="font-size:0.72rem;" title="{{ r.void_reason }}">
+              <i class="bi bi-x-octagon-fill me-1"></i>Lý do hủy: {{ r.void_reason }}
+            </div>
+            {% elif r.note %}
             <div class="text-muted" style="font-size:0.72rem;">{{ r.note }}</div>
             {% endif %}
-            {% if not r.is_paid and is_writable %}
+            {% if not r.is_paid and not r.is_voided and is_writable %}
             <div class="collapse mt-1" id="adj{{ r.id }}">
               <form method="post"
                     action="{{ url_for('admin.tuition_adjust_amount', payment_id=r.id) }}"
@@ -163,7 +167,9 @@
           <td class="text-end fw-semibold small">{{ r.total_due | vnd }}</td>
           <td class="text-end small">{{ r.amount_collected | vnd if r.amount_collected else '—' }}</td>
           <td class="text-center">
-            {% if r.status == 'paid' %}
+            {% if r.status == 'voided' %}
+            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Đã hủy</span>
+            {% elif r.status == 'paid' %}
             <span class="badge bg-success-subtle text-success border border-success-subtle">Đã đóng đủ</span>
             {% elif r.status == 'partial' %}
             <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">Đóng một phần</span>
@@ -172,14 +178,35 @@
             {% endif %}
           </td>
           <td class="text-center">
-            {% if not r.is_paid and is_writable %}
-            <button type="button" class="btn btn-success btn-sm"
-                    data-bs-toggle="modal" data-bs-target="#markPaidModal"
-                    data-record-id="{{ r.id }}"
-                    data-student-name="{{ r.student.full_name }}"
-                    data-remaining="{{ (r.total_due - r.amount_collected) | int }}">
-              <i class="bi bi-check-circle me-1"></i>Thu
-            </button>
+            {% if r.is_voided %}
+              {% if is_writable %}
+              <form method="post" action="{{ url_for('admin.tuition_unvoid', payment_id=r.id) }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-outline-secondary btn-sm"
+                        onclick="return confirm('Khôi phục học phí đã hủy của {{ r.student.full_name }}?')">
+                  <i class="bi bi-arrow-counterclockwise me-1"></i>Khôi phục
+                </button>
+              </form>
+              {% else %}
+              <span class="text-muted small">—</span>
+              {% endif %}
+            {% elif not r.is_paid and is_writable %}
+            <div class="d-flex gap-1 justify-content-center">
+              <button type="button" class="btn btn-success btn-sm"
+                      data-bs-toggle="modal" data-bs-target="#markPaidModal"
+                      data-record-id="{{ r.id }}"
+                      data-student-name="{{ r.student.full_name }}"
+                      data-remaining="{{ (r.total_due - r.amount_collected) | int }}">
+                <i class="bi bi-check-circle me-1"></i>Thu
+              </button>
+              <button type="button" class="btn btn-outline-danger btn-sm"
+                      data-bs-toggle="modal" data-bs-target="#voidModal"
+                      data-record-id="{{ r.id }}"
+                      data-student-name="{{ r.student.full_name }}"
+                      title="Hủy hoá đơn">
+                <i class="bi bi-x-lg"></i>
+              </button>
+            </div>
             {% elif not r.is_paid %}
             <span class="text-muted small">—</span>
             {% else %}
@@ -277,6 +304,40 @@
   </div>
 </div>
 
+<!-- Modal hủy hoá đơn -->
+<div class="modal fade" id="voidModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title fw-bold">
+          <i class="bi bi-x-octagon me-2 text-danger"></i>Hủy hoá đơn học phí
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" id="voidForm" action="">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <p class="mb-3 small">
+            Hủy hoá đơn của <strong id="voidStudentName"></strong> tháng {{ month }}/{{ year }}.
+            Hoá đơn sẽ bị loại khỏi các báo cáo doanh thu nhưng vẫn có thể khôi phục sau.
+          </p>
+          <div class="mb-2">
+            <label class="form-label fw-semibold">Lý do hủy <span class="text-danger">*</span></label>
+            <textarea name="reason" class="form-control" rows="2" required
+                      placeholder="Ví dụ: tạo nhầm học sinh, trùng lớp…"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+          <button type="submit" class="btn btn-danger">
+            <i class="bi bi-x-lg me-1"></i>Xác nhận hủy
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <script>
 document.getElementById('markPaidModal').addEventListener('show.bs.modal', function(e) {
   const btn = e.relatedTarget;
@@ -288,6 +349,12 @@ document.getElementById('markPaidModal').addEventListener('show.bs.modal', funct
   document.getElementById('markPaidAmountInput').value = '';
   document.getElementById('markPaidForm').action =
     "{{ url_for('admin.tuition_mark_paid', payment_id=0) }}".replace('/0/', '/' + btn.dataset.recordId + '/');
+});
+document.getElementById('voidModal').addEventListener('show.bs.modal', function(e) {
+  const btn = e.relatedTarget;
+  document.getElementById('voidStudentName').textContent = btn.dataset.studentName;
+  document.getElementById('voidForm').action =
+    "{{ url_for('admin.tuition_void', payment_id=0) }}".replace('/0/', '/' + btn.dataset.recordId + '/');
 });
 </script>
 {% endblock %}

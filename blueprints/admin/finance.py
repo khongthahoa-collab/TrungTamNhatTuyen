@@ -10,7 +10,8 @@ from blueprints.admin import admin_bp, require_admin, require_master
 from services.salary_service import calculate_all_salaries, get_or_create_salary
 from services.zalo_service import ZaloService
 from services.tuition_service import (create_tuition_payment, record_payment, get_previous_month_debt,
-                                      record_fee_adjustment, batch_previous_month_debts)
+                                      record_fee_adjustment, batch_previous_month_debts,
+                                      void_tuition_payment, unvoid_tuition_payment)
 from services.academic_year_service import FrozenPeriodError, is_period_writable, list_academic_year_months
 
 
@@ -44,19 +45,28 @@ def _tuition_overview_aggregate(month, year, class_id=None, course_id=None):
             .all()
         )
 
+    # total counts every row, including voided ones — a voided bill still
+    # occupies the (student, class, month, year) unique-index slot, so it
+    # must keep counting as "generated"/"billed" or missing_count would
+    # wrongly flag that student as needing a fresh bill (which
+    # create_tuition_payment would then just refuse to create). Every
+    # money/status figure below (paid/unpaid counts and amounts, carried
+    # debt) excludes voided rows — that's the "excluded from revenue
+    # reports" requirement.
+    not_voided = TuitionPayment.is_voided == False
     total_due_expr = TuitionPayment.amount + TuitionPayment.debt_carried_over
     class_agg_query = (
         db.session.query(
             TuitionPayment.class_id,
             func.count(TuitionPayment.id).label('total'),
-            func.sum(case((TuitionPayment.is_paid == True, 1), else_=0)).label('paid_count'),
-            func.sum(case((TuitionPayment.is_paid == False, 1), else_=0)).label('unpaid_count'),
-            func.coalesce(func.sum(TuitionPayment.amount_collected), 0).label('collected_amount'),
+            func.sum(case((db.and_(TuitionPayment.is_paid == True, not_voided), 1), else_=0)).label('paid_count'),
+            func.sum(case((db.and_(TuitionPayment.is_paid == False, not_voided), 1), else_=0)).label('unpaid_count'),
+            func.coalesce(func.sum(case((not_voided, TuitionPayment.amount_collected), else_=0)), 0).label('collected_amount'),
             func.coalesce(func.sum(case(
-                (TuitionPayment.is_paid == False, total_due_expr - TuitionPayment.amount_collected),
+                (db.and_(TuitionPayment.is_paid == False, not_voided), total_due_expr - TuitionPayment.amount_collected),
                 else_=0,
             )), 0).label('outstanding_amount'),
-            func.coalesce(func.sum(TuitionPayment.debt_carried_over), 0).label('carried_debt_amount'),
+            func.coalesce(func.sum(case((not_voided, TuitionPayment.debt_carried_over), else_=0)), 0).label('carried_debt_amount'),
         )
         .filter(TuitionPayment.month == month, TuitionPayment.year == year)
         .group_by(TuitionPayment.class_id)
@@ -157,6 +167,11 @@ def tuition_class_detail(class_id):
     pagination = base_query.paginate(page=page, per_page=50, error_out=False)
     records = pagination.items
 
+    # KPI totals exclude voided bills entirely (excluded from revenue
+    # reports) — but the row list above (base_query) still shows them, and
+    # missing_count below still counts them as "billed" (a voided bill
+    # keeps its unique-index slot, so it shouldn't look like it needs a
+    # fresh one).
     total_due_expr = TuitionPayment.amount + TuitionPayment.debt_carried_over
     total, paid_count, unpaid_count, collected_amount, outstanding_amount = (
         db.session.query(
@@ -169,7 +184,7 @@ def tuition_class_detail(class_id):
                 else_=0,
             )), 0),
         )
-        .filter_by(class_id=class_id, month=month, year=year)
+        .filter_by(class_id=class_id, month=month, year=year, is_voided=False)
         .first()
     )
 
@@ -864,4 +879,34 @@ def tuition_adjust_amount(payment_id):
             flash(f'Đã cập nhật học phí {tp.student.full_name}: {int(new_amount):,}₫.', 'success')
         except (FrozenPeriodError, ValueError) as e:
             flash(str(e), 'danger')
+    return redirect(request.referrer or url_for('admin.tuition', month=tp.month, year=tp.year))
+
+
+@admin_bp.route('/tuition/<int:payment_id>/void', methods=['POST'])
+@login_required
+@require_admin
+def tuition_void(payment_id):
+    """Hủy (soft-delete) một hoá đơn học phí lập nhầm — không xoá bản ghi,
+    chỉ loại khỏi các báo cáo/tổng doanh thu. Bắt buộc nhập lý do."""
+    tp = TuitionPayment.query.get_or_404(payment_id)
+    reason = request.form.get('reason', '')
+    try:
+        void_tuition_payment(payment_id, reason, current_user.id)
+        flash(f'Đã hủy học phí {tp.student.full_name} tháng {tp.month}/{tp.year}.', 'success')
+    except (FrozenPeriodError, ValueError) as e:
+        flash(str(e), 'danger')
+    return redirect(request.referrer or url_for('admin.tuition', month=tp.month, year=tp.year))
+
+
+@admin_bp.route('/tuition/<int:payment_id>/unvoid', methods=['POST'])
+@login_required
+@require_admin
+def tuition_unvoid(payment_id):
+    """Khôi phục một hoá đơn đã bị hủy nhầm."""
+    tp = TuitionPayment.query.get_or_404(payment_id)
+    try:
+        unvoid_tuition_payment(payment_id)
+        flash(f'Đã khôi phục học phí {tp.student.full_name} tháng {tp.month}/{tp.year}.', 'success')
+    except (FrozenPeriodError, ValueError) as e:
+        flash(str(e), 'danger')
     return redirect(request.referrer or url_for('admin.tuition', month=tp.month, year=tp.year))

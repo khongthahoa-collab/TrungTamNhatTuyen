@@ -4,7 +4,8 @@ from extensions import db
 from models import TuitionPayment, Class, Course, Student
 from blueprints.api import (api_bp, api_ok, api_error, api_login_required, api_require_module,
                             get_page_args, pagination_meta, get_body, body_int, parse_amount)
-from services.tuition_service import create_tuition_payment, record_payment, record_fee_adjustment
+from services.tuition_service import (create_tuition_payment, record_payment, record_fee_adjustment,
+                                      void_tuition_payment, unvoid_tuition_payment)
 from services.academic_year_service import FrozenPeriodError
 
 
@@ -182,4 +183,37 @@ def tuition_pay(payment_id):
         payment = record_payment(payment_id, amount, method, g.api_user.id, note=note)
     except FrozenPeriodError as e:
         return api_error(str(e), 400, code='frozen_period')
+    return api_ok(payment.to_dict())
+
+
+@api_bp.route('/tuition-payments/<int:payment_id>/void', methods=['POST'])
+@api_login_required
+@api_require_module('tuition', write=True)
+def tuition_void(payment_id):
+    """Soft-delete a mistakenly-created bill. Body: {"reason": "..."}
+    (required). Blocked once the bill is fully paid — see
+    void_tuition_payment()."""
+    body = get_body()
+    try:
+        payment = void_tuition_payment(payment_id, body.get('reason'), g.api_user.id)
+    except (FrozenPeriodError, ValueError) as e:
+        code = 'frozen_period' if isinstance(e, FrozenPeriodError) else 'validation_error'
+        return api_error(str(e), 400, code=code)
+    if not payment:
+        return api_error('Không tìm thấy bản ghi học phí.', 404, code='not_found')
+    return api_ok(payment.to_dict())
+
+
+@api_bp.route('/tuition-payments/<int:payment_id>/unvoid', methods=['POST'])
+@api_login_required
+@api_require_module('tuition', write=True)
+def tuition_unvoid(payment_id):
+    """Reverse tuition_void()."""
+    try:
+        payment = unvoid_tuition_payment(payment_id)
+    except (FrozenPeriodError, ValueError) as e:
+        code = 'frozen_period' if isinstance(e, FrozenPeriodError) else 'validation_error'
+        return api_error(str(e), 400, code=code)
+    if not payment:
+        return api_error('Không tìm thấy bản ghi học phí.', 404, code='not_found')
     return api_ok(payment.to_dict())

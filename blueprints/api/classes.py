@@ -1,5 +1,5 @@
 from datetime import date, time as time_type
-from flask import request
+from flask import request, g
 from extensions import db
 from models import Class, Course, Teacher, Schedule, Student, Enrollment, GRADE_SEQUENCE
 from blueprints.api import (api_bp, api_ok, api_error, api_login_required, api_require_module,
@@ -7,6 +7,7 @@ from blueprints.api import (api_bp, api_ok, api_error, api_login_required, api_r
 from blueprints.admin.classes import (_generate_schedules, _find_teacher_conflict, _has_duplicate_slot,
                                       _current_school_year_range, _make_class_name, _semester_for_date)
 from services.schedule_service import find_student_schedule_conflict, schedule_conflict_message
+from services.tuition_service import cascade_class_fee_update
 
 
 @api_bp.route('/classes', methods=['GET'])
@@ -176,8 +177,14 @@ def classes_update(class_id):
         cls.course_id = body_int(body, 'course_id')
     if 'max_students' in body:
         cls.max_students = body_int(body, 'max_students')
+    cascaded = 0
     if 'monthly_fee' in body:
-        cls.monthly_fee = float(body.get('monthly_fee') or 0)
+        old_fee = cls.monthly_fee or 0
+        new_fee = float(body.get('monthly_fee') or 0)
+        cls.monthly_fee = new_fee
+        # Same class-wide cascade as the web class_edit(): pushes the new
+        # rate onto this month's still-open (unpaid, non-custom) bills.
+        cascaded = cascade_class_fee_update(class_id, old_fee, new_fee, g.api_user.id)
     if 'is_active' in body:
         cls.is_active = str(body.get('is_active')).lower() in ('1', 'true', 'yes')
     cls.primary_teacher_id = new_primary_id
@@ -186,7 +193,9 @@ def classes_update(class_id):
         cls.assistant_teachers = Teacher.query.filter(Teacher.id.in_(ids)).all() if ids else []
 
     db.session.commit()
-    return api_ok(cls.to_dict())
+    result = cls.to_dict()
+    result['tuition_bills_cascaded'] = cascaded
+    return api_ok(result)
 
 
 @api_bp.route('/classes/<int:class_id>', methods=['DELETE'])

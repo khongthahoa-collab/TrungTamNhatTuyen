@@ -32,7 +32,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from extensions import db
 from models import TuitionPayment, TuitionTransaction, TuitionFeeAuditLog, Class
-from services.academic_year_service import assert_period_writable
+from services.academic_year_service import assert_period_writable, is_period_writable
 
 
 def get_previous_month_debt(student_id, class_id, month, year):
@@ -230,7 +230,104 @@ def record_fee_adjustment(payment_id, new_amount, changed_by, note=None):
         changed_by=changed_by, note=note,
     ))
     tp.amount = new_amount
+    tp.has_custom_fee = True
     if note:
         tp.note = note
     db.session.commit()
     return tp
+
+
+def void_tuition_payment(payment_id, reason, voided_by):
+    """Soft-delete a mistakenly-created bill (the "Hủy" admin action) —
+    excluded from revenue/KPI aggregates going forward, but the row (and
+    any TuitionTransaction ledger entries already recorded against it)
+    stays for audit purposes; use unvoid_tuition_payment() to reverse.
+
+    Mirrors tuition_adjust_amount()'s existing precedent of refusing to
+    touch a fully-paid bill — voiding retracts a bill before money
+    changes hands, not after. Raises ValueError if the reason is blank,
+    the bill is already voided, or is_paid. Raises FrozenPeriodError if
+    the row's (month, year) isn't the active academic year. Returns None
+    if no such row exists."""
+    reason = (reason or '').strip()
+    if not reason:
+        raise ValueError("Vui lòng nhập lý do hủy.")
+
+    query = TuitionPayment.query.filter_by(id=payment_id)
+    if db.engine.dialect.name == 'postgresql':
+        query = query.with_for_update()
+    tp = query.first()
+    if not tp:
+        return None
+
+    assert_period_writable(tp.month, tp.year)
+
+    if tp.is_voided:
+        raise ValueError("Học phí này đã bị hủy trước đó.")
+    if tp.is_paid:
+        raise ValueError("Học phí đã được thanh toán đủ, không thể hủy.")
+
+    tp.is_voided = True
+    tp.void_reason = reason
+    tp.voided_by = voided_by
+    tp.voided_at = datetime.utcnow()
+    db.session.commit()
+    return tp
+
+
+def unvoid_tuition_payment(payment_id):
+    """Reverse void_tuition_payment(). Raises ValueError if the row isn't
+    currently voided. Raises FrozenPeriodError if the row's (month, year)
+    isn't the active academic year. Returns None if no such row exists."""
+    query = TuitionPayment.query.filter_by(id=payment_id)
+    if db.engine.dialect.name == 'postgresql':
+        query = query.with_for_update()
+    tp = query.first()
+    if not tp:
+        return None
+
+    assert_period_writable(tp.month, tp.year)
+
+    if not tp.is_voided:
+        raise ValueError("Học phí này chưa bị hủy.")
+
+    tp.is_voided = False
+    tp.void_reason = None
+    tp.voided_by = None
+    tp.voided_at = None
+    db.session.commit()
+    return tp
+
+
+def cascade_class_fee_update(class_id, old_fee, new_fee, changed_by):
+    """When a Class's monthly_fee changes, push the new rate onto this
+    month's still-open bills for that class. Skips PAID bills, PARTIAL
+    bills (amount_collected > 0), voided bills, and bills with
+    has_custom_fee=True (a student-specific override from the "Sửa"
+    action) — only a strictly-unpaid, never-manually-edited bill picks up
+    the new class rate. If every bill this month is already settled, this
+    is a no-op and the new rate simply applies starting next month's
+    generation.
+
+    Does not commit — the caller (class_edit() / classes_update()) commits
+    once, so the Class.monthly_fee change and this cascade land in the
+    same transaction. Returns the count of bills updated."""
+    if old_fee == new_fee:
+        return 0
+    today = date.today()
+    if not is_period_writable(today.month, today.year):
+        return 0
+
+    candidates = TuitionPayment.query.filter_by(
+        class_id=class_id, month=today.month, year=today.year,
+        is_paid=False, is_voided=False, has_custom_fee=False,
+    ).filter(TuitionPayment.amount_collected == 0).all()
+
+    for tp in candidates:
+        db.session.add(TuitionFeeAuditLog(
+            tuition_payment_id=tp.id, old_amount=tp.amount, new_amount=new_fee,
+            changed_by=changed_by, note='Cập nhật theo học phí lớp mới',
+        ))
+        tp.amount = new_fee
+
+    return len(candidates)

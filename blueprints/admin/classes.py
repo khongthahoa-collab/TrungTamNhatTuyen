@@ -1,5 +1,5 @@
 from flask import render_template, redirect, url_for, flash, request, jsonify, abort
-from flask_login import login_required
+from flask_login import login_required, current_user
 from datetime import date, timedelta, time as time_type
 from sqlalchemy import or_, and_
 from extensions import db
@@ -9,7 +9,7 @@ from models import (Class, Course, Teacher, Schedule, Semester, Enrollment, Stud
 from blueprints.admin import admin_bp, require_admin
 from services.schedule_service import (find_student_schedule_conflict, schedule_conflict_message,
                                        notify_class_teachers)
-from services.tuition_service import create_tuition_payment
+from services.tuition_service import create_tuition_payment, cascade_class_fee_update
 from services.academic_year_service import is_period_writable
 
 # ── Constants ──────────────────────────────────────────────────────────────
@@ -576,10 +576,13 @@ def class_edit(class_id):
                 Schedule.date >= date.today(),
             ).update({'teacher_id': new_primary_id}, synchronize_session=False)
 
+        old_fee = class_.monthly_fee or 0
+        new_fee = request.form.get('monthly_fee', type=float, default=old_fee)
+
         class_.course_id = new_course_id
         class_.grade_level = grade_level or class_.grade_level
         class_.max_students = request.form.get('max_students', type=int) or class_.max_students
-        class_.monthly_fee = request.form.get('monthly_fee', type=float, default=class_.monthly_fee or 0)
+        class_.monthly_fee = new_fee
         class_.sessions_per_week = request.form.get('sessions_per_week', type=int) or class_.sessions_per_week or 1
         class_.description = request.form.get('description', '').strip()
         class_.is_active = request.form.get('is_active') == '1'
@@ -587,8 +590,17 @@ def class_edit(class_id):
         assistant_teacher_ids = [int(x) for x in request.form.getlist('assistant_teacher_ids[]') if x]
         class_.assistant_teachers = Teacher.query.filter(Teacher.id.in_(assistant_teacher_ids)).all() if assistant_teacher_ids else []
 
+        # Học phí lớp đổi -> đẩy mức phí mới sang các hoá đơn tháng này còn
+        # CHƯA đóng và chưa bị chỉnh sửa riêng (has_custom_fee) — hoá đơn đã
+        # đóng/đóng một phần/đã tùy chỉnh giữ nguyên. Cùng transaction với
+        # commit bên dưới.
+        cascaded = cascade_class_fee_update(class_id, old_fee, new_fee, current_user.id)
+
         db.session.commit()
-        flash('Đã cập nhật thông tin lớp.', 'success')
+        if cascaded:
+            flash(f'Đã cập nhật thông tin lớp. Áp dụng học phí mới cho {cascaded} hoá đơn tháng này chưa đóng.', 'success')
+        else:
+            flash('Đã cập nhật thông tin lớp.', 'success')
         return redirect(url_for('admin.class_detail', class_id=class_id))
 
     return render_template('admin/classes/form.html',

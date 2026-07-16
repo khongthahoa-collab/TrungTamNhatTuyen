@@ -1183,6 +1183,18 @@ class TuitionPayment(db.Model):
     is_paid = db.Column(db.Boolean, default=False)
     is_finalized = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # Soft-deletion: a mistakenly-created bill is voided rather than
+    # deleted — excluded from revenue/KPI aggregates but the row (and the
+    # immutable TuitionTransaction ledger, if any payment was recorded)
+    # stays for audit purposes. Reversible via unvoid_tuition_payment().
+    is_voided = db.Column(db.Boolean, default=False)
+    void_reason = db.Column(db.String(255))
+    voided_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    voided_at = db.Column(db.DateTime)
+    # Set by record_fee_adjustment() when an admin manually re-prices this
+    # specific bill — marks it as permanently exempt from
+    # cascade_class_fee_update()'s class-wide fee changes.
+    has_custom_fee = db.Column(db.Boolean, default=False)
 
     __table_args__ = (
         db.Index('ix_tuitionpayment_year_month', 'year', 'month'),
@@ -1202,9 +1214,11 @@ class TuitionPayment(db.Model):
 
     @property
     def status(self):
-        """'paid' / 'partial' / 'unpaid', derived from amount_collected vs
-        total_due (not stored — always consistent with the underlying
-        numbers, can't drift)."""
+        """'voided' / 'paid' / 'partial' / 'unpaid', derived from is_voided
+        and amount_collected vs total_due (not stored — always consistent
+        with the underlying numbers, can't drift)."""
+        if self.is_voided:
+            return 'voided'
         if self.is_paid:
             return 'paid'
         if (self.amount_collected or 0) > 0:
@@ -1213,7 +1227,8 @@ class TuitionPayment(db.Model):
 
     @property
     def status_label(self):
-        return {'paid': 'Đã đóng đủ', 'partial': 'Đóng một phần', 'unpaid': 'Chưa đóng'}[self.status]
+        return {'paid': 'Đã đóng đủ', 'partial': 'Đóng một phần', 'unpaid': 'Chưa đóng',
+                'voided': 'Đã hủy'}[self.status]
 
     @property
     def method_label(self):
@@ -1254,6 +1269,10 @@ class TuitionPayment(db.Model):
             'payment_status': self.payment_status,
             'status': self.status,
             'status_label': self.status_label,
+            'is_voided': self.is_voided,
+            'void_reason': self.void_reason,
+            'voided_at': self.voided_at.isoformat() if self.voided_at else None,
+            'has_custom_fee': self.has_custom_fee,
         }
 
     def __repr__(self):

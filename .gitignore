@@ -74,6 +74,7 @@ migrate_add_api_token.py
 migrate_add_tuition_debt_carryover.py
 migrate_add_tuition_ledger.py
 migrate_add_class_rollover_link.py
+migrate_add_tuition_void.py
 
 # Docker
 .docker/
