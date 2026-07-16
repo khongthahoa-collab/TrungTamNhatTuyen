@@ -9,7 +9,7 @@ from models import (Class, Course, Teacher, Schedule, Semester, Enrollment, Stud
 from blueprints.admin import admin_bp, require_admin
 from services.schedule_service import (find_student_schedule_conflict, schedule_conflict_message,
                                        notify_class_teachers)
-from services.tuition_service import create_tuition_payment, cascade_class_fee_update
+from services.tuition_service import create_tuition_payment, cascade_class_fee_update, batch_previous_month_debts
 from services.academic_year_service import is_period_writable
 
 # ── Constants ──────────────────────────────────────────────────────────────
@@ -750,10 +750,25 @@ def class_add_students(class_id):
 
     # A schedule-conflicted student is skipped, not a reason to abort the
     # whole batch — everyone else selected still gets added normally.
+    #
+    # Both batched up front so a large selection doesn't turn into an N+1:
+    # slot_cache reuses target_class's (and any repeated other class's)
+    # weekly slots instead of re-querying them per student, and
+    # active_enrollments_by_student replaces the per-student
+    # `student.enrollments` dynamic-relationship query with one query for
+    # the whole group.
     students = Student.query.filter(Student.id.in_(student_ids)).all()
+    active_enrollments_by_student = {}
+    for e in Enrollment.query.filter(Enrollment.student_id.in_(student_ids), Enrollment.is_active == True).all():
+        active_enrollments_by_student.setdefault(e.student_id, set()).add(e.class_id)
+    slot_cache = {}
+
     ok_student_ids = []
     for student in students:
-        conflict = find_student_schedule_conflict(student, class_)
+        conflict = find_student_schedule_conflict(
+            student, class_, slot_cache=slot_cache,
+            active_class_ids=active_enrollments_by_student.get(student.id, set()),
+        )
         if conflict:
             flash(schedule_conflict_message(student, class_, conflict), 'danger')
         else:
@@ -781,6 +796,11 @@ def class_add_students(class_id):
     # rather than raising mid-loop — enrollment itself should still
     # succeed; the school just needs to set up this year's AcademicYear.
     can_bill_this_month = is_period_writable(today.month, today.year)
+    # Batched the same way monthly_fee_generate() is — one query for every
+    # student's previous-month debt instead of one per student, and
+    # skip_period_check=True below avoids create_tuition_payment() re-running
+    # the is_period_writable() check (already done once above) per student.
+    debts = batch_previous_month_debts(ok_student_ids, class_id, today.month, today.year) if can_bill_this_month else {}
 
     added = tuition_added = 0
     for student_id in ok_student_ids:
@@ -796,6 +816,7 @@ def class_add_students(class_id):
         if can_bill_this_month and student_id not in students_with_tuition:
             _, was_created = create_tuition_payment(
                 student_id, class_id, today.month, today.year, class_.monthly_fee or 0,
+                debt_override=debts.get(student_id, 0), skip_period_check=True,
                 note='Tự động tạo khi thêm vào lớp',
             )
             if was_created:
