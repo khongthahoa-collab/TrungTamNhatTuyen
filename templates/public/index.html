@@ -234,7 +234,7 @@
       </a>
     </div>
 
-    <!-- Schedule grid (desktop) / list (mobile) -->
+    <!-- Schedule grid (desktop) / accordion (mobile) -->
     <div class="d-none d-md-block">
       <div class="row g-3">
         {% for d in week_days %}
@@ -246,21 +246,15 @@
               </div>
               <div class="card-body p-2">
                 {% if schedule_by_day[d] %}
-                  {% for s in schedule_by_day[d] %}
-                    <div class="schedule-card mb-2 p-2 rounded cursor-pointer {% if s.schedule_type == 'intensive' %}schedule-intensive{% else %}schedule-regular{% endif %}"
-                         onclick="showScheduleDetail({{ s.id }})" role="button">
+                  {% for c in schedule_by_day[d] %}
+                    <div class="schedule-card mb-2 p-2 rounded {% if c.is_intensive %}schedule-intensive{% else %}schedule-regular{% endif %}">
                       <div class="fw-semibold small">
-                        {{ s.class_.subject_grade_label }}
-                        {% if s.schedule_type == 'intensive' %}
+                        {{ c.class_name }}
+                        {% if c.is_intensive %}
                           <span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem">TC</span>
                         {% endif %}
                       </div>
-                      <div class="text-muted" style="font-size:0.75rem">
-                        {{ s.start_time.strftime('%H:%M') }}–{{ s.end_time.strftime('%H:%M') }}
-                      </div>
-                      <div style="font-size:0.7rem" class="text-muted">
-                        <i class="bi bi-people me-1"></i>Sĩ số tối đa: {{ s.class_.max_students }}
-                      </div>
+                      <div class="text-muted" style="font-size:0.75rem">{{ c.time_label }}</div>
                     </div>
                   {% endfor %}
                 {% else %}
@@ -273,36 +267,46 @@
       </div>
     </div>
 
-    <!-- Mobile: list view -->
-    <div class="d-md-none">
+    <!-- Mobile: day-by-day accordion — keeps a 7-day grid readable on a
+         narrow screen by only showing one day's classes at a time. -->
+    <div class="d-md-none accordion" id="scheduleAccordion">
+      {% set week_has_today = today in week_days %}
+      {% set opened = namespace(val=false) %}
       {% for d in week_days %}
         {% if schedule_by_day[d] %}
-          <div class="mb-3">
-            <div class="d-flex align-items-center mb-2">
-              <span class="badge {% if d == today %}bg-primary{% else %}bg-secondary{% endif %} me-2">
-                {{ d|weekday_vn }}
-              </span>
-              <span class="text-muted small">{{ d|date_vn }}</span>
-            </div>
-            {% for s in schedule_by_day[d] %}
-              <div class="card border-0 shadow-sm mb-2 {% if s.schedule_type == 'intensive' %}border-start border-warning border-3{% else %}border-start border-primary border-3{% endif %}"
-                   onclick="showScheduleDetail({{ s.id }})" role="button" style="cursor:pointer">
-                <div class="card-body py-2 px-3">
-                  <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                      <div class="fw-semibold">{{ s.class_.subject_grade_label }}</div>
-                      <div class="text-muted small">{{ s.start_time.strftime('%H:%M') }}–{{ s.end_time.strftime('%H:%M') }}</div>
-                    </div>
-                    <div class="text-end">
-                      {% if s.schedule_type == 'intensive' %}
-                        <span class="badge bg-warning text-dark small">Tăng cường</span>
-                      {% endif %}
-                      <div class="text-muted small"><i class="bi bi-people me-1"></i>Sĩ số tối đa: {{ s.class_.max_students }}</div>
+          {# Expand today's day if this week includes it; otherwise expand
+             the first day (chronologically) that has any classes. #}
+          {% set expand_this = (d == today) if week_has_today else (not opened.val) %}
+          {% if expand_this %}{% set opened.val = true %}{% endif %}
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button {% if not expand_this %}collapsed{% endif %}" type="button"
+                      data-bs-toggle="collapse" data-bs-target="#day-{{ loop.index0 }}">
+                <span class="badge {% if d == today %}bg-primary{% else %}bg-secondary{% endif %} me-2">
+                  {{ d|weekday_vn }}
+                </span>
+                <span class="text-muted small">{{ d|date_vn }}</span>
+                <span class="badge bg-light text-dark border ms-2">{{ schedule_by_day[d]|length }}</span>
+              </button>
+            </h2>
+            <div id="day-{{ loop.index0 }}" class="accordion-collapse collapse {% if expand_this %}show{% endif %}"
+                 data-bs-parent="#scheduleAccordion">
+              <div class="accordion-body py-2 px-2">
+                {% for c in schedule_by_day[d] %}
+                  <div class="card border-0 shadow-sm mb-2 {% if c.is_intensive %}border-start border-warning border-3{% else %}border-start border-primary border-3{% endif %}">
+                    <div class="card-body py-2 px-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <div class="fw-semibold">{{ c.class_name }}</div>
+                        {% if c.is_intensive %}
+                          <span class="badge bg-warning text-dark small">Tăng cường</span>
+                        {% endif %}
+                      </div>
+                      <div class="text-muted small">{{ c.time_label }}</div>
                     </div>
                   </div>
-                </div>
+                {% endfor %}
               </div>
-            {% endfor %}
+            </div>
           </div>
         {% endif %}
       {% endfor %}
@@ -312,6 +316,14 @@
         <p class="text-center text-muted py-4">Không có lịch học tuần này.</p>
       {% endif %}
     </div>
+
+    {% if schedule_is_teaser %}
+    <div class="text-center mt-3">
+      <span class="badge bg-white text-muted border px-3 py-2" style="font-weight:500;">
+        <i class="bi bi-funnel me-1"></i>Vui lòng chọn bộ lọc Lớp/Cấp để tìm kiếm lịch học đầy đủ hơn
+      </span>
+    </div>
+    {% endif %}
 
     <!-- Legend -->
     <div class="d-flex gap-3 mt-3 flex-wrap justify-content-center">
@@ -768,64 +780,4 @@ function submitContact() {
 }
 </script>
 
-<!-- Schedule detail modal -->
-<div class="modal fade" id="scheduleModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content rounded-4">
-      <div class="modal-header border-0">
-        <h5 class="modal-title fw-bold" id="modalTitle">Thông tin lịch học</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body pt-0" id="modalBody">
-        <div class="text-center py-3"><div class="spinner-border text-primary"></div></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-const scheduleModal = new bootstrap.Modal(document.getElementById('scheduleModal'));
-function showScheduleDetail(id) {
-  document.getElementById('modalBody').innerHTML = '<div class="text-center py-3"><div class="spinner-border text-primary"></div></div>';
-  scheduleModal.show();
-  fetch('/api/lich/' + id)
-    .then(r => r.json())
-    .then(d => {
-      const badge = d.type === 'Lịch tăng cường'
-        ? '<span class="badge bg-warning text-dark">Tăng cường</span>'
-        : '<span class="badge bg-primary">Lịch thường</span>';
-      document.getElementById('modalTitle').textContent = d.class_name;
-      document.getElementById('modalBody').innerHTML = `
-        <div class="list-group list-group-flush">
-          <div class="list-group-item px-0 d-flex justify-content-between">
-            <span class="text-muted small">Môn học</span><strong>${d.course} · ${d.level}</strong>
-          </div>
-          ${d.grade_level ? `<div class="list-group-item px-0 d-flex justify-content-between"><span class="text-muted small">Khối</span><strong>${d.grade_level}</strong></div>` : ''}
-          <div class="list-group-item px-0 d-flex justify-content-between">
-            <span class="text-muted small">Ngày học</span><strong>${d.date}</strong>
-          </div>
-          <div class="list-group-item px-0 d-flex justify-content-between">
-            <span class="text-muted small">Giờ học</span><strong>${d.time}</strong>
-          </div>
-          <div class="list-group-item px-0 d-flex justify-content-between">
-            <span class="text-muted small">Phòng</span><strong>${d.room}</strong>
-          </div>
-          <div class="list-group-item px-0 d-flex justify-content-between">
-            <span class="text-muted small">Giáo viên</span><strong>${d.teacher}</strong>
-          </div>
-          <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
-            <span class="text-muted small">Sĩ số</span>
-            <div>
-              <strong>${d.enrolled}/${d.max_students}</strong>
-              <div class="progress mt-1" style="width:80px;height:6px">
-                <div class="progress-bar bg-primary" style="width:${Math.round(d.enrolled/d.max_students*100)}%"></div>
-              </div>
-            </div>
-          </div>
-          ${d.topic ? `<div class="list-group-item px-0"><span class="text-muted small">Nội dung: </span>${d.topic}</div>` : ''}
-          <div class="list-group-item px-0">${badge}</div>
-        </div>`;
-    });
-}
-</script>
 {% endblock %}

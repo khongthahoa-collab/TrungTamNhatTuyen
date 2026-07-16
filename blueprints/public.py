@@ -47,12 +47,42 @@ def index():
 
     schedules = q.order_by(Schedule.date, Schedule.start_time).all()
 
-    # Group by date
+    # Group by date, deduplicating same-name/same-time parallel classes
+    # (e.g. 3 different "Toán 6" sections at 09:00-10:30) into one card, and
+    # stripping down to only the two public-safe fields (class name + time).
+    # This is deliberate: the card dicts below never carry the Schedule/Class
+    # ORM objects at all, so capacity, room, and teacher can't leak into the
+    # public page even via a future template edit — there's nothing to leak
+    # a reference to.
     week_days = [(monday + timedelta(days=i)) for i in range(7)]
     schedule_by_day = {d: [] for d in week_days}
+    flat_cards = []
+    seen_keys = set()
     for s in schedules:
-        if s.date in schedule_by_day:
-            schedule_by_day[s.date].append(s)
+        if s.date not in schedule_by_day:
+            continue
+        key = (s.date, s.class_.subject_grade_label, s.start_time, s.end_time)
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        card = {
+            'class_name': s.class_.subject_grade_label,
+            'time_label': f"{s.start_time.strftime('%H:%M')}–{s.end_time.strftime('%H:%M')}",
+            'is_intensive': s.schedule_type == 'intensive',
+        }
+        schedule_by_day[s.date].append(card)
+        flat_cards.append(card)
+
+    # Teaser mode: with no course/level filter selected, cap the whole week
+    # to the first 5 (chronologically) distinct cards, with a hint to filter
+    # for the full list. A filter present bypasses the cap entirely.
+    has_filter = bool(course_id or level)
+    schedule_is_teaser = False
+    if not has_filter and len(flat_cards) > 5:
+        keep_ids = {id(c) for c in flat_cards[:5]}
+        for d in schedule_by_day:
+            schedule_by_day[d] = [c for c in schedule_by_day[d] if id(c) in keep_ids]
+        schedule_is_teaser = True
 
     # Courses for filter
     courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
@@ -128,6 +158,7 @@ def index():
         'public/index.html',
         week_days=week_days,
         schedule_by_day=schedule_by_day,
+        schedule_is_teaser=schedule_is_teaser,
         week_offset=week_offset,
         monday=monday,
         sunday=sunday,
@@ -201,23 +232,3 @@ def contact_inquiry():
 
     db.session.commit()
     return jsonify({'ok': True, 'msg': 'Cảm ơn! Cô Tuyền sẽ liên hệ lại với bạn sớm nhất có thể.'})
-
-
-@public_bp.route('/api/schedule/<int:schedule_id>')
-def schedule_detail(schedule_id):
-    """API trả về chi tiết buổi học (không hiện học phí)."""
-    s = Schedule.query.get_or_404(schedule_id)
-    return jsonify({
-        'class_name': s.class_.public_name,
-        'course': s.class_.course.name,
-        'level': s.class_.grade_level or '',
-        'grade_level': s.class_.grade_level or '',
-        'date': s.date.strftime('%d/%m/%Y'),
-        'time': f"{s.start_time.strftime('%H:%M')} - {s.end_time.strftime('%H:%M')}",
-        'room': s.room or 'Chưa xác định',
-        'topic': s.topic or '',
-        'type': s.type_label,
-        'enrolled': s.class_.current_enrollment,
-        'max_students': s.class_.max_students,
-        'teacher': s.teacher.full_name if s.teacher else 'Chưa phân công',
-    })
