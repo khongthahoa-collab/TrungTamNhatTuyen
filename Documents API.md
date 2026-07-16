@@ -324,19 +324,55 @@ qualify for one).
 
 | Method | Path | Write? |
 |---|---|---|
+| GET | `/tuition/overview` | |
 | GET | `/tuition-payments` | |
 | GET | `/tuition-payments/<id>` | |
 | POST | `/tuition-payments` | ✓ |
 | PUT | `/tuition-payments/<id>` | ✓ |
 
-List filters: `student_id`, `class_id`, `month`, `year`, `is_paid`
-(`1`/`0`).
+Each `TuitionPayment` row is one student's bill for one class for one
+month. `amount` is that month's fee only. `debt_carried_over` is any
+unpaid `total_due` automatically rolled over from the same student+class's
+previous-month row (0 if none, or if that month was fully paid — this
+happens automatically wherever a row is created; there's no separate
+"run carryover" endpoint). `total_due` (`amount + debt_carried_over`) and
+`amount_collected` (cumulative amount actually received) are what
+`status` is derived from: `paid` (`is_paid`) / `partial`
+(`amount_collected > 0` but not fully paid) / `unpaid`.
+
+**`GET /tuition/overview`** — `?month=&year=&class_id=` (all optional,
+month/year default to today). KPI totals plus a per-class breakdown:
+```json
+{"data": {
+  "month": 7, "year": 2026,
+  "total_expected": 45000000, "total_collected": 32000000, "total_outstanding": 13000000,
+  "classes": [{"class_id": 3, "class_name": "Toán 7", "total_students": 20,
+               "paid_count": 15, "unpaid_count": 5,
+               "collected_amount": 12000000, "outstanding_amount": 3000000}]
+}}
+```
+If `class_id` is given and doesn't exist, `404`.
+
+List filters (`GET /tuition-payments`): `student_id`, `class_id`,
+`month`, `year`, `is_paid` (`1`/`0`). `404` if `class_id` is given and
+doesn't exist.
 
 Create body: `{"student_id":, "class_id":, "month":, "year":, "amount":, "method": "cash", "note": "..."}`.
+`debt_carried_over` is computed automatically from the previous month —
+not settable directly. Returns `409` (`code: duplicate`) if a row for
+that student+class+month already exists (the API enforces the same
+one-row-per-student-per-class-per-month rule as the web app, backed by
+a DB-level unique constraint).
 
-Update is how you mark a payment paid: `PUT` with `{"is_paid": true}`
-sets `paid_at` to now (only the first time it flips from unpaid→paid).
-Also accepts `amount`, `note`, `method`.
+Update: plain field edits (`amount`, `note`, `method`) apply directly.
+Setting `{"is_paid": true}` is treated as **recording a payment** —
+it's routed through the same lock-and-verify path the web app's
+"Thu tiền" button uses, so two concurrent requests marking the same row
+paid can't both succeed or double-collect. Optionally include
+`{"amount_collected": 500000}` to record a **partial** payment instead
+of collecting the full remaining balance (status becomes `partial`
+rather than `paid` until the balance reaches zero); omit it to collect
+everything owed, same as leaving the web form's amount field blank.
 
 No delete endpoint — matches the web app, which doesn't offer one
 either (tuition records are financial history, not deletable).

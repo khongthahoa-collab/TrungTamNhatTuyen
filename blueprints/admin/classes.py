@@ -9,6 +9,7 @@ from models import (Class, Course, Teacher, Schedule, Semester, Enrollment, Stud
 from blueprints.admin import admin_bp, require_admin
 from services.schedule_service import (find_student_schedule_conflict, schedule_conflict_message,
                                        notify_class_teachers)
+from services.tuition_service import create_tuition_payment
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
@@ -778,13 +779,13 @@ def class_add_students(class_id):
             added += 1
 
         if cfg and student_id not in students_with_tuition:
-            db.session.add(TuitionPayment(
-                student_id=student_id, class_id=class_id,
-                amount=cfg.adjusted_fee, amount_100pct=cfg.base_fee,
-                month=today.month, year=today.year, is_paid=False,
+            _, was_created = create_tuition_payment(
+                student_id, class_id, today.month, today.year, cfg.adjusted_fee,
+                amount_100pct=cfg.base_fee,
                 note=f'Tự động tạo khi thêm vào lớp: {cfg.weeks_billed}/{cfg.standard_weeks} tuần',
-            ))
-            tuition_added += 1
+            )
+            if was_created:
+                tuition_added += 1
 
     if added:
         notify_class_teachers(class_, 'Học sinh mới',

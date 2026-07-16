@@ -18,8 +18,10 @@ def reports():
     monthly_revenue = []
     monthly_expenses = []
     for m in range(1, 13):
-        rev = db.session.query(func.sum(TuitionPayment.amount)).filter(
-            TuitionPayment.is_paid == True,
+        # amount_collected (not amount) — a paid/partial row may include
+        # collected debt carried over from a previous month, and amount
+        # alone is only the current month's fee.
+        rev = db.session.query(func.sum(TuitionPayment.amount_collected)).filter(
             TuitionPayment.month == m,
             TuitionPayment.year == year,
         ).scalar() or 0

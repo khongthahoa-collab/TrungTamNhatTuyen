@@ -1,9 +1,48 @@
 from datetime import date, datetime
-from flask import request
+from flask import request, g
 from extensions import db
-from models import TuitionPayment
+from models import TuitionPayment, Class
 from blueprints.api import (api_bp, api_ok, api_error, api_login_required, api_require_module,
                             get_page_args, pagination_meta, get_body, body_int)
+from services.tuition_service import create_tuition_payment, record_payment
+
+
+@api_bp.route('/tuition/overview', methods=['GET'])
+@api_login_required
+@api_require_module('tuition')
+def tuition_overview():
+    """KPI totals + per-class paid/unpaid summary for a month, reusing the
+    exact same SQL aggregation the /admin/tuition web page uses (see
+    blueprints/admin/finance.py::_tuition_overview_aggregate) so the two
+    can't drift."""
+    from blueprints.admin.finance import _tuition_overview_aggregate
+    today = date.today()
+    month = request.args.get('month', today.month, type=int)
+    year = request.args.get('year', today.year, type=int)
+    class_id = request.args.get('class_id', type=int)
+    if class_id and not Class.query.get(class_id):
+        return api_error('Không tìm thấy lớp học.', 404, code='not_found')
+
+    _, class_summaries, total_collected, total_outstanding, total_expected = \
+        _tuition_overview_aggregate(month, year, class_id)
+
+    return api_ok({
+        'month': month,
+        'year': year,
+        'total_expected': total_expected,
+        'total_collected': total_collected,
+        'total_outstanding': total_outstanding,
+        'classes': [{
+            'class_id': row['class'].id,
+            'class_name': row['class'].name,
+            'total_students': row['total'],
+            'paid_count': row['paid_count'],
+            'unpaid_count': row['unpaid_count'],
+            'collected_amount': row['paid_amount'],
+            'outstanding_amount': row['unpaid_amount'],
+            'carried_debt_amount': row['carried_debt'],
+        } for row in class_summaries],
+    })
 
 
 @api_bp.route('/tuition-payments', methods=['GET'])
@@ -15,6 +54,9 @@ def tuition_list():
     month = request.args.get('month', type=int)
     year = request.args.get('year', type=int)
     is_paid = request.args.get('is_paid')
+
+    if class_id and not Class.query.get(class_id):
+        return api_error('Không tìm thấy lớp học.', 404, code='not_found')
 
     query = TuitionPayment.query
     if student_id:
@@ -58,17 +100,12 @@ def tuition_create():
     if not all([student_id, class_id, month, year]) or amount is None:
         return api_error('student_id, class_id, month, year, amount là bắt buộc.', 400, code='validation_error')
 
-    payment = TuitionPayment(
-        student_id=student_id,
-        class_id=class_id,
-        month=month,
-        year=year,
-        amount=float(amount),
-        method=body.get('method', 'cash'),
-        note=body.get('note'),
-        is_paid=False,
+    payment, created = create_tuition_payment(
+        student_id, class_id, month, year, float(amount),
+        method=body.get('method', 'cash'), note=body.get('note'),
     )
-    db.session.add(payment)
+    if not created:
+        return api_error('Đã có bản ghi học phí tháng này rồi.', 409, code='duplicate')
     db.session.commit()
     return api_ok(payment.to_dict(), status=201)
 
@@ -88,12 +125,17 @@ def tuition_update(payment_id):
         payment.note = body.get('note')
     if 'method' in body:
         payment.method = body.get('method')
-    is_paid = body.get('is_paid')
-    if is_paid is not None:
-        was_paid = payment.is_paid
-        payment.is_paid = str(is_paid).lower() in ('1', 'true', 'yes')
-        if payment.is_paid and not was_paid:
-            payment.paid_at = datetime.utcnow()
 
-    db.session.commit()
+    # Flipping is_paid is a real money-changing operation — route it
+    # through the same race-safe/amount_collected-aware path the web app's
+    # tuition_mark_paid uses (services.tuition_service.record_payment),
+    # rather than setting the boolean directly here.
+    is_paid = body.get('is_paid')
+    if is_paid is not None and str(is_paid).lower() in ('1', 'true', 'yes') and not payment.is_paid:
+        db.session.commit()
+        collected = body.get('amount_collected')
+        payment = record_payment(payment_id, float(collected) if collected else None,
+                                 payment.method, g.api_user.id)
+    else:
+        db.session.commit()
     return api_ok(payment.to_dict())

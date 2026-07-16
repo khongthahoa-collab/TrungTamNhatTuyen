@@ -1,7 +1,7 @@
-from flask import render_template, redirect, url_for, flash, request, jsonify
+from flask import render_template, redirect, url_for, flash, request, jsonify, abort
 from flask_login import login_required, current_user
 from datetime import date, datetime
-from sqlalchemy import extract, func
+from sqlalchemy import extract, func, case
 from sqlalchemy.orm import joinedload
 from extensions import db
 from models import (TuitionPayment, Student, Class, Salary, Teacher,
@@ -9,11 +9,64 @@ from models import (TuitionPayment, Student, Class, Salary, Teacher,
 from blueprints.admin import admin_bp, require_admin, require_master
 from services.salary_service import calculate_all_salaries, get_or_create_salary
 from services.zalo_service import ZaloService
+from services.tuition_service import create_tuition_payment, record_payment, get_previous_month_debt
 
 
 # ────────────────────────────────────────────────────────────────
 # Tuition
 # ────────────────────────────────────────────────────────────────
+
+def _tuition_overview_aggregate(month, year, class_id=None):
+    """Shared by the /admin/tuition web view and the /api/v1/tuition/overview
+    JSON endpoint, so the two can't drift. Tổng hợp bằng SQL, không tải toàn
+    bộ bản ghi học phí của tháng vào Python (tránh chậm/502 khi dữ liệu lớn
+    dần). Returns (classes, class_summaries, total_collected,
+    total_outstanding, total_expected)."""
+    classes = Class.query.filter_by(is_active=True).order_by(Class.name).all()
+
+    total_due_expr = TuitionPayment.amount + TuitionPayment.debt_carried_over
+    class_agg_query = (
+        db.session.query(
+            TuitionPayment.class_id,
+            func.count(TuitionPayment.id).label('total'),
+            func.sum(case((TuitionPayment.is_paid == True, 1), else_=0)).label('paid_count'),
+            func.sum(case((TuitionPayment.is_paid == False, 1), else_=0)).label('unpaid_count'),
+            func.coalesce(func.sum(TuitionPayment.amount_collected), 0).label('collected_amount'),
+            func.coalesce(func.sum(case(
+                (TuitionPayment.is_paid == False, total_due_expr - TuitionPayment.amount_collected),
+                else_=0,
+            )), 0).label('outstanding_amount'),
+            func.coalesce(func.sum(TuitionPayment.debt_carried_over), 0).label('carried_debt_amount'),
+        )
+        .filter(TuitionPayment.month == month, TuitionPayment.year == year)
+        .group_by(TuitionPayment.class_id)
+    )
+    if class_id:
+        class_agg_query = class_agg_query.filter(TuitionPayment.class_id == class_id)
+    by_class = {row.class_id: row for row in class_agg_query.all()}
+
+    class_summaries = []
+    for cls in classes:
+        if class_id and cls.id != class_id:
+            continue
+        row = by_class.get(cls.id)
+        if not row:
+            continue
+        class_summaries.append({
+            'class':         cls,
+            'total':         row.total,
+            'paid_count':    row.paid_count,
+            'unpaid_count':  row.unpaid_count,
+            'paid_amount':   row.collected_amount,
+            'unpaid_amount': row.outstanding_amount,
+            'carried_debt':  row.carried_debt_amount,
+        })
+
+    total_collected = sum(r['paid_amount'] for r in class_summaries)
+    total_outstanding = sum(r['unpaid_amount'] for r in class_summaries)
+    total_expected = total_collected + total_outstanding
+    return classes, class_summaries, total_collected, total_outstanding, total_expected
+
 
 @admin_bp.route('/tuition')
 @login_required
@@ -24,37 +77,8 @@ def tuition():
     year = request.args.get('year', today.year, type=int)
     class_id = request.args.get('class_id', type=int)
 
-    # Danh sách thanh toán
-    query = TuitionPayment.query.filter_by(month=month, year=year)
-    if class_id:
-        query = query.filter_by(class_id=class_id)
-    records = query.order_by(TuitionPayment.student_id).all()
-
-    classes = Class.query.filter_by(is_active=True).order_by(Class.name).all()
-    total_collected = sum(r.amount for r in records if r.is_paid)
-    total_pending   = sum(r.amount for r in records if not r.is_paid)
-
-    # Nhóm theo lớp để hiển thị bảng tóm tắt
-    from collections import defaultdict
-    by_class = defaultdict(list)
-    for r in records:
-        by_class[r.class_id].append(r)
-
-    class_summaries = []
-    for cls in classes:
-        if class_id and cls.id != class_id:
-            continue
-        recs = by_class.get(cls.id, [])
-        if not recs:
-            continue
-        class_summaries.append({
-            'class':         cls,
-            'total':         len(recs),
-            'paid_count':    sum(1 for r in recs if r.is_paid),
-            'unpaid_count':  sum(1 for r in recs if not r.is_paid),
-            'paid_amount':   sum(r.amount for r in recs if r.is_paid),
-            'unpaid_amount': sum(r.amount for r in recs if not r.is_paid),
-        })
+    classes, class_summaries, total_collected, total_outstanding, total_expected = \
+        _tuition_overview_aggregate(month, year, class_id)
 
     # Cấu hình học phí theo lớp (MonthlyClassFee)
     existing_fees = {
@@ -67,14 +91,14 @@ def tuition():
     ]
 
     return render_template('admin/finance/tuition.html',
-                           records=records,
                            classes=classes,
                            class_summaries=class_summaries,
                            month=month,
                            year=year,
                            selected_class_id=class_id,
                            total_collected=total_collected,
-                           total_pending=total_pending,
+                           total_outstanding=total_outstanding,
+                           total_expected=total_expected,
                            fee_configs=fee_configs,
                            today=today)
 
@@ -87,18 +111,42 @@ def tuition_class_detail(class_id):
     today = date.today()
     month = request.args.get('month', today.month, type=int)
     year  = request.args.get('year',  today.year,  type=int)
+    page = request.args.get('page', 1, type=int)
 
     cls = Class.query.get_or_404(class_id)
-    records = TuitionPayment.query.filter_by(
-        class_id=class_id, month=month, year=year
-    ).order_by(TuitionPayment.is_paid, TuitionPayment.student_id).all()
 
-    unpaid = [r for r in records if not r.is_paid]
-    paid   = [r for r in records if r.is_paid]
+    base_query = (
+        TuitionPayment.query
+        .filter_by(class_id=class_id, month=month, year=year)
+        .join(Student, TuitionPayment.student_id == Student.id)
+        .options(joinedload(TuitionPayment.student))
+        .order_by(TuitionPayment.is_paid, Student.full_name)
+    )
+    pagination = base_query.paginate(page=page, per_page=50, error_out=False)
+    records = pagination.items
+
+    total_due_expr = TuitionPayment.amount + TuitionPayment.debt_carried_over
+    total, paid_count, unpaid_count, collected_amount, outstanding_amount = (
+        db.session.query(
+            func.count(TuitionPayment.id),
+            func.sum(case((TuitionPayment.is_paid == True, 1), else_=0)),
+            func.sum(case((TuitionPayment.is_paid == False, 1), else_=0)),
+            func.coalesce(func.sum(TuitionPayment.amount_collected), 0),
+            func.coalesce(func.sum(case(
+                (TuitionPayment.is_paid == False, total_due_expr - TuitionPayment.amount_collected),
+                else_=0,
+            )), 0),
+        )
+        .filter_by(class_id=class_id, month=month, year=year)
+        .first()
+    )
 
     return render_template('admin/finance/tuition_class_detail.html',
-                           cls=cls, records=records,
-                           unpaid=unpaid, paid=paid,
+                           cls=cls, records=records, pagination=pagination,
+                           total=total or 0, paid_count=paid_count or 0,
+                           unpaid_count=unpaid_count or 0,
+                           collected_amount=collected_amount or 0,
+                           outstanding_amount=outstanding_amount or 0,
                            month=month, year=year, today=today)
 
 
@@ -117,26 +165,12 @@ def tuition_add():
         flash('Vui lòng điền đầy đủ thông tin.', 'danger')
         return redirect(url_for('admin.tuition'))
 
-    existing = TuitionPayment.query.filter_by(
-        student_id=student_id, class_id=class_id, month=month, year=year
-    ).first()
-    if existing:
+    tp, created = create_tuition_payment(student_id, class_id, month, year, amount, note=note)
+    if not created:
         flash('Đã có bản ghi học phí tháng này rồi.', 'warning')
-        return redirect(url_for('admin.tuition'))
-
-    tp = TuitionPayment(
-        student_id=student_id,
-        class_id=class_id,
-        amount=amount,
-        month=month,
-        year=year,
-        is_paid=False,
-        note=note,
-        created_at=datetime.utcnow(),
-    )
-    db.session.add(tp)
-    db.session.commit()
-    flash('Đã thêm bản ghi học phí.', 'success')
+    else:
+        flash('Đã thêm bản ghi học phí.', 'success')
+        db.session.commit()
     return redirect(url_for('admin.tuition', month=month, year=year))
 
 
@@ -144,13 +178,11 @@ def tuition_add():
 @login_required
 @require_admin
 def tuition_mark_paid(payment_id):
-    tp = TuitionPayment.query.get_or_404(payment_id)
     method = request.form.get('method', 'cash')
-    tp.is_paid = True
-    tp.method = method
-    tp.paid_at = datetime.utcnow()
-    tp.received_by = current_user.id
-    db.session.commit()
+    amount = request.form.get('amount', type=float)
+    tp = record_payment(payment_id, amount, method, current_user.id)
+    if not tp:
+        abort(404)
     flash(f'Đã ghi nhận thanh toán học phí cho {tp.student.full_name}.', 'success')
     return redirect(request.referrer or url_for('admin.tuition', month=tp.month, year=tp.year))
 
@@ -209,16 +241,9 @@ def tuition_bulk_add():
             for student in students:
                 if student.id in existing_ids:
                     continue
-                tp = TuitionPayment(
-                    student_id=student.id,
-                    class_id=class_id,
-                    amount=amount,
-                    month=month,
-                    year=year,
-                    is_paid=False,
-                )
-                db.session.add(tp)
-                added += 1
+                _, created = create_tuition_payment(student.id, class_id, month, year, amount)
+                if created:
+                    added += 1
             db.session.commit()
             flash(f'Đã thêm {added} bản ghi học phí cho lớp {class_.name}.', 'success')
             return redirect(url_for('admin.tuition', month=month, year=year, class_id=class_id))
@@ -746,19 +771,17 @@ def monthly_fee_generate():
                 if not existing.is_paid:
                     existing.amount = cfg.adjusted_fee
                     existing.amount_100pct = cfg.base_fee
+                    existing.debt_carried_over = get_previous_month_debt(
+                        enr.student_id, cfg.class_id, month, year)
                     updated += 1
             else:
-                tp = TuitionPayment(
-                    student_id=enr.student_id,
-                    class_id=cfg.class_id,
-                    amount=cfg.adjusted_fee,
+                _, was_created = create_tuition_payment(
+                    enr.student_id, cfg.class_id, month, year, cfg.adjusted_fee,
                     amount_100pct=cfg.base_fee,
-                    month=month, year=year,
-                    is_paid=False,
                     note=f'Tự động tạo: {cfg.weeks_billed}/{cfg.standard_weeks} tuần',
                 )
-                db.session.add(tp)
-                created += 1
+                if was_created:
+                    created += 1
 
     db.session.commit()
     flash(f'Đã tạo {created} học phí mới, cập nhật {updated} học phí cũ cho tháng {month}/{year}.', 'success')
