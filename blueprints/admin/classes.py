@@ -377,7 +377,7 @@ def classes():
                     User.full_name.ilike(f'%{q}%'),
                 )))
     page = request.args.get('page', 1, type=int)
-    pagination = query.order_by(Class.name).paginate(page=page, per_page=30, error_out=False)
+    pagination = query.order_by(Class.name).paginate(page=page, per_page=10, error_out=False)
     classes = pagination.items
 
     courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
