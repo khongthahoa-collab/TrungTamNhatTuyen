@@ -20,13 +20,31 @@ def current_academic_year_start(today=None):
     return today.year if today.month >= 7 else today.year - 1
 
 
+def _next_rollover_window_start(today=None):
+    """The date rollover/sync next become available. If the active
+    AcademicYear starts 01/07/Y (e.g. just rolled into 2026-2027), the
+    *next* window doesn't open until 01/07/(Y+1) — not just "any month
+    from July", which would otherwise leave the buttons clickable for
+    the rest of the very year just rolled into (Aug-Dec 2026), a full
+    year before they're meant to be usable again. Falls back to the
+    plain 01/07 calendar rule if no AcademicYear is configured yet
+    (fresh install, nothing to roll from)."""
+    today = today or date.today()
+    active = AcademicYear.query.filter_by(is_active=True).first()
+    if active:
+        return date(active.start_date.year + 1, 7, 1)
+    return date(today.year, 7, 1) if today.month < 7 else date(today.year + 1, 7, 1)
+
+
 def _rollover_window_open(today=None):
     """Both grade-advancement actions ('Cuộn năm học' and 'Đồng bộ lớp học')
-    only make sense once the new school year has actually started — running
-    them in, say, March would advance everyone a year early. Open the
-    01/07–31/12 half of the calendar, locked the rest (01/01–30/06)."""
+    only make sense once the *next* school year is actually due to start.
+    Tied to the active AcademicYear's own boundary (_next_rollover_window_start)
+    so the window automatically re-locks itself the moment a rollover
+    succeeds, instead of staying open for the rest of the calendar year
+    it was just rolled into."""
     today = today or date.today()
-    return today.month >= 7
+    return today >= _next_rollover_window_start(today)
 
 
 @admin_bp.route('/academic-years')
@@ -36,7 +54,8 @@ def academic_years():
     years = AcademicYear.query.order_by(AcademicYear.start_date.desc()).all()
     return render_template('admin/academic/list.html', years=years,
                            semester_types=SemesterType.LABELS,
-                           rollover_window_open=_rollover_window_open())
+                           rollover_window_open=_rollover_window_open(),
+                           next_rollover_window_start=_next_rollover_window_start())
 
 
 @admin_bp.route('/academic-years/add', methods=['POST'])
@@ -182,7 +201,7 @@ def academic_sync_grades():
     chưa chạy tự động theo cron/queue. Xem _advance_student_grades() cho chi
     tiết logic lên lớp/tốt nghiệp."""
     if not _rollover_window_open():
-        flash('Chỉ có thể lên lớp từ ngày 01/07 hàng năm.', 'danger')
+        flash(f'Chỉ có thể lên lớp từ ngày {_next_rollover_window_start().strftime("%d/%m/%Y")}.', 'danger')
         return redirect(url_for('admin.academic_years'))
     current_year = current_academic_year_start()
     baselined, advanced, graduated = _advance_student_grades(current_year)
@@ -261,7 +280,7 @@ def _rollover_plan():
 @require_admin
 def academic_year_rollover_preview():
     if not _rollover_window_open():
-        flash('Chỉ có thể cuộn năm học từ ngày 01/07 hàng năm.', 'danger')
+        flash(f'Chỉ có thể cuộn năm học từ ngày {_next_rollover_window_start().strftime("%d/%m/%Y")}.', 'danger')
         return redirect(url_for('admin.academic_years'))
     plan = _rollover_plan()
     rolling_info = [
@@ -278,7 +297,7 @@ def academic_year_rollover_preview():
 @require_admin
 def academic_year_rollover_execute():
     if not _rollover_window_open():
-        flash('Chỉ có thể cuộn năm học từ ngày 01/07 hàng năm.', 'danger')
+        flash(f'Chỉ có thể cuộn năm học từ ngày {_next_rollover_window_start().strftime("%d/%m/%Y")}.', 'danger')
         return redirect(url_for('admin.academic_years'))
 
     # Lock the currently active AcademicYear row (if one exists) for the
