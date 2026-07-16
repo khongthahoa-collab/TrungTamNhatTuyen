@@ -13,13 +13,15 @@ from blueprints.admin.account_utils import next_username, DEFAULT_TEMP_PASSWORD
 @require_master
 def teachers():
     today = date.today()
-    teachers = (
+    page = request.args.get('page', 1, type=int)
+    pagination = (
         Teacher.query
         .join(Teacher.user)
         .filter(User.is_deleted == False, User.is_active == True)
         .order_by(User.full_name)
-        .all()
+        .paginate(page=page, per_page=50, error_out=False)
     )
+    teachers = pagination.items
     teacher_ids = [t.id for t in teachers]
 
     # Two grouped queries instead of two per teacher.
@@ -44,6 +46,7 @@ def teachers():
 
     return render_template('admin/teachers/list.html',
                            teachers=teachers,
+                           pagination=pagination,
                            class_counts=class_counts,
                            session_counts=session_counts)
 

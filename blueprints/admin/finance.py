@@ -292,6 +292,7 @@ def expenses():
     month = request.args.get('month', today.month, type=int)
     year = request.args.get('year', today.year, type=int)
     category = request.args.get('category', '')
+    page = request.args.get('page', 1, type=int)
 
     query = Expense.query.filter(
         db.extract('month', Expense.expense_date) == month,
@@ -300,14 +301,19 @@ def expenses():
     if category:
         query = query.filter_by(category=category)
 
-    records = query.order_by(Expense.expense_date.desc()).all()
-    total = sum(r.amount for r in records)
-    tax_deductible = sum(r.amount for r in records if r.is_tax_deductible)
+    total, tax_deductible = query.with_entities(
+        func.coalesce(func.sum(Expense.amount), 0),
+        func.coalesce(func.sum(case((Expense.is_tax_deductible == True, Expense.amount), else_=0)), 0),
+    ).first()
+
+    pagination = query.order_by(Expense.expense_date.desc()).paginate(page=page, per_page=50, error_out=False)
+    records = pagination.items
 
     is_filtered = bool(category or month != today.month or year != today.year)
 
     return render_template('admin/finance/expenses.html',
                            records=records,
+                           pagination=pagination,
                            month=month,
                            year=year,
                            selected_category=category,
@@ -379,10 +385,13 @@ def salary():
     today = date.today()
     month = request.args.get('month', today.month, type=int)
     year = request.args.get('year', today.year, type=int)
+    page = request.args.get('page', 1, type=int)
 
-    teachers = (Teacher.query
-               .join(Teacher.user).filter(User.is_deleted == False)
-               .order_by(User.full_name).all())
+    pagination = (Teacher.query
+                 .join(Teacher.user).filter(User.is_deleted == False)
+                 .order_by(User.full_name)
+                 .paginate(page=page, per_page=50, error_out=False))
+    teachers = pagination.items
     teacher_ids = [t.id for t in teachers]
     salaries_by_teacher = {
         s.teacher_id: s for s in Salary.query.filter_by(month=month, year=year).all()
@@ -414,6 +423,7 @@ def salary():
 
     return render_template('admin/finance/salary.html',
                            teachers=teachers,
+                           pagination=pagination,
                            salaries_by_teacher=salaries_by_teacher,
                            session_counts=session_counts,
                            sub_counts=sub_counts,
@@ -520,23 +530,27 @@ def tuition_report():
     month = request.args.get('month', today.month, type=int)
     year = request.args.get('year', today.year, type=int)
     class_id = request.args.get('class_id', type=int)
+    page = request.args.get('page', 1, type=int)
 
     query = TuitionReport.query.filter_by(month=month, year=year)
     if class_id:
         query = query.filter_by(class_id=class_id)
 
-    reports = query.all()
-    classes = Class.query.filter_by(is_active=True).all()
+    total_amount, total_fully_paid, total_students = query.with_entities(
+        func.coalesce(func.sum(TuitionReport.total_amount), 0),
+        func.coalesce(func.sum(TuitionReport.fully_paid_count), 0),
+        func.coalesce(func.sum(TuitionReport.total_students), 0),
+    ).first()
 
-    # Calculate totals
-    total_amount = sum(r.total_amount for r in reports)
-    total_fully_paid = sum(r.fully_paid_count for r in reports)
-    total_students = sum(r.total_students for r in reports)
+    pagination = query.paginate(page=page, per_page=50, error_out=False)
+    reports = pagination.items
+    classes = Class.query.filter_by(is_active=True).all()
 
     is_filtered = bool(class_id or month != today.month or year != today.year)
 
     return render_template('admin/finance/tuition_report.html',
                            reports=reports,
+                           pagination=pagination,
                            classes=classes,
                            month=month,
                            year=year,
