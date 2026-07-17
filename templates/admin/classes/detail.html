@@ -49,9 +49,8 @@
           {% if class_.max_students %}
           <div class="col-auto">
             <span class="small text-muted">Sĩ số:</span>
-            {% set active_count = class_.enrollments | selectattr('is_active', 'equalto', true) | list | length %}
-            <span class="small fw-semibold ms-1 {% if active_count >= class_.max_students %}text-danger{% else %}text-success{% endif %}">
-              {{ active_count }}/{{ class_.max_students }}
+            <span class="small fw-semibold ms-1 {% if active_enrollment_count >= class_.max_students %}text-danger{% else %}text-success{% endif %}">
+              {{ active_enrollment_count }}/{{ class_.max_students }}
             </span>
           </div>
           {% endif %}
@@ -93,8 +92,7 @@
           </tr>
         </thead>
         <tbody>
-          {% set active_enrollments = class_.enrollments | selectattr('is_active', 'equalto', true) | list %}
-          {% for enrollment in active_enrollments %}
+          {% for enrollment in enrollments %}
           <tr>
             <td class="ps-3">
               <a href="{{ url_for('admin.student_detail', student_id=enrollment.student.id) }}" class="fw-semibold text-decoration-none small">
@@ -132,6 +130,31 @@
         </tbody>
       </table>
     </div>
+    {% if enrollment_pagination.pages > 1 %}
+    <nav class="mt-3 mb-2 d-flex justify-content-center" aria-label="Phân trang">
+      <ul class="pagination pagination-sm mb-0">
+        <li class="page-item {% if not enrollment_pagination.has_prev %}disabled{% endif %}">
+          <a class="page-link" href="{{ url_for('admin.class_detail', class_id=class_.id, page=enrollment_pagination.prev_num) }}">
+            <i class="bi bi-chevron-left"></i>
+          </a>
+        </li>
+        {% for p in enrollment_pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+          {% if p %}
+            <li class="page-item {% if p == enrollment_pagination.page %}active{% endif %}">
+              <a class="page-link" href="{{ url_for('admin.class_detail', class_id=class_.id, page=p) }}">{{ p }}</a>
+            </li>
+          {% else %}
+            <li class="page-item disabled"><span class="page-link">…</span></li>
+          {% endif %}
+        {% endfor %}
+        <li class="page-item {% if not enrollment_pagination.has_next %}disabled{% endif %}">
+          <a class="page-link" href="{{ url_for('admin.class_detail', class_id=class_.id, page=enrollment_pagination.next_num) }}">
+            <i class="bi bi-chevron-right"></i>
+          </a>
+        </li>
+      </ul>
+    </nav>
+    {% endif %}
   </div>
 </div>
 

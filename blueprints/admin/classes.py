@@ -2,6 +2,7 @@ from flask import render_template, redirect, url_for, flash, request, jsonify, a
 from flask_login import login_required, current_user
 from datetime import date, timedelta, time as time_type
 from sqlalchemy import or_, and_
+from sqlalchemy.orm import joinedload
 from extensions import db
 from models import (Class, Course, Teacher, Schedule, Semester, Enrollment, Student, Room,
                     TuitionPayment, GRADE_BY_LEVEL, GRADE_SEQUENCE, User,
@@ -559,6 +560,15 @@ def class_detail(class_id):
     rooms = Room.query.filter_by(is_active=True).order_by(Room.branch, Room.floor, Room.room_number).all()
     today = date.today()
 
+    page = request.args.get('page', 1, type=int)
+    enrollment_pagination = (
+        Enrollment.query.join(Student)
+        .options(joinedload(Enrollment.student))
+        .filter(Enrollment.class_id == class_id, Enrollment.is_active == True)
+        .order_by(Student.full_name)
+        .paginate(page=page, per_page=10, error_out=False)
+    )
+
     upcoming_schedules = class_.schedules.filter(
         Schedule.date >= today, Schedule.is_cancelled == False
     ).order_by(Schedule.date, Schedule.start_time).all()
@@ -575,6 +585,9 @@ def class_detail(class_id):
     return render_template('admin/classes/detail.html',
                            class_=class_, teachers=teachers, rooms=rooms,
                            weekly_slots=weekly_slots,
+                           enrollments=enrollment_pagination.items,
+                           enrollment_pagination=enrollment_pagination,
+                           active_enrollment_count=enrollment_pagination.total,
                            suggested_students=suggested_students,
                            already_taking_ids=already_taking_ids,
                            grade_label=GRADE_LEVEL_LABELS.get(class_.grade_level, class_.grade_level or ''),
