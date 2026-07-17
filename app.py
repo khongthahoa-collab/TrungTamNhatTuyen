@@ -53,6 +53,7 @@ def create_app(config_name=None):
     from blueprints.teacher import teacher_bp
     from blueprints.admin import admin_bp
     from blueprints.api import api_bp
+    from blueprints.api.calendar import api_calendar_bp
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(public_bp, url_prefix='/')
@@ -60,6 +61,7 @@ def create_app(config_name=None):
     app.register_blueprint(teacher_bp, url_prefix='/teacher')
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(api_bp)
+    app.register_blueprint(api_calendar_bp)
     # Token-authenticated JSON API, not cookie/session-based — Flask-WTF's
     # CSRF protection doesn't apply the same way here.
     csrf.exempt(api_bp)

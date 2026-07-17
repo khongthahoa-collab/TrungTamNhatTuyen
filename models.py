@@ -483,6 +483,11 @@ class User(UserMixin, db.Model):
     must_change_password = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
     is_deleted = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
     api_token = db.Column(db.String(64), unique=True, nullable=True, index=True)
+    # Secret used to authenticate the WebCal subscription feed (query-string,
+    # since calendar apps can't send cookies/headers) — deliberately separate
+    # from api_token so subscribing/rotating a calendar link never touches
+    # the mobile API login session, and vice versa.
+    calendar_token = db.Column(db.String(64), unique=True, nullable=True, index=True)
 
     # Relationships
     teacher_profile = db.relationship('Teacher', backref='user', uselist=False)
