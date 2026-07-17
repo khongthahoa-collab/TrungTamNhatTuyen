@@ -1,0 +1,75 @@
+{% set day_names = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'] %}
+
+{% macro day_block(day, schedules_today, today, teacher) %}
+{% set is_today = (day == today) %}
+<div class="mb-3">
+  <div class="d-flex align-items-center gap-2 mb-2">
+    <span class="badge {% if is_today %}bg-primary{% else %}bg-secondary bg-opacity-25 text-dark{% endif %} px-3 py-2 fs-6">
+      {{ day_names[day.weekday()] }}
+    </span>
+    <span class="text-muted small">{{ day | date_vn }}</span>
+    {% if is_today %}
+      <span class="badge bg-primary bg-opacity-10 text-primary small">Hôm nay</span>
+    {% endif %}
+  </div>
+
+  {% for s in schedules_today %}
+  <div class="card mb-2 shadow-sm border-0 schedule-card {% if is_today %}border-start border-primary border-3{% endif %}">
+    <div class="card-body py-3">
+      <div class="d-flex align-items-start justify-content-between mb-1">
+        <div class="fw-semibold fs-6">{{ s.class_.name }}</div>
+        <div class="d-flex gap-1 flex-wrap justify-content-end">
+          {% if s.schedule_type == 'regular' %}
+            <span class="badge bg-primary">Thường</span>
+          {% elif s.schedule_type == 'makeup' %}
+            <span class="badge bg-warning text-dark">Bù</span>
+          {% elif s.schedule_type == 'exam' %}
+            <span class="badge bg-danger">Kiểm tra</span>
+          {% else %}
+            <span class="badge bg-secondary">{{ s.schedule_type }}</span>
+          {% endif %}
+
+          {% if s.teacher_checked_in %}
+            <span class="badge bg-success">
+              <i class="bi bi-check-circle me-1"></i>Check-in
+            </span>
+          {% endif %}
+
+          {% if s.attendance_taken %}
+            <span class="badge bg-info text-dark">
+              <i class="bi bi-person-check me-1"></i>Đã ĐD
+            </span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="text-muted small mb-1">
+        <i class="bi bi-clock me-1"></i>{{ s.start_time.strftime('%H:%M') }} – {{ s.end_time.strftime('%H:%M') }}
+        &nbsp;|&nbsp;
+        <i class="bi bi-door-open me-1"></i>{{ s.room or 'Chưa xếp phòng' }}
+      </div>
+      <div class="text-muted small mb-3">
+        <i class="bi bi-person me-1"></i>Người dạy: {{ s.effective_teacher.display_name if s.effective_teacher else '—' }}
+        {% if s.teacher_id != teacher.id %}
+        <span class="badge bg-light text-muted border ms-1">Không phải buổi của bạn</span>
+        {% endif %}
+      </div>
+
+      <div class="d-flex gap-2 flex-wrap">
+        <button type="button" class="btn btn-outline-secondary flex-fill" disabled style="min-height:44px;"
+                title="Tính năng sẽ cập nhật ở phiên bản sau">
+          <i class="bi bi-people me-1"></i>Nhờ dạy thay
+        </button>
+
+        <a href="{{ url_for('teacher.attendance_list', date=s.date.isoformat()) }}"
+           class="btn {% if s.attendance_taken %}btn-outline-info{% else %}btn-primary{% endif %} flex-fill"
+           style="min-height:44px;">
+          <i class="bi bi-person-check me-1"></i>
+          {% if s.attendance_taken %}Xem ĐD{% else %}Điểm danh{% endif %}
+        </a>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endmacro %}

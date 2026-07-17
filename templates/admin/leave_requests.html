@@ -61,6 +61,7 @@
           <th>Học sinh</th>
           <th>Thời gian nghỉ</th>
           <th>Lý do</th>
+          <th>Trạng thái</th>
           <th>Người duyệt</th>
           <th>Ngày tạo</th>
           <th class="text-end">Thao tác</th>
@@ -75,23 +76,43 @@
             {% if r.end_date != r.start_date %} – {{ r.end_date.strftime('%d/%m/%Y') }}{% endif %}
           </td>
           <td class="small text-muted">{{ r.reason or '—' }}</td>
+          <td class="small">
+            {% if r.status == 'APPROVED' %}
+              <span class="badge bg-success bg-opacity-75">Đã duyệt</span>
+            {% elif r.status == 'REJECTED' %}
+              <span class="badge bg-secondary">Đã hủy</span>
+            {% else %}
+              <span class="badge bg-warning text-dark">Chờ duyệt</span>
+            {% endif %}
+          </td>
           <td class="small">{{ r.approver.full_name if r.approver else '—' }}</td>
           <td class="text-muted small">{{ r.created_at | date_vn if r.created_at else '—' }}</td>
           <td class="text-end">
-            <button type="button" class="acct-action-btn acct-action-edit" title="Sửa đơn nghỉ phép"
-                    data-bs-toggle="modal" data-bs-target="#editLeaveModal"
-                    data-request-id="{{ r.id }}"
-                    data-student-name="{{ r.student.full_name if r.student else '' }}"
-                    data-start-date="{{ r.start_date.isoformat() }}"
-                    data-end-date="{{ r.end_date.isoformat() }}"
-                    data-reason="{{ r.reason or '' }}">
-              <i class="bi bi-pencil"></i>
-            </button>
+            <div class="d-flex align-items-center justify-content-end gap-2">
+              <button type="button" class="acct-action-btn acct-action-edit" title="Sửa đơn nghỉ phép"
+                      data-bs-toggle="modal" data-bs-target="#editLeaveModal"
+                      data-request-id="{{ r.id }}"
+                      data-student-name="{{ r.student.full_name if r.student else '' }}"
+                      data-start-date="{{ r.start_date.isoformat() }}"
+                      data-end-date="{{ r.end_date.isoformat() }}"
+                      data-reason="{{ r.reason or '' }}">
+                <i class="bi bi-pencil"></i>
+              </button>
+              {% if r.status == 'APPROVED' %}
+              <form method="post" action="{{ url_for('admin.leave_request_cancel', request_id=r.id) }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="acct-action-btn acct-action-delete" title="Hủy đơn"
+                        onclick="return confirm('Hủy đơn nghỉ phép của {{ r.student.full_name if r.student else "học sinh" }}? Học sinh sẽ không còn được khóa điểm danh Vắng phép cho các buổi trong khoảng ngày này.')">
+                  <i class="bi bi-x-lg"></i>
+                </button>
+              </form>
+              {% endif %}
+            </div>
           </td>
         </tr>
         {% else %}
         <tr>
-          <td colspan="6" class="text-center text-muted py-4">Chưa có đơn nghỉ phép nào.</td>
+          <td colspan="7" class="text-center text-muted py-4">Chưa có đơn nghỉ phép nào.</td>
         </tr>
         {% endfor %}
       </tbody>

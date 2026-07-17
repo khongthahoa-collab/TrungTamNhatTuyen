@@ -1,0 +1,4 @@
+{% import 'teacher/_schedule_day_block.html' as db %}
+{% for day in present_days %}
+{{ db.day_block(day, by_day[day], today, teacher) }}
+{% endfor %}

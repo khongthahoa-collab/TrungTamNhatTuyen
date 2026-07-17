@@ -140,6 +140,22 @@ def leave_request_edit(request_id):
     return redirect(url_for('admin.manage_leave_requests', page=request.args.get('page', 1)))
 
 
+@admin_bp.route('/leave-requests/<int:request_id>/cancel', methods=['POST'])
+@login_required
+@require_admin
+def leave_request_cancel(request_id):
+    """Cancel a leave request — keeps the record (audit trail) but flips it
+    off APPROVED, which immediately un-locks the excused status on the
+    teacher's attendance pages since that lookup filters on
+    status == APPROVED."""
+    leave_request = LeaveRequest.query.get_or_404(request_id)
+    leave_request.status = LeaveRequestStatus.REJECTED
+    db.session.commit()
+    flash(f'Đã hủy đơn nghỉ phép của {leave_request.student.full_name if leave_request.student else "học sinh"}.',
+          'success')
+    return redirect(url_for('admin.manage_leave_requests', page=request.args.get('page', 1)))
+
+
 @admin_bp.route('/leave-requests/student-search')
 @login_required
 @require_admin

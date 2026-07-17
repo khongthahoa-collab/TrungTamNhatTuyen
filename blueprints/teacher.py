@@ -143,12 +143,25 @@ def schedule():
         query = query.filter(Schedule.teacher_id == teacher.id)
     else:
         query = query.filter(_teacher_schedule_visibility(teacher))
-    schedules = query.order_by(Schedule.date, Schedule.start_time).all()
 
-    by_day = {d: [] for d in week_days}
+    # Only 3 sessions loaded per request instead of the whole week at once —
+    # scrolling near the bottom fetches the next 3 as a small HTML fragment
+    # (see the fragment branch below) instead of ever pulling every session
+    # in the week in one response.
+    spage = request.args.get('spage', 1, type=int)
+    sched_pagination = query.order_by(Schedule.date, Schedule.start_time).paginate(
+        page=spage, per_page=3, error_out=False)
+    schedules = sched_pagination.items
+
+    by_day = {}
     for s in schedules:
-        if s.date in by_day:
-            by_day[s.date].append(s)
+        by_day.setdefault(s.date, []).append(s)
+    present_days = [d for d in week_days if d in by_day]
+
+    if request.args.get('fragment') == '1':
+        html = render_template('teacher/_schedule_fragment.html',
+                               present_days=present_days, by_day=by_day, today=today, teacher=teacher)
+        return jsonify({'html': html, 'has_next': sched_pagination.has_next})
 
     this_week_start = today - timedelta(days=today.weekday())
     this_month_start = today.replace(day=1)
@@ -156,7 +169,10 @@ def schedule():
     return render_template('teacher/schedule.html',
                            teacher=teacher,
                            week_days=week_days,
+                           present_days=present_days,
                            by_day=by_day,
+                           has_any=sched_pagination.total > 0,
+                           has_next=sched_pagination.has_next,
                            ref_date=ref_date,
                            today=today,
                            monday=monday,

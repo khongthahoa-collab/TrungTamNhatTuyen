@@ -19,7 +19,7 @@ def teachers():
         .join(Teacher.user)
         .filter(User.is_deleted == False, User.is_active == True)
         .order_by(User.full_name)
-        .paginate(page=page, per_page=50, error_out=False)
+        .paginate(page=page, per_page=10, error_out=False)
     )
     teachers = pagination.items
     teacher_ids = [t.id for t in teachers]
