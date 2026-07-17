@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, abort, request
 from flask_login import login_required, current_user
 from functools import wraps
+from services.auth_context import get_active_role
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -10,6 +11,11 @@ def require_admin(f):
     def decorated(*args, **kwargs):
         if not current_user.is_authenticated or not current_user.is_admin:
             abort(403)
+        # A dual-role account (admin + linked Teacher profile) must have
+        # actively switched into the admin context — real is_admin alone
+        # isn't enough once that account can also act as a teacher.
+        if get_active_role(current_user) != 'admin':
+            abort(403)
         return f(*args, **kwargs)
     return decorated
 
@@ -18,6 +24,8 @@ def require_admin_or_teacher(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         if not current_user.is_authenticated or not (current_user.is_admin or current_user.is_teacher):
+            abort(403)
+        if get_active_role(current_user) not in ('admin', 'teacher'):
             abort(403)
         return f(*args, **kwargs)
     return decorated
@@ -30,6 +38,8 @@ def require_master(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         if not current_user.is_authenticated or not current_user.is_admin or not current_user.is_master:
+            abort(403)
+        if get_active_role(current_user) != 'admin':
             abort(403)
         return f(*args, **kwargs)
     return decorated

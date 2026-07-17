@@ -8,6 +8,7 @@ from models import Schedule, Attendance, Score, Class, Enrollment, Student, Clas
 from services.zalo_service import ZaloService
 from services.reward_service import create_suggested_reward
 from services.salary_service import scheduled_sessions, substituted_sessions
+from services.auth_context import get_active_role
 
 teacher_bp = Blueprint('teacher', __name__)
 
@@ -35,7 +36,12 @@ def require_teacher(f):
 
     @wraps(f)
     def decorated(*args, **kwargs):
-        if not current_user.is_authenticated or not current_user.is_teacher:
+        # is_teacher_linked covers a dual-role admin (role == 'admin')
+        # with a linked Teacher profile — is_teacher alone (role ==
+        # 'teacher') would never be true for that account.
+        if not current_user.is_authenticated or not (current_user.is_teacher or current_user.is_teacher_linked):
+            abort(403)
+        if get_active_role(current_user) != 'teacher':
             abort(403)
         return f(*args, **kwargs)
     return decorated

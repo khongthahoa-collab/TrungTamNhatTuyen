@@ -15,6 +15,16 @@
         {{ current_user.full_name }}
       </span>
 
+      {% if current_user.role == 'admin' and current_user.is_teacher_linked %}
+      <form method="post" action="{{ url_for('auth.switch_role', target_role='admin') }}" class="d-inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-sm btn-outline-light d-flex align-items-center gap-1" title="Chuyển sang Admin">
+          <i class="bi bi-arrow-left-right"></i>
+          <span class="d-none d-sm-inline" style="font-size:0.8rem;">Chuyển sang Admin</span>
+        </button>
+      </form>
+      {% endif %}
+
       <!-- Logout -->
       <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-light d-flex align-items-center gap-1" title="Đăng xuất">
         <i class="bi bi-box-arrow-right"></i>

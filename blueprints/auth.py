@@ -1,8 +1,9 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, session, abort
 from flask_login import login_user, logout_user, login_required, current_user
 from datetime import datetime
 from extensions import db
 from models import User
+from services.auth_context import default_active_role
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -23,6 +24,7 @@ def login():
         ).first()
 
         if user and user.check_password(password) and user.is_active:
+            session['active_role'] = default_active_role(user)
             login_user(user, remember=remember)
             user.last_login = datetime.utcnow()
             db.session.commit()
@@ -42,6 +44,23 @@ def logout():
     logout_user()
     flash('Đã đăng xuất.', 'info')
     return redirect(url_for('public.index'))
+
+
+@auth_bp.route('/switch-role/<target_role>', methods=['POST'])
+@login_required
+def switch_role(target_role):
+    """Only for a dual-role account (admin + linked Teacher profile) —
+    reassigns which role is active in this session, not a re-login."""
+    if target_role == 'admin' and current_user.role == 'admin':
+        session['active_role'] = 'admin'
+    elif target_role == 'teacher' and current_user.is_teacher_linked:
+        session['active_role'] = 'teacher'
+    else:
+        abort(403)
+
+    role_label = 'Quản trị viên' if target_role == 'admin' else 'Giáo viên'
+    flash(f'Đã chuyển sang vai trò {role_label}.', 'info')
+    return redirect(url_for('admin.dashboard') if target_role == 'admin' else url_for('teacher.dashboard'))
 
 
 @auth_bp.route('/change-password', methods=['GET', 'POST'])

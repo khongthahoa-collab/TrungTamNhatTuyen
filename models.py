@@ -1,4 +1,5 @@
 import json
+from functools import cached_property
 from extensions import db
 from flask_login import UserMixin
 from datetime import datetime, date
@@ -504,6 +505,14 @@ class User(UserMixin, db.Model):
     @property
     def is_teacher(self):
         return self.role == UserRole.TEACHER
+
+    @cached_property
+    def is_teacher_linked(self):
+        """Does this account have a Teacher profile, regardless of its
+        primary `role`? Lets an admin who also teaches reach /teacher —
+        distinct from is_teacher (role == 'teacher') on purpose, since
+        is_teacher is read elsewhere for unrelated single-role checks."""
+        return Teacher.query.filter_by(user_id=self.id).first() is not None
 
     @property
     def is_parent(self):
