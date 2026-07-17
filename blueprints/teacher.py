@@ -525,14 +525,25 @@ def scores_list():
 @login_required
 @require_teacher
 def notifications():
-    """Teacher notifications page — marks all as read."""
+    """Teacher notifications page — infinite-scroll, not a single big load:
+    page 1 renders server-side (7 items; CSS hides the last 3 on narrow
+    screens), further pages are fetched on demand as the user scrolls (see
+    the fragment branch below), so this never has to pull an unbounded
+    notification history in one response."""
     page = request.args.get('page', 1, type=int)
+    is_fragment = request.args.get('fragment') == '1'
     pagination = (
         Notification.query.filter_by(user_id=current_user.id)
         .order_by(Notification.created_at.desc())
-        .paginate(page=page, per_page=50, error_out=False)
+        .paginate(page=page, per_page=7, error_out=False)
     )
-    # Mark all as read
+
+    if is_fragment:
+        html = render_template('teacher/_notifications_fragment.html', notifs=pagination.items)
+        return jsonify({'html': html, 'has_next': pagination.has_next})
+
+    # Mark all as read — only on the real page load, not on every
+    # scroll-triggered fragment fetch.
     Notification.query.filter_by(user_id=current_user.id, is_read=False).update({'is_read': True})
     db.session.commit()
     return render_template('teacher/notifications.html', notifs=pagination.items, pagination=pagination)

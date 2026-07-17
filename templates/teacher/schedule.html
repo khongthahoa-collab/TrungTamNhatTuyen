@@ -70,11 +70,14 @@
   </div>
   {% endif %}
 
+  {% set reveal_counter = namespace(n=0) %}
+  {% set initial_reveal = 3 %}
   {% for day in week_days %}
     {% set schedules_today = by_day.get(day, []) %}
     {% if schedules_today %}
     {% set is_today = (day == today) %}
-    <div class="mb-3">
+    {% set day_start_idx = reveal_counter.n %}
+    <div class="mb-3 schedule-day-block {% if day_start_idx >= initial_reveal %}d-none{% endif %}">
       <!-- Day header -->
       <div class="d-flex align-items-center gap-2 mb-2">
         <span class="badge {% if is_today %}bg-primary{% else %}bg-secondary bg-opacity-25 text-dark{% endif %} px-3 py-2 fs-6">
@@ -87,7 +90,8 @@
       </div>
 
         {% for s in schedules_today %}
-        <div class="card mb-2 shadow-sm border-0 {% if is_today %}border-start border-primary border-3{% endif %}">
+        {% set reveal_counter.n = reveal_counter.n + 1 %}
+        <div class="card mb-2 shadow-sm border-0 schedule-card {% if is_today %}border-start border-primary border-3{% endif %} {% if reveal_counter.n > initial_reveal %}d-none{% endif %}">
           <div class="card-body py-3">
             <!-- Class & type -->
             <div class="d-flex align-items-start justify-content-between mb-1">
@@ -157,5 +161,39 @@
     {% endif %}
   {% endfor %}
 
+  {% if reveal_counter.n > initial_reveal %}
+  <div id="scheduleRevealSentinel" class="py-3 text-center small text-muted">
+    <i class="bi bi-arrow-down-circle me-1"></i>Kéo xuống để xem thêm
+  </div>
+  {% endif %}
+
 </div>
+
+<script>
+(function () {
+  const sentinel = document.getElementById('scheduleRevealSentinel');
+  if (!sentinel) return;
+  const batchSize = 3;
+  let revealed = {{ initial_reveal }};
+
+  function revealMore() {
+    const cards = document.querySelectorAll('.schedule-card.d-none');
+    Array.from(cards).slice(0, batchSize).forEach(card => {
+      card.classList.remove('d-none');
+      const dayBlock = card.closest('.schedule-day-block');
+      if (dayBlock) dayBlock.classList.remove('d-none');
+    });
+    revealed += batchSize;
+    if (!document.querySelector('.schedule-card.d-none')) {
+      sentinel.remove();
+      observer.disconnect();
+    }
+  }
+
+  const observer = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) revealMore();
+  }, { rootMargin: '150px' });
+  observer.observe(sentinel);
+})();
+</script>
 {% endblock %}

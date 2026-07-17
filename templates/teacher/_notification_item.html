@@ -1,0 +1,29 @@
+{% macro notification_row(n) %}
+<div class="list-group-item list-group-item-action d-flex align-items-start gap-3 py-3 {% if not n.is_read %}bg-light{% endif %}">
+  <div class="flex-shrink-0 mt-1">
+    {% if n.notif_type == 'warning' %}
+    <i class="bi bi-exclamation-triangle-fill text-warning fs-5"></i>
+    {% elif n.notif_type == 'success' %}
+    <i class="bi bi-check-circle-fill text-success fs-5"></i>
+    {% elif n.notif_type == 'danger' %}
+    <i class="bi bi-x-circle-fill text-danger fs-5"></i>
+    {% else %}
+    <i class="bi bi-info-circle-fill text-primary fs-5"></i>
+    {% endif %}
+  </div>
+  <div class="flex-grow-1">
+    <div class="fw-semibold small">{{ n.title }}</div>
+    {% if n.body %}
+    <div class="text-muted small mt-1">{{ n.body }}</div>
+    {% endif %}
+    <div class="text-muted mt-1" style="font-size:0.7rem;">
+      <i class="bi bi-clock me-1"></i>{{ n.created_at | datetime_vn }}
+    </div>
+  </div>
+  {% if n.link %}
+  <a href="{{ n.link }}" class="btn btn-outline-primary btn-sm flex-shrink-0 align-self-center">
+    <i class="bi bi-arrow-right"></i>
+  </a>
+  {% endif %}
+</div>
+{% endmacro %}

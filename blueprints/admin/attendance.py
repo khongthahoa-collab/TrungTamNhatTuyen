@@ -23,9 +23,9 @@ def attendance_list():
     workflow isn't lost."""
     today = date.today()
     class_id = request.args.get('class_id', type=int)
-    view_mode = request.args.get('view', 'status')
+    view_mode = request.args.get('view', 'day')
     if view_mode not in ('status', 'day'):
-        view_mode = 'status'
+        view_mode = 'day'
 
     classes = Class.query.filter_by(is_active=True).order_by(Class.name).all()
 
@@ -89,12 +89,12 @@ def attendance_list():
     pending_pagination = (
         base_query.filter(~Schedule.attendances.any())
         .order_by(Schedule.date.desc(), Schedule.start_time)
-        .paginate(page=pending_page, per_page=50, error_out=False)
+        .paginate(page=pending_page, per_page=10, error_out=False)
     )
     done_pagination = (
         base_query.filter(Schedule.attendances.any())
         .order_by(Schedule.date.desc(), Schedule.start_time)
-        .paginate(page=done_page, per_page=50, error_out=False)
+        .paginate(page=done_page, per_page=10, error_out=False)
     )
 
     page_schedules = pending_pagination.items + done_pagination.items

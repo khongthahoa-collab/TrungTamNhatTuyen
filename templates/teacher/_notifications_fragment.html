@@ -1,0 +1,4 @@
+{% import 'teacher/_notification_item.html' as ni %}
+{% for n in notifs %}
+{{ ni.notification_row(n) }}
+{% endfor %}
