@@ -54,7 +54,12 @@ DAY_OPTIONS = [
 def _check_room_conflict(room_id, sched_date, start_time, end_time, exclude_id=None):
     if not room_id:
         return None
-    q = Schedule.query.filter(
+    # Join Class + only count rows from currently-active classes — a
+    # deactivated class's leftover (never-cancelled) Schedule rows must not
+    # keep a room phantom-booked forever after the class itself was
+    # disabled. Same fix as _find_teacher_conflict below, same root cause.
+    q = Schedule.query.join(Class, Schedule.class_id == Class.id).filter(
+        Class.is_active == True,
         Schedule.room_id == room_id,
         Schedule.date == sched_date,
         Schedule.is_cancelled == False,
@@ -101,7 +106,12 @@ def _find_teacher_conflict(start_date, end_date, sched_rows, exclude_class_id=No
     teacher_ids = {t for (_, _, _, _, _, t) in sched_rows if t}
     if not teacher_ids:
         return None
-    q = Schedule.query.filter(
+    # Join Class + only count rows from currently-active classes — a
+    # deactivated class's leftover (never-cancelled) Schedule rows must not
+    # keep locking a teacher's availability forever after the class itself
+    # was disabled.
+    q = Schedule.query.join(Class, Schedule.class_id == Class.id).filter(
+        Class.is_active == True,
         Schedule.is_cancelled == False,
         Schedule.date >= start_date,
         Schedule.date <= end_date,
