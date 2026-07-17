@@ -52,7 +52,7 @@
 <div class="card shadow-sm border-0">
   <div class="card-header bg-light fw-semibold d-flex align-items-center justify-content-between">
     <span>Đơn nghỉ phép gần đây</span>
-    <span class="badge bg-secondary">{{ requests | length }}</span>
+    <span class="badge bg-secondary">{{ pagination.total if pagination else requests | length }}</span>
   </div>
   <div class="table-responsive">
     <table class="table table-hover table-sm mb-0 align-middle">
@@ -63,6 +63,7 @@
           <th>Lý do</th>
           <th>Người duyệt</th>
           <th>Ngày tạo</th>
+          <th class="text-end">Thao tác</th>
         </tr>
       </thead>
       <tbody>
@@ -76,16 +77,106 @@
           <td class="small text-muted">{{ r.reason or '—' }}</td>
           <td class="small">{{ r.approver.full_name if r.approver else '—' }}</td>
           <td class="text-muted small">{{ r.created_at | date_vn if r.created_at else '—' }}</td>
+          <td class="text-end">
+            <button type="button" class="acct-action-btn acct-action-edit" title="Sửa đơn nghỉ phép"
+                    data-bs-toggle="modal" data-bs-target="#editLeaveModal"
+                    data-request-id="{{ r.id }}"
+                    data-student-name="{{ r.student.full_name if r.student else '' }}"
+                    data-start-date="{{ r.start_date.isoformat() }}"
+                    data-end-date="{{ r.end_date.isoformat() }}"
+                    data-reason="{{ r.reason or '' }}">
+              <i class="bi bi-pencil"></i>
+            </button>
+          </td>
         </tr>
         {% else %}
         <tr>
-          <td colspan="5" class="text-center text-muted py-4">Chưa có đơn nghỉ phép nào.</td>
+          <td colspan="6" class="text-center text-muted py-4">Chưa có đơn nghỉ phép nào.</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
+
+{% if pagination and pagination.pages > 1 %}
+<nav class="mt-3 d-flex justify-content-center" aria-label="Phân trang">
+  <ul class="pagination pagination-sm mb-0">
+    <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+      <a class="page-link" href="{{ url_for('admin.manage_leave_requests', page=pagination.prev_num) }}">
+        <i class="bi bi-chevron-left"></i>
+      </a>
+    </li>
+    {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+      {% if p %}
+        <li class="page-item {% if p == pagination.page %}active{% endif %}">
+          <a class="page-link" href="{{ url_for('admin.manage_leave_requests', page=p) }}">{{ p }}</a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">…</span></li>
+      {% endif %}
+    {% endfor %}
+    <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+      <a class="page-link" href="{{ url_for('admin.manage_leave_requests', page=pagination.next_num) }}">
+        <i class="bi bi-chevron-right"></i>
+      </a>
+    </li>
+  </ul>
+</nav>
+{% endif %}
+
+<!-- Edit leave request modal -->
+<div class="modal fade" id="editLeaveModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-pencil me-1"></i>Sửa đơn nghỉ phép</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" id="editLeaveForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <p>Học sinh: <strong id="editLeaveStudentName"></strong></p>
+          <div class="row g-3">
+            <div class="col-6">
+              <label class="form-label fw-semibold" for="edit_start_date">Từ ngày</label>
+              <input type="date" class="form-control" name="start_date" id="edit_start_date" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" for="edit_end_date">Đến ngày</label>
+              <input type="date" class="form-control" name="end_date" id="edit_end_date" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold" for="edit_reason">Lý do</label>
+              <textarea class="form-control" name="reason" id="edit_reason" rows="2"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i>Lưu thay đổi
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const editForm = document.getElementById('editLeaveForm');
+  const editBaseAction = "{{ url_for('admin.leave_request_edit', request_id=0) }}";
+  document.getElementById('editLeaveModal')?.addEventListener('show.bs.modal', function (e) {
+    const btn = e.relatedTarget;
+    editForm.action = editBaseAction.replace('/0/', '/' + btn.dataset.requestId + '/');
+    document.getElementById('editLeaveStudentName').textContent = btn.dataset.studentName;
+    document.getElementById('edit_start_date').value = btn.dataset.startDate;
+    document.getElementById('edit_end_date').value = btn.dataset.endDate;
+    document.getElementById('edit_reason').value = btn.dataset.reason;
+  });
+})();
+</script>
 
 <script>
 (function () {

@@ -96,9 +96,48 @@ def manage_leave_requests():
               'success')
         return redirect(url_for('admin.manage_leave_requests'))
 
-    all_requests = LeaveRequest.query.order_by(LeaveRequest.created_at.desc()).limit(200).all()
+    page = request.args.get('page', 1, type=int)
+    pagination = (
+        LeaveRequest.query.order_by(LeaveRequest.created_at.desc())
+        .paginate(page=page, per_page=10, error_out=False)
+    )
 
-    return render_template('admin/leave_requests.html', requests=all_requests)
+    return render_template('admin/leave_requests.html', requests=pagination.items, pagination=pagination)
+
+
+@admin_bp.route('/leave-requests/<int:request_id>/edit', methods=['POST'])
+@login_required
+@require_admin
+def leave_request_edit(request_id):
+    leave_request = LeaveRequest.query.get_or_404(request_id)
+
+    start_date_str = request.form.get('start_date')
+    end_date_str = request.form.get('end_date')
+    reason = request.form.get('reason', '').strip()
+
+    if not all([start_date_str, end_date_str]):
+        flash('Vui lòng điền đầy đủ thời gian nghỉ.', 'danger')
+        return redirect(url_for('admin.manage_leave_requests'))
+
+    try:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+    except ValueError:
+        flash('Định dạng ngày tháng không hợp lệ.', 'danger')
+        return redirect(url_for('admin.manage_leave_requests'))
+
+    if start_date > end_date:
+        flash('Ngày bắt đầu nghỉ không được lớn hơn ngày kết thúc phép!', 'danger')
+        return redirect(url_for('admin.manage_leave_requests'))
+
+    leave_request.start_date = start_date
+    leave_request.end_date = end_date
+    leave_request.reason = reason
+    db.session.commit()
+
+    flash(f'Đã cập nhật đơn nghỉ phép của {leave_request.student.full_name if leave_request.student else "học sinh"}.',
+          'success')
+    return redirect(url_for('admin.manage_leave_requests', page=request.args.get('page', 1)))
 
 
 @admin_bp.route('/leave-requests/student-search')
