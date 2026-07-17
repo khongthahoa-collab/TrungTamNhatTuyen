@@ -149,25 +149,25 @@
     <table class="table table-hover table-sm mb-0 align-middle">
       <thead class="table-light">
         <tr>
-          <th>Họ tên</th>
-          <th>Username</th>
-          <th>SĐT</th>
-          <th>Quyền</th>
-          <th>Trạng thái</th>
-          <th>Đăng nhập cuối</th>
-          <th class="text-end">Thao tác</th>
+          <th class="text-nowrap">Họ tên</th>
+          <th class="text-nowrap">Username</th>
+          <th class="text-nowrap">SĐT</th>
+          <th class="text-nowrap">Quyền</th>
+          <th class="text-nowrap">Trạng thái</th>
+          <th class="text-nowrap">Đăng nhập cuối</th>
+          <th class="text-end text-nowrap">Thao tác</th>
         </tr>
       </thead>
       <tbody>
         {% for u in users %}
         <tr>
-          <td class="fw-semibold">
+          <td class="fw-semibold text-nowrap">
             {{ u.full_name }}
             {% if u.is_master %}<span class="badge bg-danger ms-1">Master</span>{% endif %}
           </td>
-          <td class="text-muted small">{{ u.username }}</td>
-          <td class="small">{{ u.phone or '–' }}</td>
-          <td>
+          <td class="text-muted small text-nowrap">{{ u.username }}</td>
+          <td class="small text-nowrap">{{ u.phone or '–' }}</td>
+          <td class="text-nowrap">
             {% if u.is_master %}
               <span class="badge bg-light text-dark border">Toàn quyền</span>
             {% elif u.permission_group %}
@@ -176,17 +176,17 @@
               <span class="badge bg-warning text-dark border">Chưa có nhóm quyền</span>
             {% endif %}
           </td>
-          <td>
+          <td class="text-nowrap">
             {% if u.is_active %}
               <span class="badge bg-success bg-opacity-75">Hoạt động</span>
             {% else %}
               <span class="badge bg-danger bg-opacity-75">Vô hiệu</span>
             {% endif %}
           </td>
-          <td class="text-muted small">
+          <td class="text-muted small text-nowrap">
             {{ u.last_login | date_vn if u.last_login else '–' }}
           </td>
-          <td class="text-end">
+          <td class="text-end text-nowrap">
             <div class="d-flex align-items-center justify-content-end gap-2">
               <!-- Edit profile -->
               <button class="acct-action-btn acct-action-edit"

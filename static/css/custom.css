@@ -686,7 +686,10 @@ footer a:hover { color: #fff !important; }
 @media (max-width:991px) {
   .sidebar { transform: translateX(-100%); }
   .sidebar.sidebar-open { transform: translateX(0); }
-  #main-content { margin-left: 0 !important; }
+  /* Mobile sidebar overlays instead of pushing content — main content
+     always gets the full viewport width regardless of the desktop
+     collapsed/expanded state computed server-side. */
+  #main-content { margin-left: 0 !important; max-width: 100vw !important; }
 }
 
 /* ── Attendance form ── */

@@ -25,6 +25,11 @@
 }
 .perm-opt:last-child { margin-right:0; }
 .perm-opt:hover { background:#f8f9fa; }
+@media (max-width:420px) {
+  .perm-card { flex-direction:column; align-items:flex-start; }
+  .perm-segment { width:100%; }
+  .perm-opt { flex:1; text-align:center; padding:.4rem .3rem; font-size:.72rem; }
+}
 .btn-check:checked + .perm-opt-write { background:#d1e7dd; border-color:#198754; color:#0f5132; position:relative; z-index:1; }
 .btn-check:checked + .perm-opt-read  { background:#cff4fc; border-color:#0dcaf0; color:#055160; position:relative; z-index:1; }
 .btn-check:checked + .perm-opt-deny  { background:#f8d7da; border-color:#dc3545; color:#842029; position:relative; z-index:1; }
@@ -35,12 +40,13 @@
   display:inline-flex; align-items:center; border-radius:999px; padding:.35rem .9rem;
   font-size:.78rem; font-weight:600; border:1px solid #0f4c81; color:#0f4c81;
   text-decoration:none; transition:all .15s ease; background:none; cursor:pointer;
+  white-space:nowrap;
 }
 .perm-pill-btn:hover { background:#0f4c81; color:#fff; }
 .perm-pill-btn-outline-danger {
   display:inline-flex; align-items:center; border-radius:999px; padding:.35rem .9rem;
   font-size:.78rem; font-weight:600; border:1px solid #dc3545; color:#dc3545;
-  background:none; cursor:pointer; transition:all .15s ease;
+  background:none; cursor:pointer; transition:all .15s ease; white-space:nowrap;
 }
 .perm-pill-btn-outline-danger:hover { background:#dc3545; color:#fff; }
 .btn-save-permission {
@@ -95,7 +101,7 @@
 <div class="perm-page-bg">
 <div class="card shadow-sm border-0 mb-3" style="border-radius:12px;">
   <div class="card-body">
-    <form method="post" action="{{ url_for('admin.permission_group_add') }}" class="d-flex gap-2">
+    <form method="post" action="{{ url_for('admin.permission_group_add') }}" class="d-flex flex-column flex-sm-row gap-2">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="text" name="name" class="form-control" placeholder="Tên nhóm quyền mới, ví dụ: Kế toán" required>
       <button type="submit" class="btn btn-primary text-nowrap">
@@ -111,25 +117,25 @@
     <table class="table table-hover table-sm mb-0 align-middle">
       <thead class="table-light">
         <tr>
-          <th>Tên nhóm</th>
-          <th>Số tài khoản</th>
-          <th>Phạm vi quyền</th>
-          <th class="text-end">Thao tác</th>
+          <th class="text-nowrap">Tên nhóm</th>
+          <th class="text-nowrap">Số tài khoản</th>
+          <th class="text-nowrap">Phạm vi quyền</th>
+          <th class="text-end text-nowrap">Thao tác</th>
         </tr>
       </thead>
       <tbody>
         {% for g in groups %}
         <tr>
-          <td class="fw-semibold">{{ g.name }}</td>
-          <td class="text-muted small">{{ g.members.count() }}</td>
-          <td>
+          <td class="fw-semibold text-nowrap">{{ g.name }}</td>
+          <td class="text-muted small text-nowrap">{{ g.members.count() }}</td>
+          <td class="text-nowrap">
             {% if g.has_full_access %}
               <span class="badge bg-light text-dark border">Toàn quyền</span>
             {% else %}
               <span class="badge bg-light text-dark border">{{ g.get_permissions() | length }} mục tuỳ chỉnh</span>
             {% endif %}
           </td>
-          <td class="text-end">
+          <td class="text-end text-nowrap">
             <div class="d-flex align-items-center justify-content-end gap-2">
               <a href="{{ url_for('admin.admin_permission', group_id=g.id) }}" class="perm-pill-btn">
                 <i class="bi bi-shield-lock me-1"></i>Sửa quyền
