@@ -1,40 +1,29 @@
 {% macro permission_matrix(modules, prefix, levels=None) %}
-<div class="form-check form-switch mb-2">
+<div class="form-check form-switch mb-3">
   <input class="form-check-input" type="checkbox" name="full_access" id="{{ prefix }}_full"
          {% if levels is none %}checked{% endif %}
          onchange="document.getElementById('{{ prefix }}_list').classList.toggle('d-none', this.checked)">
   <label class="form-check-label fw-semibold" for="{{ prefix }}_full">Toàn quyền</label>
 </div>
-<div class="{% if levels is none %}d-none{% endif %} table-responsive" id="{{ prefix }}_list">
-  <table class="table table-sm align-middle mb-0">
-    <thead>
-      <tr>
-        <th>Chức năng</th>
-        <th class="text-center" style="width:90px;">Xem</th>
-        <th class="text-center" style="width:90px;">Sửa</th>
-        <th class="text-center" style="width:90px;">Không</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for key, label, icon in modules %}
-      {% set current_level = (levels.get(key, 'deny') if levels else 'deny') %}
-      <tr>
-        <td class="small"><i class="bi {{ icon }} me-1"></i>{{ label }}</td>
-        <td class="text-center">
-          <input class="form-check-input" type="radio" name="perm_{{ key }}" value="read"
-                 id="{{ prefix }}_{{ key }}_read" {% if current_level == 'read' %}checked{% endif %}>
-        </td>
-        <td class="text-center">
-          <input class="form-check-input" type="radio" name="perm_{{ key }}" value="write"
-                 id="{{ prefix }}_{{ key }}_write" {% if current_level == 'write' %}checked{% endif %}>
-        </td>
-        <td class="text-center">
-          <input class="form-check-input" type="radio" name="perm_{{ key }}" value="deny"
-                 id="{{ prefix }}_{{ key }}_deny" {% if current_level == 'deny' %}checked{% endif %}>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="{% if levels is none %}d-none{% endif %} perm-card-list" id="{{ prefix }}_list">
+  {% for key, label, icon in modules %}
+  {% set current_level = (levels.get(key, 'deny') if levels else 'deny') %}
+  <div class="perm-card">
+    <div class="perm-card-label"><i class="bi {{ icon }} me-2"></i>{{ label }}</div>
+    <div class="perm-segment">
+      <input type="radio" class="btn-check" name="perm_{{ key }}" value="write"
+             id="{{ prefix }}_{{ key }}_write" {% if current_level == 'write' %}checked{% endif %}>
+      <label class="perm-opt perm-opt-write" for="{{ prefix }}_{{ key }}_write">Cho phép (Ghi)</label>
+
+      <input type="radio" class="btn-check" name="perm_{{ key }}" value="read"
+             id="{{ prefix }}_{{ key }}_read" {% if current_level == 'read' %}checked{% endif %}>
+      <label class="perm-opt perm-opt-read" for="{{ prefix }}_{{ key }}_read">Chỉ đọc</label>
+
+      <input type="radio" class="btn-check" name="perm_{{ key }}" value="deny"
+             id="{{ prefix }}_{{ key }}_deny" {% if current_level == 'deny' %}checked{% endif %}>
+      <label class="perm-opt perm-opt-deny" for="{{ prefix }}_{{ key }}_deny">Vô hiệu hóa</label>
+    </div>
+  </div>
+  {% endfor %}
 </div>
 {% endmacro %}

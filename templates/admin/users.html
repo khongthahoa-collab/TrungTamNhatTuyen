@@ -7,6 +7,45 @@
 {% endblock %}
 
 {% block content %}
+<style>
+.perm-card-list { display:flex; flex-direction:column; gap:.6rem; }
+.perm-card {
+  background:#fff; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,.06);
+  padding:.75rem 1rem; display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:.5rem;
+}
+.perm-card-label { font-size:.9rem; font-weight:600; color:#334155; }
+.perm-segment { display:inline-flex; border-radius:8px; overflow:hidden; }
+.perm-opt {
+  padding:.4rem .85rem; font-size:.78rem; font-weight:600; cursor:pointer;
+  background:#fff; color:#6c757d; border:1px solid #dee2e6; margin:0 -1px 0 0;
+  transition:background-color .15s ease, color .15s ease, border-color .15s ease;
+  white-space:nowrap;
+}
+.perm-opt:last-child { margin-right:0; }
+.perm-opt:hover { background:#f8f9fa; }
+.btn-check:checked + .perm-opt-write { background:#d1e7dd; border-color:#198754; color:#0f5132; position:relative; z-index:1; }
+.btn-check:checked + .perm-opt-read  { background:#cff4fc; border-color:#0dcaf0; color:#055160; position:relative; z-index:1; }
+.btn-check:checked + .perm-opt-deny  { background:#f8d7da; border-color:#dc3545; color:#842029; position:relative; z-index:1; }
+.btn-check:focus-visible + .perm-opt { outline:2px solid #0d6efd; outline-offset:1px; }
+
+.acct-action-btn {
+  width:36px; height:36px; border-radius:50%; border:none; padding:0;
+  display:flex; align-items:center; justify-content:center; font-size:.9rem;
+  transition:all .2s ease;
+}
+.acct-action-edit    { background:#f1f5f9; color:#475569; }
+.acct-action-edit:hover    { background:#e2e8f0; }
+.acct-action-perm    { background:#e2f9df; color:#1b5e20; }
+.acct-action-perm:hover    { background:#c9f2c3; }
+.acct-action-pwd     { background:#fef3c7; color:#b45309; }
+.acct-action-pwd:hover     { background:#fde9a8; }
+.acct-action-toggle  { background:#ffedd5; color:#c2410c; }
+.acct-action-toggle:hover  { background:#fdd9ae; }
+.acct-action-delete  { background:#fee2e2; color:#991b1b; }
+.acct-action-delete:hover  { background:#fdc9c9; }
+</style>
+
 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
   <h4 class="fw-bold mb-0">
     <i class="bi bi-person-gear text-secondary me-2"></i>Quản lý tài khoản Admin
@@ -158,9 +197,9 @@
             {{ u.last_login | date_vn if u.last_login else '–' }}
           </td>
           <td class="text-end">
-            <div class="btn-group btn-group-sm">
+            <div class="d-flex align-items-center justify-content-end gap-2">
               <!-- Edit profile -->
-              <button class="btn btn-outline-secondary"
+              <button class="acct-action-btn acct-action-edit"
                       title="Sửa thông tin"
                       data-bs-toggle="modal"
                       data-bs-target="#userEditModal"
@@ -172,7 +211,7 @@
               </button>
               {% if current_user.is_master and u.id != current_user.id %}
               <!-- Edit permissions -->
-              <button class="btn btn-outline-primary"
+              <button class="acct-action-btn acct-action-perm"
                       title="Sửa quyền"
                       data-bs-toggle="modal"
                       data-bs-target="#permEditModal"
@@ -184,7 +223,7 @@
               </button>
               {% endif %}
               <!-- Reset password -->
-              <button class="btn btn-outline-warning"
+              <button class="acct-action-btn acct-action-pwd"
                       title="Đặt lại mật khẩu"
                       data-bs-toggle="modal"
                       data-bs-target="#resetPwdModal"
@@ -198,7 +237,7 @@
                     class="d-inline">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit"
-                        class="btn {% if u.is_active %}btn-outline-danger{% else %}btn-outline-success{% endif %}"
+                        class="acct-action-btn acct-action-toggle"
                         title="{% if u.is_active %}Vô hiệu hóa{% else %}Kích hoạt{% endif %}"
                         onclick="return confirm('{{ 'Vô hiệu hóa' if u.is_active else 'Kích hoạt' }} tài khoản {{ u.full_name }}?')">
                   <i class="bi {% if u.is_active %}bi-person-x{% else %}bi-person-check{% endif %}"></i>
@@ -211,7 +250,7 @@
                     class="d-inline">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit"
-                        class="btn btn-outline-danger"
+                        class="acct-action-btn acct-action-delete"
                         title="Xoá tài khoản"
                         onclick="return confirm('Xoá tài khoản {{ u.full_name }}? Tài khoản sẽ bị ẩn khỏi danh sách nhưng dữ liệu liên quan vẫn được giữ nguyên.')">
                   <i class="bi bi-trash"></i>

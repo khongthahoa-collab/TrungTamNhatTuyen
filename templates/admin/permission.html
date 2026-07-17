@@ -8,6 +8,42 @@
 {% endblock %}
 
 {% block content %}
+<style>
+.perm-card-list { display:flex; flex-direction:column; gap:.6rem; }
+.perm-card {
+  background:#fff; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,.06);
+  padding:.75rem 1rem; display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:.5rem;
+}
+.perm-card-label { font-size:.9rem; font-weight:600; color:#334155; }
+.perm-segment { display:inline-flex; border-radius:8px; overflow:hidden; }
+.perm-opt {
+  padding:.4rem .85rem; font-size:.78rem; font-weight:600; cursor:pointer;
+  background:#fff; color:#6c757d; border:1px solid #dee2e6; margin:0 -1px 0 0;
+  transition:background-color .15s ease, color .15s ease, border-color .15s ease;
+  white-space:nowrap;
+}
+.perm-opt:last-child { margin-right:0; }
+.perm-opt:hover { background:#f8f9fa; }
+.btn-check:checked + .perm-opt-write { background:#d1e7dd; border-color:#198754; color:#0f5132; position:relative; z-index:1; }
+.btn-check:checked + .perm-opt-read  { background:#cff4fc; border-color:#0dcaf0; color:#055160; position:relative; z-index:1; }
+.btn-check:checked + .perm-opt-deny  { background:#f8d7da; border-color:#dc3545; color:#842029; position:relative; z-index:1; }
+.btn-check:focus-visible + .perm-opt { outline:2px solid #0d6efd; outline-offset:1px; }
+
+.perm-page-bg { background:#f3f7fa; border-radius:16px; padding:1.25rem; }
+.perm-pill-btn {
+  display:inline-flex; align-items:center; border-radius:999px; padding:.35rem .9rem;
+  font-size:.78rem; font-weight:600; border:1px solid #0f4c81; color:#0f4c81;
+  text-decoration:none; transition:all .15s ease;
+}
+.perm-pill-btn:hover { background:#0f4c81; color:#fff; }
+.btn-save-permission {
+  background:#0f4c81; color:#fff; border:none; border-radius:999px;
+  padding:.7rem 2rem; font-weight:700; font-size:.95rem; transition:background-color .15s ease;
+}
+.btn-save-permission:hover { background:#0c3d68; color:#fff; }
+</style>
+
 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
   <h4 class="fw-bold mb-0">
     <i class="bi bi-shield-lock text-secondary me-2"></i>Phân quyền
@@ -18,8 +54,9 @@
 </div>
 
 {% if target_user %}
-<div class="card shadow-sm border-0">
-  <div class="card-header bg-light fw-semibold">
+<div class="perm-page-bg">
+<div class="card shadow-sm border-0" style="border-radius:12px;">
+  <div class="card-header bg-light fw-semibold" style="border-radius:12px 12px 0 0;">
     Phân quyền của: {{ target_user.full_name }}
     {% if target_user.is_master %}<span class="badge bg-danger ms-1">Master</span>{% endif %}
   </div>
@@ -32,17 +69,21 @@
     <form method="post" action="{{ url_for('admin.user_permissions_update', user_id=target_user.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       {{ perm.permission_matrix(admin_modules, 'perm', levels=target_user.get_permissions()) }}
-      <button type="submit" class="btn btn-primary mt-3">
-        <i class="bi bi-check-lg me-1"></i>Lưu quyền
-      </button>
+      <div class="text-end mt-3">
+        <button type="submit" class="btn-save-permission">
+          <i class="bi bi-check-lg me-1"></i>Lưu Thiết Lập Quyền Hạn
+        </button>
+      </div>
     </form>
     {% endif %}
   </div>
 </div>
+</div>
 
 {% else %}
-<div class="card shadow-sm border-0">
-  <div class="card-header bg-light fw-semibold">Chọn tài khoản admin để phân quyền</div>
+<div class="perm-page-bg">
+<div class="card shadow-sm border-0" style="border-radius:12px;">
+  <div class="card-header bg-light fw-semibold" style="border-radius:12px 12px 0 0;">Chọn tài khoản admin để phân quyền</div>
   <div class="table-responsive">
     <table class="table table-hover table-sm mb-0 align-middle">
       <thead class="table-light">
@@ -72,7 +113,7 @@
             {% if u.is_master or u.id == current_user.id %}
             <span class="text-muted small">—</span>
             {% else %}
-            <a href="{{ url_for('admin.admin_permission', user_id=u.id) }}" class="btn btn-outline-primary btn-sm">
+            <a href="{{ url_for('admin.admin_permission', user_id=u.id) }}" class="perm-pill-btn">
               <i class="bi bi-shield-lock me-1"></i>Sửa quyền
             </a>
             {% endif %}
@@ -86,6 +127,7 @@
       </tbody>
     </table>
   </div>
+</div>
 </div>
 {% endif %}
 {% endblock %}
