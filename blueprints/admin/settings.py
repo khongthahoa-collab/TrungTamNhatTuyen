@@ -1,7 +1,7 @@
 from flask import render_template, redirect, url_for, flash, request, abort
 from flask_login import login_required, current_user
 from extensions import db
-from models import SystemConfig, User, Course, UserRole, ContactInquiry
+from models import SystemConfig, User, Course, UserRole, ContactInquiry, Teacher
 from blueprints.admin import admin_bp, require_admin
 from blueprints.admin.account_utils import next_username, DEFAULT_TEMP_PASSWORD
 from blueprints.permissions import ADMIN_PERMISSION_MODULES
@@ -123,12 +123,22 @@ def user_add():
     user.set_permissions(None if full_access else _parse_permission_matrix(request.form))
 
     db.session.add(user)
+    # Need user.id before linking a Teacher row to it — same flush-then-link
+    # pattern as teacher_add(). Lets this admin also act as a teacher and
+    # switch between the two (see services/auth_context.py).
+    db.session.flush()
+    create_teacher_profile = request.form.get('create_teacher_profile') == '1'
+    if create_teacher_profile:
+        db.session.add(Teacher(user_id=user.id, is_staff=True))
+
     db.session.commit()
     if used_default_password:
         flash(f'Đã tạo tài khoản {username} với mật khẩu tạm: {DEFAULT_TEMP_PASSWORD} '
               f'— bắt buộc đổi mật khẩu ở lần đăng nhập đầu tiên.', 'success')
     else:
         flash(f'Đã tạo tài khoản {username} — bắt buộc đổi mật khẩu ở lần đăng nhập đầu tiên.', 'success')
+    if create_teacher_profile:
+        flash(f'Đã tạo hồ sơ Giáo viên liên kết — tài khoản này có thể chuyển đổi vai trò Admin/Giáo viên.', 'info')
     return redirect(url_for('admin.users'))
 
 

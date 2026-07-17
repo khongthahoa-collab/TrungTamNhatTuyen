@@ -95,6 +95,26 @@ def teacher_add():
     return render_template('admin/teachers/form.html', action='add', form={})
 
 
+@admin_bp.route('/teachers/<int:teacher_id>/promote', methods=['POST'])
+@login_required
+@require_master
+def teacher_promote(teacher_id):
+    """Cấp quyền Admin cho một tài khoản giáo viên có sẵn — chỉ đổi
+    User.role, hồ sơ Teacher (và toàn bộ dữ liệu liên quan) giữ nguyên.
+    Tài khoản này ngay lập tức trở thành dual-role và có thể chuyển đổi
+    vai trò (xem services/auth_context.py)."""
+    teacher = Teacher.query.get_or_404(teacher_id)
+    user = teacher.user
+    if user.role == UserRole.ADMIN:
+        flash(f'{user.full_name} đã là admin rồi.', 'warning')
+    else:
+        user.role = UserRole.ADMIN
+        db.session.commit()
+        flash(f'Đã cấp quyền Admin cho {user.full_name}. Tài khoản này giờ có thể '
+              f'chuyển đổi giữa vai trò Admin và Giáo viên.', 'success')
+    return redirect(url_for('admin.teacher_detail', teacher_id=teacher_id))
+
+
 @admin_bp.route('/teachers/<int:teacher_id>/detail', methods=['GET', 'POST'])
 @login_required
 @require_master

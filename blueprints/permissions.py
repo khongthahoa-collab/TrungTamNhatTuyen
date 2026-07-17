@@ -106,7 +106,7 @@ ADMIN_ENDPOINT_MODULES = {
     # teachers.py — master-only (see MASTER_ONLY_MODULES)
     'teachers': 'teachers', 'teacher_add': 'teachers',
     'teacher_detail': 'teachers', 'teacher_delete': 'teachers',
-    'teacher_reset_password': 'teachers',
+    'teacher_reset_password': 'teachers', 'teacher_promote': 'teachers',
 
     # rooms.py
     'rooms': 'rooms', 'room_add': 'rooms', 'room_edit': 'rooms',
