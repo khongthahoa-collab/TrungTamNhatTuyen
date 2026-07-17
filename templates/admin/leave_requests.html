@@ -89,6 +89,7 @@
           <td class="text-muted small">{{ r.created_at | date_vn if r.created_at else '—' }}</td>
           <td class="text-end">
             <div class="d-flex align-items-center justify-content-end gap-2">
+              {% if r.status == 'APPROVED' %}
               <button type="button" class="acct-action-btn acct-action-edit" title="Sửa đơn nghỉ phép"
                       data-bs-toggle="modal" data-bs-target="#editLeaveModal"
                       data-request-id="{{ r.id }}"
@@ -98,7 +99,6 @@
                       data-reason="{{ r.reason or '' }}">
                 <i class="bi bi-pencil"></i>
               </button>
-              {% if r.status == 'APPROVED' %}
               <form method="post" action="{{ url_for('admin.leave_request_cancel', request_id=r.id) }}" class="d-inline">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="acct-action-btn acct-action-delete" title="Hủy đơn"
@@ -106,6 +106,8 @@
                   <i class="bi bi-x-lg"></i>
                 </button>
               </form>
+              {% else %}
+              <span class="text-muted small">—</span>
               {% endif %}
             </div>
           </td>
@@ -228,12 +230,16 @@
         resultsBox.classList.remove('d-none');
         return;
       }
-      resultsBox.innerHTML = students.map(s => `
+      resultsBox.innerHTML = students.map(s => {
+        const label = [s.full_name, s.grade, s.school].filter(Boolean).join(' – ');
+        const details = [s.grade, s.school].filter(Boolean).join(' – ');
+        return `
         <button type="button" class="list-group-item list-group-item-action small"
-                data-id="${s.id}" data-name="${s.full_name.replace(/"/g, '&quot;')}">
-          <strong>${s.full_name}</strong>${s.parent_phone ? ' – ' + s.parent_phone : ''}
+                data-id="${s.id}" data-name="${label.replace(/"/g, '&quot;')}">
+          <strong>${s.full_name}</strong>${details ? ' – ' + details : ''}
         </button>
-      `).join('');
+      `;
+      }).join('');
       resultsBox.classList.remove('d-none');
     }, 300);
   });

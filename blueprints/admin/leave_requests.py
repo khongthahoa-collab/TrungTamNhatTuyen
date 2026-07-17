@@ -111,6 +111,10 @@ def manage_leave_requests():
 def leave_request_edit(request_id):
     leave_request = LeaveRequest.query.get_or_404(request_id)
 
+    if leave_request.status != LeaveRequestStatus.APPROVED:
+        flash('Đơn nghỉ phép đã bị hủy — không thể chỉnh sửa. Hãy tạo đơn mới nếu cần.', 'danger')
+        return redirect(url_for('admin.manage_leave_requests'))
+
     start_date_str = request.form.get('start_date')
     end_date_str = request.form.get('end_date')
     reason = request.form.get('reason', '').strip()
@@ -173,7 +177,18 @@ def leave_request_student_search():
         or_(Student.full_name.ilike(f'%{q}%'), Student.parent_phone.ilike(f'%{q}%')),
     ).order_by(Student.full_name).limit(10).all()
 
+    def grade_short(grade):
+        if not grade:
+            return ''
+        return grade[len('Lớp '):] if grade.startswith('Lớp ') else grade
+
     return jsonify([
-        {'id': s.id, 'full_name': s.full_name, 'parent_phone': s.parent_phone or ''}
+        {
+            'id': s.id,
+            'full_name': s.full_name,
+            'parent_phone': s.parent_phone or '',
+            'grade': grade_short(s.current_grade),
+            'school': s.current_school or '',
+        }
         for s in students
     ])
