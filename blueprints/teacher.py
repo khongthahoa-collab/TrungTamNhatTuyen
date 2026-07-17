@@ -7,7 +7,7 @@ from extensions import db
 from models import Schedule, Attendance, Score, Class, Enrollment, Student, ClassDocument, Room, Notification, User, Salary, LeaveRequest, LeaveRequestStatus
 from services.zalo_service import ZaloService
 from services.reward_service import create_suggested_reward
-from services.salary_service import scheduled_sessions, substituted_sessions
+from services.salary_service import scheduled_sessions, substituted_sessions, taught_classes_count
 from services.auth_context import get_active_role
 
 teacher_bp = Blueprint('teacher', __name__)
@@ -77,6 +77,7 @@ def dashboard():
                            year=year,
                            sessions_taught=scheduled_sessions(teacher.id, month, year),
                            sessions_substituted=substituted_sessions(teacher.id, month, year),
+                           classes_taught=taught_classes_count(teacher.id, month, year),
                            base_amount=salary.base_amount if salary else (teacher.base_salary or 0),
                            total_amount=salary.total if salary else None)
 
@@ -625,13 +626,34 @@ def attendance_list():
     # Sĩ số / "đã điểm danh chưa" also used to be a .count() query per
     # schedule/class (Class.current_enrollment, Schedule.attendance_taken)
     # — derive both from the same batched data above instead.
+    # Approved leave requests overlapping the visible date range, for every
+    # student enrolled in a shown class — one query instead of one per
+    # schedule. Membership is resolved per-schedule below since a request's
+    # [start_date, end_date] can cover only some of the sessions on screen.
+    all_student_ids = {e.student_id for lst in enrollments_by_class.values() for e in lst}
+    leave_requests = []
+    if all_student_ids:
+        leave_requests = LeaveRequest.query.filter(
+            LeaveRequest.student_id.in_(all_student_ids),
+            LeaveRequest.status == LeaveRequestStatus.APPROVED,
+            LeaveRequest.start_date <= range_end,
+            LeaveRequest.end_date >= range_start,
+        ).all()
+
     roster = {}
     for s in schedules:
+        enrollments = enrollments_by_class.get(s.class_id, [])
+        enrolled_ids = {e.student_id for e in enrollments}
+        excused_student_ids = {
+            lr.student_id for lr in leave_requests
+            if lr.student_id in enrolled_ids and lr.start_date <= s.date <= lr.end_date
+        }
         roster[s.id] = {
-            'enrollments': enrollments_by_class.get(s.class_id, []),
+            'enrollments': enrollments,
             'attendance': attendance_by_schedule.get(s.id, {}),
-            'enrollment_count': len(enrollments_by_class.get(s.class_id, [])),
+            'enrollment_count': len(enrollments),
             'attendance_taken': bool(attendance_by_schedule.get(s.id)),
+            'excused_student_ids': excused_student_ids,
         }
 
     if view_mode == 'week':

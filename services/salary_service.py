@@ -9,9 +9,23 @@ Mỗi tháng độc lập: lương cơ bản mặc định luôn lấy từ Teac
 (không lấy từ tháng trước) — chỉnh sửa lương cơ bản của một tháng không ảnh
 hưởng đến các tháng khác.
 """
-from sqlalchemy import extract
+from sqlalchemy import extract, or_, and_
 from extensions import db
 from models import Schedule, Teacher, Salary
+
+
+def taught_classes_count(teacher_id, month, year):
+    """Distinct classes this teacher actually held a session for (as the
+    regular teacher or as a substitute) in the given month."""
+    return db.session.query(Schedule.class_id).filter(
+        or_(
+            and_(Schedule.teacher_id == teacher_id, Schedule.substitute_teacher_id.is_(None)),
+            Schedule.substitute_teacher_id == teacher_id,
+        ),
+        Schedule.is_cancelled == False,
+        extract('month', Schedule.date) == month,
+        extract('year', Schedule.date) == year,
+    ).distinct().count()
 
 
 def scheduled_sessions(teacher_id, month, year):

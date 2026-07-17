@@ -105,9 +105,15 @@ def students():
     pagination = query.order_by(Student.full_name).paginate(page=page, per_page=per_page, error_out=False)
     students   = pagination.items
 
-    # Absent counts (single query for current page only)
+    # Absent counts + active-enrollment counts (1 batched query each for the
+    # current page only) — the enrollment count used to be
+    # student.enrollments | selectattr(...) per row in the template, which
+    # hits Enrollment.enrollments' lazy='dynamic' relationship (1 query per
+    # row) and got slow once per_page was bumped up (e.g. to "all" for 500+
+    # students, as when checking the list before/after a CSV import).
     student_ids = [s.id for s in students]
     absent_counts = {}
+    enrollment_counts = {}
     if student_ids:
         rows = (
             db.session.query(Attendance.student_id, func.count(Attendance.id))
@@ -117,6 +123,14 @@ def students():
             .all()
         )
         absent_counts = dict(rows)
+
+        enrollment_rows = (
+            db.session.query(Enrollment.student_id, func.count(Enrollment.id))
+            .filter(Enrollment.student_id.in_(student_ids), Enrollment.is_active == True)
+            .group_by(Enrollment.student_id)
+            .all()
+        )
+        enrollment_counts = dict(enrollment_rows)
 
     all_teachers = Teacher.query.join(Teacher.user).order_by(User.full_name).all()
     school_rows = (db.session.query(Student.current_school)
@@ -130,6 +144,7 @@ def students():
                            students=students,
                            pagination=pagination,
                            absent_counts=absent_counts,
+                           enrollment_counts=enrollment_counts,
                            q=q, level=level, active_only=active_only,
                            grade=grade, school_q=school_q, teacher_id=teacher_id,
                            is_filtered=is_filtered,
@@ -165,6 +180,7 @@ def export_students():
 
     student_ids = [s.id for s in students]
     absent_counts = {}
+    enrollment_counts = {}
     if student_ids:
         rows = (
             db.session.query(Attendance.student_id, func.count(Attendance.id))
@@ -175,13 +191,21 @@ def export_students():
         )
         absent_counts = dict(rows)
 
+        enrollment_rows = (
+            db.session.query(Enrollment.student_id, func.count(Enrollment.id))
+            .filter(Enrollment.student_id.in_(student_ids), Enrollment.is_active == True)
+            .group_by(Enrollment.student_id)
+            .all()
+        )
+        enrollment_counts = dict(enrollment_rows)
+
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(['ID', 'Họ tên', 'Cấp học', 'Trường', 'Lớp tại trường',
                      'Tên phụ huynh', 'SĐT phụ huynh', 'Số lớp đang học',
                      'Ngày nghỉ', 'Trạng thái'])
     for s in students:
-        enrolled = s.enrollments.filter_by(is_active=True).count()
+        enrolled = enrollment_counts.get(s.id, 0)
         writer.writerow([
             s.id, s.full_name,
             StudentLevel.LABELS.get(s.level, s.level),

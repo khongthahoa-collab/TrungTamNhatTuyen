@@ -177,28 +177,36 @@
               {% for enrollment in data.enrollments %}
               {% set student = enrollment.student %}
               {% set att = data.attendance.get(student.id) %}
-              {% set init_status = att.status if att and att.status in ('present', 'excused') else 'absent' %}
-              <tr class="att-row" data-student="{{ student.id }}" data-status="{{ init_status }}" data-touched="{{ '1' if att else '0' }}">
+              {% set is_locked_excused = student.id in data.excused_student_ids %}
+              {% set init_status = 'excused' if is_locked_excused else (att.status if att and att.status in ('present', 'excused') else 'absent') %}
+              <tr class="att-row" data-student="{{ student.id }}" data-status="{{ init_status }}"
+                  data-touched="{{ '1' if (att or is_locked_excused) else '0' }}"
+                  data-locked="{{ 'true' if is_locked_excused else 'false' }}">
                 <td>
-                  <input type="checkbox" class="form-check-input att-check" {% if not can_edit %}disabled{% endif %}
+                  <input type="checkbox" class="form-check-input att-check" {% if not can_edit or is_locked_excused %}disabled{% endif %}
                          {% if init_status == 'present' %}checked{% endif %}>
                 </td>
                 <td class="small text-muted d-none d-sm-table-cell">{{ loop.index }}</td>
                 <td>
                   <div class="fw-semibold small">{{ student.full_name }}</div>
+                  {% if is_locked_excused %}
+                  <span class="badge bg-warning text-dark">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i>Đã xin nghỉ phép
+                  </span>
+                  {% endif %}
                   <div class="small text-muted d-sm-none">{{ student.parent_phone or 'Chưa có' }}</div>
                 </td>
                 <td class="small text-muted d-none d-sm-table-cell">{{ student.parent_phone or 'Chưa có' }}</td>
                 <td class="text-center">
                   <div class="d-flex gap-1 justify-content-center flex-wrap status-toggle">
                     <button type="button" class="btn btn-sm rounded-pill btn-outline-success status-btn {% if init_status == 'present' %}active{% endif %}"
-                            data-value="present" {% if not can_edit %}disabled{% endif %}
+                            data-value="present" {% if not can_edit or is_locked_excused %}disabled{% endif %}
                             title="Có mặt"><i class="bi bi-check-circle"></i><span class="d-none d-sm-inline ms-1">Có</span></button>
                     <button type="button" class="btn btn-sm rounded-pill btn-outline-warning status-btn {% if init_status == 'excused' %}active{% endif %}"
                             data-value="excused" {% if not can_edit %}disabled{% endif %}
                             title="Vắng có phép"><i class="bi bi-exclamation-circle"></i><span class="d-none d-sm-inline ms-1">Phép</span></button>
                     <button type="button" class="btn btn-sm rounded-pill btn-outline-danger status-btn {% if init_status == 'absent' %}active{% endif %}"
-                            data-value="absent" {% if not can_edit %}disabled{% endif %}
+                            data-value="absent" {% if not can_edit or is_locked_excused %}disabled{% endif %}
                             title="Vắng"><i class="bi bi-x-circle"></i><span class="d-none d-sm-inline ms-1">Vắng</span></button>
                   </div>
                 </td>
@@ -340,9 +348,12 @@ function enableSave(scheduleId) {
 function syncSelectAll(table) {
   const selectAll = table.querySelector('.select-all-check');
   if (!selectAll) return;
-  const rows = table.querySelectorAll('.att-row');
+  // Locked (on-leave) rows are never "present" and can't be toggled, so
+  // they're excluded from the all/none comparison — otherwise the
+  // select-all checkbox could never show as fully checked.
+  const rows = Array.from(table.querySelectorAll('.att-row')).filter(r => r.dataset.locked !== 'true');
   const total = rows.length;
-  const presentCount = Array.from(rows).filter(r => r.dataset.status === 'present').length;
+  const presentCount = rows.filter(r => r.dataset.status === 'present').length;
   selectAll.checked = total > 0 && presentCount === total;
   selectAll.indeterminate = presentCount > 0 && presentCount < total;
 }
@@ -376,6 +387,7 @@ document.querySelectorAll('.attendance-table').forEach(table => {
     selectAll.addEventListener('change', () => {
       const status = selectAll.checked ? 'present' : 'absent';
       table.querySelectorAll('.att-row').forEach(row => {
+        if (row.dataset.locked === 'true') return;
         row.dataset.touched = '1';
         setRowStatus(row, status);
       });
@@ -394,6 +406,7 @@ document.querySelectorAll('.btn-mark-all').forEach(btn => {
     const scheduleId = btn.dataset.schedule;
     const table = document.querySelector(`.attendance-table[data-schedule="${scheduleId}"]`);
     table.querySelectorAll('.att-row').forEach(row => {
+      if (row.dataset.locked === 'true') return;
       row.dataset.touched = '1';
       setRowStatus(row, 'present');
     });

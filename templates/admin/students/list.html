@@ -181,7 +181,7 @@
               {% else %}<span class="text-muted">—</span>{% endif %}
             </td>
             <td class="text-center">
-              {% set enrolled_count = student.enrollments | selectattr('is_active', 'equalto', true) | list | length %}
+              {% set enrolled_count = enrollment_counts.get(student.id, 0) %}
               {% if enrolled_count > 0 %}
               <span class="badge bg-primary rounded-pill">{{ enrolled_count }}</span>
               {% else %}<span class="text-muted small">0</span>{% endif %}
