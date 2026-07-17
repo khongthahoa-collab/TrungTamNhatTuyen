@@ -321,20 +321,55 @@ def _parse_sched_rows(allowed_teacher_ids, default_teacher_id):
 
 def _suggested_students(cls):
     """Students in the same grade as cls (exact match on the canonical grade
-    label), not already actively enrolled in any class sharing cls.course_id
-    (i.e. not already taking that subject). Classes with a non-canonical
-    grade_level (e.g. "Loại khác") skip the grade filter entirely."""
+    label). Two groups make the list:
+      - students not currently taking cls.course_id at all;
+      - students already taking it in a DIFFERENT class, but only if
+        enrolling them in cls wouldn't create a schedule conflict (reuses
+        find_student_schedule_conflict, batched the same way
+        class_add_students() already batches it).
+    A student already actively enrolled in cls itself is always excluded.
+    Classes with a non-canonical grade_level (e.g. "Loại khác") skip the
+    grade filter entirely. Returns (students, already_taking_ids) — the
+    second lets the template flag which suggestions are the "already
+    learning this subject elsewhere" case."""
     grade_filter = cls.grade_level if cls.grade_level in GRADE_SEQUENCE else None
-    already_ids = {
-        e.student_id for e in
+
+    course_enrollments = (
         Enrollment.query.join(Class, Enrollment.class_id == Class.id)
         .filter(Class.course_id == cls.course_id, Enrollment.is_active == True).all()
-    }
+    )
+    already_in_class_ids = {e.student_id for e in course_enrollments if e.class_id == cls.id}
+    taking_elsewhere_ids = {e.student_id for e in course_enrollments if e.class_id != cls.id}
+
     query = Student.query.filter(Student.is_active == True, Student.is_deleted == False)
     if grade_filter:
         query = query.filter(Student.current_grade == grade_filter)
     students = query.order_by(Student.full_name).all()
-    return [s for s in students if s.id not in already_ids]
+    candidates = [s for s in students if s.id not in already_in_class_ids]
+
+    if not taking_elsewhere_ids:
+        return candidates, set()
+
+    relevant_ids = [s.id for s in candidates if s.id in taking_elsewhere_ids]
+    active_enrollments_by_student = {}
+    if relevant_ids:
+        for e in Enrollment.query.filter(Enrollment.student_id.in_(relevant_ids), Enrollment.is_active == True).all():
+            active_enrollments_by_student.setdefault(e.student_id, set()).add(e.class_id)
+    slot_cache = {}
+
+    result = []
+    already_taking_ids = set()
+    for s in candidates:
+        if s.id in taking_elsewhere_ids:
+            conflict = find_student_schedule_conflict(
+                s, cls, slot_cache=slot_cache,
+                active_class_ids=active_enrollments_by_student.get(s.id, set()),
+            )
+            if conflict:
+                continue
+            already_taking_ids.add(s.id)
+        result.append(s)
+    return result, already_taking_ids
 
 
 # ── Routes ─────────────────────────────────────────────────────────────────
@@ -526,10 +561,12 @@ def class_detail(class_id):
         weekly_pattern[key] = s
     weekly_slots = sorted(weekly_pattern.values(), key=lambda s: (s.date.weekday(), s.start_time))
 
+    suggested_students, already_taking_ids = _suggested_students(class_)
     return render_template('admin/classes/detail.html',
                            class_=class_, teachers=teachers, rooms=rooms,
                            weekly_slots=weekly_slots,
-                           suggested_students=_suggested_students(class_),
+                           suggested_students=suggested_students,
+                           already_taking_ids=already_taking_ids,
                            grade_label=GRADE_LEVEL_LABELS.get(class_.grade_level, class_.grade_level or ''),
                            day_options=DAY_OPTIONS, time_points=TIME_POINTS,
                            today=today)
@@ -739,8 +776,9 @@ def class_delete_weekly_slot(class_id):
 @login_required
 @require_admin
 def class_add_students(class_id):
-    """Ghi danh hàng loạt học sinh được gợi ý (cùng khối, chưa học môn này), và
-    tự tạo học phí tháng hiện tại theo học phí chuẩn của lớp."""
+    """Ghi danh hàng loạt học sinh được gợi ý (xem _suggested_students: cùng
+    khối, chưa học môn này hoặc đã học ở lớp khác nhưng không trùng lịch),
+    và tự tạo học phí tháng hiện tại theo học phí chuẩn của lớp."""
     class_ = Class.query.get_or_404(class_id)
     student_ids = [int(x) for x in request.form.getlist('student_ids') if x]
 

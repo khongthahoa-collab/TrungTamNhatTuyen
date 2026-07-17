@@ -374,7 +374,8 @@
         <div class="modal-body">
           {% if suggested_students %}
           <p class="text-muted small mb-2">
-            Gợi ý học sinh cùng khối, chưa học môn {{ class_.course.name if class_.course else '' }}.
+            Gợi ý học sinh cùng khối, chưa học môn {{ class_.course.name if class_.course else '' }} —
+            và học sinh đã học môn này ở lớp khác nhưng không bị trùng lịch với lớp này.
           </p>
           <div class="input-group input-group-sm mb-2">
             <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
@@ -391,6 +392,11 @@
               <span class="flex-grow-1">
                 <span class="fw-semibold small student-name">{{ student.full_name }}</span>
                 {% if student.current_grade %}<span class="text-muted small ms-2">{{ student.current_grade }}</span>{% endif %}
+                {% if student.id in already_taking_ids %}
+                <span class="badge bg-info-subtle text-info border border-info-subtle ms-1" style="font-size:0.65rem">
+                  Đã học lớp khác
+                </span>
+                {% endif %}
               </span>
             </label>
             {% endfor %}
@@ -401,7 +407,7 @@
           {% else %}
           <div class="text-center text-muted py-4">
             <i class="bi bi-people fs-4 d-block mb-2"></i>
-            Không có học sinh phù hợp để gợi ý (cùng khối, chưa học môn này).
+            Không có học sinh phù hợp để gợi ý (cùng khối, chưa học môn này hoặc đã học môn này ở lớp khác nhưng đều bị trùng lịch).
           </div>
           {% endif %}
         </div>
