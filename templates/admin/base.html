@@ -18,14 +18,6 @@
         </a>
       </li>
 
-      {% if current_user.can_access('reports') %}
-      <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.reports') }}" class="nav-link {% if current_admin_module == 'reports' %}active{% endif %}">
-          <i class="bi bi-bar-chart-line me-2"></i>Báo cáo
-        </a>
-      </li>
-      {% endif %}
-
       {# ── Học vụ & Đào tạo ── #}
       {% if current_user.can_access('students') or current_user.can_access('classes') or current_user.can_access('courses') or current_user.can_access('attendance') or current_user.can_access('rewards') %}
       {% set group_active = current_admin_module in ('students', 'classes', 'courses', 'attendance', 'rewards') %}
