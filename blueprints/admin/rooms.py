@@ -10,8 +10,12 @@ from datetime import date, time as time_type
 @login_required
 @require_admin
 def rooms():
-    rooms = Room.query.order_by(Room.branch, Room.floor, Room.room_number).all()
-    return render_template('admin/rooms/list.html', rooms=rooms)
+    page = request.args.get('page', 1, type=int)
+    pagination = (
+        Room.query.order_by(Room.branch, Room.floor, Room.room_number)
+        .paginate(page=page, per_page=10, error_out=False)
+    )
+    return render_template('admin/rooms/list.html', rooms=pagination.items, pagination=pagination)
 
 
 @admin_bp.route('/rooms/add', methods=['GET', 'POST'])

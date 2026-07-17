@@ -17,7 +17,7 @@ def documents():
     if class_id:
         query = query.filter_by(class_id=class_id)
     page = request.args.get('page', 1, type=int)
-    pagination = query.order_by(ClassDocument.uploaded_at.desc()).paginate(page=page, per_page=30, error_out=False)
+    pagination = query.order_by(ClassDocument.uploaded_at.desc()).paginate(page=page, per_page=10, error_out=False)
     docs = pagination.items
     classes = Class.query.filter_by(is_active=True).order_by(Class.name).all()
     courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()

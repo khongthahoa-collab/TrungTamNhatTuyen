@@ -13,6 +13,7 @@ from services.tuition_service import (create_tuition_payment, record_payment, ge
                                       record_fee_adjustment, batch_previous_month_debts,
                                       void_tuition_payment, unvoid_tuition_payment, reverse_payment)
 from services.academic_year_service import FrozenPeriodError, is_period_writable, list_academic_year_months
+from blueprints.pagination_utils import paginate_list
 
 
 # ────────────────────────────────────────────────────────────────
@@ -114,6 +115,16 @@ def tuition():
     classes, class_summaries, total_collected, total_outstanding, total_expected = \
         _tuition_overview_aggregate(month, year, class_id, course_id)
 
+    # Footer totals must reflect every class this month, not just the
+    # current page — computed from the full list before slicing it.
+    total_students = sum(r['total'] for r in class_summaries)
+    total_paid_count = sum(r['paid_count'] for r in class_summaries)
+    total_unpaid_count = sum(r['unpaid_count'] for r in class_summaries)
+    total_carried_debt = sum(r['carried_debt'] for r in class_summaries)
+
+    page = request.args.get('page', 1, type=int)
+    summaries_pagination = paginate_list(class_summaries, page, per_page=10)
+
     courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
     # Newest-first; bounds both the dropdown and prev/next nav to periods
     # that actually belong to a registered academic year, instead of
@@ -130,7 +141,12 @@ def tuition():
     return render_template('admin/finance/tuition.html',
                            classes=classes,
                            courses=courses,
-                           class_summaries=class_summaries,
+                           class_summaries=summaries_pagination.items,
+                           pagination=summaries_pagination,
+                           total_students=total_students,
+                           total_paid_count=total_paid_count,
+                           total_unpaid_count=total_unpaid_count,
+                           total_carried_debt=total_carried_debt,
                            month=month,
                            year=year,
                            selected_class_id=class_id,
@@ -164,7 +180,7 @@ def tuition_class_detail(class_id):
         .options(joinedload(TuitionPayment.student))
         .order_by(TuitionPayment.is_paid, Student.full_name)
     )
-    pagination = base_query.paginate(page=page, per_page=50, error_out=False)
+    pagination = base_query.paginate(page=page, per_page=10, error_out=False)
     records = pagination.items
 
     # KPI totals exclude voided bills entirely (excluded from revenue

@@ -16,16 +16,19 @@ GRADE_CHOICES = [
 @login_required
 @require_admin
 def schools():
-    items = School.query.order_by(School.name).all()
+    page = request.args.get('page', 1, type=int)
+    pagination = School.query.order_by(School.name).paginate(page=page, per_page=10, error_out=False)
+    items = pagination.items
     student_counts = {}
     if items:
         from sqlalchemy import func
         rows = (db.session.query(Student.school_id, func.count(Student.id))
-                .filter(Student.school_id.isnot(None), Student.is_active == True)
+                .filter(Student.school_id.in_([s.id for s in items]), Student.is_active == True)
                 .group_by(Student.school_id).all())
         student_counts = dict(rows)
     return render_template('admin/schools/list.html',
                            schools=items,
+                           pagination=pagination,
                            student_counts=student_counts,
                            grade_choices=GRADE_CHOICES)
 

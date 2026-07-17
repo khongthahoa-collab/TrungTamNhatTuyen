@@ -20,7 +20,7 @@ def rewards():
         query = query.filter_by(is_confirmed=True)
 
     page = request.args.get('page', 1, type=int)
-    pagination = query.order_by(Reward.reward_date.desc()).paginate(page=page, per_page=30, error_out=False)
+    pagination = query.order_by(Reward.reward_date.desc()).paginate(page=page, per_page=10, error_out=False)
     records = pagination.items
 
     # Sum in SQL instead of pulling every confirmed reward ever recorded

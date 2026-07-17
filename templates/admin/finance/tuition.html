@@ -17,7 +17,7 @@
       <div class="card-body py-2">
         <div class="small text-muted mb-1">Dự kiến thu</div>
         <div class="fw-bold fs-6 text-primary">{{ total_expected | vnd }}</div>
-        <div class="small text-muted">{{ class_summaries | sum(attribute='total') }} HS</div>
+        <div class="small text-muted">{{ total_students }} HS</div>
       </div>
     </div>
   </div>
@@ -26,7 +26,7 @@
       <div class="card-body py-2">
         <div class="small text-muted mb-1">Đã thu</div>
         <div class="fw-bold fs-6 text-success">{{ total_collected | vnd }}</div>
-        <div class="small text-muted">{{ class_summaries | sum(attribute='paid_count') }} HS</div>
+        <div class="small text-muted">{{ total_paid_count }} HS</div>
       </div>
     </div>
   </div>
@@ -35,7 +35,7 @@
       <div class="card-body py-2">
         <div class="small text-muted mb-1">Còn nợ</div>
         <div class="fw-bold fs-6 text-danger">{{ total_outstanding | vnd }}</div>
-        <div class="small text-muted">{{ class_summaries | sum(attribute='unpaid_count') }} HS</div>
+        <div class="small text-muted">{{ total_unpaid_count }} HS</div>
       </div>
     </div>
   </div>
@@ -131,7 +131,7 @@
     <span class="fw-semibold">
       <i class="bi bi-list-check me-2 text-primary"></i>
       Danh sách học phí tháng {{ month }}/{{ year }}
-      <span class="badge bg-secondary ms-1">{{ class_summaries | length }} lớp</span>
+      <span class="badge bg-secondary ms-1">{{ pagination.total }} lớp</span>
     </span>
   </div>
   <div class="card-body p-0">
@@ -222,21 +222,49 @@
           </tr>
           {% endfor %}
         </tbody>
-        {% if class_summaries %}
+        {% if pagination.total %}
         <tfoot class="table-light fw-semibold">
           <tr>
             <td class="ps-3" colspan="2">Tổng cộng</td>
-            <td class="text-center">{{ class_summaries | sum(attribute='total') }}</td>
-            <td class="text-center text-success">{{ class_summaries | sum(attribute='paid_count') }}</td>
-            <td class="text-center text-danger">{{ class_summaries | sum(attribute='unpaid_count') }}</td>
-            <td class="text-end">{{ class_summaries | sum(attribute='carried_debt') | vnd }}</td>
-            <td class="text-end text-success">{{ class_summaries | sum(attribute='paid_amount') | vnd }}</td>
-            <td class="text-end text-danger">{{ class_summaries | sum(attribute='unpaid_amount') | vnd }}</td>
+            <td class="text-center">{{ total_students }}</td>
+            <td class="text-center text-success">{{ total_paid_count }}</td>
+            <td class="text-center text-danger">{{ total_unpaid_count }}</td>
+            <td class="text-end">{{ total_carried_debt | vnd }}</td>
+            <td class="text-end text-success">{{ total_collected | vnd }}</td>
+            <td class="text-end text-danger">{{ total_outstanding | vnd }}</td>
             <td></td>
           </tr>
         </tfoot>
         {% endif %}
       </table>
+
+      {% if pagination.pages > 1 %}
+      <div class="p-3">
+        <nav class="d-flex justify-content-center" aria-label="Phân trang">
+          <ul class="pagination pagination-sm mb-0">
+            <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+              <a class="page-link" href="{{ url_for('admin.tuition', month=month, year=year, class_id=selected_class_id, course_id=selected_course_id, page=pagination.prev_num) }}">
+                <i class="bi bi-chevron-left"></i>
+              </a>
+            </li>
+            {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+              {% if p %}
+                <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                  <a class="page-link" href="{{ url_for('admin.tuition', month=month, year=year, class_id=selected_class_id, course_id=selected_course_id, page=p) }}">{{ p }}</a>
+                </li>
+              {% else %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+              {% endif %}
+            {% endfor %}
+            <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+              <a class="page-link" href="{{ url_for('admin.tuition', month=month, year=year, class_id=selected_class_id, course_id=selected_course_id, page=pagination.next_num) }}">
+                <i class="bi bi-chevron-right"></i>
+              </a>
+            </li>
+          </ul>
+        </nav>
+      </div>
+      {% endif %}
     </div>
   </div>
 </div>

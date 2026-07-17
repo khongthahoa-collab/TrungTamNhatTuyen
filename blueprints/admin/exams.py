@@ -39,16 +39,17 @@ def exams_list():
         query = query.filter_by(created_by=creator_id)
 
     query = query.order_by(Exam.created_at.desc())
-    pagination = None
+    page = request.args.get('page', 1, type=int)
     if class_id:
         # class_list is parsed from a comma-separated text column in Python,
-        # not a real SQL-filterable column — can't paginate a query whose
-        # true row count isn't known until after this Python-side filter.
-        exams = [e for e in query.all() if class_id in e.class_list]
+        # not a real SQL-filterable column — can't paginate at the query
+        # level since the true row count isn't known until after this
+        # Python-side filter, so slice the already-filtered list instead.
+        matched = [e for e in query.all() if class_id in e.class_list]
+        pagination = paginate_list(matched, page, per_page=10)
     else:
-        page = request.args.get('page', 1, type=int)
-        pagination = query.paginate(page=page, per_page=30, error_out=False)
-        exams = pagination.items
+        pagination = query.paginate(page=page, per_page=10, error_out=False)
+    exams = pagination.items
 
     folders = ExamFolder.query.order_by(ExamFolder.name).all()
     classes = Class.query.filter_by(is_active=True).order_by(Class.name).all()
