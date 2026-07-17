@@ -464,6 +464,42 @@ class Semester(db.Model):
         return f'<Semester {self.name}>'
 
 
+class PermissionGroup(db.Model):
+    """A named, reusable set of admin module permissions. A User is assigned
+    to exactly one group (User.permission_group_id); editing a group's
+    matrix immediately changes access for every member, replacing the old
+    design where each admin account carried its own ad-hoc permissions
+    JSON."""
+    __tablename__ = 'permission_groups'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    permissions = db.Column(db.Text)  # JSON dict module_key -> 'read'/'write'/'deny'; NULL = full access
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    members = db.relationship('User', backref='permission_group', lazy='dynamic')
+
+    def get_permissions(self):
+        """None = full access. Otherwise a dict of module_key -> 'read'/'write'/'deny'."""
+        if self.permissions is None:
+            return None
+        try:
+            return json.loads(self.permissions)
+        except (TypeError, ValueError):
+            return {}
+
+    def set_permissions(self, modules):
+        """Pass None for full access, or a dict of module_key -> 'read'/'write'/'deny'."""
+        self.permissions = json.dumps(modules) if modules is not None else None
+
+    @property
+    def has_full_access(self):
+        return self.permissions is None
+
+    def __repr__(self):
+        return f'<PermissionGroup {self.name}>'
+
+
 class User(UserMixin, db.Model):
     """System user (admin, teacher, or parent)"""
     __tablename__ = 'users'
@@ -478,7 +514,7 @@ class User(UserMixin, db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime)
-    permissions = db.Column(db.Text)  # JSON list of module keys; NULL = full access
+    permission_group_id = db.Column(db.Integer, db.ForeignKey('permission_groups.id'), nullable=True)
     is_master = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
     must_change_password = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
     is_deleted = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
@@ -532,27 +568,9 @@ class User(UserMixin, db.Model):
             UserRole.PARENT: 'Phụ huynh'
         }.get(self.role, self.role)
 
-    def get_permissions(self):
-        """None = full access. Otherwise a dict of module_key -> 'read'/'write'/'deny'."""
-        if self.permissions is None:
-            return None
-        try:
-            data = json.loads(self.permissions)
-        except (TypeError, ValueError):
-            return {}
-        if isinstance(data, list):
-            # Back-compat: the permission system used to store a plain list of
-            # allowed module keys, which implied full read+write on each.
-            return {k: 'write' for k in data}
-        return data
-
-    def set_permissions(self, modules):
-        """Pass None for full access, or a dict of module_key -> 'read'/'write'/'deny'."""
-        self.permissions = json.dumps(modules) if modules is not None else None
-
     @property
     def has_full_access(self):
-        return self.permissions is None
+        return self.is_master or (self.permission_group is not None and self.permission_group.has_full_access)
 
     def permission_level(self, module_key):
         """Effective level for a module: 'read', 'write', or 'deny'."""
@@ -561,9 +579,14 @@ class User(UserMixin, db.Model):
             return 'write'
         if module_key in MASTER_ONLY_MODULES:
             return 'write' if self.is_master else 'deny'
-        if self.has_full_access:
+        if self.is_master:
             return 'write'
-        return self.get_permissions().get(module_key, 'deny')
+        if self.permission_group is None:
+            return 'deny'
+        group_perms = self.permission_group.get_permissions()
+        if group_perms is None:
+            return 'write'
+        return group_perms.get(module_key, 'deny')
 
     def can_access(self, module_key):
         """Whether this user is allowed to at least view the given module."""

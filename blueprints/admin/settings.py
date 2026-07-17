@@ -1,7 +1,7 @@
 from flask import render_template, redirect, url_for, flash, request, abort
 from flask_login import login_required, current_user
 from extensions import db
-from models import SystemConfig, User, Course, UserRole, ContactInquiry, Teacher
+from models import SystemConfig, User, Course, UserRole, ContactInquiry, Teacher, PermissionGroup
 from blueprints.admin import admin_bp, require_admin
 from blueprints.admin.account_utils import next_username, DEFAULT_TEMP_PASSWORD
 from blueprints.permissions import ADMIN_PERMISSION_MODULES
@@ -76,36 +76,104 @@ def users():
     page = request.args.get('page', 1, type=int)
     pagination = (User.query.filter_by(is_deleted=False, role=UserRole.ADMIN)
                  .order_by(User.full_name).paginate(page=page, per_page=50, error_out=False))
+    groups = PermissionGroup.query.order_by(PermissionGroup.name).all()
     return render_template('admin/users.html', users=pagination.items, pagination=pagination,
-                           admin_modules=ADMIN_PERMISSION_MODULES)
+                           admin_modules=ADMIN_PERMISSION_MODULES, permission_groups=groups)
 
 
 @admin_bp.route('/permission')
 @login_required
 @require_admin
 def admin_permission():
-    """Dedicated permission-editing page — a full-page alternative to the
-    'Sửa quyền' modal on /admin/accounts, for the same underlying data.
-    Posts to the existing user_permissions_update() below; doesn't
-    introduce a new permission shape or a new write path. With no
-    user_id given, shows a picker list (reusing the same admin-accounts
-    query) instead of 404ing — makes the sidebar's standalone "Phân
-    quyền" link useful on its own, not just as a link reachable only
-    from within /admin/accounts."""
+    """Permission Group management — a named, reusable set of module
+    permissions that admin accounts are assigned to (see
+    models.PermissionGroup), instead of each account carrying its own
+    ad-hoc matrix. With no group_id given, shows the group list; with
+    group_id, shows that group's editable matrix."""
     if not current_user.is_master:
         abort(403)
 
-    user_id = request.args.get('user_id', type=int)
-    if not user_id:
-        admins = User.query.filter_by(is_deleted=False, role=UserRole.ADMIN).order_by(User.full_name).all()
-        return render_template('admin/permission.html', target_user=None, admins=admins,
+    group_id = request.args.get('group_id', type=int)
+    if not group_id:
+        groups = PermissionGroup.query.order_by(PermissionGroup.name).all()
+        return render_template('admin/permission.html', target_group=None, groups=groups,
                                admin_modules=ADMIN_PERMISSION_MODULES)
 
-    target_user = User.query.get_or_404(user_id)
-    if target_user.role != UserRole.ADMIN:
-        abort(404)
-    return render_template('admin/permission.html', target_user=target_user, admins=None,
+    target_group = PermissionGroup.query.get_or_404(group_id)
+    return render_template('admin/permission.html', target_group=target_group, groups=None,
                            admin_modules=ADMIN_PERMISSION_MODULES)
+
+
+@admin_bp.route('/permission-groups/add', methods=['POST'])
+@login_required
+@require_admin
+def permission_group_add():
+    if not current_user.is_master:
+        abort(403)
+    name = request.form.get('name', '').strip()
+    if not name:
+        flash('Vui lòng nhập tên nhóm quyền.', 'danger')
+        return redirect(url_for('admin.admin_permission'))
+    if PermissionGroup.query.filter_by(name=name).first():
+        flash('Tên nhóm quyền đã tồn tại.', 'danger')
+        return redirect(url_for('admin.admin_permission'))
+    group = PermissionGroup(name=name)
+    group.set_permissions({key: 'deny' for key, _, _ in ADMIN_PERMISSION_MODULES})
+    db.session.add(group)
+    db.session.commit()
+    flash(f'Đã tạo nhóm quyền "{name}".', 'success')
+    return redirect(url_for('admin.admin_permission', group_id=group.id))
+
+
+@admin_bp.route('/permission-groups/<int:group_id>/rename', methods=['POST'])
+@login_required
+@require_admin
+def permission_group_rename(group_id):
+    if not current_user.is_master:
+        abort(403)
+    group = PermissionGroup.query.get_or_404(group_id)
+    name = request.form.get('name', '').strip()
+    if not name:
+        flash('Tên nhóm quyền không được để trống.', 'danger')
+    elif PermissionGroup.query.filter(PermissionGroup.name == name, PermissionGroup.id != group.id).first():
+        flash('Tên nhóm quyền đã tồn tại.', 'danger')
+    else:
+        group.name = name
+        db.session.commit()
+        flash('Đã đổi tên nhóm quyền.', 'success')
+    return redirect(url_for('admin.admin_permission'))
+
+
+@admin_bp.route('/permission-groups/<int:group_id>/delete', methods=['POST'])
+@login_required
+@require_admin
+def permission_group_delete(group_id):
+    if not current_user.is_master:
+        abort(403)
+    group = PermissionGroup.query.get_or_404(group_id)
+    member_count = group.members.count()
+    if member_count > 0:
+        flash(f'Không thể xoá — vẫn còn {member_count} tài khoản thuộc nhóm "{group.name}". '
+              f'Hãy chuyển các tài khoản đó sang nhóm khác trước.', 'danger')
+        return redirect(url_for('admin.admin_permission'))
+    db.session.delete(group)
+    db.session.commit()
+    flash(f'Đã xoá nhóm quyền "{group.name}".', 'success')
+    return redirect(url_for('admin.admin_permission'))
+
+
+@admin_bp.route('/permission-groups/<int:group_id>/update', methods=['POST'])
+@login_required
+@require_admin
+def permission_group_update(group_id):
+    if not current_user.is_master:
+        abort(403)
+    group = PermissionGroup.query.get_or_404(group_id)
+    full_access = request.form.get('full_access') == 'on'
+    group.set_permissions(None if full_access else _parse_permission_matrix(request.form))
+    db.session.commit()
+    flash(f'Đã cập nhật quyền cho nhóm "{group.name}".', 'success')
+    return redirect(url_for('admin.admin_permission', group_id=group.id))
 
 
 @admin_bp.route('/accounts/add', methods=['POST'])
@@ -147,8 +215,9 @@ def user_add():
                 role=UserRole.ADMIN, gender=gender, must_change_password=True)
     user.set_password(password)
 
-    full_access = request.form.get('full_access') == 'on'
-    user.set_permissions(None if full_access else _parse_permission_matrix(request.form))
+    permission_group_id = request.form.get('permission_group_id', type=int)
+    if permission_group_id:
+        user.permission_group_id = permission_group_id
 
     db.session.add(user)
     # Need user.id before linking a Teacher row to it — same flush-then-link
@@ -217,23 +286,24 @@ def user_delete(user_id):
     return redirect(url_for('admin.users'))
 
 
-@admin_bp.route('/accounts/<int:user_id>/permissions', methods=['POST'])
+@admin_bp.route('/accounts/<int:user_id>/group', methods=['POST'])
 @login_required
 @require_admin
-def user_permissions_update(user_id):
+def user_group_update(user_id):
     if not current_user.is_master:
         abort(403)
     user = User.query.get_or_404(user_id)
     if user.role != UserRole.ADMIN:
         abort(404)
     if user.id == current_user.id:
-        flash('Không thể tự sửa quyền của chính mình.', 'danger')
+        flash('Không thể tự sửa nhóm quyền của chính mình.', 'danger')
         return redirect(url_for('admin.users'))
 
-    full_access = request.form.get('full_access') == 'on'
-    user.set_permissions(None if full_access else _parse_permission_matrix(request.form))
+    group_id = request.form.get('permission_group_id', type=int)
+    group = PermissionGroup.query.get_or_404(group_id) if group_id else None
+    user.permission_group = group
     db.session.commit()
-    flash(f'Đã cập nhật quyền cho {user.full_name}.', 'success')
+    flash(f'Đã gán {user.full_name} vào nhóm quyền "{group.name if group else "—"}".', 'success')
     return redirect(url_for('admin.users'))
 
 

@@ -76,6 +76,7 @@ migrate_add_tuition_ledger.py
 migrate_add_class_rollover_link.py
 migrate_add_tuition_void.py
 migrate_add_calendar_token.py
+migrate_add_permission_groups.py
 
 # Docker
 .docker/

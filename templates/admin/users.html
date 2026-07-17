@@ -1,5 +1,4 @@
 {% extends 'admin/base.html' %}
-{% import 'admin/_permission_fields.html' as perm %}
 {% block title %}Tài khoản Admin – Nhật Tuyền{% endblock %}
 
 {% block breadcrumb %}
@@ -8,27 +7,6 @@
 
 {% block content %}
 <style>
-.perm-card-list { display:flex; flex-direction:column; gap:.6rem; }
-.perm-card {
-  background:#fff; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,.06);
-  padding:.75rem 1rem; display:flex; align-items:center; justify-content:space-between;
-  flex-wrap:wrap; gap:.5rem;
-}
-.perm-card-label { font-size:.9rem; font-weight:600; color:#334155; }
-.perm-segment { display:inline-flex; border-radius:8px; overflow:hidden; }
-.perm-opt {
-  padding:.4rem .85rem; font-size:.78rem; font-weight:600; cursor:pointer;
-  background:#fff; color:#6c757d; border:1px solid #dee2e6; margin:0 -1px 0 0;
-  transition:background-color .15s ease, color .15s ease, border-color .15s ease;
-  white-space:nowrap;
-}
-.perm-opt:last-child { margin-right:0; }
-.perm-opt:hover { background:#f8f9fa; }
-.btn-check:checked + .perm-opt-write { background:#d1e7dd; border-color:#198754; color:#0f5132; position:relative; z-index:1; }
-.btn-check:checked + .perm-opt-read  { background:#cff4fc; border-color:#0dcaf0; color:#055160; position:relative; z-index:1; }
-.btn-check:checked + .perm-opt-deny  { background:#f8d7da; border-color:#dc3545; color:#842029; position:relative; z-index:1; }
-.btn-check:focus-visible + .perm-opt { outline:2px solid #0d6efd; outline-offset:1px; }
-
 .acct-action-btn {
   width:36px; height:36px; border-radius:50%; border:none; padding:0;
   display:flex; align-items:center; justify-content:center; font-size:.9rem;
@@ -133,8 +111,18 @@
         </div>
 
         <hr>
-        <label class="form-label fw-semibold d-block">Phân quyền</label>
-        {{ perm.permission_matrix(admin_modules, 'new_perm') }}
+        <div class="mb-2">
+          <label class="form-label fw-semibold" for="new_permission_group_id">Nhóm quyền</label>
+          <select class="form-select" name="permission_group_id" id="new_permission_group_id" required>
+            <option value="">-- Chọn nhóm quyền --</option>
+            {% for g in permission_groups %}
+            <option value="{{ g.id }}">{{ g.name }}</option>
+            {% endfor %}
+          </select>
+          <div class="form-text">
+            Chưa có nhóm phù hợp? <a href="{{ url_for('admin.admin_permission') }}" target="_blank">Tạo nhóm quyền mới</a>.
+          </div>
+        </div>
 
         <div class="mt-3 d-flex gap-2">
           <button type="submit" class="btn btn-primary px-4">
@@ -180,10 +168,12 @@
           <td class="text-muted small">{{ u.username }}</td>
           <td class="small">{{ u.phone or '–' }}</td>
           <td>
-            {% if u.has_full_access %}
+            {% if u.is_master %}
               <span class="badge bg-light text-dark border">Toàn quyền</span>
+            {% elif u.permission_group %}
+              <span class="badge bg-light text-dark border">{{ u.permission_group.name }}</span>
             {% else %}
-              <span class="badge bg-light text-dark border">{{ u.get_permissions() | length }} mục tuỳ chỉnh</span>
+              <span class="badge bg-warning text-dark border">Chưa có nhóm quyền</span>
             {% endif %}
           </td>
           <td>
@@ -217,8 +207,7 @@
                       data-bs-target="#permEditModal"
                       data-user-id="{{ u.id }}"
                       data-user-name="{{ u.full_name }}"
-                      data-user-full-access="{{ u.has_full_access | tojson }}"
-                      data-user-permissions="{{ (u.get_permissions() or {}) | tojson }}">
+                      data-user-group-id="{{ u.permission_group_id or '' }}">
                 <i class="bi bi-shield-lock"></i>
               </button>
               {% endif %}
@@ -378,19 +367,27 @@
 {% if current_user.is_master %}
 <!-- ===== EDIT PERMISSIONS MODAL ===== -->
 <div class="modal fade" id="permEditModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
+  <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">
-          <i class="bi bi-shield-lock me-1"></i>Sửa quyền truy cập
+          <i class="bi bi-shield-lock me-1"></i>Sửa nhóm quyền
         </h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <form method="post" id="permEditForm">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="modal-body">
-          <p>Phân quyền của: <strong id="permUserName"></strong></p>
-          {{ perm.permission_matrix(admin_modules, 'edit_perm') }}
+          <p>Nhóm quyền của: <strong id="permUserName"></strong></p>
+          <select class="form-select" name="permission_group_id" id="edit_permission_group_id" required>
+            <option value="">-- Chọn nhóm quyền --</option>
+            {% for g in permission_groups %}
+            <option value="{{ g.id }}">{{ g.name }}</option>
+            {% endfor %}
+          </select>
+          <div class="form-text">
+            Chưa có nhóm phù hợp? <a href="{{ url_for('admin.admin_permission') }}" target="_blank">Tạo nhóm quyền mới</a>.
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
@@ -458,22 +455,13 @@ document.getElementById('userEditModal')?.addEventListener('show.bs.modal', func
   document.getElementById('edit_gender').value = btn.dataset.userGender || '';
 });
 
-// Populate edit-permissions modal
-const permEditBaseAction = "{{ url_for('admin.user_permissions_update', user_id=0) }}";
+// Populate edit-permission-group modal
+const permEditBaseAction = "{{ url_for('admin.user_group_update', user_id=0) }}";
 document.getElementById('permEditModal')?.addEventListener('show.bs.modal', function(e) {
   const btn = e.relatedTarget;
-  const fullAccess = btn.dataset.userFullAccess === 'true';
-  const levels = JSON.parse(btn.dataset.userPermissions || '{}');
-
   document.getElementById('permEditForm').action = permEditBaseAction.replace('/0/', '/' + btn.dataset.userId + '/');
   document.getElementById('permUserName').textContent = btn.dataset.userName;
-
-  document.getElementById('edit_perm_full').checked = fullAccess;
-  document.getElementById('edit_perm_list').classList.toggle('d-none', fullAccess);
-  document.querySelectorAll('#edit_perm_list input[type=radio]').forEach(radio => {
-    const key = radio.name.replace('perm_', '');
-    radio.checked = (levels[key] || 'deny') === radio.value;
-  });
+  document.getElementById('edit_permission_group_id').value = btn.dataset.userGroupId || '';
 });
 </script>
 {% endblock %}

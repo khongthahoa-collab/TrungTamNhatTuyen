@@ -3,7 +3,7 @@ from flask_login import login_required
 from sqlalchemy import extract, func
 from datetime import date
 from extensions import db
-from models import Teacher, User, UserRole, Schedule
+from models import Teacher, User, UserRole, Schedule, PermissionGroup
 from blueprints.admin import admin_bp, require_master
 from blueprints.admin.account_utils import next_username, DEFAULT_TEMP_PASSWORD
 
@@ -129,7 +129,15 @@ def teacher_promote_academic_manager(teacher_id):
     teacher = Teacher.query.get_or_404(teacher_id)
     user = teacher.user
     user.role = UserRole.ADMIN
-    user.set_permissions({'attendance': 'write', 'students': 'write'})
+
+    group = PermissionGroup.query.filter_by(name='Quản lý học vụ').first()
+    if not group:
+        group = PermissionGroup(name='Quản lý học vụ')
+        group.set_permissions({'attendance': 'write', 'students': 'write'})
+        db.session.add(group)
+        db.session.flush()
+    user.permission_group = group
+
     db.session.commit()
     flash(f'Đã cấp quyền Quản lý học vụ cho {user.full_name} — chỉ được truy cập '
           f'Điểm danh và Học sinh trên toàn trung tâm, các mục khác bị từ chối.', 'success')

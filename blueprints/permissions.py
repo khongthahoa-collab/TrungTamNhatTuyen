@@ -133,8 +133,9 @@ ADMIN_ENDPOINT_MODULES = {
     'settings': 'settings', 'settings_save': 'settings',
     'inquiries': 'inquiries', 'inquiry_delete': 'inquiries',
     'users': 'users', 'user_add': 'users', 'user_edit': 'users', 'user_delete': 'users',
-    'user_reset_password': 'users', 'user_toggle_active': 'users', 'user_permissions_update': 'users',
-    'admin_permission': 'users',
+    'user_reset_password': 'users', 'user_toggle_active': 'users', 'user_group_update': 'users',
+    'admin_permission': 'users', 'permission_group_add': 'users', 'permission_group_rename': 'users',
+    'permission_group_delete': 'users', 'permission_group_update': 'users',
     'courses': 'courses', 'course_add': 'courses', 'course_edit': 'courses',
 }
 
