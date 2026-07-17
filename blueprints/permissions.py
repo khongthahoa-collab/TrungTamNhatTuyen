@@ -107,6 +107,7 @@ ADMIN_ENDPOINT_MODULES = {
     'teachers': 'teachers', 'teacher_add': 'teachers',
     'teacher_detail': 'teachers', 'teacher_delete': 'teachers',
     'teacher_reset_password': 'teachers', 'teacher_promote': 'teachers',
+    'teacher_promote_academic_manager': 'teachers',
 
     # rooms.py
     'rooms': 'rooms', 'room_add': 'rooms', 'room_edit': 'rooms',

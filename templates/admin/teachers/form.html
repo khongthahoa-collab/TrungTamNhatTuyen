@@ -12,6 +12,15 @@
     {% if action == 'add' %}Thêm giáo viên mới{% else %}Sửa thông tin giáo viên{% endif %}
   </h4>
   <div class="d-flex gap-2">
+    {% if action == 'edit' and current_user.is_master %}
+    <form method="post" action="{{ url_for('admin.teacher_promote_academic_manager', teacher_id=teacher.id) }}"
+          onsubmit="return confirm('Cấp quyền Quản lý học vụ cho {{ teacher.full_name }}? Tài khoản này sẽ có quyền Điểm danh và Học sinh trên toàn trung tâm, các mục khác (học phí, cài đặt, lương...) bị từ chối.')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-outline-primary btn-sm">
+        <i class="bi bi-mortarboard me-1"></i>Cấp quyền Quản lý học vụ
+      </button>
+    </form>
+    {% endif %}
     {% if action == 'edit' and teacher.user.role != 'admin' and current_user.is_master %}
     <form method="post" action="{{ url_for('admin.teacher_promote', teacher_id=teacher.id) }}"
           onsubmit="return confirm('Cấp quyền Admin cho {{ teacher.full_name }}? Tài khoản này sẽ có thể truy cập cả khu vực quản trị.')">

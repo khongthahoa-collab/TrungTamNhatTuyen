@@ -115,6 +115,27 @@ def teacher_promote(teacher_id):
     return redirect(url_for('admin.teacher_detail', teacher_id=teacher_id))
 
 
+@admin_bp.route('/teachers/<int:teacher_id>/promote-academic-manager', methods=['POST'])
+@login_required
+@require_master
+def teacher_promote_academic_manager(teacher_id):
+    """Cấp quyền 'Quản lý học vụ' — bản atomic của quy trình 2 bước thủ công
+    (Cấp quyền Admin, rồi tự tay chỉnh ma trận quyền ở /admin/accounts): đổi
+    User.role thành admin VÀ khoá ma trận quyền vào đúng bộ Điểm danh +
+    Học sinh (write), từ chối mọi module khác — trong cùng một transaction,
+    tránh trường hợp quên bước sau khiến tài khoản có toàn quyền admin
+    ngoài ý muốn. Idempotent: bấm lại luôn đưa tài khoản về đúng bộ quyền
+    này, kể cả khi đã là admin với quyền khác trước đó."""
+    teacher = Teacher.query.get_or_404(teacher_id)
+    user = teacher.user
+    user.role = UserRole.ADMIN
+    user.set_permissions({'attendance': 'write', 'students': 'write'})
+    db.session.commit()
+    flash(f'Đã cấp quyền Quản lý học vụ cho {user.full_name} — chỉ được truy cập '
+          f'Điểm danh và Học sinh trên toàn trung tâm, các mục khác bị từ chối.', 'success')
+    return redirect(url_for('admin.teacher_detail', teacher_id=teacher_id))
+
+
 @admin_bp.route('/teachers/<int:teacher_id>/detail', methods=['GET', 'POST'])
 @login_required
 @require_master
