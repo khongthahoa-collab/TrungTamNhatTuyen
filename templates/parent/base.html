@@ -45,7 +45,7 @@
       {% endif %}
 
       <!-- Bell notification -->
-      <a href="#" class="btn btn-sm btn-outline-light position-relative" title="Thông báo">
+      <a href="{{ url_for('parent.notifications') }}" class="btn btn-sm btn-outline-light position-relative" title="Thông báo">
         <i class="bi bi-bell{% if unread_notifications %}-fill{% endif %}"></i>
         {% if unread_notifications %}
         <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"

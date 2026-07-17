@@ -1,4 +1,4 @@
-{% extends 'teacher/base.html' %}
+{% extends 'parent/base.html' %}
 {% block title %}Thông báo – Nhật Tuyền{% endblock %}
 
 {% block content %}
@@ -46,21 +46,21 @@
   <nav class="mt-3 mb-4 d-flex justify-content-center" aria-label="Phân trang">
     <ul class="pagination pagination-sm mb-0">
       <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-        <a class="page-link" href="{{ url_for('teacher.notifications', page=pagination.prev_num) }}">
+        <a class="page-link" href="{{ url_for('parent.notifications', page=pagination.prev_num) }}">
           <i class="bi bi-chevron-left"></i>
         </a>
       </li>
       {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
         {% if p %}
           <li class="page-item {% if p == pagination.page %}active{% endif %}">
-            <a class="page-link" href="{{ url_for('teacher.notifications', page=p) }}">{{ p }}</a>
+            <a class="page-link" href="{{ url_for('parent.notifications', page=p) }}">{{ p }}</a>
           </li>
         {% else %}
           <li class="page-item disabled"><span class="page-link">…</span></li>
         {% endif %}
       {% endfor %}
       <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-        <a class="page-link" href="{{ url_for('teacher.notifications', page=pagination.next_num) }}">
+        <a class="page-link" href="{{ url_for('parent.notifications', page=pagination.next_num) }}">
           <i class="bi bi-chevron-right"></i>
         </a>
       </li>

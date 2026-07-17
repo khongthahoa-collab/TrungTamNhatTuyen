@@ -64,4 +64,4 @@ def check_module_permission():
 
 
 # Import sub-modules to register routes
-from blueprints.admin import dashboard, students, classes, academic, finance, rewards, documents, reports, settings, teachers, rooms, schools, attendance, exams  # noqa
+from blueprints.admin import dashboard, notifications, students, classes, academic, finance, rewards, documents, reports, settings, teachers, rooms, schools, attendance, exams  # noqa

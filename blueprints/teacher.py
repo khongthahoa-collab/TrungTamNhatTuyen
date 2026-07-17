@@ -525,13 +525,16 @@ def scores_list():
 @require_teacher
 def notifications():
     """Teacher notifications page — marks all as read."""
-    notifs = Notification.query.filter_by(
-        user_id=current_user.id
-    ).order_by(Notification.created_at.desc()).limit(50).all()
+    page = request.args.get('page', 1, type=int)
+    pagination = (
+        Notification.query.filter_by(user_id=current_user.id)
+        .order_by(Notification.created_at.desc())
+        .paginate(page=page, per_page=50, error_out=False)
+    )
     # Mark all as read
     Notification.query.filter_by(user_id=current_user.id, is_read=False).update({'is_read': True})
     db.session.commit()
-    return render_template('teacher/notifications.html', notifs=notifs)
+    return render_template('teacher/notifications.html', notifs=pagination.items, pagination=pagination)
 
 
 # ============================================================

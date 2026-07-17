@@ -256,7 +256,7 @@
         <i class="bi bi-box-arrow-up-right"></i>
       </a>
       <!-- Bell notification (admin) -->
-      <a href="#" class="btn btn-sm btn-outline-secondary ms-2 position-relative" title="Thông báo">
+      <a href="{{ url_for('admin.notifications') }}" class="btn btn-sm btn-outline-secondary ms-2 position-relative" title="Thông báo">
         <i class="bi bi-bell{% if unread_notifications %}-fill{% endif %}"></i>
         {% if unread_notifications %}
         <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
