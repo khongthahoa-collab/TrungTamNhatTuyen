@@ -1,0 +1,90 @@
+{% extends 'admin/base.html' %}
+{% block title %}Xin nghỉ học – Nhật Tuyền{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Xin nghỉ học</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+  <h4 class="fw-bold mb-0">
+    <i class="bi bi-calendar-x text-secondary me-2"></i>Xin nghỉ học
+  </h4>
+</div>
+
+<div class="card shadow-sm border-0 mb-4">
+  <div class="card-header bg-light fw-semibold">
+    <i class="bi bi-plus-circle me-1"></i>Đăng ký nghỉ phép cho học sinh
+  </div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('admin.manage_leave_requests') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="row g-3">
+        <div class="col-12 col-md-6">
+          <label class="form-label fw-semibold" for="student_id">Học sinh</label>
+          <select class="form-select" name="student_id" id="student_id" required>
+            <option value="">-- Chọn học sinh --</option>
+            {% for s in students %}
+            <option value="{{ s.id }}">{{ s.full_name }}{% if s.current_grade %} – {{ s.current_grade }}{% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label fw-semibold" for="start_date">Từ ngày</label>
+          <input type="date" class="form-control" name="start_date" id="start_date" required>
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label fw-semibold" for="end_date">Đến ngày</label>
+          <input type="date" class="form-control" name="end_date" id="end_date" required>
+        </div>
+        <div class="col-12">
+          <label class="form-label fw-semibold" for="reason">Lý do (không bắt buộc)</label>
+          <textarea class="form-control" name="reason" id="reason" rows="2"
+                    placeholder="Ví dụ: Sốt, xin nghỉ theo lời phụ huynh qua điện thoại..."></textarea>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary mt-3">
+        <i class="bi bi-check-lg me-1"></i>Đăng ký nghỉ phép
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="card shadow-sm border-0">
+  <div class="card-header bg-light fw-semibold d-flex align-items-center justify-content-between">
+    <span>Đơn nghỉ phép gần đây</span>
+    <span class="badge bg-secondary">{{ requests | length }}</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover table-sm mb-0 align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Học sinh</th>
+          <th>Thời gian nghỉ</th>
+          <th>Lý do</th>
+          <th>Người duyệt</th>
+          <th>Ngày tạo</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in requests %}
+        <tr>
+          <td class="fw-semibold">{{ r.student.full_name if r.student else '—' }}</td>
+          <td class="small">
+            {{ r.start_date.strftime('%d/%m/%Y') }}
+            {% if r.end_date != r.start_date %} – {{ r.end_date.strftime('%d/%m/%Y') }}{% endif %}
+          </td>
+          <td class="small text-muted">{{ r.reason or '—' }}</td>
+          <td class="small">{{ r.approver.full_name if r.approver else '—' }}</td>
+          <td class="text-muted small">{{ r.created_at | date_vn if r.created_at else '—' }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="5" class="text-center text-muted py-4">Chưa có đơn nghỉ phép nào.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

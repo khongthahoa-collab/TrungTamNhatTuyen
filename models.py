@@ -581,6 +581,12 @@ class User(UserMixin, db.Model):
             return 'write' if self.is_master else 'deny'
         if self.is_master:
             return 'write'
+        if not self.is_admin:
+            # Permission Groups only ever restrict delegated Admin accounts.
+            # Teacher/Parent portals (gated separately via
+            # TEACHER_ENDPOINT_MODULES) were never part of this system and
+            # must keep their original unrestricted access here.
+            return 'write'
         if self.permission_group is None:
             return 'deny'
         group_perms = self.permission_group.get_permissions()
@@ -1050,6 +1056,42 @@ class Schedule(db.Model):
 
     def __repr__(self):
         return f'<Schedule class={self.class_id} date={self.date}>'
+
+
+class LeaveRequestStatus:
+    PENDING = 'PENDING'
+    APPROVED = 'APPROVED'
+    REJECTED = 'REJECTED'
+
+
+class LeaveRequest(db.Model):
+    """Đơn xin nghỉ học (temporary leave) — locks the excused attendance
+    status for the student's sessions in [start_date, end_date] so teachers
+    don't accidentally mark them absent-unexcused. Deliberately separate
+    from Student.is_active/Enrollment.is_active (permanent withdrawal) —
+    a leave request never touches enrollment or tuition billing."""
+    __tablename__ = 'leave_requests'
+
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False, index=True)
+    # Nullable: not every student has a linked parent account yet
+    # (Student.parent_user_id itself is nullable) — an admin registering a
+    # leave on a parent's behalf over the phone must not be blocked by that.
+    parent_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    start_date = db.Column(db.Date, nullable=False, index=True)
+    end_date = db.Column(db.Date, nullable=False, index=True)
+    reason = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(20), nullable=False, default=LeaveRequestStatus.APPROVED)
+    approved_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    approved_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    student = db.relationship('Student', backref='leave_requests')
+    parent = db.relationship('User', foreign_keys=[parent_id])
+    approver = db.relationship('User', foreign_keys=[approved_by])
+
+    def __repr__(self):
+        return f'<LeaveRequest student={self.student_id} {self.start_date}..{self.end_date}>'
 
 
 class Attendance(db.Model):

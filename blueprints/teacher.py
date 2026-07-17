@@ -4,7 +4,7 @@ from datetime import date, timedelta, datetime, time as time_type
 import calendar
 from sqlalchemy.orm import contains_eager
 from extensions import db
-from models import Schedule, Attendance, Score, Class, Enrollment, Student, ClassDocument, Room, Notification, User, Salary
+from models import Schedule, Attendance, Score, Class, Enrollment, Student, ClassDocument, Room, Notification, User, Salary, LeaveRequest, LeaveRequestStatus
 from services.zalo_service import ZaloService
 from services.reward_service import create_suggested_reward
 from services.salary_service import scheduled_sessions, substituted_sessions
@@ -690,7 +690,22 @@ def attendance_session(schedule_id):
 
     # Get enrolled students
     enrollments = Enrollment.query.filter_by(class_id=schedule.class_id, is_active=True).all()
-    
+
+    # Students with an approved leave request covering this exact session
+    # date — locked to "excused" in the template so the teacher can't
+    # accidentally mark them absent-unexcused (and trigger a parent alert).
+    excused_student_ids = set()
+    enrolled_student_ids = [e.student_id for e in enrollments]
+    if enrolled_student_ids:
+        excused_student_ids = {
+            r[0] for r in db.session.query(LeaveRequest.student_id).filter(
+                LeaveRequest.student_id.in_(enrolled_student_ids),
+                LeaveRequest.start_date <= schedule.date,
+                LeaveRequest.end_date >= schedule.date,
+                LeaveRequest.status == LeaveRequestStatus.APPROVED,
+            ).all()
+        }
+
     # Get existing attendance records
     attendances = Attendance.query.filter_by(schedule_id=schedule_id).all()
     attendance_dict = {a.student_id: a for a in attendances}
@@ -714,6 +729,7 @@ def attendance_session(schedule_id):
                          schedule=schedule,
                          enrollments=enrollments,
                          attendance_dict=attendance_dict,
+                         excused_student_ids=excused_student_ids,
                          summary=summary,
                          center_name=center_name,
                          center_phone=center_phone,

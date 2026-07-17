@@ -48,8 +48,9 @@
   {% for enrollment in enrollments %}
   {% set student = enrollment.student %}
   {% set att = attendance_dict.get(student.id) %}
+  {% set is_locked_excused = student.id in excused_student_ids %}
   <div class="card mb-3 shadow-sm border-0 student-card" id="card-{{ student.id }}"
-       data-student-id="{{ student.id }}">
+       data-student-id="{{ student.id }}" data-locked="{{ 'true' if is_locked_excused else 'false' }}">
     <div class="card-body pb-2">
 
       <!-- Name row -->
@@ -67,12 +68,18 @@
         </div>
       </div>
 
+      {% if is_locked_excused %}
+      <div class="badge bg-warning text-dark mb-2">
+        <i class="bi bi-exclamation-triangle-fill me-1"></i>Học sinh nghỉ phép (đã duyệt)
+      </div>
+      {% endif %}
+
       <!-- Status buttons -->
       <div class="row g-2 mb-2">
         <div class="col-6">
           <input type="radio" class="btn-check status-radio" name="status_{{ student.id }}"
-                 id="present_{{ student.id }}" value="present" {% if is_future %}disabled{% endif %}
-                 {% if att %}{% if att.status == 'present' %}checked{% endif %}{% else %}checked{% endif %}>
+                 id="present_{{ student.id }}" value="present" {% if is_future or is_locked_excused %}disabled{% endif %}
+                 {% if is_locked_excused %}{% elif att %}{% if att.status == 'present' %}checked{% endif %}{% else %}checked{% endif %}>
           <label class="btn btn-outline-success w-100 d-flex align-items-center justify-content-center gap-1"
                  for="present_{{ student.id }}" style="min-height:50px;">
             <i class="bi bi-check-circle"></i>Có mặt
@@ -80,7 +87,7 @@
         </div>
         <div class="col-6">
           <input type="radio" class="btn-check status-radio" name="status_{{ student.id }}"
-                 id="absent_{{ student.id }}" value="absent" {% if is_future %}disabled{% endif %}
+                 id="absent_{{ student.id }}" value="absent" {% if is_future or is_locked_excused %}disabled{% endif %}
                  {% if att and att.status == 'absent' %}checked{% endif %}>
           <label class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-1"
                  for="absent_{{ student.id }}" style="min-height:50px;">
@@ -89,7 +96,7 @@
         </div>
         <div class="col-6">
           <input type="radio" class="btn-check status-radio" name="status_{{ student.id }}"
-                 id="late_{{ student.id }}" value="late" {% if is_future %}disabled{% endif %}
+                 id="late_{{ student.id }}" value="late" {% if is_future or is_locked_excused %}disabled{% endif %}
                  {% if att and att.status == 'late' %}checked{% endif %}>
           <label class="btn btn-outline-warning w-100 d-flex align-items-center justify-content-center gap-1"
                  for="late_{{ student.id }}" style="min-height:50px;">
@@ -99,7 +106,7 @@
         <div class="col-6">
           <input type="radio" class="btn-check status-radio" name="status_{{ student.id }}"
                  id="excused_{{ student.id }}" value="excused" {% if is_future %}disabled{% endif %}
-                 {% if att and att.status == 'excused' %}checked{% endif %}>
+                 {% if is_locked_excused %}checked{% elif att and att.status == 'excused' %}checked{% endif %}>
           <label class="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center gap-1"
                  for="excused_{{ student.id }}" style="min-height:50px;">
             <i class="bi bi-file-earmark-check"></i>Vắng phép
@@ -244,9 +251,10 @@ function updateCounters() {
 updateCounters();
 document.querySelectorAll('.status-radio').forEach(r => r.addEventListener('change', updateCounters));
 
-// Mark all present
+// Mark all present — skip students locked to "excused" by an approved leave request
 document.getElementById('btnAllPresent')?.addEventListener('click', function () {
   document.querySelectorAll('.student-card').forEach(card => {
+    if (card.dataset.locked === 'true') return;
     const sid = card.dataset.studentId;
     const radio = card.querySelector(`#present_${sid}`);
     if (radio) radio.checked = true;

@@ -50,8 +50,13 @@
           {% endif %}
           {% if current_user.can_access('attendance') %}
           <li class="nav-item mb-1">
-            <a href="{{ url_for('admin.attendance_list') }}" class="nav-link {% if current_admin_module == 'attendance' %}active{% endif %}">
+            <a href="{{ url_for('admin.attendance_list') }}" class="nav-link {% if current_admin_module == 'attendance' and request.endpoint != 'admin.manage_leave_requests' %}active{% endif %}">
               <i class="bi bi-person-check me-2"></i>Điểm danh
+            </a>
+          </li>
+          <li class="nav-item mb-1">
+            <a href="{{ url_for('admin.manage_leave_requests') }}" class="nav-link {% if request.endpoint == 'admin.manage_leave_requests' %}active{% endif %}">
+              <i class="bi bi-calendar-x me-2"></i>Xin nghỉ học
             </a>
           </li>
           {% endif %}

@@ -93,6 +93,9 @@ ADMIN_ENDPOINT_MODULES = {
     # attendance.py
     'attendance_list': 'attendance', 'attendance_session': 'attendance', 'save_attendance': 'attendance',
 
+    # leave_requests.py
+    'manage_leave_requests': 'attendance',
+
     # finance.py — split across 4 modules
     'tuition': 'tuition', 'tuition_class_detail': 'tuition', 'tuition_add': 'tuition',
     'tuition_mark_paid': 'tuition', 'tuition_remind_zalo': 'tuition',
