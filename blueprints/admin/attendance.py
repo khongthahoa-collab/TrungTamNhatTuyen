@@ -1,6 +1,7 @@
 from flask import render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+from sqlalchemy.orm import joinedload
 from extensions import db
 from models import Schedule, Attendance, AttendanceSummary, Class, Enrollment, Student
 from blueprints.admin import admin_bp, require_admin
@@ -14,13 +15,69 @@ def attendance_list():
     """Admin: list of upcoming and recent class sessions with attendance
     status. Pending/done are split at the SQL level (Schedule.attendances.any())
     and paginated independently — the 60-day-back + 7-day-forward window
-    across every class could otherwise return hundreds of rows in one shot."""
+    across every class could otherwise return hundreds of rows in one shot.
+
+    view=day is a parallel, opt-in mode for browsing a single day's full
+    schedule (with a date switcher) — kept separate from the default
+    status-split view above so the "which sessions still need attendance"
+    workflow isn't lost."""
     today = date.today()
     class_id = request.args.get('class_id', type=int)
+    view_mode = request.args.get('view', 'status')
+    if view_mode not in ('status', 'day'):
+        view_mode = 'status'
+
+    classes = Class.query.filter_by(is_active=True).order_by(Class.name).all()
+
+    if view_mode == 'day':
+        date_str = request.args.get('date', '')
+        try:
+            target_date = date.fromisoformat(date_str) if date_str else today
+        except ValueError:
+            target_date = today
+
+        day_query = Schedule.query.join(Class, Schedule.class_id == Class.id).options(
+            joinedload(Schedule.class_)
+        ).filter(
+            Schedule.date == target_date,
+            Schedule.is_cancelled == False,
+            Class.is_active == True,
+        )
+        if class_id:
+            day_query = day_query.filter(Schedule.class_id == class_id)
+        day_schedules = day_query.order_by(Schedule.start_time).all()
+
+        summaries = AttendanceSummary.query.filter(
+            AttendanceSummary.schedule_id.in_([s.id for s in day_schedules])
+        ).all()
+        summary_dict = {s.schedule_id: s for s in summaries}
+
+        class_ids = {s.class_id for s in day_schedules}
+        enrollment_counts = dict(
+            db.session.query(Enrollment.class_id, db.func.count(Enrollment.id))
+            .filter(Enrollment.class_id.in_(class_ids), Enrollment.is_active == True)
+            .group_by(Enrollment.class_id)
+            .all()
+        ) if class_ids else {}
+
+        return render_template('admin/classes/attendance_list.html',
+                               view_mode=view_mode,
+                               day_schedules=day_schedules,
+                               target_date=target_date,
+                               prev_date=target_date - timedelta(days=1),
+                               next_date=target_date + timedelta(days=1),
+                               prev_week_date=target_date - timedelta(days=7),
+                               next_week_date=target_date + timedelta(days=7),
+                               summaries=summary_dict,
+                               enrollment_counts=enrollment_counts,
+                               classes=classes,
+                               selected_class_id=class_id,
+                               is_filtered=bool(class_id),
+                               today=today)
+
     pending_page = request.args.get('pending_page', 1, type=int)
     done_page = request.args.get('done_page', 1, type=int)
 
-    from datetime import timedelta
     base_query = Schedule.query.filter_by(is_cancelled=False)
     if class_id:
         base_query = base_query.filter_by(class_id=class_id)
@@ -56,9 +113,8 @@ def attendance_list():
         .all()
     ) if class_ids else {}
 
-    classes = Class.query.filter_by(is_active=True).order_by(Class.name).all()
-
     return render_template('admin/classes/attendance_list.html',
+                           view_mode=view_mode,
                            pending_list=pending_pagination.items,
                            done_list=done_pagination.items,
                            pending_pagination=pending_pagination,

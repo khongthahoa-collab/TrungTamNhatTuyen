@@ -1,8 +1,9 @@
 from datetime import datetime
 
-from flask import render_template, request, redirect, url_for, flash
+from flask import render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 
+from sqlalchemy import or_
 from extensions import db
 from models import LeaveRequest, Student, Schedule, Class, Enrollment, Teacher, LeaveRequestStatus
 from blueprints.admin import admin_bp, require_admin
@@ -96,6 +97,28 @@ def manage_leave_requests():
         return redirect(url_for('admin.manage_leave_requests'))
 
     all_requests = LeaveRequest.query.order_by(LeaveRequest.created_at.desc()).limit(200).all()
-    active_students = Student.query.filter_by(is_active=True, is_deleted=False).order_by(Student.full_name).all()
 
-    return render_template('admin/leave_requests.html', students=active_students, requests=all_requests)
+    return render_template('admin/leave_requests.html', requests=all_requests)
+
+
+@admin_bp.route('/leave-requests/student-search')
+@login_required
+@require_admin
+def leave_request_student_search():
+    """Lightweight AJAX search backing the leave-request form's student
+    picker — with 500+ active students, preloading all of them into a
+    <select> was slow and unusable, so the form now searches on demand."""
+    q = (request.args.get('q') or '').strip()
+    if len(q) < 2:
+        return jsonify([])
+
+    students = Student.query.filter(
+        Student.is_active == True,
+        Student.is_deleted == False,
+        or_(Student.full_name.ilike(f'%{q}%'), Student.parent_phone.ilike(f'%{q}%')),
+    ).order_by(Student.full_name).limit(10).all()
+
+    return jsonify([
+        {'id': s.id, 'full_name': s.full_name, 'parent_phone': s.parent_phone or ''}
+        for s in students
+    ])

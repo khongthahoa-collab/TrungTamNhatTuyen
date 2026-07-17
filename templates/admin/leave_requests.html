@@ -20,14 +20,13 @@
     <form method="post" action="{{ url_for('admin.manage_leave_requests') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="row g-3">
-        <div class="col-12 col-md-6">
-          <label class="form-label fw-semibold" for="student_id">Học sinh</label>
-          <select class="form-select" name="student_id" id="student_id" required>
-            <option value="">-- Chọn học sinh --</option>
-            {% for s in students %}
-            <option value="{{ s.id }}">{{ s.full_name }}{% if s.current_grade %} – {{ s.current_grade }}{% endif %}</option>
-            {% endfor %}
-          </select>
+        <div class="col-12 col-md-6 position-relative">
+          <label class="form-label fw-semibold" for="student_search">Học sinh</label>
+          <input type="text" class="form-control" id="student_search" autocomplete="off"
+                 placeholder="Gõ tên hoặc SĐT phụ huynh học sinh...">
+          <input type="hidden" name="student_id" id="student_id" required>
+          <div id="student_search_results" class="list-group position-absolute w-100 shadow-sm d-none"
+               style="z-index:1050; max-height:250px; overflow-y:auto;"></div>
         </div>
         <div class="col-6 col-md-3">
           <label class="form-label fw-semibold" for="start_date">Từ ngày</label>
@@ -87,4 +86,67 @@
     </table>
   </div>
 </div>
+
+<script>
+(function () {
+  const searchInput = document.getElementById('student_search');
+  const hiddenId = document.getElementById('student_id');
+  const resultsBox = document.getElementById('student_search_results');
+  const searchUrl = "{{ url_for('admin.leave_request_student_search') }}";
+  let debounceTimer = null;
+
+  function hideResults() {
+    resultsBox.classList.add('d-none');
+    resultsBox.innerHTML = '';
+  }
+
+  searchInput.addEventListener('input', function () {
+    hiddenId.value = '';
+    const q = searchInput.value.trim();
+    clearTimeout(debounceTimer);
+    if (q.length < 2) {
+      hideResults();
+      return;
+    }
+    debounceTimer = setTimeout(async () => {
+      const res = await fetch(`${searchUrl}?q=${encodeURIComponent(q)}`);
+      const students = await res.json();
+      if (!students.length) {
+        resultsBox.innerHTML = '<div class="list-group-item text-muted small">Không tìm thấy học sinh</div>';
+        resultsBox.classList.remove('d-none');
+        return;
+      }
+      resultsBox.innerHTML = students.map(s => `
+        <button type="button" class="list-group-item list-group-item-action small"
+                data-id="${s.id}" data-name="${s.full_name.replace(/"/g, '&quot;')}">
+          <strong>${s.full_name}</strong>${s.parent_phone ? ' – ' + s.parent_phone : ''}
+        </button>
+      `).join('');
+      resultsBox.classList.remove('d-none');
+    }, 300);
+  });
+
+  resultsBox.addEventListener('click', function (e) {
+    const btn = e.target.closest('button[data-id]');
+    if (!btn) return;
+    searchInput.value = btn.dataset.name;
+    hiddenId.value = btn.dataset.id;
+    hideResults();
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!resultsBox.contains(e.target) && e.target !== searchInput) {
+      hideResults();
+    }
+  });
+
+  searchInput.closest('form').addEventListener('submit', function (e) {
+    if (!hiddenId.value) {
+      e.preventDefault();
+      alert('Vui lòng chọn một học sinh từ danh sách gợi ý.');
+      searchInput.focus();
+    }
+  });
+})();
+</script>
 {% endblock %}

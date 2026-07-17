@@ -11,10 +11,28 @@
   <h5 class="mb-0 fw-bold"><i class="bi bi-person-check me-2 text-primary"></i>Quản Lý Điểm Danh</h5>
 </div>
 
+<!-- View mode switch -->
+<ul class="nav nav-pills nav-sm mb-3 gap-2">
+  <li class="nav-item">
+    <a class="nav-link {% if view_mode == 'status' %}active{% endif %}"
+       href="{{ url_for('admin.attendance_list', class_id=selected_class_id) }}">
+      <i class="bi bi-list-check me-1"></i>Theo trạng thái
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if view_mode == 'day' %}active{% endif %}"
+       href="{{ url_for('admin.attendance_list', class_id=selected_class_id, view='day') }}">
+      <i class="bi bi-calendar3 me-1"></i>Theo ngày
+    </a>
+  </li>
+</ul>
+
 <!-- Filter -->
 <div class="card border-0 shadow-sm mb-3">
   <div class="card-body py-2">
     <form method="get" class="row g-2 align-items-end">
+      <input type="hidden" name="view" value="{{ view_mode }}">
+      {% if view_mode == 'day' %}<input type="hidden" name="date" value="{{ target_date.isoformat() }}">{% endif %}
       <div class="col-12 col-md-5">
         <label class="form-label form-label-sm fw-semibold mb-1">Lớp học</label>
         <select name="class_id" class="form-select form-select-sm">
@@ -25,12 +43,96 @@
         </select>
       </div>
       <div class="col-12 col-md-3 d-flex align-items-end">
-        {{ filters.filter_toggle(is_filtered, url_for('admin.attendance_list')) }}
+        {{ filters.filter_toggle(is_filtered, url_for('admin.attendance_list', view=view_mode)) }}
       </div>
     </form>
   </div>
 </div>
 
+{% if view_mode == 'day' %}
+<!-- Date switcher -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body py-2">
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <a href="{{ url_for('admin.attendance_list', view='day', class_id=selected_class_id, date=prev_week_date.isoformat()) }}"
+         class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Lùi 1 tuần">
+        <i class="bi bi-chevron-double-left"></i>
+      </a>
+      <a href="{{ url_for('admin.attendance_list', view='day', class_id=selected_class_id, date=prev_date.isoformat()) }}"
+         class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Ngày trước">
+        <i class="bi bi-chevron-left"></i>
+      </a>
+      <form method="get" class="flex-grow-1">
+        <input type="hidden" name="view" value="day">
+        <input type="hidden" name="class_id" value="{{ selected_class_id or '' }}">
+        <input type="date" name="date" class="form-control form-control-sm text-center"
+               value="{{ target_date.isoformat() }}" onchange="this.form.submit()">
+      </form>
+      <a href="{{ url_for('admin.attendance_list', view='day', class_id=selected_class_id, date=next_date.isoformat()) }}"
+         class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Ngày sau">
+        <i class="bi bi-chevron-right"></i>
+      </a>
+      <a href="{{ url_for('admin.attendance_list', view='day', class_id=selected_class_id, date=next_week_date.isoformat()) }}"
+         class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Tiến 1 tuần">
+        <i class="bi bi-chevron-double-right"></i>
+      </a>
+    </div>
+    <div class="text-center small text-muted">
+      {{ target_date | weekday_vn }} ngày {{ target_date.strftime('%d/%m/%Y') }}
+      {% if target_date == today %}<span class="badge bg-primary ms-1">Hôm nay</span>{% endif %}
+    </div>
+  </div>
+</div>
+
+{% if day_schedules %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th class="ps-3 text-nowrap">Lớp học</th>
+          <th class="text-nowrap">Giờ</th>
+          <th class="text-nowrap">Giáo viên</th>
+          <th class="text-nowrap">Phòng</th>
+          <th class="text-nowrap">Sĩ số</th>
+          <th class="text-nowrap">Trạng thái</th>
+          <th class="text-center text-nowrap">Thao tác</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in day_schedules %}
+        {% set summary = summaries.get(s.id) %}
+        <tr>
+          <td class="ps-3 fw-semibold small">{{ s.class_.name }}</td>
+          <td class="small">{{ s.start_time.strftime('%H:%M') }}–{{ s.end_time.strftime('%H:%M') }}</td>
+          <td class="small">{{ s.teacher.full_name if s.teacher else '—' }}</td>
+          <td class="small">{{ s.room or '—' }}</td>
+          <td class="small">{{ enrollment_counts.get(s.class_id, 0) }}</td>
+          <td class="small">
+            {% if summary %}
+              <span class="badge bg-success bg-opacity-75">Đã điểm danh</span>
+            {% else %}
+              <span class="badge bg-warning text-dark">Chưa điểm danh</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            <a href="{{ url_for('admin.attendance_session', schedule_id=s.id) }}" class="btn btn-warning btn-sm">
+              <i class="bi bi-pencil"></i> Điểm danh
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-light border text-center text-muted py-4">
+  <i class="bi bi-calendar-x fs-4 d-block mb-1"></i>Không có buổi học nào trong ngày này.
+</div>
+{% endif %}
+
+{% else %}
 <!-- Summary -->
 <div class="row g-3 mb-4">
   <div class="col-6 col-md-3">
@@ -206,5 +308,6 @@
 <div class="alert alert-info">
   <i class="bi bi-info-circle me-2"></i>Không có buổi học nào trong 60 ngày gần đây.
 </div>
+{% endif %}
 {% endif %}
 {% endblock %}
