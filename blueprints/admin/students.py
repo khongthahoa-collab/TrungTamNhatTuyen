@@ -59,9 +59,15 @@ def students():
     grade        = request.args.get('grade', '').strip()
     school_q     = request.args.get('school_q', '').strip()
     teacher_id   = request.args.get('teacher_id', type=int)
+    status_filter = request.args.get('status', '').strip()
 
     query = Student.query.filter_by(is_deleted=False)
 
+    if status_filter:
+        # Used by the dashboard's "Học sinh chờ xác nhận" link
+        # (status='pending_confirmation') — bypasses the active_only
+        # default below since it's a distinct concept from is_active.
+        query = query.filter_by(status=status_filter)
     if q:
         query = query.filter(
             Student.full_name.ilike(f'%{q}%') |

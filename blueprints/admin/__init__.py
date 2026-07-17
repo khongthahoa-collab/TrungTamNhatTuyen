@@ -64,32 +64,4 @@ def check_module_permission():
 
 
 # Import sub-modules to register routes
-from blueprints.admin import students, classes, academic, finance, rewards, documents, reports, settings, teachers, rooms, schools, attendance, exams  # noqa
-
-
-@admin_bp.route('/')
-@login_required
-@require_admin
-def dashboard():
-    from datetime import date
-    from models import Student, Teacher, Class, TuitionPayment, Reward, ZaloLog
-
-    today = date.today()
-    stats = {
-        'students': Student.query.filter_by(is_active=True, is_deleted=False).count(),
-        'teachers': Teacher.query.count(),
-        'classes': Class.query.filter_by(is_active=True).count(),
-        'unpaid_tuition': TuitionPayment.query.filter_by(
-            is_paid=False, month=today.month, year=today.year
-        ).count(),
-        'pending_rewards': Reward.query.filter_by(is_suggested=True, is_confirmed=False).count(),
-        'zalo_failed': ZaloLog.query.filter_by(status='failed').count(),
-    }
-
-    # Recent Zalo logs
-    recent_zalo = ZaloLog.query.order_by(ZaloLog.sent_at.desc()).limit(5).all()
-
-    return render_template('admin/dashboard.html',
-                           stats=stats,
-                           recent_zalo=recent_zalo,
-                           today=today)
+from blueprints.admin import dashboard, students, classes, academic, finance, rewards, documents, reports, settings, teachers, rooms, schools, attendance, exams  # noqa
