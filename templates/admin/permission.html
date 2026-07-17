@@ -1,0 +1,91 @@
+{% extends 'admin/base.html' %}
+{% import 'admin/_permission_fields.html' as perm %}
+{% block title %}Phân quyền – Nhật Tuyền{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ url_for('admin.users') }}">Tài khoản</a></li>
+<li class="breadcrumb-item active">Phân quyền</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+  <h4 class="fw-bold mb-0">
+    <i class="bi bi-shield-lock text-secondary me-2"></i>Phân quyền
+  </h4>
+  <a href="{{ url_for('admin.users') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Quay lại
+  </a>
+</div>
+
+{% if target_user %}
+<div class="card shadow-sm border-0">
+  <div class="card-header bg-light fw-semibold">
+    Phân quyền của: {{ target_user.full_name }}
+    {% if target_user.is_master %}<span class="badge bg-danger ms-1">Master</span>{% endif %}
+  </div>
+  <div class="card-body">
+    {% if target_user.is_master %}
+    <p class="text-muted small mb-0">Tài khoản Master luôn có toàn quyền, không thể chỉnh sửa.</p>
+    {% elif target_user.id == current_user.id %}
+    <p class="text-muted small mb-0">Không thể tự sửa quyền của chính mình.</p>
+    {% else %}
+    <form method="post" action="{{ url_for('admin.user_permissions_update', user_id=target_user.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {{ perm.permission_matrix(admin_modules, 'perm', levels=target_user.get_permissions()) }}
+      <button type="submit" class="btn btn-primary mt-3">
+        <i class="bi bi-check-lg me-1"></i>Lưu quyền
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% else %}
+<div class="card shadow-sm border-0">
+  <div class="card-header bg-light fw-semibold">Chọn tài khoản admin để phân quyền</div>
+  <div class="table-responsive">
+    <table class="table table-hover table-sm mb-0 align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Họ tên</th>
+          <th>Username</th>
+          <th>Quyền hiện tại</th>
+          <th class="text-end">Thao tác</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in admins %}
+        <tr>
+          <td class="fw-semibold">
+            {{ u.full_name }}
+            {% if u.is_master %}<span class="badge bg-danger ms-1">Master</span>{% endif %}
+          </td>
+          <td class="text-muted small">{{ u.username }}</td>
+          <td>
+            {% if u.has_full_access %}
+              <span class="badge bg-light text-dark border">Toàn quyền</span>
+            {% else %}
+              <span class="badge bg-light text-dark border">{{ u.get_permissions() | length }} mục tuỳ chỉnh</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            {% if u.is_master or u.id == current_user.id %}
+            <span class="text-muted small">—</span>
+            {% else %}
+            <a href="{{ url_for('admin.admin_permission', user_id=u.id) }}" class="btn btn-outline-primary btn-sm">
+              <i class="bi bi-shield-lock me-1"></i>Sửa quyền
+            </a>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="4" class="text-center text-muted py-4">Chưa có tài khoản admin nào khác.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

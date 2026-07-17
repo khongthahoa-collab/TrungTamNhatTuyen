@@ -134,6 +134,7 @@ ADMIN_ENDPOINT_MODULES = {
     'inquiries': 'inquiries', 'inquiry_delete': 'inquiries',
     'users': 'users', 'user_add': 'users', 'user_edit': 'users', 'user_delete': 'users',
     'user_reset_password': 'users', 'user_toggle_active': 'users', 'user_permissions_update': 'users',
+    'admin_permission': 'users',
     'courses': 'courses', 'course_add': 'courses', 'course_edit': 'courses',
 }
 

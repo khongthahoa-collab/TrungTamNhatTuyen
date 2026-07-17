@@ -80,6 +80,34 @@ def users():
                            admin_modules=ADMIN_PERMISSION_MODULES)
 
 
+@admin_bp.route('/permission')
+@login_required
+@require_admin
+def admin_permission():
+    """Dedicated permission-editing page — a full-page alternative to the
+    'Sửa quyền' modal on /admin/accounts, for the same underlying data.
+    Posts to the existing user_permissions_update() below; doesn't
+    introduce a new permission shape or a new write path. With no
+    user_id given, shows a picker list (reusing the same admin-accounts
+    query) instead of 404ing — makes the sidebar's standalone "Phân
+    quyền" link useful on its own, not just as a link reachable only
+    from within /admin/accounts."""
+    if not current_user.is_master:
+        abort(403)
+
+    user_id = request.args.get('user_id', type=int)
+    if not user_id:
+        admins = User.query.filter_by(is_deleted=False, role=UserRole.ADMIN).order_by(User.full_name).all()
+        return render_template('admin/permission.html', target_user=None, admins=admins,
+                               admin_modules=ADMIN_PERMISSION_MODULES)
+
+    target_user = User.query.get_or_404(user_id)
+    if target_user.role != UserRole.ADMIN:
+        abort(404)
+    return render_template('admin/permission.html', target_user=target_user, admins=None,
+                           admin_modules=ADMIN_PERMISSION_MODULES)
+
+
 @admin_bp.route('/accounts/add', methods=['POST'])
 @login_required
 @require_admin
