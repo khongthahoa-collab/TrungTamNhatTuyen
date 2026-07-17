@@ -15,7 +15,7 @@
 <ul class="nav nav-pills nav-sm mb-3 gap-2">
   <li class="nav-item">
     <a class="nav-link {% if view_mode == 'status' %}active{% endif %}"
-       href="{{ url_for('admin.attendance_list', class_id=selected_class_id) }}">
+       href="{{ url_for('admin.attendance_list', class_id=selected_class_id, view='status') }}">
       <i class="bi bi-list-check me-1"></i>Theo trạng thái
     </a>
   </li>
