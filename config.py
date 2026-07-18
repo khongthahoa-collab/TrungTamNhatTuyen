@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -30,6 +31,10 @@ class Config:
     MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 20 * 1024 * 1024))  # 20MB
     ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'zip', 'rar', 'mp4'}
 
+    # Remember-me cookie for teacher accounts (see blueprints/auth.py login_post).
+    REMEMBER_COOKIE_DURATION = timedelta(days=365)
+    REMEMBER_COOKIE_HTTPONLY = True
+
     # Zalo (Phase 2)
     ZALO_OA_ID = os.environ.get('ZALO_OA_ID', '')
     ZALO_ACCESS_TOKEN = os.environ.get('ZALO_ACCESS_TOKEN', '')
@@ -46,6 +51,7 @@ class ProductionConfig(Config):
     # REQUIRED: Set DATABASE_URL in Render.com environment variables
     SQLALCHEMY_DATABASE_URI = _fix_db_url(os.environ.get('DATABASE_URL'))
     WTF_CSRF_SSL_STRICT = True
+    REMEMBER_COOKIE_SECURE = True
     # pool_pre_ping: reconnect tự động nếu connection bị drop.
     # pool_recycle: chủ động đóng/mở lại connection trước khi Supabase pooler
     # tự ngắt do idle — tránh phải dựa hoàn toàn vào pre_ping (vẫn tốn 1 round
