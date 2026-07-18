@@ -2,7 +2,7 @@
 {% block body %}
 
 <!-- Top Navbar -->
-<nav class="navbar navbar-dark sticky-top" style="background: var(--nt-dark-bg); z-index:200;">
+<nav class="navbar navbar-dark sticky-top" style="background: var(--nt-dark-bg); z-index:200; padding-top: env(safe-area-inset-top);">
   <div class="container-fluid">
     <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{{ url_for('teacher.dashboard') }}">
       <img src="{{ url_for('static', filename='icons/logo-mark.png') }}" alt="Nhật Tuyền" height="28">
@@ -35,12 +35,12 @@
 </nav>
 
 <!-- Page content with bottom padding for nav bar -->
-<div style="padding-bottom:72px;">
+<div style="padding-bottom: calc(72px + env(safe-area-inset-bottom));">
   {% block content %}{% endblock %}
 </div>
 
 <!-- Bottom Navigation Bar -->
-<nav class="navbar fixed-bottom border-top bg-white py-0" style="z-index:150;">
+<nav class="navbar fixed-bottom border-top bg-white py-0" style="z-index:150; padding-bottom: env(safe-area-inset-bottom);">
   <div class="container-fluid p-0">
     <div class="d-flex w-100">
 

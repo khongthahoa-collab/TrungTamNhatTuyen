@@ -6,7 +6,7 @@
 
   <!-- Sidebar -->
   <nav class="sidebar d-flex flex-column flex-shrink-0 p-3" id="sidebar"
-       style="width:240px; height:100vh; overflow-y:auto; position:fixed; top:0; left:0; z-index:100; transition:transform .3s;{% if start_collapsed %} transform:translateX(-100%);{% endif %}">
+       style="width:240px; height:100vh; overflow-y:auto; position:fixed; top:0; left:0; z-index:100; transition:transform .3s; padding-top: calc(1rem + env(safe-area-inset-top)) !important;{% if start_collapsed %} transform:translateX(-100%);{% endif %}">
     <a href="{{ url_for('admin.dashboard') }}" class="d-flex align-items-center mb-3 text-decoration-none">
       <img src="{{ url_for('static', filename='icons/logo-mark.png') }}" alt="Nhật Tuyền" height="28">
     </a>
@@ -241,7 +241,7 @@
        style="margin-left: {{ '0' if start_collapsed else '240px' }}; transition: margin-left .3s, max-width .3s;
               max-width: {{ '100vw' if start_collapsed else 'calc(100vw - 240px)' }}; overflow-x: hidden;">
     <!-- Top bar -->
-    <div class="d-flex align-items-center px-3 py-2 border-bottom bg-white sticky-top" style="z-index:50;">
+    <div class="d-flex align-items-center px-3 py-2 border-bottom bg-white sticky-top" style="z-index:50; padding-top: calc(0.5rem + env(safe-area-inset-top)) !important;">
       <button class="btn btn-sm btn-outline-secondary {% if not start_collapsed %}d-lg-none{% endif %} me-3" id="sidebarToggle" title="Ẩn/hiện menu">
         <i class="bi bi-list"></i>
       </button>
