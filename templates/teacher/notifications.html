@@ -5,9 +5,17 @@
 {% block content %}
 <div class="container-fluid px-3 py-3">
 
-  <div class="mb-3">
-    <h5 class="fw-bold mb-0"><i class="bi bi-bell-fill text-primary me-1"></i>Thông báo</h5>
-    <div class="text-muted small">Các thông báo gần đây</div>
+  <div class="mb-3 d-flex align-items-start justify-content-between gap-2">
+    <div>
+      <h5 class="fw-bold mb-0"><i class="bi bi-bell-fill text-primary me-1"></i>Thông báo</h5>
+      <div class="text-muted small">Các thông báo gần đây</div>
+    </div>
+    {% if notifs %}
+    <form method="post" action="{{ url_for('teacher.notifications_read_all') }}" class="flex-shrink-0">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-outline-secondary btn-sm">Đã đọc tất cả</button>
+    </form>
+    {% endif %}
   </div>
 
   {% if notifs %}
@@ -101,4 +109,28 @@
   {% endif %}
 
 </div>
+
+<script>
+document.getElementById('notifList')?.addEventListener('click', async function (e) {
+  const btn = e.target.closest('.notif-mark-read');
+  if (!btn) return;
+  const item = btn.closest('.notif-item');
+  const notifId = item.dataset.notifId;
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/teacher/notifications/${notifId}/read`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': '{{ csrf_token() }}' },
+    });
+    if (res.ok) {
+      item.classList.remove('bg-light');
+      btn.remove();
+    } else {
+      btn.disabled = false;
+    }
+  } catch (err) {
+    btn.disabled = false;
+  }
+});
+</script>
 {% endblock %}
