@@ -8,10 +8,12 @@
 {% block content %}
 {% set weekdays = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'] %}
 
-<!-- Thẻ thông tin lớp -->
+<!-- Thẻ thông tin lớp (Xem / Sửa tại chỗ) -->
 <div class="card border-0 shadow-sm mb-4">
   <div class="card-body">
-    <div class="d-flex align-items-start justify-content-between flex-wrap gap-2">
+
+    <!-- Chế độ Xem -->
+    <div id="classViewBlock" class="d-flex align-items-start justify-content-between flex-wrap gap-2">
       <div>
         <div class="d-flex align-items-center gap-2 mb-1">
           <h5 class="mb-0 fw-bold">{{ class_.name }}</h5>
@@ -54,6 +56,14 @@
             </span>
           </div>
           {% endif %}
+          <div class="col-auto">
+            <span class="small text-muted">Học phí:</span>
+            <span class="small fw-semibold ms-1 text-success">{{ "{:,.0f}".format(class_.monthly_fee or 0) }} ₫/tháng</span>
+          </div>
+          <div class="col-auto">
+            <span class="small text-muted">Số buổi/tuần:</span>
+            <span class="small fw-semibold ms-1">{{ class_.sessions_per_week or '—' }}</span>
+          </div>
           {% if class_.start_date %}
           <div class="col-auto">
             <span class="small text-muted">Năm học:</span>
@@ -65,10 +75,121 @@
         <p class="mt-2 mb-0 small text-muted">{{ class_.description }}</p>
         {% endif %}
       </div>
-      <a href="{{ url_for('admin.class_edit', class_id=class_.id) }}" class="btn btn-outline-primary btn-sm flex-shrink-0">
+      <button type="button" id="toggleClassEditBtn" class="btn btn-outline-primary btn-sm flex-shrink-0" onclick="toggleClassEdit(true)">
         <i class="bi bi-pencil me-1"></i>Sửa
-      </a>
+      </button>
     </div>
+
+    <!-- Chế độ Sửa -->
+    <form id="classEditBlock" class="d-none" method="post" action="{{ url_for('admin.class_edit', class_id=class_.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="row g-3">
+
+        <div class="col-12 col-md-6">
+          <label class="form-label fw-semibold">Tên lớp học</label>
+          <input type="text" class="form-control" name="name" value="{{ class_.name }}" required>
+        </div>
+        <div class="col-12 col-md-6 d-flex align-items-end pb-1">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="edit_is_active" name="is_active" value="1"
+                   {% if class_.is_active %}checked{% endif %}>
+            <label class="form-check-label fw-semibold" for="edit_is_active">Lớp đang hoạt động</label>
+          </div>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <label class="form-label fw-semibold">Môn học <span class="text-danger">*</span></label>
+          <select class="form-select" name="course_id" required>
+            <option value="">-- Chọn môn học --</option>
+            {% for course in courses %}
+            <option value="{{ course.id }}" {% if class_.course_id == course.id %}selected{% endif %}>{{ course.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        {% set known_grades = grade_options | map(attribute=0) | list %}
+        {% set is_custom_grade = class_.grade_level and class_.grade_level not in known_grades %}
+        <div class="col-12 col-md-6">
+          <label class="form-label fw-semibold">Lớp <span class="text-danger">*</span></label>
+          <select class="form-select" name="grade_level_select" id="editGradeSelect" required>
+            <option value="">-- Chọn lớp --</option>
+            {% for val, label in grade_options %}
+            <option value="{{ val }}"
+              {% if is_custom_grade and val == 'Loại khác' %}selected
+              {% elif not is_custom_grade and class_.grade_level == val %}selected{% endif %}>
+              {{ label }}
+            </option>
+            {% endfor %}
+          </select>
+          <input type="text" class="form-control mt-2 {% if not is_custom_grade %}d-none{% endif %}"
+                 id="editGradeCustom" name="grade_level_custom"
+                 placeholder="Nhập tên lớp..."
+                 value="{{ class_.grade_level if is_custom_grade else '' }}"
+                 {% if is_custom_grade %}required{% endif %}>
+        </div>
+
+        <div class="col-12 col-md-4">
+          <label class="form-label fw-semibold">Giáo viên chính <span class="text-danger">*</span></label>
+          <select class="form-select" name="primary_teacher_id" required>
+            <option value="">-- Chọn giáo viên --</option>
+            {% for t in teachers %}
+            <option value="{{ t.id }}" {% if class_.primary_teacher_id == t.id %}selected{% endif %}>{{ t.full_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-12 col-md-4">
+          <label class="form-label fw-semibold">Trợ giảng</label>
+          {% set selected_assistant_ids = class_.assistant_teachers | map(attribute='id') | list %}
+          <select class="form-select" name="assistant_teacher_ids[]" id="editAssistantSelect" multiple>
+            {% for t in teachers %}
+            <option value="{{ t.id }}" {% if t.id in selected_assistant_ids %}selected{% endif %}>{{ t.full_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-12 col-md-4">
+          <label class="form-label fw-semibold">Sĩ số tối đa</label>
+          <input type="number" class="form-control" name="max_students" min="1"
+                 placeholder="Để trống = không giới hạn" value="{{ class_.max_students or '' }}">
+        </div>
+
+        <div class="col-12 col-md-6">
+          <label class="form-label fw-semibold">Học phí / tháng (đủ 4 tuần) <span class="text-danger">*</span></label>
+          <div class="input-group">
+            <input type="number" class="form-control" name="monthly_fee" min="0" step="1000"
+                   value="{{ class_.monthly_fee | int }}" required>
+            <span class="input-group-text">₫</span>
+          </div>
+          <div class="form-text text-warning-emphasis">
+            <i class="bi bi-info-circle me-1"></i>Thay đổi sẽ áp dụng ngay cho các hoá đơn tháng này
+            <strong>chưa đóng</strong> và chưa từng được chỉnh sửa riêng.
+          </div>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <label class="form-label fw-semibold">Số buổi học / tuần</label>
+          <input type="number" class="form-control" name="sessions_per_week" min="1" max="7"
+                 value="{{ class_.sessions_per_week or '' }}">
+        </div>
+
+        <div class="col-12">
+          <label class="form-label fw-semibold">Mô tả</label>
+          <textarea class="form-control" name="description" rows="3"
+                    placeholder="Mô tả, yêu cầu đầu vào, ghi chú...">{{ class_.description or '' }}</textarea>
+        </div>
+      </div>
+
+      <div class="d-flex gap-2 justify-content-end mt-4 border-top pt-3">
+        <button type="button" class="btn btn-outline-secondary" onclick="toggleClassEdit(false)">
+          <i class="bi bi-x-lg me-1"></i>Hủy
+        </button>
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-check-lg me-1"></i>Lưu thay đổi
+        </button>
+      </div>
+    </form>
+
   </div>
 </div>
 
@@ -537,6 +658,41 @@ document.getElementById('selectAllSuggested')?.addEventListener('change', functi
   const checked = this.checked;
   document.querySelectorAll('#suggestedStudentsList .suggested-student-item:not(.d-none) .suggested-student-checkbox')
     .forEach(cb => { cb.checked = checked; });
+});
+</script>
+
+<!-- Sửa thông tin lớp tại chỗ (thay cho trang /edit riêng) -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+$('#editAssistantSelect').select2({
+  theme: 'bootstrap-5',
+  placeholder: 'Không chỉ định',
+  width: '100%',
+  allowClear: true,
+});
+
+function toggleClassEdit(showEdit) {
+  document.getElementById('classViewBlock').classList.toggle('d-none', showEdit);
+  document.getElementById('classEditBlock').classList.toggle('d-none', !showEdit);
+  if (!showEdit) document.getElementById('classEditBlock').reset();
+}
+
+const editGradeSelect = document.getElementById('editGradeSelect');
+const editGradeCustom = document.getElementById('editGradeCustom');
+editGradeSelect.addEventListener('change', () => {
+  const isOther = editGradeSelect.value === 'Loại khác';
+  editGradeCustom.classList.toggle('d-none', !isOther);
+  editGradeCustom.required = isOther;
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('edit') === '1') {
+    toggleClassEdit(true);
+  }
 });
 </script>
 {% endblock %}
