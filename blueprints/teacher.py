@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, jsonify, current_app
 from flask_login import login_required, current_user
 from datetime import date, timedelta, datetime, time as time_type
 import calendar
@@ -835,7 +835,7 @@ def save_attendance(schedule_id):
     """Save attendance records for a session (teacher or admin)"""
     from models import AttendanceSummary
     if not current_user.is_teacher and not current_user.is_admin:
-        return jsonify({'error': 'Forbidden'}), 403
+        return jsonify({'error': 'Bạn không có quyền thực hiện thao tác này.'}), 403
     schedule = Schedule.query.get_or_404(schedule_id)
 
     # Giáo viên chỉ được điểm danh buổi thuộc lớp mà họ là GV chính hoặc trợ
@@ -846,22 +846,32 @@ def save_attendance(schedule_id):
         cls = schedule.class_
         is_assigned = teacher and (cls.primary_teacher_id == teacher.id or teacher in cls.assistant_teachers)
         if not is_assigned:
-            return jsonify({'error': 'Unauthorized'}), 403
+            return jsonify({'error': 'Bạn không có quyền điểm danh lớp này.'}), 403
 
     # Chỉ được điểm danh đúng ngày diễn ra buổi học — không điểm danh trước
     # (buổi tương lai) hay điểm danh sau (buổi đã qua), dù đã điểm danh hay chưa.
     if schedule.date != date.today():
         return jsonify({'error': 'Chỉ có thể điểm danh đúng ngày diễn ra buổi học.'}), 403
 
+    try:
+        return _save_attendance_records(schedule, schedule_id)
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception('save_attendance failed for schedule_id=%s', schedule_id)
+        return jsonify({'error': 'Có lỗi xảy ra khi lưu điểm danh, vui lòng thử lại. Nếu vẫn lỗi, báo cho quản trị viên.'}), 500
+
+
+def _save_attendance_records(schedule, schedule_id):
+    from models import AttendanceSummary
     data = request.get_json()
     attendance_records = data.get('attendance', [])
-    
+
     # Update or create attendance records
     present_count = 0
     absent_count = 0
     late_count = 0
     excused_count = 0
-    
+
     for record in attendance_records:
         student_id = record['student_id']
         status = record['status']
