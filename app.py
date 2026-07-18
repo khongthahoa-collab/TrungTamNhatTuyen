@@ -1,5 +1,5 @@
 import os
-from flask import Flask
+from flask import Flask, request
 from config import config
 from extensions import db, login_manager, csrf, migrate
 
@@ -66,11 +66,25 @@ def create_app(config_name=None):
     # CSRF protection doesn't apply the same way here.
     csrf.exempt(api_bp)
 
+    # iOS standalone PWA (Add to Home Screen) caches HTML far more aggressively
+    # than a normal Safari tab, and has no reload button/URL bar to bypass it —
+    # so business pages can get stuck showing stale data indefinitely. Force
+    # no-store on the dynamic sections; static assets are untouched.
+    @app.after_request
+    def disable_dynamic_routes_cache(response):
+        path = request.path
+        if (path.startswith('/admin') or path.startswith('/teacher') or
+                path.startswith('/parent') or path.startswith('/api') or path == '/'):
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+        return response
+
     # Force a password change before any other page is reachable for accounts
     # created with a temporary password (see blueprints/admin/account_utils.py).
     @app.before_request
     def enforce_password_change():
-        from flask import redirect, url_for, request
+        from flask import redirect, url_for
         from flask_login import current_user
         if current_user.is_authenticated and current_user.must_change_password:
             allowed = {'auth.change_password', 'auth.logout', 'static'}
@@ -78,7 +92,6 @@ def create_app(config_name=None):
                 return redirect(url_for('auth.change_password'))
 
     # Jinja2 global helpers
-    from flask import request
     from models import SystemConfig, ContactInquiry, Notification
     from flask_login import current_user
     from blueprints.permissions import ADMIN_ENDPOINT_MODULES, ADMIN_SIDEBAR_GROUPS

@@ -25,7 +25,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
   {% block extra_head %}{% endblock %}
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
 
 <div id="page-loading-overlay" class="page-loading-overlay d-none">
   <div class="spinner-border text-primary" role="status">
@@ -65,6 +65,67 @@
     });
   }
 </script>
+
+<!-- Nút làm mới nổi cho standalone PWA — không có thanh địa chỉ/nút reload của
+     trình duyệt khi chạy từ icon màn hình chính, nên cần lối thoát thủ công. -->
+<button id="pwaRefreshFab" class="btn pwa-refresh-fab d-none shadow-lg" onclick="forcePwaRefresh()" title="Làm mới">
+  <i class="bi bi-arrow-clockwise fs-5"></i>
+</button>
+<style>
+  .pwa-refresh-fab {
+    position: fixed;
+    bottom: 20px; /* Mặc định: Admin, Login, trang công khai — không có thanh tab dưới */
+    right: 20px;
+    z-index: 1050;
+    width: 48px;
+    height: 48px;
+    border-radius: 50% !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none !important;
+    background-color: #0f4c81 !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(15, 76, 129, 0.25);
+    padding: 0 !important;
+    line-height: 1;
+    transition: transform 0.2s ease;
+  }
+  .pwa-refresh-fab:hover {
+    transform: scale(1.05);
+  }
+  /* Giáo viên/Phụ huynh có thanh tab cố định ở đáy màn hình — nâng nút lên
+     tránh đè lên thanh đó (xem body_class ở teacher/base.html, parent/base.html). */
+  body.has-bottom-nav .pwa-refresh-fab {
+    bottom: 84px !important;
+  }
+  .pwa-refresh-fab .spin-animation {
+    animation: pwa-refresh-spin 0.8s linear infinite;
+  }
+  @keyframes pwa-refresh-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+</style>
+<script>
+  function isRunningStandalone() {
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    if (isRunningStandalone()) {
+      document.getElementById('pwaRefreshFab')?.classList.remove('d-none');
+    }
+  });
+
+  function forcePwaRefresh() {
+    document.querySelector('#pwaRefreshFab i')?.classList.add('spin-animation');
+    const busterUrl = new URL(window.location.href);
+    busterUrl.searchParams.set('cache_bypass', Date.now());
+    window.location.href = busterUrl.toString();
+  }
+</script>
+
 {% block extra_js %}{% endblock %}
 </body>
 </html>
