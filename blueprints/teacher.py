@@ -558,11 +558,29 @@ def notifications():
         html = render_template('teacher/_notifications_fragment.html', notifs=pagination.items)
         return jsonify({'html': html, 'has_next': pagination.has_next})
 
-    # Mark all as read — only on the real page load, not on every
-    # scroll-triggered fragment fetch.
+    # Đánh dấu đã đọc giờ là hành động chủ động của giáo viên (nút "Đánh dấu
+    # đã đọc" / "Đã đọc tất cả") — không còn tự động đánh dấu hết khi chỉ mở
+    # trang xem qua.
+    return render_template('teacher/notifications.html', notifs=pagination.items, pagination=pagination)
+
+
+@teacher_bp.route('/notifications/<int:notif_id>/read', methods=['POST'])
+@login_required
+@require_teacher
+def notification_mark_read(notif_id):
+    n = Notification.query.filter_by(id=notif_id, user_id=current_user.id).first_or_404()
+    n.is_read = True
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@teacher_bp.route('/notifications/read-all', methods=['POST'])
+@login_required
+@require_teacher
+def notifications_read_all():
     Notification.query.filter_by(user_id=current_user.id, is_read=False).update({'is_read': True})
     db.session.commit()
-    return render_template('teacher/notifications.html', notifs=pagination.items, pagination=pagination)
+    return redirect(url_for('teacher.notifications'))
 
 
 # ============================================================

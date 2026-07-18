@@ -35,8 +35,11 @@
   </div>
 </nav>
 
-<!-- Page content with bottom padding for nav bar -->
-<div style="padding-bottom: calc(72px + env(safe-area-inset-bottom));">
+<!-- Page content with bottom padding for nav bar. min-height keeps the
+     document at least full-viewport-tall on short pages (e.g. Tổng quan) —
+     iOS Safari standalone can otherwise render an extra blank strip under
+     the fixed bottom nav when content is shorter than the screen. -->
+<div style="padding-bottom: calc(72px + env(safe-area-inset-bottom)); min-height: 100vh; min-height: 100dvh;">
   {% block content %}{% endblock %}
 </div>
 
