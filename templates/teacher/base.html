@@ -52,6 +52,7 @@
         <span>Tổng quan</span>
       </a>
 
+      {# Tạm ẩn "Lịch dạy" — chưa cần dùng tới, bỏ để giảm tải trang. Route teacher.schedule vẫn còn nguyên, chỉ gỡ khỏi bottom nav.
       {% if current_user.can_access('schedule') %}
       <a href="{{ url_for('teacher.schedule') }}"
          class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none
@@ -61,6 +62,7 @@
         <span>Lịch dạy</span>
       </a>
       {% endif %}
+      #}
 
       {% if current_user.can_access('attendance') %}
       <a href="{{ url_for('teacher.attendance_list') }}"
@@ -92,6 +94,7 @@
       </a>
       {% endif %}
 
+      {# Tạm ẩn "Tạo lớp" — chưa cần dùng tới, bỏ để giảm tải trang. Route teacher.create_intensive vẫn còn nguyên, chỉ gỡ khỏi bottom nav.
       {% if current_user.can_access('schedule') %}
       <a href="{{ url_for('teacher.create_intensive') }}"
          class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none
@@ -101,6 +104,7 @@
         <span>Tạo lớp</span>
       </a>
       {% endif %}
+      #}
 
       <a href="{{ url_for('teacher.notifications') }}"
          class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none position-relative
