@@ -737,8 +737,28 @@ def attendance_session(schedule_id):
 
     is_future = schedule.date > date.today()
 
-    # Get enrolled students
-    enrollments = Enrollment.query.filter_by(class_id=schedule.class_id, is_active=True).all()
+    # Get enrolled students — chỉ những học sinh còn thực sự hoạt động (chưa
+    # nghỉ/bị xoá) mới vào danh sách điểm danh hôm nay/tương lai.
+    enrollments = (Enrollment.query
+                   .join(Student, Enrollment.student_id == Student.id)
+                   .filter(Enrollment.class_id == schedule.class_id, Enrollment.is_active == True,
+                           Student.is_active == True, Student.is_deleted == False)
+                   .all())
+
+    if not is_future:
+        # Buổi đã qua: học sinh đã nghỉ/bị xoá SAU buổi này nhưng có bản ghi điểm
+        # danh thật cho đúng buổi đó vẫn phải hiện — không được để lịch sử biến mất.
+        already_included_ids = {e.student_id for e in enrollments}
+        recorded_student_ids = {
+            r[0] for r in db.session.query(Attendance.student_id)
+            .filter(Attendance.schedule_id == schedule_id).all()
+        }
+        missing_ids = recorded_student_ids - already_included_ids
+        if missing_ids:
+            enrollments += Enrollment.query.filter(
+                Enrollment.class_id == schedule.class_id,
+                Enrollment.student_id.in_(missing_ids),
+            ).all()
 
     # Students with an approved leave request covering this exact session
     # date — locked to "excused" in the template so the teacher can't

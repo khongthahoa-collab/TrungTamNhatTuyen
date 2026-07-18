@@ -165,8 +165,11 @@ def students_bulk_delete():
         return redirect(url_for('admin.students'))
 
     count = Student.query.filter(Student.id.in_(student_ids)).update(
-        {'is_deleted': True}, synchronize_session=False
+        {'is_deleted': True, 'is_active': False}, synchronize_session=False
     )
+    Enrollment.query.filter(
+        Enrollment.student_id.in_(student_ids), Enrollment.is_active == True
+    ).update({'is_active': False}, synchronize_session=False)
     db.session.commit()
     flash(f'Đã xóa {count} học sinh.', 'success')
     return redirect(url_for('admin.students'))
@@ -532,6 +535,12 @@ def student_edit(student_id):
         student.parent_phone = request.form.get('parent_phone', '').strip()
         student.note = request.form.get('note', '').strip()
         student.is_active = request.form.get('is_active') == '1'
+        if not student.is_active:
+            # Học sinh nghỉ học ở trung tâm -> rút khỏi mọi lớp đang active, tránh
+            # còn sót trong danh sách điểm danh/sĩ số dù đã được đánh dấu nghỉ.
+            Enrollment.query.filter_by(student_id=student.id, is_active=True).update(
+                {'is_active': False}, synchronize_session=False
+            )
         db.session.commit()
         flash('Đã cập nhật thông tin học sinh.', 'success')
         return redirect(url_for('admin.student_detail', student_id=student.id))
