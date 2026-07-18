@@ -43,6 +43,26 @@
     if (e.defaultPrevented) return;
     if (e.target.hasAttribute && e.target.hasAttribute('data-no-loading')) return;
     showLoading();
+
+    // Freeze the submit button so a slow request can't be double-submitted by
+    // an impatient double-tap. Runs only once we know the submission is
+    // actually proceeding (defaultPrevented is false at this point) — a form
+    // with its own failed client-side validation never reaches here, so it
+    // can never get stuck disabled.
+    const submitBtn = e.target.querySelector('button[type="submit"], input[type="submit"]');
+    if (submitBtn && !submitBtn.disabled) {
+      submitBtn.disabled = true;
+      submitBtn.dataset.originalHtml = submitBtn.innerHTML;
+      submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Đang xử lý...';
+      // Safety net matching the overlay's own timeout — never leave a button
+      // stuck disabled if the page navigation stalls for some reason.
+      setTimeout(() => {
+        if (submitBtn.dataset.originalHtml !== undefined) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = submitBtn.dataset.originalHtml;
+        }
+      }, 20000);
+    }
   });
 
   // Covers back/forward-cache restores, where the overlay could otherwise
