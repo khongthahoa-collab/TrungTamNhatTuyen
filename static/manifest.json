@@ -2,7 +2,7 @@
   "name": "Trung tâm Nhật Tuyền",
   "short_name": "Nhật Tuyền",
   "description": "Quản lý học sinh, lớp học, điểm danh và học phí - Trung tâm Nhật Tuyền",
-  "start_url": "/login",
+  "start_url": "/auth/login",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
