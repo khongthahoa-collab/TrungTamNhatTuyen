@@ -2,14 +2,14 @@
 
 {% block breadcrumb %}
 <li class="breadcrumb-item"><a href="{{ url_for('admin.classes') }}">Lớp học</a></li>
-<li class="breadcrumb-item active">{% if action == 'add' %}Thêm lớp{% else %}Sửa lớp{% endif %}</li>
+<li class="breadcrumb-item active">Thêm lớp</li>
 {% endblock %}
 
 {% block content %}
 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
   <h5 class="mb-0 fw-bold">
-    <i class="bi bi-journal-{% if action == 'add' %}plus{% else %}pencil{% endif %} me-2 text-primary"></i>
-    {% if action == 'add' %}Thêm lớp học mới{% else %}Sửa lớp học{% endif %}
+    <i class="bi bi-journal-plus me-2 text-primary"></i>
+    Thêm lớp học mới
   </h5>
   <a href="{{ url_for('admin.classes') }}" class="btn btn-outline-secondary btn-sm">
     <i class="bi bi-arrow-left me-1"></i>Quay lại
@@ -18,8 +18,7 @@
 
 <div class="card border-0 shadow-sm">
   <div class="card-body p-4">
-        <form method="post" id="classForm"
-              action="{% if action == 'add' %}{{ url_for('admin.class_add') }}{% else %}{{ url_for('admin.class_edit', class_id=class_.id) }}{% endif %}">
+        <form method="post" id="classForm" action="{{ url_for('admin.class_add') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
           <!-- Thông tin lớp -->
@@ -37,36 +36,29 @@
                 {% for course in courses %}
                 <option value="{{ course.id }}"
                         data-level="{{ course.level or 'all' }}"
-                  {% if action == 'edit' and class_.course_id == course.id %}selected
-                  {% elif form and form.get('course_id','') | string == course.id | string %}selected{% endif %}>
+                  {% if form and form.get('course_id','') | string == course.id | string %}selected{% endif %}>
                   {{ course.name }}
                 </option>
                 {% endfor %}
               </select>
             </div>
 
-            {% set known_grades = grade_options | map(attribute=0) | list %}
-            {% set edit_grade = class_.grade_level if action == 'edit' else '' %}
-            {% set is_custom_grade = action == 'edit' and edit_grade and edit_grade not in known_grades %}
             <div class="col-12 col-md-6">
               <label class="form-label fw-semibold">Lớp <span class="text-danger">*</span></label>
               <select class="form-select" name="grade_level_select" id="gradeSelect" required>
                 <option value="">-- Chọn lớp --</option>
                 {% for val, label in grade_options %}
                 <option value="{{ val }}"
-                  {% if is_custom_grade and val == 'Loại khác' %}selected
-                  {% elif action == 'edit' and not is_custom_grade and edit_grade == val %}selected
-                  {% elif form and form.get('grade_level_select','') == val %}selected{% endif %}>
+                  {% if form and form.get('grade_level_select','') == val %}selected{% endif %}>
                   {{ label }}
                 </option>
                 {% endfor %}
               </select>
               <!-- Custom input for "Loại khác" -->
-              <input type="text" class="form-control mt-2 {% if not is_custom_grade %}d-none{% endif %}"
+              <input type="text" class="form-control mt-2 d-none"
                      id="gradeCustom" name="grade_level_custom"
                      placeholder="Nhập tên lớp..."
-                     value="{{ edit_grade if is_custom_grade else (form.get('grade_level_custom','') if form else '') }}"
-                     {% if is_custom_grade %}required{% endif %}>
+                     value="{{ form.get('grade_level_custom','') if form else '' }}">
             </div>
 
             <!-- Dòng 2: Giáo viên chính | Trợ giảng | Sĩ số tối đa -->
@@ -77,8 +69,7 @@
                 {% for t in teachers %}
                 <option value="{{ t.id }}"
                   data-title="{{ t.title }}" data-given-name="{{ t.full_name.split(' ')[-1] if t.full_name else '' }}"
-                  {% if action == 'edit' and class_.primary_teacher_id == t.id %}selected
-                  {% elif form and form.get('primary_teacher_id','') | string == t.id | string %}selected{% endif %}>
+                  {% if form and form.get('primary_teacher_id','') | string == t.id | string %}selected{% endif %}>
                   {{ t.full_name }}
                 </option>
                 {% endfor %}
@@ -87,7 +78,7 @@
 
             <div class="col-12 col-md-4">
               <label class="form-label fw-semibold">Trợ giảng</label>
-              {% set selected_assistant_ids = (class_.assistant_teachers | map(attribute='id') | list) if action == 'edit' else ((form.getlist('assistant_teacher_ids[]') | map('int') | list) if form else []) %}
+              {% set selected_assistant_ids = (form.getlist('assistant_teacher_ids[]') | map('int') | list) if form else [] %}
               <select class="form-select" name="assistant_teacher_ids[]" id="assistantTeacherSelect" multiple>
                 {% for t in teachers %}
                 <option value="{{ t.id }}" {% if t.id in selected_assistant_ids %}selected{% endif %}>{{ t.full_name }}</option>
@@ -99,7 +90,7 @@
               <label class="form-label fw-semibold">Sĩ số tối đa</label>
               <input type="number" class="form-control" name="max_students" min="1"
                      placeholder="Để trống = không giới hạn"
-                     value="{{ class_.max_students if action == 'edit' else (form.get('max_students','') if form else '') }}">
+                     value="{{ form.get('max_students','') if form else '' }}">
             </div>
 
             <!-- Dòng 3: Học phí | Số buổi học / tuần -->
@@ -110,31 +101,23 @@
               <div class="input-group">
                 <input type="number" class="form-control" name="monthly_fee" min="0" step="1000"
                        placeholder="Ví dụ: 800000"
-                       value="{{ class_.monthly_fee | int if action == 'edit' else (form.get('monthly_fee','') if form else '') }}"
+                       value="{{ form.get('monthly_fee','') if form else '' }}"
                        required>
                 <span class="input-group-text">₫</span>
               </div>
               <div class="form-text">Học phí tính cho 1 tháng đủ 4 tuần. Admin điều chỉnh theo tháng thực tế.</div>
-              {% if action == 'edit' %}
-              <div class="form-text text-warning-emphasis">
-                <i class="bi bi-info-circle me-1"></i>Thay đổi sẽ áp dụng ngay cho các hoá đơn tháng này
-                <strong>chưa đóng</strong> và chưa từng được chỉnh sửa riêng — hoá đơn đã đóng/đóng một phần/đã
-                tùy chỉnh sẽ giữ nguyên.
-              </div>
-              {% endif %}
             </div>
 
             <div class="col-12 col-md-6">
               <label class="form-label fw-semibold">Số buổi học / tuần</label>
               <input type="number" class="form-control" name="sessions_per_week" min="1" max="7"
                      id="sessionsPerWeek"
-                     value="{{ class_.sessions_per_week if action == 'edit' else (form.get('sessions_per_week', '') if form else '') }}"
+                     value="{{ form.get('sessions_per_week', '') if form else '' }}"
                      placeholder="Tự động từ lịch học">
               <div class="form-text">Tự động điền từ số khung giờ đã chọn bên dưới.</div>
             </div>
 
             <!-- Tên lớp học (admin có thể tự sửa, ngoài tên hệ thống tự đặt) -->
-            {% if action == 'add' %}
             <div class="col-12 col-md-6">
               <label class="form-label fw-semibold">Tên lớp học</label>
               <input type="text" class="form-control" name="name" id="classNameInput"
@@ -144,24 +127,8 @@
                 Gợi ý: <strong id="namePreview">Toán 5 - Cô Gấu</strong> — có thể sửa lại tên khác nếu muốn.
               </div>
             </div>
-            {% else %}
-            <div class="col-12 col-md-6">
-              <label class="form-label fw-semibold">Tên lớp học</label>
-              <input type="text" class="form-control" name="name" value="{{ class_.name }}" required>
-              <div class="form-text">Có thể sửa tên lớp trực tiếp tại đây.</div>
-            </div>
-            <!-- Trạng thái -->
-            <div class="col-12 col-md-6 d-flex align-items-end pb-1">
-              <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" id="is_active" name="is_active" value="1"
-                       {% if class_.is_active %}checked{% endif %}>
-                <label class="form-check-label fw-semibold" for="is_active">Lớp đang hoạt động</label>
-              </div>
-            </div>
-            {% endif %}
           </div>
 
-          {% if action == 'add' %}
           <!-- Lịch học (required at least 1 row) -->
           <h6 class="fw-semibold text-primary mb-2 border-bottom pb-2">
             <i class="bi bi-calendar-week me-2"></i>Lịch học <span class="text-danger">*</span>
@@ -217,12 +184,6 @@
           <div class="form-text mt-n3 mb-4 sched-teacher-hint d-none">
             <i class="bi bi-info-circle me-1"></i>Lớp có trợ giảng — chọn giáo viên dạy cho từng khung giờ nếu cần.
           </div>
-          {% else %}
-          <div class="alert alert-info small mb-4">
-            <i class="bi bi-info-circle me-1"></i>
-            Lịch học được quản lý trực tiếp ở trang chi tiết lớp (mục "Sửa lịch học hàng tuần").
-          </div>
-          {% endif %}
 
           <!-- Mô tả (optional, cuối form) -->
           <h6 class="fw-semibold text-primary mb-3 border-bottom pb-2">
@@ -230,7 +191,7 @@
           </h6>
           <div class="mb-4">
             <textarea class="form-control" name="description" rows="3"
-                      placeholder="Mô tả, yêu cầu đầu vào, ghi chú...">{{ (class_.description or '') if action == 'edit' else (form.get('description','') if form else '') }}</textarea>
+                      placeholder="Mô tả, yêu cầu đầu vào, ghi chú...">{{ form.get('description','') if form else '' }}</textarea>
           </div>
 
           <div class="d-flex gap-2 justify-content-end">
@@ -238,8 +199,7 @@
               <i class="bi bi-x-lg me-1"></i>Hủy
             </a>
             <button type="submit" class="btn btn-primary">
-              <i class="bi bi-check-lg me-1"></i>
-              {% if action == 'add' %}Tạo lớp học{% else %}Lưu thay đổi{% endif %}
+              <i class="bi bi-check-lg me-1"></i>Tạo lớp học
             </button>
           </div>
         </form>
@@ -260,7 +220,6 @@ $('#assistantTeacherSelect').select2({
 </script>
 
 <script>
-{% if action == 'add' %}
 // ── Time slot auto-fill: giờ kết thúc = giờ bắt đầu + 90 phút, có thể sửa lại ──
 function addMinutes(timeStr, minutesToAdd) {
   const [h, m] = timeStr.split(':').map(Number);
@@ -363,7 +322,6 @@ document.getElementById('classForm').addEventListener('submit', function(e) {
     e.preventDefault();
   }
 });
-{% endif %}
 
 const courseSelect  = document.getElementById('courseSelect');
 const gradeSelect   = document.getElementById('gradeSelect');
@@ -383,7 +341,6 @@ gradeSelect.addEventListener('change', () => {
 syncCustomInput();  // init on load
 
 // ── Auto-name preview: "{Môn học} {Lớp} - {Thầy/Cô} {Tên giáo viên}" ──────
-{% if action == 'add' %}
 function updatePreview() {
   const courseOpt = courseSelect.options[courseSelect.selectedIndex];
   const courseName = courseOpt && courseOpt.value ? courseOpt.text : '...';
@@ -415,6 +372,5 @@ gradeSelect.addEventListener('change', updatePreview);
 gradeCustom.addEventListener('input', updatePreview);
 teacherSelect.addEventListener('change', updatePreview);
 updatePreview();
-{% endif %}
 </script>
 {% endblock %}

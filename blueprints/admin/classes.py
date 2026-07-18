@@ -558,6 +558,7 @@ def class_detail(class_id):
     class_ = Class.query.get_or_404(class_id)
     teachers = Teacher.query.join(Teacher.user).order_by('full_name').all()
     rooms = Room.query.filter_by(is_active=True).order_by(Room.branch, Room.floor, Room.room_number).all()
+    courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
     today = date.today()
 
     page = request.args.get('page', 1, type=int)
@@ -583,7 +584,7 @@ def class_detail(class_id):
 
     suggested_students, already_taking_ids = _suggested_students(class_)
     return render_template('admin/classes/detail.html',
-                           class_=class_, teachers=teachers, rooms=rooms,
+                           class_=class_, teachers=teachers, rooms=rooms, courses=courses,
                            weekly_slots=weekly_slots,
                            enrollments=enrollment_pagination.items,
                            enrollment_pagination=enrollment_pagination,
@@ -591,6 +592,7 @@ def class_detail(class_id):
                            suggested_students=suggested_students,
                            already_taking_ids=already_taking_ids,
                            grade_label=GRADE_LEVEL_LABELS.get(class_.grade_level, class_.grade_level or ''),
+                           grade_options=GRADE_LEVEL_OPTIONS,
                            day_options=DAY_OPTIONS, time_points=TIME_POINTS,
                            today=today)
 
@@ -600,9 +602,11 @@ def class_detail(class_id):
 @require_admin
 def class_edit(class_id):
     class_ = Class.query.get_or_404(class_id)
-    courses = Course.query.filter_by(is_active=True).all()
-    teachers = Teacher.query.join(Teacher.user).all()
-    rooms = Room.query.filter_by(is_active=True).order_by(Room.branch, Room.floor, Room.room_number).all()
+
+    # Trang Sửa riêng đã gộp vào trang Chi tiết (chế độ Sửa tại chỗ) — link/bookmark
+    # cũ trỏ tới GET /edit vẫn hoạt động, chỉ chuyển hướng thay vì render trang riêng.
+    if request.method == 'GET':
+        return redirect(url_for('admin.class_detail', class_id=class_id, edit=1))
 
     if request.method == 'POST':
         grade_select = request.form.get('grade_level_select', '').strip()
@@ -662,9 +666,6 @@ def class_edit(class_id):
         else:
             flash('Đã cập nhật thông tin lớp.', 'success')
         return redirect(url_for('admin.class_detail', class_id=class_id))
-
-    return render_template('admin/classes/form.html',
-                           **_form_context('edit', courses, teachers, rooms, class_=class_))
 
 
 @admin_bp.route('/classes/<int:class_id>/reschedule', methods=['POST'])
