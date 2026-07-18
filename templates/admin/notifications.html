@@ -2,12 +2,21 @@
 {% block title %}Thông báo — Admin{% endblock %}
 {% block breadcrumb %}<li class="breadcrumb-item active">Thông báo</li>{% endblock %}
 {% block content %}
-<h4 class="fw-bold mb-4"><i class="bi bi-bell-fill text-primary me-2"></i>Thông báo</h4>
+<div class="d-flex align-items-start justify-content-between gap-2 mb-4">
+  <h4 class="fw-bold mb-0"><i class="bi bi-bell-fill text-primary me-2"></i>Thông báo</h4>
+  {% if notifs %}
+  <form method="post" action="{{ url_for('admin.notifications_read_all') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn btn-outline-secondary btn-sm">Đã đọc tất cả</button>
+  </form>
+  {% endif %}
+</div>
 
 {% if notifs %}
-<div class="list-group shadow-sm">
+<div class="list-group shadow-sm" id="notifList">
   {% for n in notifs %}
-  <div class="list-group-item list-group-item-action d-flex align-items-start gap-3 py-3 {% if not n.is_read %}bg-light{% endif %}">
+  <div class="list-group-item d-flex align-items-start gap-3 py-3 notif-item {% if not n.is_read %}bg-light{% endif %}"
+       data-notif-id="{{ n.id }}">
     <div class="flex-shrink-0 mt-1">
       {% if n.notif_type == 'warning' %}
       <i class="bi bi-exclamation-triangle-fill text-warning fs-5"></i>
@@ -20,7 +29,14 @@
       {% endif %}
     </div>
     <div class="flex-grow-1">
-      <div class="fw-semibold small">{{ n.title }}</div>
+      <div class="d-flex align-items-start justify-content-between gap-2">
+        <div class="fw-semibold small">{{ n.title }}</div>
+        {% if not n.is_read %}
+        <button type="button" class="btn btn-link btn-sm p-0 flex-shrink-0 notif-mark-read" style="font-size:0.75rem;">
+          Đánh dấu đã đọc
+        </button>
+        {% endif %}
+      </div>
       {% if n.body %}
       <div class="text-muted small mt-1">{{ n.body }}</div>
       {% endif %}
@@ -28,11 +44,6 @@
         <i class="bi bi-clock me-1"></i>{{ n.created_at | datetime_vn }}
       </div>
     </div>
-    {% if n.link %}
-    <a href="{{ n.link }}" class="btn btn-outline-primary btn-sm flex-shrink-0 align-self-center">
-      <i class="bi bi-arrow-right"></i>
-    </a>
-    {% endif %}
   </div>
   {% endfor %}
 </div>
@@ -69,4 +80,28 @@
   Không có thông báo nào
 </div>
 {% endif %}
+
+<script>
+document.getElementById('notifList')?.addEventListener('click', async function (e) {
+  const btn = e.target.closest('.notif-mark-read');
+  if (!btn) return;
+  const item = btn.closest('.notif-item');
+  const notifId = item.dataset.notifId;
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/admin/notifications/${notifId}/read`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': '{{ csrf_token() }}' },
+    });
+    if (res.ok) {
+      item.classList.remove('bg-light');
+      btn.remove();
+    } else {
+      btn.disabled = false;
+    }
+  } catch (err) {
+    btn.disabled = false;
+  }
+});
+</script>
 {% endblock %}

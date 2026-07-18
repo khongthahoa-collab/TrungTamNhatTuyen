@@ -1,6 +1,7 @@
 import io
 import csv
 import os
+import re
 from flask import render_template, redirect, url_for, flash, request, abort, Response, current_app
 from flask_login import login_required, current_user
 from datetime import date, datetime
@@ -16,6 +17,15 @@ from services.schedule_service import (find_student_schedule_conflict, schedule_
                                        notify_class_teachers)
 
 PHOTO_EXTS = {'jpg', 'jpeg', 'png', 'webp', 'gif'}
+
+
+def _normalize_name(name):
+    """Chuẩn hoá tên để so trùng: bỏ khoảng trắng thừa đầu/cuối + giữa các
+    từ, không phân biệt hoa/thường. Cố tình so ở phía Python (không dùng
+    func.lower() của DB) — LOWER() của SQLite chỉ hạ chữ thường theo ASCII,
+    không xử lý đúng chữ hoa có dấu tiếng Việt (Ư, Ơ, Đ...), nên so lệch
+    trên các tên phổ biến nhất."""
+    return re.sub(r'\s+', ' ', (name or '').strip()).lower()
 
 
 def _create_or_link_parent_account(student_name, parent_name, parent_phone=None):
@@ -276,6 +286,17 @@ def import_students():
         content = file.read().decode('utf-8-sig')
         reader = csv.DictReader(io.StringIO(content))
         added = duplicates = missing_info = 0
+
+        # (tên chuẩn hoá, lớp) của học sinh đã tồn tại — nạp 1 lần trước vòng
+        # lặp thay vì query lại DB mỗi dòng CSV, và so không phân biệt
+        # hoa/thường + khoảng trắng (xem _normalize_name). Cập nhật thêm vào
+        # set này mỗi khi thêm học sinh mới để bắt luôn trùng NGAY TRONG
+        # cùng file CSV, không chỉ trùng với dữ liệu đã có sẵn.
+        existing_keys = {
+            (_normalize_name(s.full_name), s.current_grade)
+            for s in Student.query.filter_by(is_deleted=False).all()
+        }
+
         for row in reader:
             full_name = (row.get('Họ tên') or '').strip()
             gender_raw = (row.get('Giới tính') or '').strip().lower()
@@ -295,7 +316,8 @@ def import_students():
             # again (and again) under a brand-new record every time, silently
             # fragmenting their class enrollments/tuition/attendance history
             # across duplicates instead of catching the re-import.
-            if Student.query.filter_by(full_name=full_name, current_grade=grade).first():
+            key = (_normalize_name(full_name), grade)
+            if key in existing_keys:
                 duplicates += 1
                 continue
 
@@ -310,6 +332,7 @@ def import_students():
                 parent_phone=parent_phone,
             )
             db.session.add(student)
+            existing_keys.add(key)
             added += 1
 
         db.session.commit()
@@ -318,9 +341,10 @@ def import_students():
                   f'{missing_info} dòng bị bỏ qua.', 'danger')
         if added or duplicates:
             flash(f'Import thành công: {added} học sinh mới, bỏ qua {duplicates} dòng trùng thông tin.', 'success')
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        flash(f'Lỗi khi đọc file: {e}', 'danger')
+        current_app.logger.exception('import_students failed')
+        flash('Lỗi khi đọc file CSV — kiểm tra lại định dạng file và thử lại.', 'danger')
 
     return redirect(url_for('admin.students'))
 
@@ -370,7 +394,11 @@ def student_add():
         # rows in the past (their classes/tuition/attendance split across
         # records with no link between them).
         confirm_duplicate = request.form.get('confirm_duplicate') == '1'
-        duplicate_matches = Student.query.filter_by(full_name=full_name).all()
+        normalized_input = _normalize_name(full_name)
+        duplicate_matches = [
+            s for s in Student.query.filter_by(is_deleted=False).all()
+            if _normalize_name(s.full_name) == normalized_input
+        ]
         if duplicate_matches and not confirm_duplicate:
             return render_template('admin/students/form.html',
                                    action='add', levels=StudentLevel.LABELS,
