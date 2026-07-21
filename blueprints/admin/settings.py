@@ -24,6 +24,7 @@ def settings():
 def settings_save():
     keys = ['center_name', 'center_address', 'center_phone',
             'zalo_link', 'messenger_link', 'bank_account',
+            'vietqr_bank_id', 'vietqr_bank_name', 'vietqr_account_number', 'vietqr_account_name',
             'hall_of_fame_min_score',
             'hero_bg', 'hero_badge', 'hero_headline1', 'hero_headline2',
             'hero_sub', 'hero_note']

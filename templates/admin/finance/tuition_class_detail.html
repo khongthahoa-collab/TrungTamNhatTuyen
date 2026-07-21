@@ -20,7 +20,12 @@
       {% endif %}
     </div>
   </div>
-  <div class="d-flex gap-2">
+  <div class="d-flex gap-2 flex-wrap">
+    {% if all_records %}
+    <button type="button" class="btn btn-outline-warning btn-sm" id="btnGroupExport">
+      <i class="bi bi-image me-1"></i>Xuất ảnh học phí nhóm
+    </button>
+    {% endif %}
     <a href="{{ url_for('admin.tuition_class_export', class_id=cls.id, month=month, year=year) }}"
        class="btn btn-outline-success btn-sm">
       <i class="bi bi-file-earmark-excel me-1"></i>Xuất Excel
@@ -129,6 +134,22 @@
                class="fw-semibold small text-decoration-none {% if r.is_voided %}text-decoration-line-through{% endif %}">
               {{ r.student.full_name }}
             </a>
+            {% if not r.is_voided %}
+            {% set remaining = (r.total_due - r.amount_collected) | int %}
+            {% set individual_qr = build_vietqr_url(bank_id, bank_account_number, bank_account_name, amount=remaining, add_info='HP ' ~ r.student.full_name ~ ' T' ~ month ~ ' ' ~ cls.name) %}
+            <button class="btn btn-link p-0 ms-1 btn-tuition-notice" type="button"
+                    title="Thông báo học phí"
+                    data-bs-toggle="modal" data-bs-target="#tuitionReminderModal"
+                    data-student-name="{{ r.student.full_name }}"
+                    data-class-name="{{ cls.name }}"
+                    data-month-year="Tháng {{ month }}/{{ year }}"
+                    data-amount="{{ r.amount | int }}"
+                    data-debt="{{ r.debt_carried_over | int }}"
+                    data-remaining="{{ remaining }}"
+                    data-qr-url="{{ individual_qr or '' }}">
+              <i class="bi bi-image text-muted" style="font-size:0.75rem;"></i>
+            </button>
+            {% endif %}
             {% if not r.is_paid and not r.is_voided and is_writable %}
             <button class="btn btn-link p-0 ms-1" type="button"
                     data-bs-toggle="collapse"
@@ -278,6 +299,65 @@
 </div>
 {% endif %}
 
+{% if all_records %}
+<!-- Off-screen capture cho "Xuất ảnh học phí nhóm" — không hiển thị cho người dùng -->
+<div id="groupTuitionCapture" class="tuition-card tuition-card-group tuition-card-offscreen">
+  <div class="d-flex align-items-start justify-content-between mb-3">
+    <img src="{{ url_for('static', filename='icons/logo-mark.png') }}" height="48" alt="logo">
+    <div class="d-flex align-items-center gap-2">
+      <div class="tuition-teacher-avatar">{{ (cls.primary_teacher.full_name[0] if cls.primary_teacher and cls.primary_teacher.full_name else 'G') | upper }}</div>
+      <div>
+        <div class="fw-bold small">{{ cls.primary_teacher.full_name if cls.primary_teacher else 'Chưa gán GV' }}</div>
+        <div class="text-muted" style="font-size:0.65rem; letter-spacing:0.05em;">GIÁO VIÊN</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tuition-card-title mb-1">THÔNG BÁO HỌC PHÍ</div>
+  <div class="text-muted small mb-3">Tháng {{ month }}/{{ year }}</div>
+  <span class="badge tuition-class-pill mb-3">Lớp: {{ cls.name }}</span>
+
+  <table class="table table-sm tuition-group-table mb-3">
+    <thead>
+      <tr><th>STT</th><th>HỌC SINH</th><th class="text-end">SỐ TIỀN</th><th class="text-center">TRẠNG THÁI</th></tr>
+    </thead>
+    <tbody>
+      {% for r in all_records %}
+      <tr>
+        <td class="text-muted">{{ loop.index }}</td>
+        <td class="fw-semibold">{{ r.student.full_name }}</td>
+        <td class="text-end">{{ r.total_due | vnd }}</td>
+        <td class="text-center">
+          {% if r.is_paid %}
+          <span class="badge tuition-status-paid">ĐÃ THU</span>
+          {% else %}
+          <span class="badge tuition-status-unpaid">CHƯA THU</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="tuition-transfer-box">
+    <div class="fw-bold text-primary mb-2">THÔNG TIN CHUYỂN KHOẢN</div>
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+      <div class="flex-grow-1">
+        <div class="small mb-1">Ngân hàng: <strong>{{ bank_name or bank_id or '—' }}</strong></div>
+        <div class="small mb-1">Số tài khoản: <strong>{{ bank_account_number or '—' }}</strong></div>
+        <div class="small">Chủ TK: <strong>{{ bank_account_name or '—' }}</strong></div>
+      </div>
+      {% if group_qr_url %}
+      <img src="{{ group_qr_url }}" alt="VietQR" class="tuition-qr-img" crossorigin="anonymous">
+      {% endif %}
+    </div>
+    <div class="tuition-warning mt-2">
+      ⚠️ PH chuyển khoản nhớ CHỤP BILL gửi lại để tránh nhầm lẫn nhé.
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <!-- Modal thu tiền -->
 <div class="modal fade" id="markPaidModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -393,6 +473,68 @@
   </div>
 </div>
 
+<!-- Modal thông báo học phí cá nhân -->
+<div class="modal fade" id="tuitionReminderModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title fw-bold">
+          <i class="bi bi-image me-2 text-primary"></i>Thông báo học phí
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body d-flex justify-content-center py-4" style="background:#f1f5f9;">
+        <div id="individualTuitionCard" class="tuition-card tuition-card-individual">
+          <div class="text-center mb-3">
+            <img src="{{ url_for('static', filename='icons/logo-mark.png') }}" height="40" alt="logo">
+            <div class="tuition-card-title mt-1">THÔNG BÁO HỌC PHÍ</div>
+            <div class="small fw-semibold text-muted" id="itcMonthYear"></div>
+          </div>
+          <hr>
+          <div class="tuition-profile-box mb-3">
+            <div class="text-muted" style="font-size:0.7rem; letter-spacing:0.05em;">HỌC SINH</div>
+            <div class="fw-bold fs-5" id="itcStudentName"></div>
+            <div class="text-primary fw-semibold small" id="itcClassName"></div>
+            <hr class="my-2">
+            <div class="d-flex justify-content-between small mb-1">
+              <span class="text-muted">Học phí cơ bản</span>
+              <strong id="itcAmount"></strong>
+            </div>
+            <div class="d-flex justify-content-between small mb-1 d-none" id="itcDebtRow">
+              <span class="text-muted">Nợ tháng trước</span>
+              <strong id="itcDebt"></strong>
+            </div>
+            <hr class="my-2">
+            <div class="d-flex justify-content-between align-items-center">
+              <span class="fw-bold">CẦN THANH TOÁN</span>
+              <span class="tuition-total-due" id="itcRemaining"></span>
+            </div>
+          </div>
+          <div class="tuition-transfer-box text-center">
+            <div class="fw-bold text-primary mb-2">THÔNG TIN CHUYỂN KHOẢN</div>
+            <img id="itcQrImg" src="" alt="VietQR" class="tuition-qr-img mb-2" crossorigin="anonymous">
+            <div class="small mb-1">Ngân hàng: <strong>{{ bank_name or bank_id or '—' }}</strong></div>
+            <div class="small mb-1">Số tài khoản: <strong>{{ bank_account_number or '—' }}</strong></div>
+            <div class="small">Chủ TK: <strong>{{ bank_account_name or '—' }}</strong></div>
+            <div class="tuition-warning mt-2">
+              ⚠️ Nhớ CHỤP BILL gửi lại để trung tâm tránh nhầm lẫn nhé.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+        <button type="button" class="btn btn-outline-primary" id="btnCopyTuitionCard">
+          <i class="bi bi-clipboard me-1"></i>Sao chép ảnh
+        </button>
+        <button type="button" class="btn btn-primary" id="btnDownloadTuitionCard">
+          <i class="bi bi-download me-1"></i>Tải ảnh thông báo
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 document.getElementById('markPaidModal').addEventListener('show.bs.modal', function(e) {
   const btn = e.relatedTarget;
@@ -416,6 +558,153 @@ document.getElementById('reverseModal').addEventListener('show.bs.modal', functi
   document.getElementById('reverseStudentName').textContent = btn.dataset.studentName;
   document.getElementById('reverseForm').action =
     "{{ url_for('admin.tuition_reverse_payment', payment_id=0) }}".replace('/0/', '/' + btn.dataset.recordId + '/');
+});
+</script>
+
+<style>
+.tuition-card {
+  width: 375px;
+  margin: 0 auto;
+  background: #ffffff;
+  border-radius: 20px;
+  border: 10px solid #ffefe2;
+  padding: 20px;
+  font-family: inherit;
+}
+.tuition-card-offscreen { position: absolute; left: -9999px; top: 0; }
+.tuition-card-title { color: #ea580c; font-weight: 800; font-size: 1.3rem; }
+.tuition-teacher-avatar {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: #16a34a; color: #fff; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.tuition-class-pill {
+  background: #dbeafe; color: #1d4ed8; font-weight: 600;
+  padding: 6px 12px; border-radius: 20px; white-space: normal; text-align: left;
+}
+.tuition-group-table th { font-size: 0.68rem; color: #64748b; border-bottom: 2px solid #e2e8f0; }
+.tuition-group-table td { font-size: 0.8rem; vertical-align: middle; }
+.tuition-status-paid, .tuition-status-unpaid {
+  border-radius: 20px; padding: 4px 10px; font-size: 0.65rem; font-weight: 700;
+}
+.tuition-status-unpaid { background: #fce7f3; color: #db2777; }
+.tuition-status-paid { background: #dcfce7; color: #16a34a; }
+.tuition-transfer-box {
+  background: #eff6ff; border: 1px dashed #93c5fd; border-radius: 12px; padding: 14px;
+}
+.tuition-qr-img { width: 110px; height: auto; flex-shrink: 0; }
+.tuition-warning {
+  background: #fef3e2; color: #b45309; font-size: 0.7rem;
+  border-radius: 8px; padding: 6px 10px;
+}
+.tuition-card-individual { position: static; }
+.tuition-profile-box { background: #fff7ed; border-radius: 12px; padding: 14px; }
+.tuition-total-due { color: #ea580c; font-weight: 800; font-size: 1.2rem; }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+// Chung cho mọi nút xuất ảnh học phí — cùng cách xử lý iOS Safari (không hỗ
+// trợ <a download>, phải dùng Share Sheet) như tính năng Xuất ảnh Điểm danh.
+function exportTuitionCardAsImage(captureEl, filename, btn) {
+  if (!captureEl || typeof html2canvas === 'undefined') return;
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+  const qrImg = captureEl.querySelector('.tuition-qr-img');
+  const ready = qrImg && !qrImg.complete
+    ? new Promise(resolve => { qrImg.onload = resolve; qrImg.onerror = resolve; })
+    : Promise.resolve();
+
+  ready.then(() => html2canvas(captureEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff' }))
+    .then(canvas => new Promise(resolve => canvas.toBlob(resolve, 'image/png')))
+    .then(blob => {
+      if (!blob) return;
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      const file = (isIOS && window.File) ? new File([blob], filename, { type: 'image/png' }) : null;
+      if (isIOS && file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        return navigator.share({ files: [file], title: 'Thông báo học phí' }).catch(() => {});
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = url;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    })
+    .finally(() => {
+      btn.disabled = false;
+      btn.innerHTML = original;
+    });
+}
+
+document.getElementById('btnGroupExport')?.addEventListener('click', function () {
+  exportTuitionCardAsImage(
+    document.getElementById('groupTuitionCapture'),
+    `hoc-phi-nhom-{{ cls.id }}-T{{ month }}-{{ year }}.png`,
+    this,
+  );
+});
+
+// Thông báo học phí cá nhân — điền lại thẻ preview trong modal mỗi khi mở
+// cho một học sinh khác nhau, thay vì dựng sẵn N thẻ ẩn cho từng dòng.
+let currentTuitionStudent = '';
+document.getElementById('tuitionReminderModal').addEventListener('show.bs.modal', function (e) {
+  const btn = e.relatedTarget;
+  const fmt = n => Number(n).toLocaleString('vi-VN') + ' đ';
+
+  currentTuitionStudent = btn.dataset.studentName;
+  document.getElementById('itcStudentName').textContent = btn.dataset.studentName;
+  document.getElementById('itcClassName').textContent = btn.dataset.className;
+  document.getElementById('itcMonthYear').textContent = btn.dataset.monthYear;
+  document.getElementById('itcAmount').textContent = fmt(btn.dataset.amount);
+  document.getElementById('itcRemaining').textContent = fmt(btn.dataset.remaining);
+
+  const debt = parseInt(btn.dataset.debt, 10) || 0;
+  document.getElementById('itcDebtRow').classList.toggle('d-none', debt <= 0);
+  if (debt > 0) document.getElementById('itcDebt').textContent = fmt(debt);
+
+  document.getElementById('itcQrImg').src = btn.dataset.qrUrl || '';
+});
+
+document.getElementById('btnDownloadTuitionCard').addEventListener('click', function () {
+  exportTuitionCardAsImage(
+    document.getElementById('individualTuitionCard'),
+    `hoc-phi-${currentTuitionStudent.replace(/\s+/g, '-')}.png`,
+    this,
+  );
+});
+
+document.getElementById('btnCopyTuitionCard').addEventListener('click', function () {
+  const btn = this;
+  const captureEl = document.getElementById('individualTuitionCard');
+  if (typeof html2canvas === 'undefined') return;
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+  const qrImg = captureEl.querySelector('.tuition-qr-img');
+  const ready = qrImg && !qrImg.complete
+    ? new Promise(resolve => { qrImg.onload = resolve; qrImg.onerror = resolve; })
+    : Promise.resolve();
+
+  ready.then(() => html2canvas(captureEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff' }))
+    .then(canvas => new Promise(resolve => canvas.toBlob(resolve, 'image/png')))
+    .then(blob => {
+      if (!blob || !navigator.clipboard || !window.ClipboardItem) {
+        alert('Trình duyệt này không hỗ trợ sao chép ảnh — hãy dùng "Tải ảnh thông báo".');
+        return;
+      }
+      return navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    })
+    .catch(() => {
+      alert('Không sao chép được ảnh — hãy dùng "Tải ảnh thông báo".');
+    })
+    .finally(() => {
+      btn.disabled = false;
+      btn.innerHTML = original;
+    });
 });
 </script>
 {% endblock %}

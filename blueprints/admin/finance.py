@@ -183,6 +183,29 @@ def tuition_class_detail(class_id):
     pagination = base_query.paginate(page=page, per_page=10, error_out=False)
     records = pagination.items
 
+    # Danh sách đầy đủ (không phân trang) chỉ dùng để dựng ảnh "Xuất ảnh học
+    # phí nhóm" — thẻ ảnh phải liệt kê đủ cả lớp, không chỉ 10 dòng của
+    # trang hiện tại. Loại hoá đơn đã hủy, không xuất hiện trên thông báo.
+    all_records = (
+        TuitionPayment.query
+        .filter_by(class_id=class_id, month=month, year=year, is_voided=False)
+        .join(Student, TuitionPayment.student_id == Student.id)
+        .options(joinedload(TuitionPayment.student))
+        .order_by(Student.full_name)
+        .all()
+    )
+
+    from models import SystemConfig
+    from services.tuition_service import build_vietqr_url
+    bank_id = SystemConfig.get('vietqr_bank_id', '')
+    bank_name = SystemConfig.get('vietqr_bank_name', '')
+    bank_account_number = SystemConfig.get('vietqr_account_number', '')
+    bank_account_name = SystemConfig.get('vietqr_account_name', '')
+    group_qr_url = build_vietqr_url(
+        bank_id, bank_account_number, bank_account_name,
+        add_info=f'HOC PHI LOP {cls.name}',
+    )
+
     # KPI totals exclude voided bills entirely (excluded from revenue
     # reports) — but the row list above (base_query) still shows them, and
     # missing_count below still counts them as "billed" (a voided bill
@@ -217,13 +240,16 @@ def tuition_class_detail(class_id):
     missing_count = len(enrolled_ids - billed_ids)
 
     return render_template('admin/finance/tuition_class_detail.html',
-                           cls=cls, records=records, pagination=pagination,
+                           cls=cls, records=records, all_records=all_records, pagination=pagination,
                            total=total or 0, paid_count=paid_count or 0,
                            unpaid_count=unpaid_count or 0,
                            collected_amount=collected_amount or 0,
                            outstanding_amount=outstanding_amount or 0,
                            missing_count=missing_count,
                            is_writable=is_period_writable(month, year),
+                           bank_id=bank_id, bank_name=bank_name, bank_account_number=bank_account_number,
+                           bank_account_name=bank_account_name, group_qr_url=group_qr_url,
+                           build_vietqr_url=build_vietqr_url,
                            month=month, year=year, today=today)
 
 
