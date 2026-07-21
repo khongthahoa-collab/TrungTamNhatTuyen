@@ -425,6 +425,25 @@ class SystemConfig(db.Model):
         return f'<SystemConfig {self.key}={self.value}>'
 
 
+class BankAccount(db.Model):
+    """Tài khoản ngân hàng dùng để tạo mã VietQR trên thông báo học phí —
+    admin có thể tạo nhiều tài khoản, bật/tắt tài khoản nào hiện ra làm lựa
+    chọn khi thu học phí (is_active=False vẫn giữ lại, chỉ ẩn khỏi lựa
+    chọn, không xoá)."""
+    __tablename__ = 'bank_accounts'
+
+    id = db.Column(db.Integer, primary_key=True)
+    bank_id = db.Column(db.String(20), nullable=False)       # Mã VietQR, vd "VCB"
+    bank_name = db.Column(db.String(100), nullable=False)     # Tên hiển thị, vd "Vietcombank"
+    account_number = db.Column(db.String(50), nullable=False)
+    account_name = db.Column(db.String(150), nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<BankAccount {self.bank_name} {self.account_number}>'
+
+
 class AcademicYear(db.Model):
     """Academic year entity (e.g., 2025-2026)"""
     __tablename__ = 'academic_years'

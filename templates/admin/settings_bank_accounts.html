@@ -1,0 +1,158 @@
+{% extends 'admin/base.html' %}
+{% block title %}Tài khoản ngân hàng – Admin – Nhật Tuyền{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ url_for('admin.settings') }}">Cài đặt</a></li>
+<li class="breadcrumb-item active">Tài khoản ngân hàng</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+  <div>
+    <h4 class="fw-bold mb-0">
+      <i class="bi bi-bank text-secondary me-2"></i>Tài khoản ngân hàng
+    </h4>
+    <div class="text-muted small">Dùng để tạo mã VietQR trên thông báo học phí. Tài khoản đang <strong>bật</strong> mới hiện ra làm lựa chọn khi thu học phí.</div>
+  </div>
+  <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addBankAccountModal">
+    <i class="bi bi-plus-lg me-1"></i>Thêm tài khoản
+  </button>
+</div>
+
+<div class="row g-3">
+  {% for acc in accounts %}
+  <div class="col-12 col-md-6 col-xl-4">
+    <div class="card shadow-sm border-0 h-100 {% if not acc.is_active %}opacity-50{% endif %}">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <span class="badge {% if acc.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+            {{ 'Đang bật' if acc.is_active else 'Đã tắt' }}
+          </span>
+          <span class="badge bg-light text-dark border">{{ acc.bank_id }}</span>
+        </div>
+        <div class="fw-bold fs-5">{{ acc.bank_name }}</div>
+        <div class="text-muted small mb-1">Số TK: <strong class="text-dark">{{ acc.account_number }}</strong></div>
+        <div class="text-muted small mb-3">Chủ TK: <strong class="text-dark">{{ acc.account_name }}</strong></div>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm flex-grow-1"
+                  data-bs-toggle="modal" data-bs-target="#editBankAccountModal"
+                  data-id="{{ acc.id }}" data-bank-id="{{ acc.bank_id }}"
+                  data-bank-name="{{ acc.bank_name }}" data-account-number="{{ acc.account_number }}"
+                  data-account-name="{{ acc.account_name }}">
+            <i class="bi bi-pencil me-1"></i>Sửa
+          </button>
+          <form method="post" action="{{ url_for('admin.bank_account_toggle', account_id=acc.id) }}" class="flex-grow-1">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-{{ 'warning' if acc.is_active else 'success' }} btn-sm w-100">
+              {{ 'Tắt' if acc.is_active else 'Bật' }}
+            </button>
+          </form>
+          <form method="post" action="{{ url_for('admin.bank_account_delete', account_id=acc.id) }}"
+                onsubmit="return confirm('Xoá tài khoản {{ acc.bank_name }} — {{ acc.account_number }}?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-danger btn-sm" title="Xoá">
+              <i class="bi bi-trash"></i>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="col-12">
+    <div class="alert alert-light border text-center text-muted py-5">
+      <i class="bi bi-bank fs-3 d-block mb-2"></i>
+      Chưa có tài khoản ngân hàng nào. Bấm "Thêm tài khoản" để bắt đầu.
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Modal thêm tài khoản -->
+<div class="modal fade" id="addBankAccountModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title fw-bold"><i class="bi bi-plus-circle me-2 text-primary"></i>Thêm tài khoản ngân hàng</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{{ url_for('admin.bank_account_add') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Mã ngân hàng (VietQR)</label>
+            <input type="text" class="form-control" name="bank_id" placeholder="VCB" required>
+            <div class="form-text">Xem danh sách mã tại vietqr.io</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Tên ngân hàng</label>
+            <input type="text" class="form-control" name="bank_name" placeholder="Vietcombank" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Số tài khoản</label>
+            <input type="text" class="form-control" name="account_number" placeholder="1064226538" required>
+          </div>
+          <div class="mb-0">
+            <label class="form-label fw-semibold">Tên chủ tài khoản</label>
+            <input type="text" class="form-control text-uppercase" name="account_name" placeholder="HO KINH DOANH NHAT TUYEN" required>
+            <div class="form-text">Không dấu, viết hoa — đúng như trên sao kê ngân hàng</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Thêm</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal sửa tài khoản -->
+<div class="modal fade" id="editBankAccountModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title fw-bold"><i class="bi bi-pencil me-2 text-primary"></i>Sửa tài khoản ngân hàng</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" id="editBankAccountForm" action="">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Mã ngân hàng (VietQR)</label>
+            <input type="text" class="form-control" name="bank_id" id="editBankId" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Tên ngân hàng</label>
+            <input type="text" class="form-control" name="bank_name" id="editBankName" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Số tài khoản</label>
+            <input type="text" class="form-control" name="account_number" id="editAccountNumber" required>
+          </div>
+          <div class="mb-0">
+            <label class="form-label fw-semibold">Tên chủ tài khoản</label>
+            <input type="text" class="form-control text-uppercase" name="account_name" id="editAccountName" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Lưu</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('editBankAccountModal').addEventListener('show.bs.modal', function (e) {
+  const btn = e.relatedTarget;
+  document.getElementById('editBankId').value = btn.dataset.bankId;
+  document.getElementById('editBankName').value = btn.dataset.bankName;
+  document.getElementById('editAccountNumber').value = btn.dataset.accountNumber;
+  document.getElementById('editAccountName').value = btn.dataset.accountName;
+  document.getElementById('editBankAccountForm').action =
+    "{{ url_for('admin.bank_account_edit', account_id=0) }}".replace('/0/', '/' + btn.dataset.id + '/');
+});
+</script>
+{% endblock %}

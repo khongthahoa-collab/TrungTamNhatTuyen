@@ -83,39 +83,18 @@
           <i class="bi bi-bank me-1"></i>Tài khoản ngân hàng
         </div>
         <div class="card-body">
-          <div class="mb-3">
+          <div class="mb-0">
             <label class="form-label fw-semibold" for="bank_account">Thông tin tài khoản</label>
             <textarea class="form-control" name="bank_account" id="bank_account"
                       rows="3"
                       placeholder="Tên ngân hàng – Số tài khoản – Tên chủ tài khoản">{{ configs.get('bank_account', '') }}</textarea>
             <div class="form-text">Hiển thị dạng chữ trên thông báo Zalo nhắc học phí</div>
           </div>
-          <hr>
-          <div class="form-text mb-2">Dùng để tạo mã QR VietQR trên ảnh thông báo học phí (Xuất ảnh)</div>
-          <div class="row g-2">
-            <div class="col-6 col-md-3">
-              <label class="form-label fw-semibold small" for="vietqr_bank_id">Mã ngân hàng (VietQR)</label>
-              <input type="text" class="form-control" name="vietqr_bank_id" id="vietqr_bank_id"
-                     value="{{ configs.get('vietqr_bank_id', '') }}" placeholder="VCB">
-              <div class="form-text">Xem danh sách mã tại vietqr.io</div>
-            </div>
-            <div class="col-6 col-md-3">
-              <label class="form-label fw-semibold small" for="vietqr_bank_name">Tên ngân hàng</label>
-              <input type="text" class="form-control" name="vietqr_bank_name" id="vietqr_bank_name"
-                     value="{{ configs.get('vietqr_bank_name', '') }}" placeholder="Vietcombank">
-            </div>
-            <div class="col-6 col-md-3">
-              <label class="form-label fw-semibold small" for="vietqr_account_number">Số tài khoản</label>
-              <input type="text" class="form-control" name="vietqr_account_number" id="vietqr_account_number"
-                     value="{{ configs.get('vietqr_account_number', '') }}" placeholder="1064226538">
-            </div>
-            <div class="col-6 col-md-3">
-              <label class="form-label fw-semibold small" for="vietqr_account_name">Tên chủ tài khoản</label>
-              <input type="text" class="form-control text-uppercase account-name-input" name="vietqr_account_name" id="vietqr_account_name"
-                     value="{{ configs.get('vietqr_account_name', '') }}" placeholder="HO KINH DOANH NHAT TUYEN">
-              <div class="form-text">Không dấu, viết hoa — đúng như trên sao kê ngân hàng</div>
-            </div>
-          </div>
+        </div>
+        <div class="card-footer bg-white">
+          <a href="{{ url_for('admin.bank_accounts') }}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-credit-card-2-front me-1"></i>Quản lý tài khoản VietQR (nhiều tài khoản, bật/tắt)
+          </a>
         </div>
       </div>
 

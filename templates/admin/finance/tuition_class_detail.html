@@ -20,11 +20,28 @@
       {% endif %}
     </div>
   </div>
-  <div class="d-flex gap-2 flex-wrap">
-    {% if all_records %}
+  <div class="d-flex gap-2 flex-wrap align-items-center">
+    {% if all_records and active_bank_accounts %}
+    {% if active_bank_accounts|length > 1 %}
+    <select class="form-select form-select-sm" style="width:auto;" id="groupAccountSelect">
+      {% for acc in active_bank_accounts %}
+      <option value="{{ acc.id }}"
+              data-bank-name="{{ acc.bank_name }}"
+              data-account-number="{{ acc.account_number }}"
+              data-account-name="{{ acc.account_name }}"
+              data-qr-url="{{ group_qr_by_account.get(acc.id, '') }}">
+        {{ acc.bank_name }} — {{ acc.account_number }}
+      </option>
+      {% endfor %}
+    </select>
+    {% endif %}
     <button type="button" class="btn btn-outline-warning btn-sm" id="btnGroupExport">
       <i class="bi bi-image me-1"></i>Xuất ảnh học phí nhóm
     </button>
+    {% elif all_records %}
+    <span class="text-muted small" title="Vào Cài đặt > Tài khoản ngân hàng để thêm">
+      <i class="bi bi-exclamation-circle me-1"></i>Chưa có tài khoản ngân hàng nào đang bật
+    </span>
     {% endif %}
     <a href="{{ url_for('admin.tuition_class_export', class_id=cls.id, month=month, year=year) }}"
        class="btn btn-outline-success btn-sm">
@@ -134,9 +151,19 @@
                class="fw-semibold small text-decoration-none {% if r.is_voided %}text-decoration-line-through{% endif %}">
               {{ r.student.full_name }}
             </a>
-            {% if not r.is_voided %}
+            {% if not r.is_voided and active_bank_accounts %}
             {% set remaining = (r.total_due - r.amount_collected) | int %}
-            {% set individual_qr = build_vietqr_url(bank_id, bank_account_number, bank_account_name, amount=remaining, add_info='HP ' ~ r.student.full_name ~ ' T' ~ month ~ ' ' ~ cls.name) %}
+            {% set add_info = 'HP ' ~ r.student.full_name ~ ' T' ~ month ~ ' ' ~ cls.name %}
+            {% set row_accounts = [] %}
+            {% for acc in active_bank_accounts %}
+              {% set _ = row_accounts.append({
+                  'id': acc.id,
+                  'bank_name': acc.bank_name,
+                  'account_number': acc.account_number,
+                  'account_name': acc.account_name,
+                  'qr_url': build_vietqr_url(acc.bank_id, acc.account_number, acc.account_name, amount=remaining, add_info=add_info),
+              }) %}
+            {% endfor %}
             <button class="btn btn-link p-0 ms-1 btn-tuition-notice" type="button"
                     title="Thông báo học phí"
                     data-bs-toggle="modal" data-bs-target="#tuitionReminderModal"
@@ -146,7 +173,7 @@
                     data-amount="{{ r.amount | int }}"
                     data-debt="{{ r.debt_carried_over | int }}"
                     data-remaining="{{ remaining }}"
-                    data-qr-url="{{ individual_qr or '' }}">
+                    data-accounts='{{ row_accounts | tojson }}'>
               <i class="bi bi-image text-muted" style="font-size:0.75rem;"></i>
             </button>
             {% endif %}
@@ -343,12 +370,12 @@
     <div class="fw-bold text-primary mb-2">THÔNG TIN CHUYỂN KHOẢN</div>
     <div class="d-flex align-items-center gap-3 flex-wrap">
       <div class="flex-grow-1">
-        <div class="small mb-1">Ngân hàng: <strong>{{ bank_name or bank_id or '—' }}</strong></div>
-        <div class="small mb-1">Số tài khoản: <strong>{{ bank_account_number or '—' }}</strong></div>
-        <div class="small">Chủ TK: <strong>{{ bank_account_name or '—' }}</strong></div>
+        <div class="small mb-1">Ngân hàng: <strong id="groupBankName">{{ active_bank_accounts[0].bank_name if active_bank_accounts else '—' }}</strong></div>
+        <div class="small mb-1">Số tài khoản: <strong id="groupAccountNumber">{{ active_bank_accounts[0].account_number if active_bank_accounts else '—' }}</strong></div>
+        <div class="small">Chủ TK: <strong id="groupAccountName">{{ active_bank_accounts[0].account_name if active_bank_accounts else '—' }}</strong></div>
       </div>
-      {% if group_qr_url %}
-      <img src="{{ group_qr_url }}" alt="VietQR" class="tuition-qr-img" crossorigin="anonymous">
+      {% if active_bank_accounts %}
+      <img id="groupQrImg" src="{{ group_qr_by_account.get(active_bank_accounts[0].id, '') }}" alt="VietQR" class="tuition-qr-img" crossorigin="anonymous">
       {% endif %}
     </div>
     <div class="tuition-warning mt-2">
@@ -513,13 +540,14 @@
           <div class="tuition-transfer-box text-center">
             <div class="fw-bold text-primary mb-2">THÔNG TIN CHUYỂN KHOẢN</div>
             <img id="itcQrImg" src="" alt="VietQR" class="tuition-qr-img mb-2" crossorigin="anonymous">
-            <div class="small mb-1">Ngân hàng: <strong>{{ bank_name or bank_id or '—' }}</strong></div>
-            <div class="small mb-1">Số tài khoản: <strong>{{ bank_account_number or '—' }}</strong></div>
-            <div class="small">Chủ TK: <strong>{{ bank_account_name or '—' }}</strong></div>
+            <div class="small mb-1">Ngân hàng: <strong id="itcBankName">—</strong></div>
+            <div class="small mb-1">Số tài khoản: <strong id="itcAccountNumber">—</strong></div>
+            <div class="small">Chủ TK: <strong id="itcAccountName">—</strong></div>
             <div class="tuition-warning mt-2">
               ⚠️ Nhớ CHỤP BILL gửi lại để trung tâm tránh nhầm lẫn nhé.
             </div>
           </div>
+          <div id="itcAccountPicker" class="d-flex gap-3 justify-content-center mt-2 small d-none"></div>
         </div>
       </div>
       <div class="modal-footer">
@@ -639,6 +667,16 @@ function exportTuitionCardAsImage(captureEl, filename, btn) {
     });
 }
 
+// Đổi tài khoản ngân hàng dùng cho ảnh "Xuất ảnh học phí nhóm" — chỉ hiện
+// dropdown này khi có hơn 1 tài khoản đang bật.
+document.getElementById('groupAccountSelect')?.addEventListener('change', function () {
+  const opt = this.options[this.selectedIndex];
+  document.getElementById('groupBankName').textContent = opt.dataset.bankName;
+  document.getElementById('groupAccountNumber').textContent = opt.dataset.accountNumber;
+  document.getElementById('groupAccountName').textContent = opt.dataset.accountName;
+  document.getElementById('groupQrImg').src = opt.dataset.qrUrl;
+});
+
 document.getElementById('btnGroupExport')?.addEventListener('click', function () {
   exportTuitionCardAsImage(
     document.getElementById('groupTuitionCapture'),
@@ -649,7 +687,16 @@ document.getElementById('btnGroupExport')?.addEventListener('click', function ()
 
 // Thông báo học phí cá nhân — điền lại thẻ preview trong modal mỗi khi mở
 // cho một học sinh khác nhau, thay vì dựng sẵn N thẻ ẩn cho từng dòng.
+// Mỗi học sinh mang theo danh sách đủ các tài khoản đang bật (data-accounts,
+// JSON) — nếu có hơn 1, hiện radio để chọn tài khoản nhận tiền cho lần này.
 let currentTuitionStudent = '';
+function renderTuitionAccount(acc) {
+  document.getElementById('itcBankName').textContent = acc.bank_name;
+  document.getElementById('itcAccountNumber').textContent = acc.account_number;
+  document.getElementById('itcAccountName').textContent = acc.account_name;
+  document.getElementById('itcQrImg').src = acc.qr_url || '';
+}
+
 document.getElementById('tuitionReminderModal').addEventListener('show.bs.modal', function (e) {
   const btn = e.relatedTarget;
   const fmt = n => Number(n).toLocaleString('vi-VN') + ' đ';
@@ -665,7 +712,25 @@ document.getElementById('tuitionReminderModal').addEventListener('show.bs.modal'
   document.getElementById('itcDebtRow').classList.toggle('d-none', debt <= 0);
   if (debt > 0) document.getElementById('itcDebt').textContent = fmt(debt);
 
-  document.getElementById('itcQrImg').src = btn.dataset.qrUrl || '';
+  const accounts = JSON.parse(btn.dataset.accounts || '[]');
+  const picker = document.getElementById('itcAccountPicker');
+  picker.innerHTML = '';
+  picker.classList.toggle('d-none', accounts.length <= 1);
+  accounts.forEach((acc, i) => {
+    if (accounts.length > 1) {
+      const id = `itcAcc${acc.id}`;
+      picker.insertAdjacentHTML('beforeend', `
+        <label class="d-flex align-items-center gap-1">
+          <input type="radio" name="itcAccountRadio" value="${i}" ${i === 0 ? 'checked' : ''}>
+          ${acc.bank_name}
+        </label>`);
+    }
+  });
+  picker.querySelectorAll('input[name="itcAccountRadio"]').forEach(radio => {
+    radio.addEventListener('change', () => renderTuitionAccount(accounts[parseInt(radio.value, 10)]));
+  });
+
+  if (accounts.length > 0) renderTuitionAccount(accounts[0]);
 });
 
 document.getElementById('btnDownloadTuitionCard').addEventListener('click', function () {
