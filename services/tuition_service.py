@@ -27,7 +27,9 @@ Every write path (create/pay/adjust) refuses to touch a (month, year)
 that isn't the active academic year — see assert_period_writable().
 Reads are never restricted; historical years stay fully viewable.
 """
+import unicodedata
 from datetime import datetime, date
+from urllib.parse import quote, urlencode
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from extensions import db
@@ -385,3 +387,27 @@ def cascade_class_fee_update(class_id, old_fee, new_fee, changed_by):
         tp.amount = new_fee
 
     return len(candidates)
+
+
+def strip_vn_accents(text):
+    """Bỏ dấu tiếng Việt + in hoa — VietQR (nội dung chuyển khoản, tên chủ
+    tài khoản trên ảnh QR) chỉ chấp nhận ASCII, đúng quy định ngân hàng."""
+    text = (text or '').replace('đ', 'd').replace('Đ', 'D')
+    text = unicodedata.normalize('NFD', text)
+    text = ''.join(c for c in text if unicodedata.category(c) != 'Mn')
+    text = unicodedata.normalize('NFC', text)
+    return text.upper()
+
+
+def build_vietqr_url(bank_id, account_number, account_name, amount=None, add_info=''):
+    """URL ảnh QR động của VietQR — server VietQR tự vẽ QR + logo ngân hàng +
+    số tiền vào ảnh, không cần tự vẽ QR ở client hay tốn tài nguyên server
+    của mình (dùng cho thông báo học phí cá nhân/nhóm, Xuất ảnh)."""
+    if not bank_id or not account_number:
+        return None
+    params = {'accountName': strip_vn_accents(account_name)}
+    if amount:
+        params['amount'] = int(amount)
+    if add_info:
+        params['addInfo'] = strip_vn_accents(add_info)
+    return f'https://img.vietqr.io/image/{quote(bank_id)}-{quote(account_number)}-print.jpg?{urlencode(params)}'
