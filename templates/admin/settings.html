@@ -77,10 +77,10 @@
         </div>
       </div>
 
-      <!-- Tài khoản ngân hàng -->
+      <!-- Nội dung nhắc học phí Zalo -->
       <div class="card shadow-sm border-0 mb-4">
         <div class="card-header fw-semibold py-2 bg-light">
-          <i class="bi bi-bank me-1"></i>Tài khoản ngân hàng
+          <i class="bi bi-chat-dots me-1"></i>Nội dung chuyển khoản (Zalo)
         </div>
         <div class="card-body">
           <div class="mb-0">
@@ -88,13 +88,11 @@
             <textarea class="form-control" name="bank_account" id="bank_account"
                       rows="3"
                       placeholder="Tên ngân hàng – Số tài khoản – Tên chủ tài khoản">{{ configs.get('bank_account', '') }}</textarea>
-            <div class="form-text">Hiển thị dạng chữ trên thông báo Zalo nhắc học phí</div>
+            <div class="form-text">
+              Hiển thị dạng chữ trên thông báo Zalo nhắc học phí. Tài khoản dùng để tạo mã VietQR trên ảnh thông báo
+              học phí nằm ở trang riêng <a href="{{ url_for('admin.bank_accounts') }}">Tài khoản ngân hàng</a> (menu Hệ thống).
+            </div>
           </div>
-        </div>
-        <div class="card-footer bg-white">
-          <a href="{{ url_for('admin.bank_accounts') }}" class="btn btn-outline-primary btn-sm">
-            <i class="bi bi-credit-card-2-front me-1"></i>Quản lý tài khoản VietQR (nhiều tài khoản, bật/tắt)
-          </a>
         </div>
       </div>
 

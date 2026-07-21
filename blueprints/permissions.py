@@ -135,6 +135,8 @@ ADMIN_ENDPOINT_MODULES = {
 
     # settings.py — split across 4 modules
     'settings': 'settings', 'settings_save': 'settings',
+    'bank_accounts': 'settings', 'bank_account_add': 'settings', 'bank_account_edit': 'settings',
+    'bank_account_toggle': 'settings', 'bank_account_delete': 'settings',
     'inquiries': 'inquiries', 'inquiry_delete': 'inquiries',
     'users': 'users', 'user_add': 'users', 'user_edit': 'users', 'user_delete': 'users',
     'user_reset_password': 'users', 'user_toggle_active': 'users', 'user_group_update': 'users',

@@ -214,8 +214,13 @@
           {% endif %}
           {% if current_user.can_access('settings') %}
           <li class="nav-item mb-1">
-            <a href="{{ url_for('admin.settings') }}" class="nav-link {% if current_admin_module == 'settings' %}active{% endif %}">
-              <i class="bi bi-gear me-2"></i>Cài đặt
+            <a href="{{ url_for('admin.settings') }}" class="nav-link {% if current_admin_module == 'settings' and request.endpoint != 'admin.bank_accounts' %}active{% endif %}">
+              <i class="bi bi-gear me-2"></i>Cài đặt chung
+            </a>
+          </li>
+          <li class="nav-item mb-1">
+            <a href="{{ url_for('admin.bank_accounts') }}" class="nav-link {% if request.endpoint == 'admin.bank_accounts' %}active{% endif %}">
+              <i class="bi bi-bank me-2"></i>Tài khoản ngân hàng
             </a>
           </li>
           {% endif %}
