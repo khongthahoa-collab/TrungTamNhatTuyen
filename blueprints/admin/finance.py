@@ -195,16 +195,16 @@ def tuition_class_detail(class_id):
         .all()
     )
 
-    from models import SystemConfig
+    from models import BankAccount
     from services.tuition_service import build_vietqr_url
-    bank_id = SystemConfig.get('vietqr_bank_id', '')
-    bank_name = SystemConfig.get('vietqr_bank_name', '')
-    bank_account_number = SystemConfig.get('vietqr_account_number', '')
-    bank_account_name = SystemConfig.get('vietqr_account_name', '')
-    group_qr_url = build_vietqr_url(
-        bank_id, bank_account_number, bank_account_name,
-        add_info=f'HOC PHI LOP {cls.name}',
-    )
+    active_bank_accounts = BankAccount.query.filter_by(is_active=True).order_by(BankAccount.id).all()
+    # 1 QR sẵn cho từng tài khoản đang bật — JS đổi hiển thị khi admin chọn
+    # tài khoản khác trên thẻ ảnh (nhóm/cá nhân), không cần gọi lại server.
+    group_qr_by_account = {
+        acc.id: build_vietqr_url(acc.bank_id, acc.account_number, acc.account_name,
+                                 add_info=f'HOC PHI LOP {cls.name}')
+        for acc in active_bank_accounts
+    }
 
     # KPI totals exclude voided bills entirely (excluded from revenue
     # reports) — but the row list above (base_query) still shows them, and
@@ -247,8 +247,8 @@ def tuition_class_detail(class_id):
                            outstanding_amount=outstanding_amount or 0,
                            missing_count=missing_count,
                            is_writable=is_period_writable(month, year),
-                           bank_id=bank_id, bank_name=bank_name, bank_account_number=bank_account_number,
-                           bank_account_name=bank_account_name, group_qr_url=group_qr_url,
+                           active_bank_accounts=active_bank_accounts,
+                           group_qr_by_account=group_qr_by_account,
                            build_vietqr_url=build_vietqr_url,
                            month=month, year=year, today=today)
 

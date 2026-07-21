@@ -1,7 +1,7 @@
 from flask import render_template, redirect, url_for, flash, request, abort
 from flask_login import login_required, current_user
 from extensions import db
-from models import SystemConfig, User, Course, UserRole, ContactInquiry, Teacher, PermissionGroup
+from models import SystemConfig, User, Course, UserRole, ContactInquiry, Teacher, PermissionGroup, BankAccount
 from blueprints.admin import admin_bp, require_admin
 from blueprints.admin.account_utils import next_username, DEFAULT_TEMP_PASSWORD
 from blueprints.permissions import ADMIN_PERMISSION_MODULES
@@ -24,7 +24,6 @@ def settings():
 def settings_save():
     keys = ['center_name', 'center_address', 'center_phone',
             'zalo_link', 'messenger_link', 'bank_account',
-            'vietqr_bank_id', 'vietqr_bank_name', 'vietqr_account_number', 'vietqr_account_name',
             'hall_of_fame_min_score',
             'hero_bg', 'hero_badge', 'hero_headline1', 'hero_headline2',
             'hero_sub', 'hero_note']
@@ -33,6 +32,100 @@ def settings_save():
         SystemConfig.set(key, val)
     flash('Đã lưu cài đặt.', 'success')
     return redirect(url_for('admin.settings'))
+
+
+# ────────────────────────────────────────────────────────────────
+# Tài khoản ngân hàng (VietQR) — nhiều tài khoản, bật/tắt để chọn khi thu học phí
+# ────────────────────────────────────────────────────────────────
+
+@admin_bp.route('/settings/bank-accounts')
+@login_required
+@require_admin
+def bank_accounts():
+    # Tự chuyển dữ liệu 1 tài khoản cũ (lưu rời rạc trong SystemConfig, từ
+    # bản trước khi có trang riêng này) sang bảng BankAccount, đúng 1 lần —
+    # để không mất cấu hình đã nhập trước đó.
+    if BankAccount.query.count() == 0:
+        old_bank_id = SystemConfig.get('vietqr_bank_id', '')
+        old_account_number = SystemConfig.get('vietqr_account_number', '')
+        if old_bank_id and old_account_number:
+            db.session.add(BankAccount(
+                bank_id=old_bank_id,
+                bank_name=SystemConfig.get('vietqr_bank_name', '') or old_bank_id,
+                account_number=old_account_number,
+                account_name=SystemConfig.get('vietqr_account_name', '') or '',
+                is_active=True,
+            ))
+            db.session.commit()
+
+    accounts = BankAccount.query.order_by(BankAccount.id).all()
+    return render_template('admin/settings_bank_accounts.html', accounts=accounts)
+
+
+@admin_bp.route('/settings/bank-accounts/add', methods=['POST'])
+@login_required
+@require_admin
+def bank_account_add():
+    bank_id = request.form.get('bank_id', '').strip().upper()
+    bank_name = request.form.get('bank_name', '').strip()
+    account_number = request.form.get('account_number', '').strip()
+    account_name = request.form.get('account_name', '').strip().upper()
+
+    if not bank_id or not bank_name or not account_number or not account_name:
+        flash('Vui lòng điền đầy đủ thông tin tài khoản ngân hàng.', 'danger')
+    else:
+        db.session.add(BankAccount(
+            bank_id=bank_id, bank_name=bank_name,
+            account_number=account_number, account_name=account_name,
+            is_active=True,
+        ))
+        db.session.commit()
+        flash(f'Đã thêm tài khoản {bank_name} — {account_number}.', 'success')
+    return redirect(url_for('admin.bank_accounts'))
+
+
+@admin_bp.route('/settings/bank-accounts/<int:account_id>/edit', methods=['POST'])
+@login_required
+@require_admin
+def bank_account_edit(account_id):
+    acc = BankAccount.query.get_or_404(account_id)
+    bank_id = request.form.get('bank_id', '').strip().upper()
+    bank_name = request.form.get('bank_name', '').strip()
+    account_number = request.form.get('account_number', '').strip()
+    account_name = request.form.get('account_name', '').strip().upper()
+
+    if not bank_id or not bank_name or not account_number or not account_name:
+        flash('Vui lòng điền đầy đủ thông tin tài khoản ngân hàng.', 'danger')
+    else:
+        acc.bank_id = bank_id
+        acc.bank_name = bank_name
+        acc.account_number = account_number
+        acc.account_name = account_name
+        db.session.commit()
+        flash('Đã cập nhật tài khoản ngân hàng.', 'success')
+    return redirect(url_for('admin.bank_accounts'))
+
+
+@admin_bp.route('/settings/bank-accounts/<int:account_id>/toggle', methods=['POST'])
+@login_required
+@require_admin
+def bank_account_toggle(account_id):
+    acc = BankAccount.query.get_or_404(account_id)
+    acc.is_active = not acc.is_active
+    db.session.commit()
+    flash(f'Đã {"bật" if acc.is_active else "tắt"} tài khoản {acc.bank_name} — {acc.account_number}.', 'success')
+    return redirect(url_for('admin.bank_accounts'))
+
+
+@admin_bp.route('/settings/bank-accounts/<int:account_id>/delete', methods=['POST'])
+@login_required
+@require_admin
+def bank_account_delete(account_id):
+    acc = BankAccount.query.get_or_404(account_id)
+    db.session.delete(acc)
+    db.session.commit()
+    flash(f'Đã xoá tài khoản {acc.bank_name} — {acc.account_number}.', 'success')
+    return redirect(url_for('admin.bank_accounts'))
 
 
 @admin_bp.route('/inquiries')
