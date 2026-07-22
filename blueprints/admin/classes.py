@@ -433,7 +433,7 @@ def classes():
     classes = pagination.items
 
     courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
-    teachers = Teacher.query.join(Teacher.user).order_by('full_name').all()
+    teachers = Teacher.query.join(Teacher.user).filter(User.is_deleted == False).order_by('full_name').all()
     grade_rows = db.session.query(Class.grade_level).distinct().all()
     grade_options = sorted(
         {row[0] for row in grade_rows if row[0]},
@@ -455,7 +455,7 @@ def classes():
 @require_admin
 def class_add():
     courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
-    teachers = Teacher.query.join(Teacher.user).order_by('full_name').all()
+    teachers = Teacher.query.join(Teacher.user).filter(User.is_deleted == False).order_by('full_name').all()
     rooms = Room.query.filter_by(is_active=True).order_by(Room.branch, Room.floor, Room.room_number).all()
 
     if request.method == 'POST':
@@ -562,7 +562,16 @@ def class_add():
 @require_admin
 def class_detail(class_id):
     class_ = Class.query.get_or_404(class_id)
-    teachers = Teacher.query.join(Teacher.user).order_by('full_name').all()
+    teachers = Teacher.query.join(Teacher.user).filter(User.is_deleted == False).order_by('full_name').all()
+    # Lớp đang được gán cho một giáo viên đã bị xoá vẫn phải giữ họ trong
+    # danh sách chọn (chỉ không cho chọn MỚI) — nếu không, dropdown sẽ
+    # không có option nào khớp với giáo viên hiện tại, và lưu form mà
+    # không đụng vào ô này sẽ âm thầm đổi giáo viên chính sang người khác.
+    current_teacher_ids = {class_.primary_teacher_id} | {t.id for t in class_.assistant_teachers}
+    current_teacher_ids.discard(None)
+    missing_ids = current_teacher_ids - {t.id for t in teachers}
+    if missing_ids:
+        teachers += Teacher.query.filter(Teacher.id.in_(missing_ids)).all()
     rooms = Room.query.filter_by(is_active=True).order_by(Room.branch, Room.floor, Room.room_number).all()
     courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
     today = date.today()
