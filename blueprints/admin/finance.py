@@ -111,9 +111,16 @@ def tuition():
     year = request.args.get('year', today.year, type=int)
     class_id = request.args.get('class_id', type=int)
     course_id = request.args.get('course_id', type=int)
+    not_generated = request.args.get('not_generated') == '1'
 
     classes, class_summaries, total_collected, total_outstanding, total_expected = \
         _tuition_overview_aggregate(month, year, class_id, course_id)
+
+    if not_generated:
+        # Lớp chưa tạo học phí tháng này — total=0 nghĩa là chưa có hoá đơn
+        # nào (khác missing_count, vốn đếm học sinh thiếu hoá đơn ở 1 lớp
+        # ĐÃ tạo học phí một phần).
+        class_summaries = [s for s in class_summaries if not s['generated']]
 
     # Footer totals must reflect every class this month, not just the
     # current page — computed from the full list before slicing it.
@@ -151,6 +158,7 @@ def tuition():
                            year=year,
                            selected_class_id=class_id,
                            selected_course_id=course_id,
+                           not_generated=not_generated,
                            total_collected=total_collected,
                            total_outstanding=total_outstanding,
                            total_expected=total_expected,
@@ -170,6 +178,8 @@ def tuition_class_detail(class_id):
     month = request.args.get('month', today.month, type=int)
     year  = request.args.get('year',  today.year,  type=int)
     page = request.args.get('page', 1, type=int)
+    q = request.args.get('q', '').strip()
+    status_filter = request.args.get('status', '').strip()
 
     cls = Class.query.get_or_404(class_id)
 
@@ -178,8 +188,20 @@ def tuition_class_detail(class_id):
         .filter_by(class_id=class_id, month=month, year=year)
         .join(Student, TuitionPayment.student_id == Student.id)
         .options(joinedload(TuitionPayment.student))
-        .order_by(TuitionPayment.is_paid, Student.full_name)
     )
+    if q:
+        base_query = base_query.filter(Student.full_name.ilike(f'%{q}%'))
+    if status_filter == 'paid':
+        base_query = base_query.filter(TuitionPayment.is_paid == True, TuitionPayment.is_voided == False)
+    elif status_filter == 'partial':
+        base_query = base_query.filter(TuitionPayment.is_paid == False, TuitionPayment.is_voided == False,
+                                       TuitionPayment.amount_collected > 0)
+    elif status_filter == 'unpaid':
+        base_query = base_query.filter(TuitionPayment.is_paid == False, TuitionPayment.is_voided == False,
+                                       TuitionPayment.amount_collected == 0)
+    elif status_filter == 'voided':
+        base_query = base_query.filter(TuitionPayment.is_voided == True)
+    base_query = base_query.order_by(TuitionPayment.is_paid, Student.full_name)
     pagination = base_query.paginate(page=page, per_page=10, error_out=False)
     records = pagination.items
 
@@ -202,7 +224,7 @@ def tuition_class_detail(class_id):
     # tài khoản khác trên thẻ ảnh (nhóm/cá nhân), không cần gọi lại server.
     group_qr_by_account = {
         acc.id: build_vietqr_url(acc.bank_id, acc.account_number, acc.account_name,
-                                 add_info=f'HOC PHI LOP {cls.name}')
+                                 add_info=f'Học phí lớp {cls.name} tháng {month:02d}/{year}')
         for acc in active_bank_accounts
     }
 
@@ -250,6 +272,7 @@ def tuition_class_detail(class_id):
                            active_bank_accounts=active_bank_accounts,
                            group_qr_by_account=group_qr_by_account,
                            build_vietqr_url=build_vietqr_url,
+                           q=q, status_filter=status_filter,
                            month=month, year=year, today=today)
 
 
