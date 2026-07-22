@@ -81,7 +81,7 @@
         <div class="modal-body">
           <div class="mb-3">
             <label class="form-label fw-semibold">Mã ngân hàng (VietQR)</label>
-            <input type="text" class="form-control" name="bank_id" placeholder="VCB" required>
+            <input type="text" class="form-control bank-qr-preview-input" name="bank_id" placeholder="VCB" required>
             <div class="form-text">Xem danh sách mã tại vietqr.io</div>
           </div>
           <div class="mb-3">
@@ -90,12 +90,16 @@
           </div>
           <div class="mb-3">
             <label class="form-label fw-semibold">Số tài khoản</label>
-            <input type="text" class="form-control" name="account_number" placeholder="1064226538" required>
+            <input type="text" class="form-control bank-qr-preview-input" name="account_number" placeholder="1064226538" required>
           </div>
-          <div class="mb-0">
+          <div class="mb-3">
             <label class="form-label fw-semibold">Tên chủ tài khoản</label>
             <input type="text" class="form-control text-uppercase" name="account_name" placeholder="HO KINH DOANH NHAT TUYEN" required>
             <div class="form-text">Không dấu, viết hoa — đúng như trên sao kê ngân hàng</div>
+          </div>
+          <div class="mb-0 bank-qr-preview-box border rounded p-2 text-center" data-preview-scope="add">
+            <img class="bank-qr-preview-img d-none mb-1" style="max-width:150px;" alt="Xem trước QR">
+            <div class="bank-qr-preview-status small text-muted">Nhập Mã ngân hàng và Số tài khoản để xem trước mã QR</div>
           </div>
         </div>
         <div class="modal-footer">
@@ -120,7 +124,7 @@
         <div class="modal-body">
           <div class="mb-3">
             <label class="form-label fw-semibold">Mã ngân hàng (VietQR)</label>
-            <input type="text" class="form-control" name="bank_id" id="editBankId" required>
+            <input type="text" class="form-control bank-qr-preview-input" name="bank_id" id="editBankId" required>
           </div>
           <div class="mb-3">
             <label class="form-label fw-semibold">Tên ngân hàng</label>
@@ -128,11 +132,15 @@
           </div>
           <div class="mb-3">
             <label class="form-label fw-semibold">Số tài khoản</label>
-            <input type="text" class="form-control" name="account_number" id="editAccountNumber" required>
+            <input type="text" class="form-control bank-qr-preview-input" name="account_number" id="editAccountNumber" required>
           </div>
-          <div class="mb-0">
+          <div class="mb-3">
             <label class="form-label fw-semibold">Tên chủ tài khoản</label>
             <input type="text" class="form-control text-uppercase" name="account_name" id="editAccountName" required>
+          </div>
+          <div class="mb-0 bank-qr-preview-box border rounded p-2 text-center" data-preview-scope="edit">
+            <img class="bank-qr-preview-img d-none mb-1" style="max-width:150px;" alt="Xem trước QR">
+            <div class="bank-qr-preview-status small text-muted">Nhập Mã ngân hàng và Số tài khoản để xem trước mã QR</div>
           </div>
         </div>
         <div class="modal-footer">
@@ -153,6 +161,53 @@ document.getElementById('editBankAccountModal').addEventListener('show.bs.modal'
   document.getElementById('editAccountName').value = btn.dataset.accountName;
   document.getElementById('editBankAccountForm').action =
     "{{ url_for('admin.bank_account_edit', account_id=0) }}".replace('/0/', '/' + btn.dataset.id + '/');
+  updateBankQrPreview(document.querySelector('#editBankAccountModal .bank-qr-preview-box'));
+});
+
+// Xem trước QR ngay trong popup Thêm/Sửa — VietQR không báo lỗi rõ ràng khi
+// Mã ngân hàng sai định dạng (vẫn trả HTTP 200 nhưng nội dung chỉ là text
+// "invalid acqId" thay vì ảnh PNG), nên admin dễ lưu nhầm mà không biết QR
+// đã vỡ cho tới khi phụ huynh báo. Ảnh không giải mã được sẽ tự kích hoạt
+// onerror của <img>, dùng luôn để phát hiện lỗi này.
+let bankQrPreviewTimer = null;
+function updateBankQrPreview(box) {
+  if (!box) return;
+  const modal = box.closest('.modal');
+  const bankId = modal.querySelector('[name="bank_id"]').value.trim();
+  const accountNumber = modal.querySelector('[name="account_number"]').value.trim();
+  const img = box.querySelector('.bank-qr-preview-img');
+  const status = box.querySelector('.bank-qr-preview-status');
+
+  if (!bankId || !accountNumber) {
+    img.classList.add('d-none');
+    status.textContent = 'Nhập Mã ngân hàng và Số tài khoản để xem trước mã QR';
+    status.className = 'bank-qr-preview-status small text-muted';
+    return;
+  }
+
+  status.textContent = 'Đang tải mã QR…';
+  status.className = 'bank-qr-preview-status small text-muted';
+  img.classList.add('d-none');
+  const url = `https://img.vietqr.io/image/${encodeURIComponent(bankId)}-${encodeURIComponent(accountNumber)}-compact2.png?t=${Date.now()}`;
+  img.onload = () => {
+    img.classList.remove('d-none');
+    status.textContent = 'QR hiển thị được — Mã ngân hàng hợp lệ.';
+    status.className = 'bank-qr-preview-status small text-success';
+  };
+  img.onerror = () => {
+    img.classList.add('d-none');
+    status.textContent = 'Không tạo được QR — kiểm tra lại Mã ngân hàng (xem danh sách mã tại vietqr.io).';
+    status.className = 'bank-qr-preview-status small text-danger';
+  };
+  img.src = url;
+}
+
+document.querySelectorAll('.bank-qr-preview-input').forEach(input => {
+  input.addEventListener('input', function () {
+    const box = this.closest('.modal-body').querySelector('.bank-qr-preview-box');
+    clearTimeout(bankQrPreviewTimer);
+    bankQrPreviewTimer = setTimeout(() => updateBankQrPreview(box), 500);
+  });
 });
 </script>
 {% endblock %}
