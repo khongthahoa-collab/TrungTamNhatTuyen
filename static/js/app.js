@@ -52,13 +52,21 @@
     const submitBtn = e.target.querySelector('button[type="submit"], input[type="submit"]');
     if (submitBtn && !submitBtn.disabled) {
       submitBtn.disabled = true;
-      submitBtn.dataset.originalHtml = submitBtn.innerHTML;
-      submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Đang xử lý...';
+      // "Đang xử lý..." label only on narrow (mobile) screens, where forms
+      // are usually full-width and this is the only loading feedback close
+      // to the user's thumb. On laptop/PC the full-page overlay above
+      // already covers this, and many desktop buttons here are small
+      // icon-only controls (search, filter toggles) that break/wrap badly
+      // once text is injected into them — just disabling is enough there.
+      if (window.innerWidth < 992) {
+        submitBtn.dataset.originalHtml = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Đang xử lý...';
+      }
       // Safety net matching the overlay's own timeout — never leave a button
       // stuck disabled if the page navigation stalls for some reason.
       setTimeout(() => {
+        submitBtn.disabled = false;
         if (submitBtn.dataset.originalHtml !== undefined) {
-          submitBtn.disabled = false;
           submitBtn.innerHTML = submitBtn.dataset.originalHtml;
         }
       }, 20000);
