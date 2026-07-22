@@ -364,8 +364,9 @@ def tuition_remind_zalo():
     year = request.form.get('year', type=int)
     class_id = request.form.get('class_id', type=int)
 
-    from models import SystemConfig
-    bank_info = SystemConfig.get('bank_account', '')
+    from models import BankAccount
+    active_acc = BankAccount.query.filter_by(is_active=True).order_by(BankAccount.id).first()
+    bank_info = f'{active_acc.bank_name} – {active_acc.account_number} – {active_acc.account_name}' if active_acc else ''
 
     query = TuitionPayment.query.filter_by(month=month, year=year, is_paid=False)
     if class_id:

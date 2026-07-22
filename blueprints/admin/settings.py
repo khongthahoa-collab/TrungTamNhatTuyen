@@ -23,7 +23,7 @@ def settings():
 @require_admin
 def settings_save():
     keys = ['center_name', 'center_address', 'center_phone',
-            'zalo_link', 'messenger_link', 'bank_account',
+            'zalo_link', 'messenger_link',
             'hall_of_fame_min_score',
             'hero_bg', 'hero_badge', 'hero_headline1', 'hero_headline2',
             'hero_sub', 'hero_note']
