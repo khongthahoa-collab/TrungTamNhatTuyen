@@ -7,7 +7,7 @@ plain GET, so it's authenticated via a dedicated query-string secret
 since the token-rotation route is a real browser form POST.
 """
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from flask import Blueprint, request, Response, abort, redirect, flash
 from flask_login import login_required, current_user
@@ -17,11 +17,9 @@ from sqlalchemy.orm import joinedload
 from extensions import db
 from models import Schedule, Class, Enrollment, Student, Teacher, User
 from blueprints.auth import _dashboard_for
+from blueprints.admin.classes import _current_school_year_range
 
 api_calendar_bp = Blueprint('api_calendar', __name__)
-
-WINDOW_DAYS_PAST = 7
-WINDOW_DAYS_FUTURE = 30
 
 
 def rfc5545_escape(text):
@@ -149,9 +147,10 @@ def calendar_feed():
     if not user:
         abort(403, description='Mã xác thực lịch không hợp lệ hoặc đã bị vô hiệu hóa.')
 
-    today = datetime.utcnow().date()
-    start_date = today - timedelta(days=WINDOW_DAYS_PAST)
-    end_date = today + timedelta(days=WINDOW_DAYS_FUTURE)
+    # Cả năm học (01/07 - 30/06), giống quy ước cuộn năm học/lịch học ở
+    # những chỗ khác trong hệ thống — trước đây chỉ lấy quanh ngày hiện tại
+    # (-7/+30 ngày) khiến app Lịch không thấy được các buổi học xa hơn.
+    start_date, end_date = _current_school_year_range()
 
     if user.role == 'teacher':
         teacher = Teacher.query.filter_by(user_id=user.id).first()
