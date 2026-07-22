@@ -119,7 +119,12 @@
       <option value="{{ cls.id }}" {% if selected_class_id == cls.id %}selected{% endif %}>{{ cls.name }}</option>
       {% endfor %}
     </select>
-    {% if selected_class_id or selected_course_id %}
+    <div class="form-check form-switch mb-0">
+      <input class="form-check-input" type="checkbox" name="not_generated" value="1" id="notGeneratedCheck"
+             {% if not_generated %}checked{% endif %} onchange="this.form.submit()">
+      <label class="form-check-label small text-nowrap" for="notGeneratedCheck">Lớp chưa tạo học phí</label>
+    </div>
+    {% if selected_class_id or selected_course_id or not_generated %}
     <a href="{{ url_for('admin.tuition', month=month, year=year) }}" class="btn btn-outline-secondary btn-sm">
       <i class="bi bi-x-lg"></i>
     </a>
@@ -243,21 +248,21 @@
         <nav class="d-flex justify-content-center" aria-label="Phân trang">
           <ul class="pagination pagination-sm mb-0">
             <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-              <a class="page-link" href="{{ url_for('admin.tuition', month=month, year=year, class_id=selected_class_id, course_id=selected_course_id, page=pagination.prev_num) }}">
+              <a class="page-link" href="{{ url_for('admin.tuition', month=month, year=year, class_id=selected_class_id, course_id=selected_course_id, not_generated=(1 if not_generated else none), page=pagination.prev_num) }}">
                 <i class="bi bi-chevron-left"></i>
               </a>
             </li>
             {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
               {% if p %}
                 <li class="page-item {% if p == pagination.page %}active{% endif %}">
-                  <a class="page-link" href="{{ url_for('admin.tuition', month=month, year=year, class_id=selected_class_id, course_id=selected_course_id, page=p) }}">{{ p }}</a>
+                  <a class="page-link" href="{{ url_for('admin.tuition', month=month, year=year, class_id=selected_class_id, course_id=selected_course_id, not_generated=(1 if not_generated else none), page=p) }}">{{ p }}</a>
                 </li>
               {% else %}
                 <li class="page-item disabled"><span class="page-link">…</span></li>
               {% endif %}
             {% endfor %}
             <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-              <a class="page-link" href="{{ url_for('admin.tuition', month=month, year=year, class_id=selected_class_id, course_id=selected_course_id, page=pagination.next_num) }}">
+              <a class="page-link" href="{{ url_for('admin.tuition', month=month, year=year, class_id=selected_class_id, course_id=selected_course_id, not_generated=(1 if not_generated else none), page=pagination.next_num) }}">
                 <i class="bi bi-chevron-right"></i>
               </a>
             </li>
