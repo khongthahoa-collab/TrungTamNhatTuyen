@@ -218,14 +218,16 @@ def tuition_class_detail(class_id):
     )
 
     from models import BankAccount
-    from services.tuition_service import build_vietqr_url
+    from services.tuition_service import build_vietqr_url, tuition_transfer_class_label
     active_bank_accounts = BankAccount.query.filter_by(is_active=True).order_by(BankAccount.id).all()
+    cls_transfer_name = tuition_transfer_class_label(cls)
     # 1 QR sẵn cho từng tài khoản đang bật — JS đổi hiển thị khi admin chọn
     # tài khoản khác trên thẻ ảnh (nhóm/cá nhân), không cần gọi lại server.
+    # Không gắn cứng amount ở đây — học sinh cùng lớp có thể có học phí khác
+    # nhau (miễn giảm, nợ cũ…), khác với QR học phí từng học sinh riêng.
     group_qr_by_account = {
         acc.id: build_vietqr_url(acc.bank_id, acc.account_number, acc.account_name,
-                                 amount=cls.monthly_fee,
-                                 add_info=f'HP lop {cls.public_name} thang {month:02d} nam {year}')
+                                 add_info=f'HP {cls_transfer_name} T{month} {year}')
         for acc in active_bank_accounts
     }
 
@@ -273,6 +275,7 @@ def tuition_class_detail(class_id):
                            active_bank_accounts=active_bank_accounts,
                            group_qr_by_account=group_qr_by_account,
                            build_vietqr_url=build_vietqr_url,
+                           cls_transfer_name=cls_transfer_name,
                            q=q, status_filter=status_filter,
                            month=month, year=year, today=today)
 
