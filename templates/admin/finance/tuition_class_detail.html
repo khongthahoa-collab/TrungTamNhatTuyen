@@ -183,7 +183,7 @@
             </a>
             {% if not r.is_voided and active_bank_accounts %}
             {% set remaining = (r.total_due - r.amount_collected) | int %}
-            {% set add_info = 'HP ' ~ r.student.full_name ~ ' T' ~ month ~ ' ' ~ cls.name %}
+            {% set add_info = 'HP ' ~ r.student.full_name ~ ' T' ~ month ~ ' ' ~ cls.public_name %}
             {% set row_accounts = [] %}
             {% for acc in active_bank_accounts %}
               {% set _ = row_accounts.append({
