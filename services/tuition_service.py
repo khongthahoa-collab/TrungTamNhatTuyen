@@ -389,6 +389,15 @@ def cascade_class_fee_update(class_id, old_fee, new_fee, changed_by):
     return len(candidates)
 
 
+def tuition_transfer_class_label(cls):
+    """Tên lớp dùng trong nội dung chuyển khoản (addInfo) — bỏ tên giáo viên
+    (Class.public_name) và rút gọn vài tên môn dài, hay gặp trong lớp ghép,
+    để nội dung không bị VietQR cắt bớt khi hiển thị lên ảnh QR."""
+    label = cls.public_name
+    label = label.replace('Tiếng Việt', 'TV')
+    return label
+
+
 def strip_vn_accents(text):
     """Bỏ dấu tiếng Việt + in hoa — VietQR (nội dung chuyển khoản, tên chủ
     tài khoản trên ảnh QR) chỉ chấp nhận ASCII, đúng quy định ngân hàng."""
