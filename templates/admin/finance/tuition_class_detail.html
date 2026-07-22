@@ -23,23 +23,22 @@
   </div>
   <div class="d-flex gap-2 flex-wrap align-items-center">
     {% if all_records and active_bank_accounts %}
-    {% if active_bank_accounts|length > 1 %}
-    <select class="form-select form-select-sm" style="width:auto;" id="groupAccountSelect">
-      {% for acc in active_bank_accounts %}
-      <option value="{{ acc.id }}"
-              data-bank-name="{{ acc.bank_name }}"
-              data-account-number="{{ acc.account_number }}"
-              data-account-name="{{ acc.account_name }}"
-              data-qr-url="{{ group_qr_by_account.get(acc.id, '') }}">
-        {{ acc.bank_name }} — {{ acc.account_number }}
-      </option>
-      {% endfor %}
-    </select>
-    {% endif %}
-    <button type="button" class="btn btn-outline-warning btn-sm" id="btnGroupExportAll">
+    {% set group_accounts = [] %}
+    {% for acc in active_bank_accounts %}
+      {% set _ = group_accounts.append({
+          'id': acc.id,
+          'bank_name': acc.bank_name,
+          'account_number': acc.account_number,
+          'account_name': acc.account_name,
+          'qr_url': group_qr_by_account.get(acc.id, ''),
+      }) %}
+    {% endfor %}
+    <button type="button" class="btn btn-outline-warning btn-sm btn-group-tuition-export" id="btnGroupExportAll"
+            data-export-mode="all" data-accounts='{{ group_accounts | tojson }}'>
       <i class="bi bi-image me-1"></i>Xuất toàn bộ học phí
     </button>
-    <button type="button" class="btn btn-outline-danger btn-sm" id="btnGroupExportUnpaid">
+    <button type="button" class="btn btn-outline-danger btn-sm btn-group-tuition-export" id="btnGroupExportUnpaid"
+            data-export-mode="unpaid" data-accounts='{{ group_accounts | tojson }}'>
       <i class="bi bi-image me-1"></i>Xuất học phí chưa đóng
     </button>
     {% elif all_records %}
@@ -593,6 +592,29 @@
   </div>
 </div>
 
+<!-- Modal chọn tài khoản ngân hàng trước khi xuất ảnh học phí nhóm -->
+<div class="modal fade" id="groupBankAccountModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title fw-bold">
+          <i class="bi bi-bank me-2 text-primary"></i>Vui lòng chọn tài khoản
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="groupBankAccountPicker" class="d-flex flex-column gap-2"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+        <button type="button" class="btn btn-primary" id="btnGroupBankAccountOk">
+          <i class="bi bi-check-lg me-1"></i>OK
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 document.getElementById('markPaidModal').addEventListener('show.bs.modal', function(e) {
   const btn = e.relatedTarget;
@@ -697,28 +719,30 @@ function exportTuitionCardAsImage(captureEl, filename, btn) {
     });
 }
 
-// Đổi tài khoản ngân hàng dùng cho ảnh "Xuất ảnh học phí nhóm" — chỉ hiện
-// dropdown này khi có hơn 1 tài khoản đang bật.
-document.getElementById('groupAccountSelect')?.addEventListener('change', function () {
-  const opt = this.options[this.selectedIndex];
-  document.getElementById('groupBankName').textContent = opt.dataset.bankName;
-  document.getElementById('groupAccountNumber').textContent = opt.dataset.accountNumber;
-  document.getElementById('groupAccountName').textContent = opt.dataset.accountName;
-  document.getElementById('groupQrImg').src = opt.dataset.qrUrl;
-});
+// Xuất ảnh học phí nhóm (toàn bộ hoặc chỉ chưa đóng): bấm nút -> nếu có
+// hơn 1 tài khoản ngân hàng đang bật thì hiện popup radio để chọn tài
+// khoản nhận tiền cho lần xuất này -> OK mới thực sự xuất ảnh. Chỉ 1 tài
+// khoản thì dùng luôn, không cần hỏi.
+function applyGroupAccount(acc) {
+  document.getElementById('groupBankName').textContent = acc.bank_name;
+  document.getElementById('groupAccountNumber').textContent = acc.account_number;
+  document.getElementById('groupAccountName').textContent = acc.account_name;
+  document.getElementById('groupQrImg').src = acc.qr_url || '';
+}
 
-document.getElementById('btnGroupExportAll')?.addEventListener('click', function () {
-  exportTuitionCardAsImage(
-    document.getElementById('groupTuitionCapture'),
-    `hoc-phi-nhom-{{ cls.id }}-T{{ month }}-{{ year }}.png`,
-    this,
-  );
-});
+function runGroupExport(mode) {
+  if (mode === 'all') {
+    exportTuitionCardAsImage(
+      document.getElementById('groupTuitionCapture'),
+      `hoc-phi-nhom-{{ cls.id }}-T{{ month }}-{{ year }}.png`,
+      document.getElementById('btnGroupExportAll'),
+    );
+    return;
+  }
 
-// Xuất ảnh chỉ gồm học sinh chưa đóng — ẩn tạm các dòng đã đóng + đánh lại
-// STT trước khi chụp, rồi khôi phục nguyên trạng bảng sau khi xong (dùng
-// chung 1 bảng đã render sẵn, không cần dựng thêm 1 thẻ ẩn thứ hai).
-document.getElementById('btnGroupExportUnpaid')?.addEventListener('click', function () {
+  // Chỉ gồm học sinh chưa đóng — ẩn tạm các dòng đã đóng + đánh lại STT
+  // trước khi chụp, rồi khôi phục nguyên trạng bảng sau khi xong (dùng
+  // chung 1 bảng đã render sẵn, không cần dựng thêm 1 thẻ ẩn thứ hai).
   const rows = document.querySelectorAll('#groupTuitionCapture .group-tuition-row');
   const originalDisplay = [];
   const originalStt = [];
@@ -737,13 +761,53 @@ document.getElementById('btnGroupExportUnpaid')?.addEventListener('click', funct
   exportTuitionCardAsImage(
     document.getElementById('groupTuitionCapture'),
     `hoc-phi-chua-dong-{{ cls.id }}-T{{ month }}-{{ year }}.png`,
-    this,
+    document.getElementById('btnGroupExportUnpaid'),
   ).finally(() => {
     rows.forEach((row, i) => {
       row.style.display = originalDisplay[i];
       row.querySelector('.group-tuition-stt').textContent = originalStt[i];
     });
   });
+}
+
+let pendingGroupExportMode = null;
+let pendingGroupAccounts = [];
+
+document.querySelectorAll('.btn-group-tuition-export').forEach(btn => {
+  btn.addEventListener('click', function () {
+    const accounts = JSON.parse(this.dataset.accounts || '[]');
+    const mode = this.dataset.exportMode;
+    if (accounts.length <= 1) {
+      if (accounts.length === 1) applyGroupAccount(accounts[0]);
+      runGroupExport(mode);
+      return;
+    }
+
+    pendingGroupExportMode = mode;
+    pendingGroupAccounts = accounts;
+    const picker = document.getElementById('groupBankAccountPicker');
+    picker.innerHTML = '';
+    accounts.forEach((acc, i) => {
+      const id = `groupBankAcc${acc.id}`;
+      picker.insertAdjacentHTML('beforeend', `
+        <label class="form-check d-flex align-items-center gap-2 border rounded p-2" for="${id}">
+          <input type="radio" class="form-check-input mt-0" name="groupBankAccountRadio" id="${id}" value="${i}" ${i === 0 ? 'checked' : ''}>
+          <span>
+            <span class="fw-semibold">${acc.bank_name}</span>
+            <span class="text-muted small d-block">${acc.account_number} — ${acc.account_name}</span>
+          </span>
+        </label>`);
+    });
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('groupBankAccountModal')).show();
+  });
+});
+
+document.getElementById('btnGroupBankAccountOk').addEventListener('click', function () {
+  const checked = document.querySelector('input[name="groupBankAccountRadio"]:checked');
+  const idx = checked ? parseInt(checked.value, 10) : 0;
+  applyGroupAccount(pendingGroupAccounts[idx]);
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('groupBankAccountModal')).hide();
+  runGroupExport(pendingGroupExportMode);
 });
 
 // Thông báo học phí cá nhân — điền lại thẻ preview trong modal mỗi khi mở
