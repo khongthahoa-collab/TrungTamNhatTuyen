@@ -389,23 +389,38 @@
   <div class="tab-pane fade" id="tuition" role="tabpanel">
 
     <!-- Tóm tắt tháng hiện tại -->
-    <div class="row g-3 mb-3">
-      <div class="col-6 col-md-4">
-        <div class="card border-0 shadow-sm border-start border-primary border-3">
-          <div class="card-body py-2">
-            <div class="small text-muted">Tổng HP tháng {{ today.month }}/{{ today.year }}</div>
-            <div class="fw-bold text-primary">{{ current_total | vnd }}</div>
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+      <div class="row g-3 flex-grow-1">
+        <div class="col-4">
+          <div class="card border-0 shadow-sm border-start border-primary border-3">
+            <div class="card-body py-2">
+              <div class="small text-muted">Tổng HP tháng {{ today.month }}/{{ today.year }}</div>
+              <div class="fw-bold text-primary">{{ current_total | vnd }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-4">
+          <div class="card border-0 shadow-sm border-start border-success border-3">
+            <div class="card-body py-2">
+              <div class="small text-muted">Đã đóng</div>
+              <div class="fw-bold text-success">{{ current_paid | vnd }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-4">
+          <div class="card border-0 shadow-sm border-start border-danger border-3">
+            <div class="card-body py-2">
+              <div class="small text-muted">Còn lại</div>
+              <div class="fw-bold text-danger">{{ current_unpaid | vnd }}</div>
+            </div>
           </div>
         </div>
       </div>
-      <div class="col-6 col-md-4">
-        <div class="card border-0 shadow-sm border-start border-danger border-3">
-          <div class="card-body py-2">
-            <div class="small text-muted">Còn nợ tháng này</div>
-            <div class="fw-bold text-danger">{{ current_unpaid | vnd }}</div>
-          </div>
-        </div>
-      </div>
+      {% if current_month_tuition %}
+      <button type="button" class="btn btn-outline-warning btn-sm" id="btnStudentTuitionExport">
+        <i class="bi bi-image me-1"></i>Xuất ảnh học phí
+      </button>
+      {% endif %}
     </div>
 
     <!-- Chi tiết học phí tháng hiện tại theo lớp -->
@@ -483,6 +498,72 @@
     </div>
     {% endif %}
 
+    {% if current_month_tuition %}
+    <!-- Off-screen capture cho "Xuất ảnh học phí" — không hiển thị cho người dùng -->
+    <div id="studentTuitionCapture" class="tuition-card tuition-card-offscreen">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <img src="{{ url_for('static', filename='icons/logo-mark.png') }}" height="48" alt="logo">
+        <div class="text-end">
+          <div class="tuition-card-title mb-0">THÔNG BÁO HỌC PHÍ</div>
+          <div class="text-muted small">Tháng {{ today.month }}/{{ today.year }}</div>
+        </div>
+      </div>
+
+      <div class="tuition-profile-box mb-3">
+        <div class="text-muted" style="font-size:0.7rem; letter-spacing:0.05em;">HỌC SINH</div>
+        <div class="fw-bold fs-5">{{ student.full_name }}</div>
+      </div>
+
+      <table class="table table-sm tuition-group-table mb-3">
+        <thead>
+          <tr><th>LỚP</th><th class="text-end">SỐ TIỀN</th><th class="text-center">TRẠNG THÁI</th></tr>
+        </thead>
+        <tbody>
+          {% for tp in current_month_tuition %}
+          <tr>
+            <td class="fw-semibold">{{ tp.class_.name if tp.class_ else '—' }}</td>
+            <td class="text-end">{{ tp.amount | vnd }}</td>
+            <td class="text-center">
+              {% if tp.is_paid %}
+              <span class="badge tuition-status-paid">ĐÃ ĐÓNG</span>
+              {% else %}
+              <span class="badge tuition-status-unpaid">CHƯA ĐÓNG</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="tuition-profile-box mb-3">
+        <div class="d-flex justify-content-between small mb-1">
+          <span class="text-muted">Tổng</span><strong>{{ current_total | vnd }}</strong>
+        </div>
+        <div class="d-flex justify-content-between small mb-1 text-success">
+          <span>Đã đóng</span><strong>{{ current_paid | vnd }}</strong>
+        </div>
+        <hr class="my-2">
+        <div class="d-flex justify-content-between align-items-center">
+          <span class="fw-bold">CÒN LẠI</span>
+          <span class="tuition-total-due">{{ current_unpaid | vnd }}</span>
+        </div>
+      </div>
+
+      {% if current_unpaid > 0 and active_bank_accounts %}
+      <div class="tuition-transfer-box text-center">
+        <div class="fw-bold text-primary mb-2">THÔNG TIN CHUYỂN KHOẢN</div>
+        <img src="{{ student_qr_by_account.get(active_bank_accounts[0].id, '') }}" alt="VietQR" class="tuition-qr-img mb-2" crossorigin="anonymous">
+        <div class="small mb-1">Ngân hàng: <strong>{{ active_bank_accounts[0].bank_name }}</strong></div>
+        <div class="small mb-1">Số tài khoản: <strong>{{ active_bank_accounts[0].account_number }}</strong></div>
+        <div class="small">Chủ TK: <strong>{{ active_bank_accounts[0].account_name }}</strong></div>
+        <div class="tuition-warning mt-2">
+          ⚠️ PH chuyển khoản nhớ CHỤP BILL gửi lại để tránh nhầm lẫn nhé.
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
     <!-- Lịch sử học phí -->
     <div class="card border-0 shadow-sm">
       <div class="card-header bg-white fw-semibold small py-2">Lịch sử học phí (12 tháng gần nhất)</div>
@@ -528,4 +609,74 @@
   </div>
 
 </div>
+
+<style>
+.tuition-card {
+  width: 375px;
+  margin: 0 auto;
+  background: #ffffff;
+  border-radius: 20px;
+  border: 10px solid #ffefe2;
+  padding: 20px;
+  font-family: inherit;
+}
+.tuition-card-offscreen { position: absolute; left: -9999px; top: 0; }
+.tuition-card-title { color: #ea580c; font-weight: 800; font-size: 1.3rem; }
+.tuition-profile-box { background: #fff7ed; border-radius: 12px; padding: 14px; }
+.tuition-total-due { color: #ea580c; font-weight: 800; font-size: 1.2rem; }
+.tuition-group-table th { font-size: 0.68rem; color: #64748b; border-bottom: 2px solid #e2e8f0; }
+.tuition-group-table td { font-size: 0.8rem; vertical-align: middle; }
+.tuition-status-paid, .tuition-status-unpaid {
+  border-radius: 20px; padding: 4px 10px; font-size: 0.65rem; font-weight: 700;
+}
+.tuition-status-unpaid { background: #fce7f3; color: #db2777; }
+.tuition-status-paid { background: #dcfce7; color: #16a34a; }
+.tuition-transfer-box {
+  background: #eff6ff; border: 1px dashed #93c5fd; border-radius: 12px; padding: 14px;
+}
+.tuition-qr-img { width: 170px; height: auto; }
+.tuition-warning {
+  background: #fef3e2; color: #b45309; font-size: 0.7rem;
+  border-radius: 8px; padding: 6px 10px;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+document.getElementById('btnStudentTuitionExport')?.addEventListener('click', function () {
+  const captureEl = document.getElementById('studentTuitionCapture');
+  const btn = this;
+  if (!captureEl || typeof html2canvas === 'undefined') return;
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+  const qrImg = captureEl.querySelector('.tuition-qr-img');
+  const ready = qrImg && !qrImg.complete
+    ? new Promise(resolve => { qrImg.onload = resolve; qrImg.onerror = resolve; })
+    : Promise.resolve();
+
+  ready.then(() => html2canvas(captureEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff' }))
+    .then(canvas => new Promise(resolve => canvas.toBlob(resolve, 'image/png')))
+    .then(blob => {
+      if (!blob) return;
+      const filename = `hoc-phi-{{ student.full_name | replace(' ', '-') }}.png`;
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      const file = (isIOS && window.File) ? new File([blob], filename, { type: 'image/png' }) : null;
+      if (isIOS && file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        return navigator.share({ files: [file], title: 'Thông báo học phí' }).catch(() => {});
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = url;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    })
+    .finally(() => {
+      btn.disabled = false;
+      btn.innerHTML = original;
+    });
+});
+</script>
 {% endblock %}

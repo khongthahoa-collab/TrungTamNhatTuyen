@@ -467,6 +467,17 @@ def student_detail(student_id):
     ).all()
     current_total = sum(t.amount for t in current_month_tuition)
     current_unpaid = sum(t.amount for t in current_month_tuition if not t.is_paid)
+    current_paid = current_total - current_unpaid
+
+    from models import BankAccount
+    from services.tuition_service import build_vietqr_url
+    active_bank_accounts = BankAccount.query.filter_by(is_active=True).order_by(BankAccount.id).all()
+    student_qr_by_account = {
+        acc.id: build_vietqr_url(acc.bank_id, acc.account_number, acc.account_name,
+                                 amount=current_unpaid,
+                                 add_info=f'Học phí {student.full_name} tháng {today.month:02d}/{today.year}')
+        for acc in active_bank_accounts
+    } if current_unpaid > 0 else {}
 
     parent_account = User.query.get(student.parent_user_id) if student.parent_user_id else None
 
@@ -481,6 +492,9 @@ def student_detail(student_id):
                            current_month_tuition=current_month_tuition,
                            current_total=current_total,
                            current_unpaid=current_unpaid,
+                           current_paid=current_paid,
+                           active_bank_accounts=active_bank_accounts,
+                           student_qr_by_account=student_qr_by_account,
                            parent_account=parent_account,
                            default_temp_password=DEFAULT_TEMP_PASSWORD)
 
