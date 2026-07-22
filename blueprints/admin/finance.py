@@ -219,7 +219,7 @@ def tuition_class_detail(class_id):
 
     from models import BankAccount
     from services.tuition_service import build_vietqr_url, tuition_transfer_class_label
-    active_bank_accounts = BankAccount.query.filter_by(is_active=True).order_by(BankAccount.id).all()
+    active_bank_accounts = BankAccount.query.filter_by(is_active=True).order_by(BankAccount.is_default.desc(), BankAccount.id).all()
     cls_transfer_name = tuition_transfer_class_label(cls)
     # 1 QR sẵn cho từng tài khoản đang bật — JS đổi hiển thị khi admin chọn
     # tài khoản khác trên thẻ ảnh (nhóm/cá nhân), không cần gọi lại server.
@@ -392,7 +392,7 @@ def tuition_remind_zalo():
     class_id = request.form.get('class_id', type=int)
 
     from models import BankAccount
-    active_acc = BankAccount.query.filter_by(is_active=True).order_by(BankAccount.id).first()
+    active_acc = BankAccount.query.filter_by(is_active=True).order_by(BankAccount.is_default.desc(), BankAccount.id).first()
     bank_info = f'{active_acc.bank_name} – {active_acc.account_number} – {active_acc.account_name}' if active_acc else ''
 
     query = TuitionPayment.query.filter_by(month=month, year=year, is_paid=False)
