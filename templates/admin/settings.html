@@ -77,25 +77,6 @@
         </div>
       </div>
 
-      <!-- Nội dung nhắc học phí Zalo -->
-      <div class="card shadow-sm border-0 mb-4">
-        <div class="card-header fw-semibold py-2 bg-light">
-          <i class="bi bi-chat-dots me-1"></i>Nội dung chuyển khoản (Zalo)
-        </div>
-        <div class="card-body">
-          <div class="mb-0">
-            <label class="form-label fw-semibold" for="bank_account">Thông tin tài khoản</label>
-            <textarea class="form-control" name="bank_account" id="bank_account"
-                      rows="3"
-                      placeholder="Tên ngân hàng – Số tài khoản – Tên chủ tài khoản">{{ configs.get('bank_account', '') }}</textarea>
-            <div class="form-text">
-              Hiển thị dạng chữ trên thông báo Zalo nhắc học phí. Tài khoản dùng để tạo mã VietQR trên ảnh thông báo
-              học phí nằm ở trang riêng <a href="{{ url_for('admin.bank_accounts') }}">Tài khoản ngân hàng</a> (menu Hệ thống).
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- Hero section -->
       <div class="card shadow-sm border-0 mb-4">
         <div class="card-header fw-semibold py-2 bg-light">

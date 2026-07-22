@@ -35,8 +35,11 @@
       {% endfor %}
     </select>
     {% endif %}
-    <button type="button" class="btn btn-outline-warning btn-sm" id="btnGroupExport">
-      <i class="bi bi-image me-1"></i>Xuất ảnh học phí nhóm
+    <button type="button" class="btn btn-outline-warning btn-sm" id="btnGroupExportAll">
+      <i class="bi bi-image me-1"></i>Xuất toàn bộ học phí
+    </button>
+    <button type="button" class="btn btn-outline-danger btn-sm" id="btnGroupExportUnpaid">
+      <i class="bi bi-image me-1"></i>Xuất học phí chưa đóng
     </button>
     {% elif all_records %}
     <span class="text-muted small" title="Vào Cài đặt > Tài khoản ngân hàng để thêm">
@@ -350,8 +353,8 @@
     </thead>
     <tbody>
       {% for r in all_records %}
-      <tr>
-        <td class="text-muted">{{ loop.index }}</td>
+      <tr class="group-tuition-row" data-paid="{{ 'true' if r.is_paid else 'false' }}">
+        <td class="text-muted group-tuition-stt">{{ loop.index }}</td>
         <td class="fw-semibold">{{ r.student.full_name }}</td>
         <td class="text-end">{{ r.total_due | vnd }}</td>
         <td class="text-center">
@@ -635,7 +638,7 @@ document.getElementById('reverseModal').addEventListener('show.bs.modal', functi
 // Chung cho mọi nút xuất ảnh học phí — cùng cách xử lý iOS Safari (không hỗ
 // trợ <a download>, phải dùng Share Sheet) như tính năng Xuất ảnh Điểm danh.
 function exportTuitionCardAsImage(captureEl, filename, btn) {
-  if (!captureEl || typeof html2canvas === 'undefined') return;
+  if (!captureEl || typeof html2canvas === 'undefined') return Promise.resolve();
   const original = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
@@ -645,7 +648,7 @@ function exportTuitionCardAsImage(captureEl, filename, btn) {
     ? new Promise(resolve => { qrImg.onload = resolve; qrImg.onerror = resolve; })
     : Promise.resolve();
 
-  ready.then(() => html2canvas(captureEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff' }))
+  return ready.then(() => html2canvas(captureEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff' }))
     .then(canvas => new Promise(resolve => canvas.toBlob(resolve, 'image/png')))
     .then(blob => {
       if (!blob) return;
@@ -677,12 +680,43 @@ document.getElementById('groupAccountSelect')?.addEventListener('change', functi
   document.getElementById('groupQrImg').src = opt.dataset.qrUrl;
 });
 
-document.getElementById('btnGroupExport')?.addEventListener('click', function () {
+document.getElementById('btnGroupExportAll')?.addEventListener('click', function () {
   exportTuitionCardAsImage(
     document.getElementById('groupTuitionCapture'),
     `hoc-phi-nhom-{{ cls.id }}-T{{ month }}-{{ year }}.png`,
     this,
   );
+});
+
+// Xuất ảnh chỉ gồm học sinh chưa đóng — ẩn tạm các dòng đã đóng + đánh lại
+// STT trước khi chụp, rồi khôi phục nguyên trạng bảng sau khi xong (dùng
+// chung 1 bảng đã render sẵn, không cần dựng thêm 1 thẻ ẩn thứ hai).
+document.getElementById('btnGroupExportUnpaid')?.addEventListener('click', function () {
+  const rows = document.querySelectorAll('#groupTuitionCapture .group-tuition-row');
+  const originalDisplay = [];
+  const originalStt = [];
+  let stt = 0;
+  rows.forEach(row => {
+    originalDisplay.push(row.style.display);
+    originalStt.push(row.querySelector('.group-tuition-stt').textContent);
+    if (row.dataset.paid === 'true') {
+      row.style.display = 'none';
+    } else {
+      stt++;
+      row.querySelector('.group-tuition-stt').textContent = stt;
+    }
+  });
+
+  exportTuitionCardAsImage(
+    document.getElementById('groupTuitionCapture'),
+    `hoc-phi-chua-dong-{{ cls.id }}-T{{ month }}-{{ year }}.png`,
+    this,
+  ).finally(() => {
+    rows.forEach((row, i) => {
+      row.style.display = originalDisplay[i];
+      row.querySelector('.group-tuition-stt').textContent = originalStt[i];
+    });
+  });
 });
 
 // Thông báo học phí cá nhân — điền lại thẻ preview trong modal mỗi khi mở

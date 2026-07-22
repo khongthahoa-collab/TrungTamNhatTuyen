@@ -1,7 +1,7 @@
 from flask import render_template, redirect, url_for, flash, request, jsonify, abort
 from flask_login import login_required, current_user
 from datetime import date, timedelta, time as time_type
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, case
 from sqlalchemy.orm import joinedload
 from extensions import db
 from models import (Class, Course, Teacher, Schedule, Semester, Enrollment, Student, Room,
@@ -423,7 +423,13 @@ def classes():
                     User.full_name.ilike(f'%{q}%'),
                 )))
     page = request.args.get('page', 1, type=int)
-    pagination = query.order_by(Class.name).paginate(page=page, per_page=10, error_out=False)
+    # Sắp xếp theo khối lớp (đúng thứ tự Lớp 1 -> Lớp 12, không phải chữ
+    # cái), rồi theo tên lớp trong cùng khối.
+    grade_order = case(
+        *[(Class.grade_level == g, i) for i, g in enumerate(GRADE_SEQUENCE)],
+        else_=len(GRADE_SEQUENCE)
+    )
+    pagination = query.order_by(grade_order, Class.name).paginate(page=page, per_page=10, error_out=False)
     classes = pagination.items
 
     courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()

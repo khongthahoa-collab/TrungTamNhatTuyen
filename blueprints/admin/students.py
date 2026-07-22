@@ -5,7 +5,7 @@ import re
 from flask import render_template, redirect, url_for, flash, request, abort, Response, current_app
 from flask_login import login_required, current_user
 from datetime import date, datetime
-from sqlalchemy import func
+from sqlalchemy import func, case
 from extensions import db
 from models import (Student, User, Enrollment, Class, TuitionPayment, Score, Reward,
                     StudentLevel, UserRole, Attendance, AttendanceStatus, Teacher, Schedule, School,
@@ -112,7 +112,14 @@ def students():
     if per_page_raw not in ('10', '20', '40', '80', 'all'):
         per_page_raw = '10'
     per_page = max(query.count(), 1) if per_page_raw == 'all' else int(per_page_raw)
-    pagination = query.order_by(Student.full_name).paginate(page=page, per_page=per_page, error_out=False)
+    # Sắp xếp theo khối lớp (đúng thứ tự Tiền tiểu học -> Lớp 1 -> ... -> Lớp
+    # 12, không phải thứ tự chữ cái — "Lớp 10" đứng trước "Lớp 2" nếu so
+    # chuỗi thường), rồi theo tên trong cùng khối lớp.
+    grade_order = case(
+        *[(Student.current_grade == g, i) for i, g in enumerate(GRADE_SEQUENCE)],
+        else_=len(GRADE_SEQUENCE)
+    )
+    pagination = query.order_by(grade_order, Student.full_name).paginate(page=page, per_page=per_page, error_out=False)
     students   = pagination.items
 
     # Absent counts + active-enrollment counts (1 batched query each for the
