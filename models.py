@@ -438,6 +438,10 @@ class BankAccount(db.Model):
     account_number = db.Column(db.String(50), nullable=False)
     account_name = db.Column(db.String(150), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
+    # Tài khoản dùng làm lựa chọn ban đầu (QR/nội dung nhắc Zalo) khi admin
+    # chưa chủ động chọn tài khoản khác — chỉ 1 tài khoản được đánh dấu tại
+    # một thời điểm, xem bank_account_set_default().
+    is_default = db.Column(db.Boolean, default=False, server_default=db.false())
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def __repr__(self):

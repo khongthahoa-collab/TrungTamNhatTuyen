@@ -58,7 +58,7 @@ def bank_accounts():
             ))
             db.session.commit()
 
-    accounts = BankAccount.query.order_by(BankAccount.id).all()
+    accounts = BankAccount.query.order_by(BankAccount.is_default.desc(), BankAccount.id).all()
     return render_template('admin/settings_bank_accounts.html', accounts=accounts)
 
 
@@ -106,11 +106,25 @@ def bank_account_edit(account_id):
     return redirect(url_for('admin.bank_accounts'))
 
 
+def _other_active_account_exists(acc):
+    return BankAccount.query.filter(
+        BankAccount.id != acc.id, BankAccount.is_active == True
+    ).count() > 0
+
+
 @admin_bp.route('/settings/bank-accounts/<int:account_id>/toggle', methods=['POST'])
 @login_required
 @require_admin
 def bank_account_toggle(account_id):
     acc = BankAccount.query.get_or_404(account_id)
+    # Tắt tài khoản đang là mặc định trong khi còn tài khoản khác đang bật
+    # sẽ khiến hệ thống lặng lẽ rơi về 1 tài khoản mặc định "ngầm" khác (id
+    # nhỏ nhất) — bắt phải chọn mặc định mới trước, tránh nhầm lẫn khi thu
+    # học phí. Tài khoản active duy nhất thì vẫn cho tắt bình thường (về 0
+    # tài khoản active vốn đã là trạng thái được hỗ trợ).
+    if acc.is_active and acc.is_default and _other_active_account_exists(acc):
+        flash('Tài khoản này đang là mặc định — hãy chọn tài khoản mặc định khác trước khi tắt.', 'danger')
+        return redirect(url_for('admin.bank_accounts'))
     acc.is_active = not acc.is_active
     db.session.commit()
     flash(f'Đã {"bật" if acc.is_active else "tắt"} tài khoản {acc.bank_name} — {acc.account_number}.', 'success')
@@ -122,9 +136,27 @@ def bank_account_toggle(account_id):
 @require_admin
 def bank_account_delete(account_id):
     acc = BankAccount.query.get_or_404(account_id)
+    if acc.is_default and _other_active_account_exists(acc):
+        flash('Tài khoản này đang là mặc định — hãy chọn tài khoản mặc định khác trước khi xoá.', 'danger')
+        return redirect(url_for('admin.bank_accounts'))
     db.session.delete(acc)
     db.session.commit()
     flash(f'Đã xoá tài khoản {acc.bank_name} — {acc.account_number}.', 'success')
+    return redirect(url_for('admin.bank_accounts'))
+
+
+@admin_bp.route('/settings/bank-accounts/<int:account_id>/set-default', methods=['POST'])
+@login_required
+@require_admin
+def bank_account_set_default(account_id):
+    acc = BankAccount.query.get_or_404(account_id)
+    if not acc.is_active:
+        flash('Chỉ có thể đặt tài khoản đang bật làm mặc định.', 'danger')
+        return redirect(url_for('admin.bank_accounts'))
+    BankAccount.query.filter(BankAccount.id != acc.id).update({'is_default': False})
+    acc.is_default = True
+    db.session.commit()
+    flash(f'Đã đặt {acc.bank_name} — {acc.account_number} làm tài khoản mặc định.', 'success')
     return redirect(url_for('admin.bank_accounts'))
 
 

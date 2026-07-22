@@ -25,14 +25,30 @@
     <div class="card shadow-sm border-0 h-100 {% if not acc.is_active %}opacity-50{% endif %}">
       <div class="card-body">
         <div class="d-flex align-items-center justify-content-between mb-2">
-          <span class="badge {% if acc.is_active %}bg-success{% else %}bg-secondary{% endif %}">
-            {{ 'Đang bật' if acc.is_active else 'Đã tắt' }}
-          </span>
+          <div class="d-flex align-items-center gap-1">
+            <span class="badge {% if acc.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+              {{ 'Đang bật' if acc.is_active else 'Đã tắt' }}
+            </span>
+            {% if acc.is_default %}
+            <span class="badge bg-primary">Mặc định</span>
+            {% endif %}
+          </div>
           <span class="badge bg-light text-dark border">{{ acc.bank_id }}</span>
         </div>
         <div class="fw-bold fs-5">{{ acc.bank_name }}</div>
         <div class="text-muted small mb-1">Số TK: <strong class="text-dark">{{ acc.account_number }}</strong></div>
-        <div class="text-muted small mb-3">Chủ TK: <strong class="text-dark">{{ acc.account_name }}</strong></div>
+        <div class="text-muted small mb-2">Chủ TK: <strong class="text-dark">{{ acc.account_name }}</strong></div>
+        {% if acc.is_active %}
+        <form method="post" action="{{ url_for('admin.bank_account_set_default', account_id=acc.id) }}" class="mb-3">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="defaultBankAccountRadio" id="default{{ acc.id }}"
+                   {% if acc.is_default %}checked{% endif %}
+                   onchange="this.form.submit()">
+            <label class="form-check-label small" for="default{{ acc.id }}">Đặt làm tài khoản mặc định</label>
+          </div>
+        </form>
+        {% endif %}
         <div class="d-flex gap-2">
           <button type="button" class="btn btn-outline-secondary btn-sm flex-grow-1"
                   data-bs-toggle="modal" data-bs-target="#editBankAccountModal"
