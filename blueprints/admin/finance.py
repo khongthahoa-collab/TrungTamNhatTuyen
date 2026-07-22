@@ -224,7 +224,8 @@ def tuition_class_detail(class_id):
     # tài khoản khác trên thẻ ảnh (nhóm/cá nhân), không cần gọi lại server.
     group_qr_by_account = {
         acc.id: build_vietqr_url(acc.bank_id, acc.account_number, acc.account_name,
-                                 add_info=f'HP lop {cls.name} thang {month:02d} nam {year}')
+                                 amount=cls.monthly_fee,
+                                 add_info=f'HP lop {cls.public_name} thang {month:02d} nam {year}')
         for acc in active_bank_accounts
     }
 
