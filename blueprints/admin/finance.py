@@ -462,24 +462,30 @@ def tuition_mark_paid(payment_id):
 @login_required
 @require_admin
 def tuition_toggle_paid(payment_id):
-    """Công tắc bật nhanh 'Đã thu đủ, tiền mặt' trên danh sách — 1 chiều
-    (chỉ bật), tương đương click 'Thu' rồi để trống số tiền/giữ nguyên
-    tiền mặt. Không dùng để tắt lại (hoàn tác cần lý do, dùng nút Hoàn
-    tác riêng) nên không có khả năng vô tình xoá ghi chú/lý do đã có.
-    Trả JSON để cập nhật dòng ngay tại chỗ, không tải lại trang."""
+    """Công tắc bật/tắt 'Đã thu đủ' trên danh sách — lưu ngay lập tức cả 2
+    chiều, không có bước Lưu riêng. BẬT (chưa đóng -> đã đóng) = thu đủ
+    tiền mặt (record_payment, amount=None thu hết phần còn lại). TẮT (đã
+    đóng -> chưa đóng) = hoàn tác toàn bộ khoản đã thu (reverse_payment)
+    với lý do do hệ thống tự ghi — theo yêu cầu rút gọn thao tác, chấp
+    nhận đánh đổi mất lý do cụ thể để đổi lấy tốc độ; đây là điểm khác
+    duy nhất so với nút "Hoàn tác" đầy đủ trước đây (đã bỏ, thay bằng
+    công tắc này). Trả JSON để cập nhật dòng ngay tại chỗ, không tải lại
+    trang."""
     tp = TuitionPayment.query.get_or_404(payment_id)
     if tp.is_voided:
         return jsonify(success=False, message='Hoá đơn đã bị hủy.'), 400
-    if tp.is_paid:
-        return jsonify(success=True, already=True, status=tp.status)
     if _is_tuition_finalized(tp.class_id, tp.month, tp.year):
         return jsonify(success=False, message='Danh sách học phí lớp này đã được chốt.'), 400
     try:
-        tp = record_payment(payment_id, None, 'cash', current_user.id, note=None)
-    except FrozenPeriodError as e:
+        if tp.is_paid:
+            tp = reverse_payment(payment_id, 'Tắt qua công tắc nhanh trên danh sách học phí', current_user.id)
+        else:
+            tp = record_payment(payment_id, None, 'cash', current_user.id, note=None)
+    except (FrozenPeriodError, ValueError) as e:
         return jsonify(success=False, message=str(e)), 400
     return jsonify(
         success=True,
+        is_paid=tp.is_paid,
         status=tp.status,
         status_label=tp.status_label,
         amount_collected=int(tp.amount_collected or 0),
