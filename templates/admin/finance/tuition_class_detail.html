@@ -203,7 +203,7 @@
       </thead>
       <tbody>
         {% for r in records %}
-        <tr id="tuitionRow{{ r.id }}" data-student-id="{{ r.student.id }}" class="{% if r.is_voided %}text-muted{% endif %}">
+        <tr id="tuitionRow{{ r.id }}" data-student-id="{{ r.student.id }}" data-total-due="{{ r.total_due | int }}" class="{% if r.is_voided %}text-muted{% endif %}">
           <td class="ps-3 text-muted small">{{ loop.index + (pagination.page - 1) * pagination.per_page }}</td>
           <td>
             <a href="{{ url_for('admin.student_detail', student_id=r.student.id) }}"
@@ -298,50 +298,23 @@
               <span class="text-muted small">—</span>
               {% endif %}
             {% elif not r.is_paid and can_edit %}
-            <div class="d-flex gap-2 align-items-center justify-content-center">
-              <label class="ios-switch" title="Đánh dấu đã thu đủ (tiền mặt) — lưu ngay lập tức">
-                <input type="checkbox" class="tuition-paid-toggle"
-                       data-payment-id="{{ r.id }}"
-                       data-remaining="{{ (r.total_due - r.amount_collected) | int }}">
-                <span class="ios-switch-slider"></span>
-              </label>
-              <button type="button" class="btn btn-outline-secondary btn-sm"
-                      data-bs-toggle="modal" data-bs-target="#markPaidModal"
-                      data-record-id="{{ r.id }}"
-                      data-student-name="{{ r.student.full_name }}"
-                      data-remaining="{{ (r.total_due - r.amount_collected) | int }}"
-                      title="Thu 1 phần / chuyển khoản / ghi chú riêng">
-                <i class="bi bi-three-dots"></i>
-              </button>
-              <button type="button" class="btn btn-outline-danger btn-sm"
-                      data-bs-toggle="modal" data-bs-target="#voidModal"
-                      data-record-id="{{ r.id }}"
-                      data-student-name="{{ r.student.full_name }}"
-                      title="Hủy hoá đơn">
-                <i class="bi bi-x-lg"></i>
-              </button>
-              {% if r.status == 'partial' %}
-              <button type="button" class="btn btn-outline-warning btn-sm"
-                      data-bs-toggle="modal" data-bs-target="#reverseModal"
-                      data-record-id="{{ r.id }}"
-                      data-student-name="{{ r.student.full_name }}"
-                      title="Hoàn tác khoản đã thu">
-                <i class="bi bi-arrow-counterclockwise"></i>
-              </button>
-              {% endif %}
-            </div>
+            <label class="ios-switch" title="Đánh dấu đã thu đủ (tiền mặt) — lưu ngay lập tức">
+              <input type="checkbox" class="tuition-paid-toggle"
+                     data-payment-id="{{ r.id }}"
+                     data-delta="{{ (r.total_due - r.amount_collected) | int }}">
+              <span class="ios-switch-slider"></span>
+            </label>
             {% elif not r.is_paid %}
             <span class="text-muted small">—</span>
             {% elif can_edit %}
             <div class="d-flex flex-column align-items-center gap-1">
               <span class="text-muted small">{{ r.method_label if r.method else '—' }}<br>{{ r.paid_at | date_vn if r.paid_at else '—' }}</span>
-              <button type="button" class="btn btn-outline-warning btn-sm"
-                      data-bs-toggle="modal" data-bs-target="#reverseModal"
-                      data-record-id="{{ r.id }}"
-                      data-student-name="{{ r.student.full_name }}"
-                      title="Hoàn tác khoản đã thu">
-                <i class="bi bi-arrow-counterclockwise me-1"></i>Hoàn tác
-              </button>
+              <label class="ios-switch" title="Tắt để hoàn tác khoản đã thu — lưu ngay lập tức">
+                <input type="checkbox" class="tuition-paid-toggle" checked
+                       data-payment-id="{{ r.id }}"
+                       data-delta="{{ r.amount_collected | int }}">
+                <span class="ios-switch-slider"></span>
+              </label>
             </div>
             {% else %}
             <span class="text-muted small">{{ r.method_label if r.method else '—' }}<br>{{ r.paid_at | date_vn if r.paid_at else '—' }}</span>
@@ -450,121 +423,6 @@
 </div>
 {% endif %}
 
-<!-- Modal thu tiền -->
-<div class="modal fade" id="markPaidModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h6 class="modal-title fw-bold">
-          <i class="bi bi-check-circle me-2 text-success"></i>Ghi nhận thanh toán
-        </h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <form method="post" id="markPaidForm" action="">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="modal-body">
-          <p class="mb-3 small">
-            Học sinh <strong id="markPaidStudentName"></strong> còn nợ
-            <strong id="markPaidRemaining"></strong>.
-          </p>
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Số tiền thu</label>
-            <input type="number" name="amount" id="markPaidAmountInput" class="form-control"
-                   min="0" step="1000">
-            <div class="form-text">Để trống nếu thu đủ toàn bộ số tiền còn nợ.</div>
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Hình thức thanh toán</label>
-            <select name="method" class="form-select">
-              <option value="cash">Tiền mặt</option>
-              <option value="transfer">Chuyển khoản</option>
-            </select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Ghi chú</label>
-            <input type="text" name="note" class="form-control" placeholder="Ví dụ: Đóng tháng 6 + 7">
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
-          <button type="submit" class="btn btn-success">
-            <i class="bi bi-check-lg me-1"></i>Xác nhận đã thu
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
-<!-- Modal hủy hoá đơn -->
-<div class="modal fade" id="voidModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h6 class="modal-title fw-bold">
-          <i class="bi bi-x-octagon me-2 text-danger"></i>Hủy hoá đơn học phí
-        </h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <form method="post" id="voidForm" action="">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="modal-body">
-          <p class="mb-3 small">
-            Hủy hoá đơn của <strong id="voidStudentName"></strong> tháng {{ month }}/{{ year }}.
-            Hoá đơn sẽ bị loại khỏi các báo cáo doanh thu nhưng vẫn có thể khôi phục sau.
-          </p>
-          <div class="mb-2">
-            <label class="form-label fw-semibold">Lý do hủy <span class="text-danger">*</span></label>
-            <textarea name="reason" class="form-control" rows="2" required
-                      placeholder="Ví dụ: tạo nhầm học sinh, trùng lớp…"></textarea>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
-          <button type="submit" class="btn btn-danger">
-            <i class="bi bi-x-lg me-1"></i>Xác nhận hủy
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
-<!-- Modal hoàn tác khoản đã thu -->
-<div class="modal fade" id="reverseModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h6 class="modal-title fw-bold">
-          <i class="bi bi-arrow-counterclockwise me-2 text-warning"></i>Hoàn tác khoản đã thu
-        </h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <form method="post" id="reverseForm" action="">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="modal-body">
-          <p class="mb-3 small">
-            Hoàn tác toàn bộ khoản đã thu của <strong id="reverseStudentName"></strong> tháng {{ month }}/{{ year }}
-            — dùng khi ghi nhận thanh toán bị nhầm (sai số tiền, nhầm học sinh…). Hoá đơn sẽ trở về trạng thái
-            <strong>Chưa đóng</strong> để thu lại cho đúng.
-          </p>
-          <div class="mb-2">
-            <label class="form-label fw-semibold">Lý do hoàn tác <span class="text-danger">*</span></label>
-            <textarea name="reason" class="form-control" rows="2" required
-                      placeholder="Ví dụ: ghi nhầm số tiền, nhầm học sinh…"></textarea>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
-          <button type="submit" class="btn btn-warning">
-            <i class="bi bi-arrow-counterclockwise me-1"></i>Xác nhận hoàn tác
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
 <!-- Modal thông báo học phí cá nhân -->
 <div class="modal fade" id="tuitionReminderModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -650,32 +508,6 @@
     </div>
   </div>
 </div>
-
-<script>
-document.getElementById('markPaidModal').addEventListener('show.bs.modal', function(e) {
-  const btn = e.relatedTarget;
-  const remaining = parseInt(btn.dataset.remaining);
-  document.getElementById('markPaidStudentName').textContent = btn.dataset.studentName;
-  document.getElementById('markPaidRemaining').textContent = remaining.toLocaleString('vi-VN') + '₫';
-  document.getElementById('markPaidAmountInput').placeholder = remaining.toLocaleString('vi-VN');
-  document.getElementById('markPaidAmountInput').max = remaining;
-  document.getElementById('markPaidAmountInput').value = '';
-  document.getElementById('markPaidForm').action =
-    "{{ url_for('admin.tuition_mark_paid', payment_id=0) }}".replace('/0/', '/' + btn.dataset.recordId + '/');
-});
-document.getElementById('voidModal').addEventListener('show.bs.modal', function(e) {
-  const btn = e.relatedTarget;
-  document.getElementById('voidStudentName').textContent = btn.dataset.studentName;
-  document.getElementById('voidForm').action =
-    "{{ url_for('admin.tuition_void', payment_id=0) }}".replace('/0/', '/' + btn.dataset.recordId + '/');
-});
-document.getElementById('reverseModal').addEventListener('show.bs.modal', function(e) {
-  const btn = e.relatedTarget;
-  document.getElementById('reverseStudentName').textContent = btn.dataset.studentName;
-  document.getElementById('reverseForm').action =
-    "{{ url_for('admin.tuition_reverse_payment', payment_id=0) }}".replace('/0/', '/' + btn.dataset.recordId + '/');
-});
-</script>
 
 <style>
 .tuition-card {
@@ -950,20 +782,42 @@ document.getElementById('btnCopyTuitionCard').addEventListener('click', function
     });
 });
 
-// Công tắc "Đã thu đủ, tiền mặt" — lưu ngay khi bật (không có bước Lưu
-// riêng để tránh mất thao tác nếu thoát trang giữa chừng), cập nhật lại
-// dòng/KPI/thẻ ảnh ẩn tại chỗ thay vì tải lại trang.
+// Công tắc "Đã thu đủ" — lưu ngay lập tức cả 2 chiều, không có bước Lưu
+// riêng (tránh mất thao tác nếu thoát trang giữa chừng). BẬT = thu đủ
+// tiền mặt. TẮT = hoàn tác toàn bộ khoản đã thu (không hỏi lý do — xem
+// ghi chú trong tuition_toggle_paid()). Cập nhật dòng/KPI/thẻ ảnh ẩn tại
+// chỗ thay vì tải lại trang.
 function tuitionFmtVnd(n) {
   return Math.round(n).toLocaleString('vi-VN') + ' ₫';
 }
 
-document.querySelectorAll('.tuition-paid-toggle').forEach(toggle => {
+function tuitionPaidActionsHtml(paymentId, delta) {
+  return `
+    <div class="d-flex flex-column align-items-center gap-1" id="tuitionActionsInner${paymentId}">
+      <span class="text-muted small" id="tuitionMethodDate${paymentId}"></span>
+      <label class="ios-switch" title="Tắt để hoàn tác khoản đã thu — lưu ngay lập tức">
+        <input type="checkbox" class="tuition-paid-toggle" checked
+               data-payment-id="${paymentId}" data-delta="${delta}">
+        <span class="ios-switch-slider"></span>
+      </label>
+    </div>`;
+}
+
+function tuitionUnpaidActionsHtml(paymentId, delta) {
+  return `
+    <label class="ios-switch" title="Đánh dấu đã thu đủ (tiền mặt) — lưu ngay lập tức">
+      <input type="checkbox" class="tuition-paid-toggle"
+             data-payment-id="${paymentId}" data-delta="${delta}">
+      <span class="ios-switch-slider"></span>
+    </label>`;
+}
+
+function bindTuitionToggle(toggle) {
   toggle.addEventListener('change', function () {
-    if (!this.checked) return; // 1 chiều — tắt lại không làm gì, dùng nút Hoàn tác
+    const turningOn = this.checked;
     const paymentId = this.dataset.paymentId;
-    const remaining = parseInt(this.dataset.remaining, 10) || 0;
+    const delta = parseInt(this.dataset.delta, 10) || 0;
     const row = document.getElementById(`tuitionRow${paymentId}`);
-    const studentName = row ? row.querySelector('a.fw-semibold').textContent.trim() : '';
     this.disabled = true;
 
     fetch(`/admin/tuition/${paymentId}/toggle-paid`, {
@@ -973,41 +827,45 @@ document.querySelectorAll('.tuition-paid-toggle').forEach(toggle => {
       .then(res => res.json())
       .then(data => {
         if (!data.success) {
-          alert(data.message || 'Không thể đánh dấu đã thu.');
-          this.checked = false;
+          alert(data.message || 'Không thể cập nhật trạng thái đã thu.');
+          this.checked = !turningOn;
           this.disabled = false;
           return;
         }
 
-        document.getElementById(`tuitionStatus${paymentId}`).innerHTML =
-          '<span class="badge bg-success-subtle text-success border border-success-subtle">Đã đóng đủ</span>';
-        document.getElementById(`tuitionCollected${paymentId}`).textContent = tuitionFmtVnd(data.amount_collected);
-        document.getElementById(`tuitionActions${paymentId}`).innerHTML = `
-          <div class="d-flex flex-column align-items-center gap-1">
-            <span class="text-muted small">${data.method_label}<br>${data.paid_at || ''}</span>
-            <button type="button" class="btn btn-outline-warning btn-sm"
-                    data-bs-toggle="modal" data-bs-target="#reverseModal"
-                    data-record-id="${paymentId}" data-student-name="${studentName}"
-                    title="Hoàn tác khoản đã thu">
-              <i class="bi bi-arrow-counterclockwise me-1"></i>Hoàn tác
-            </button>
-          </div>`;
+        const actionsCell = document.getElementById(`tuitionActions${paymentId}`);
+        if (data.is_paid) {
+          document.getElementById(`tuitionStatus${paymentId}`).innerHTML =
+            '<span class="badge bg-success-subtle text-success border border-success-subtle">Đã đóng đủ</span>';
+          actionsCell.innerHTML = tuitionPaidActionsHtml(paymentId, data.amount_collected);
+          document.getElementById(`tuitionMethodDate${paymentId}`).innerHTML =
+            `${data.method_label}<br>${data.paid_at || ''}`;
+        } else {
+          document.getElementById(`tuitionStatus${paymentId}`).innerHTML =
+            '<span class="badge bg-danger-subtle text-danger border border-danger-subtle">Chưa đóng</span>';
+          const totalDue = row ? parseInt(row.dataset.totalDue, 10) || 0 : 0;
+          actionsCell.innerHTML = tuitionUnpaidActionsHtml(paymentId, totalDue - data.amount_collected);
+        }
+        bindTuitionToggle(actionsCell.querySelector('.tuition-paid-toggle'));
+        document.getElementById(`tuitionCollected${paymentId}`).textContent =
+          data.amount_collected ? tuitionFmtVnd(data.amount_collected) : '—';
 
         // KPI + nút Nhắc Zalo — cộng/trừ trực tiếp thay vì gọi lại server.
+        const sign = turningOn ? 1 : -1;
         const paidCountEl = document.getElementById('kpiPaidCount');
         const unpaidCountEl = document.getElementById('kpiUnpaidCount');
         const paidAmountEl = document.getElementById('kpiPaidAmount');
         const unpaidAmountEl = document.getElementById('kpiUnpaidAmount');
         const zaloBtn = document.getElementById('btnRemindZalo');
         const zaloCountEl = document.getElementById('zaloUnpaidCount');
-        if (paidCountEl) paidCountEl.textContent = parseInt(paidCountEl.textContent, 10) + 1;
-        if (unpaidCountEl) unpaidCountEl.textContent = Math.max(0, parseInt(unpaidCountEl.textContent, 10) - 1);
+        if (paidCountEl) paidCountEl.textContent = Math.max(0, parseInt(paidCountEl.textContent, 10) + sign);
+        if (unpaidCountEl) unpaidCountEl.textContent = Math.max(0, parseInt(unpaidCountEl.textContent, 10) - sign);
         if (paidAmountEl) paidAmountEl.textContent = tuitionFmtVnd(
-          parseInt(paidAmountEl.textContent.replace(/\D/g, ''), 10) + remaining);
+          Math.max(0, parseInt(paidAmountEl.textContent.replace(/\D/g, ''), 10) + sign * delta));
         if (unpaidAmountEl) unpaidAmountEl.textContent = tuitionFmtVnd(
-          Math.max(0, parseInt(unpaidAmountEl.textContent.replace(/\D/g, ''), 10) - remaining));
-        if (zaloBtn) zaloBtn.dataset.unpaidCount = Math.max(0, parseInt(zaloBtn.dataset.unpaidCount, 10) - 1);
-        if (zaloCountEl) zaloCountEl.textContent = Math.max(0, parseInt(zaloCountEl.textContent, 10) - 1);
+          Math.max(0, parseInt(unpaidAmountEl.textContent.replace(/\D/g, ''), 10) - sign * delta));
+        if (zaloBtn) zaloBtn.dataset.unpaidCount = Math.max(0, parseInt(zaloBtn.dataset.unpaidCount, 10) - sign);
+        if (zaloCountEl) zaloCountEl.textContent = Math.max(0, parseInt(zaloCountEl.textContent, 10) - sign);
 
         // Đồng bộ luôn dòng tương ứng trong thẻ ảnh ẩn (#groupTuitionCapture)
         // để "Xuất ảnh học phí nhóm" ngay sau đó không bị lệch trạng thái.
@@ -1016,18 +874,21 @@ document.querySelectorAll('.tuition-paid-toggle').forEach(toggle => {
           const captureRow = document.querySelector(
             `#groupTuitionCapture .group-tuition-row[data-student-id="${studentId}"]`);
           if (captureRow) {
-            captureRow.dataset.paid = 'true';
-            captureRow.querySelector('.group-tuition-status').innerHTML =
-              '<span class="badge tuition-status-paid">ĐÃ THU</span>';
+            captureRow.dataset.paid = data.is_paid ? 'true' : 'false';
+            captureRow.querySelector('.group-tuition-status').innerHTML = data.is_paid
+              ? '<span class="badge tuition-status-paid">ĐÃ THU</span>'
+              : '<span class="badge tuition-status-unpaid">CHƯA THU</span>';
           }
         }
       })
       .catch(() => {
         alert('Lỗi kết nối — vui lòng thử lại.');
-        this.checked = false;
+        this.checked = !turningOn;
         this.disabled = false;
       });
   });
-});
+}
+
+document.querySelectorAll('.tuition-paid-toggle').forEach(bindTuitionToggle);
 </script>
 {% endblock %}
