@@ -5,7 +5,7 @@ from sqlalchemy import extract, func, case
 from sqlalchemy.orm import joinedload
 from extensions import db
 from models import (TuitionPayment, Student, Class, Salary, Teacher, Course,
-                    Expense, ExpenseCategory, TuitionMethod, Enrollment)
+                    Expense, ExpenseCategory, TuitionMethod, Enrollment, TuitionReport)
 from blueprints.admin import admin_bp, require_admin, require_master
 from services.salary_service import calculate_all_salaries, get_or_create_salary
 from services.zalo_service import ZaloService
@@ -100,6 +100,17 @@ def _tuition_overview_aggregate(month, year, class_id=None, course_id=None):
     total_outstanding = sum(r['unpaid_amount'] for r in class_summaries)
     total_expected = total_collected + total_outstanding
     return classes, class_summaries, total_collected, total_outstanding, total_expected
+
+
+def _get_tuition_report(class_id, month, year):
+    return TuitionReport.query.filter_by(class_id=class_id, month=month, year=year).first()
+
+
+def _is_tuition_finalized(class_id, month, year):
+    """Đã 'Chốt danh sách học phí' cho lớp/tháng này chưa — khoá Thu/Hủy/
+    Hoàn tác/Điều chỉnh, tách biệt với is_period_writable (khoá cả năm học)."""
+    report = _get_tuition_report(class_id, month, year)
+    return bool(report and report.is_finalized)
 
 
 @admin_bp.route('/tuition')
@@ -264,6 +275,14 @@ def tuition_class_detail(class_id):
         class_id=class_id, month=month, year=year).all()}
     missing_count = len(enrolled_ids - billed_ids)
 
+    tuition_report = _get_tuition_report(class_id, month, year)
+    is_finalized = bool(tuition_report and tuition_report.is_finalized)
+    is_writable = is_period_writable(month, year)
+    # can_edit gộp cả 2 lớp khoá: is_writable (cả năm học đã đóng — Cuộn năm
+    # học) và is_finalized (riêng lớp/tháng này đã Chốt danh sách) — mọi nút
+    # ghi dữ liệu trên trang này phải tắt khi 1 trong 2 điều kiện đúng.
+    can_edit = is_writable and not is_finalized
+
     return render_template('admin/finance/tuition_class_detail.html',
                            cls=cls, records=records, all_records=all_records, pagination=pagination,
                            total=total or 0, paid_count=paid_count or 0,
@@ -271,13 +290,65 @@ def tuition_class_detail(class_id):
                            collected_amount=collected_amount or 0,
                            outstanding_amount=outstanding_amount or 0,
                            missing_count=missing_count,
-                           is_writable=is_period_writable(month, year),
+                           is_writable=is_writable,
+                           is_finalized=is_finalized,
+                           finalized_at=tuition_report.finalized_at if tuition_report else None,
+                           can_edit=can_edit,
                            active_bank_accounts=active_bank_accounts,
                            group_qr_by_account=group_qr_by_account,
                            build_vietqr_url=build_vietqr_url,
                            cls_transfer_name=cls_transfer_name,
                            q=q, status_filter=status_filter,
                            month=month, year=year, today=today)
+
+
+@admin_bp.route('/tuition/class/<int:class_id>/finalize', methods=['POST'])
+@login_required
+@require_admin
+def tuition_finalize_class(class_id):
+    """'Chốt danh sách học phí' — khoá Thu/Hủy/Hoàn tác/Điều chỉnh cho đúng
+    1 lớp/1 tháng (khác is_period_writable, vốn khoá cả năm học), đồng
+    thời lưu lại ảnh chụp số liệu tại thời điểm chốt vào TuitionReport."""
+    month = request.form.get('month', type=int)
+    year = request.form.get('year', type=int)
+    cls = Class.query.get_or_404(class_id)
+
+    records = TuitionPayment.query.filter_by(class_id=class_id, month=month, year=year).all()
+    non_voided = [r for r in records if not r.is_voided]
+
+    report = _get_tuition_report(class_id, month, year)
+    if not report:
+        report = TuitionReport(class_id=class_id, month=month, year=year)
+        db.session.add(report)
+    report.total_students = len(non_voided)
+    report.total_amount = sum(r.total_due for r in non_voided)
+    report.fully_paid_count = sum(1 for r in non_voided if r.status == 'paid')
+    report.partial_paid_count = sum(1 for r in non_voided if r.status == 'partial')
+    report.unpaid_count = sum(1 for r in non_voided if r.status == 'unpaid')
+    report.is_finalized = True
+    report.finalized_at = datetime.utcnow()
+    db.session.commit()
+    flash(f'Đã chốt danh sách học phí lớp {cls.name} tháng {month}/{year}.', 'success')
+    return redirect(url_for('admin.tuition_class_detail', class_id=class_id, month=month, year=year))
+
+
+@admin_bp.route('/tuition/class/<int:class_id>/unfinalize', methods=['POST'])
+@login_required
+@require_admin
+def tuition_unfinalize_class(class_id):
+    """Mở lại danh sách học phí đã chốt — cho phép Thu/Hủy/Hoàn tác/Điều
+    chỉnh lại khi phát hiện sai sót sau khi chốt."""
+    month = request.form.get('month', type=int)
+    year = request.form.get('year', type=int)
+    cls = Class.query.get_or_404(class_id)
+
+    report = _get_tuition_report(class_id, month, year)
+    if report:
+        report.is_finalized = False
+        report.finalized_at = None
+        db.session.commit()
+    flash(f'Đã mở lại danh sách học phí lớp {cls.name} tháng {month}/{year}.', 'success')
+    return redirect(url_for('admin.tuition_class_detail', class_id=class_id, month=month, year=year))
 
 
 @admin_bp.route('/tuition/class/<int:class_id>/export.xlsx')
@@ -369,6 +440,10 @@ def tuition_add():
 @login_required
 @require_admin
 def tuition_mark_paid(payment_id):
+    tp = TuitionPayment.query.get_or_404(payment_id)
+    if _is_tuition_finalized(tp.class_id, tp.month, tp.year):
+        flash('Danh sách học phí lớp này đã được chốt — hãy Mở lại trước khi thao tác.', 'danger')
+        return redirect(request.referrer or url_for('admin.tuition', month=tp.month, year=tp.year))
     method = request.form.get('method', 'cash')
     amount = request.form.get('amount', type=float)
     note = request.form.get('note', '').strip() or None
@@ -381,6 +456,36 @@ def tuition_mark_paid(payment_id):
         abort(404)
     flash(f'Đã ghi nhận thanh toán học phí cho {tp.student.full_name}.', 'success')
     return redirect(request.referrer or url_for('admin.tuition', month=tp.month, year=tp.year))
+
+
+@admin_bp.route('/tuition/<int:payment_id>/toggle-paid', methods=['POST'])
+@login_required
+@require_admin
+def tuition_toggle_paid(payment_id):
+    """Công tắc bật nhanh 'Đã thu đủ, tiền mặt' trên danh sách — 1 chiều
+    (chỉ bật), tương đương click 'Thu' rồi để trống số tiền/giữ nguyên
+    tiền mặt. Không dùng để tắt lại (hoàn tác cần lý do, dùng nút Hoàn
+    tác riêng) nên không có khả năng vô tình xoá ghi chú/lý do đã có.
+    Trả JSON để cập nhật dòng ngay tại chỗ, không tải lại trang."""
+    tp = TuitionPayment.query.get_or_404(payment_id)
+    if tp.is_voided:
+        return jsonify(success=False, message='Hoá đơn đã bị hủy.'), 400
+    if tp.is_paid:
+        return jsonify(success=True, already=True, status=tp.status)
+    if _is_tuition_finalized(tp.class_id, tp.month, tp.year):
+        return jsonify(success=False, message='Danh sách học phí lớp này đã được chốt.'), 400
+    try:
+        tp = record_payment(payment_id, None, 'cash', current_user.id, note=None)
+    except FrozenPeriodError as e:
+        return jsonify(success=False, message=str(e)), 400
+    return jsonify(
+        success=True,
+        status=tp.status,
+        status_label=tp.status_label,
+        amount_collected=int(tp.amount_collected or 0),
+        paid_at=tp.paid_at.strftime('%d/%m/%Y') if tp.paid_at else None,
+        method_label=tp.method_label,
+    )
 
 
 @admin_bp.route('/tuition/zalo-remind', methods=['POST'])
@@ -688,6 +793,9 @@ def monthly_fee_generate():
     if not is_period_writable(month, year):
         flash('Không thể sửa đổi dữ liệu tài chính của năm học đã đóng băng', 'danger')
         return redirect(redirect_target)
+    if _is_tuition_finalized(class_id, month, year):
+        flash('Danh sách học phí lớp này đã được chốt — hãy Mở lại trước khi thao tác.', 'danger')
+        return redirect(redirect_target)
 
     cls = Class.query.get_or_404(class_id)
 
@@ -741,6 +849,9 @@ def tuition_adjust_amount(payment_id):
     if tp.is_paid:
         flash('Học phí đã được thanh toán, không thể chỉnh sửa số tiền.', 'danger')
         return redirect(url_for('admin.tuition', month=tp.month, year=tp.year))
+    if _is_tuition_finalized(tp.class_id, tp.month, tp.year):
+        flash('Danh sách học phí lớp này đã được chốt — hãy Mở lại trước khi thao tác.', 'danger')
+        return redirect(request.referrer or url_for('admin.tuition', month=tp.month, year=tp.year))
 
     new_amount = request.form.get('amount', type=float)
     note = request.form.get('note', '').strip() or None
@@ -760,6 +871,9 @@ def tuition_void(payment_id):
     """Hủy (soft-delete) một hoá đơn học phí lập nhầm — không xoá bản ghi,
     chỉ loại khỏi các báo cáo/tổng doanh thu. Bắt buộc nhập lý do."""
     tp = TuitionPayment.query.get_or_404(payment_id)
+    if _is_tuition_finalized(tp.class_id, tp.month, tp.year):
+        flash('Danh sách học phí lớp này đã được chốt — hãy Mở lại trước khi thao tác.', 'danger')
+        return redirect(request.referrer or url_for('admin.tuition', month=tp.month, year=tp.year))
     reason = request.form.get('reason', '')
     try:
         void_tuition_payment(payment_id, reason, current_user.id)
@@ -775,6 +889,9 @@ def tuition_void(payment_id):
 def tuition_unvoid(payment_id):
     """Khôi phục một hoá đơn đã bị hủy nhầm."""
     tp = TuitionPayment.query.get_or_404(payment_id)
+    if _is_tuition_finalized(tp.class_id, tp.month, tp.year):
+        flash('Danh sách học phí lớp này đã được chốt — hãy Mở lại trước khi thao tác.', 'danger')
+        return redirect(request.referrer or url_for('admin.tuition', month=tp.month, year=tp.year))
     try:
         unvoid_tuition_payment(payment_id)
         flash(f'Đã khôi phục học phí {tp.student.full_name} tháng {tp.month}/{tp.year}.', 'success')
@@ -792,6 +909,9 @@ def tuition_reverse_payment(payment_id):
     tiếp amount_collected, mà ghi một giao dịch bù trừ âm vào sổ quỹ
     (reverse_payment)."""
     tp = TuitionPayment.query.get_or_404(payment_id)
+    if _is_tuition_finalized(tp.class_id, tp.month, tp.year):
+        flash('Danh sách học phí lớp này đã được chốt — hãy Mở lại trước khi thao tác.', 'danger')
+        return redirect(request.referrer or url_for('admin.tuition', month=tp.month, year=tp.year))
     reason = request.form.get('reason', '')
     try:
         reverse_payment(payment_id, reason, current_user.id)

@@ -19,9 +19,37 @@
         <i class="bi bi-lock-fill me-1"></i>Năm học đã đóng — chỉ xem
       </span>
       {% endif %}
+      {% if is_finalized %}
+      <span class="badge bg-primary-subtle text-primary border border-primary-subtle ms-1">
+        <i class="bi bi-lock-fill me-1"></i>Đã chốt sổ{% if finalized_at %} lúc {{ finalized_at | date_vn }}{% endif %}
+      </span>
+      {% endif %}
     </div>
   </div>
   <div class="d-flex gap-2 flex-wrap align-items-center">
+    {% if all_records and is_writable %}
+      {% if is_finalized %}
+      <form method="post" action="{{ url_for('admin.tuition_unfinalize_class', class_id=cls.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="month" value="{{ month }}">
+        <input type="hidden" name="year" value="{{ year }}">
+        <button type="submit" class="btn btn-outline-primary btn-sm"
+                onclick="return confirm('Mở lại danh sách học phí lớp {{ cls.name }} tháng {{ month }}/{{ year }}?')">
+          <i class="bi bi-unlock me-1"></i>Mở lại
+        </button>
+      </form>
+      {% else %}
+      <form method="post" action="{{ url_for('admin.tuition_finalize_class', class_id=cls.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="month" value="{{ month }}">
+        <input type="hidden" name="year" value="{{ year }}">
+        <button type="submit" class="btn btn-outline-primary btn-sm"
+                onclick="return confirm('Chốt danh sách học phí lớp {{ cls.name }} tháng {{ month }}/{{ year }}? Sẽ không thể Thu/Hủy/Hoàn tác/Điều chỉnh cho tới khi Mở lại.')">
+          <i class="bi bi-lock me-1"></i>Chốt danh sách học phí
+        </button>
+      </form>
+      {% endif %}
+    {% endif %}
     {% if all_records and active_bank_accounts %}
     {% set group_accounts = [] %}
     {% for acc in active_bank_accounts %}
@@ -64,7 +92,7 @@
     <strong>{{ missing_count }} học sinh</strong> đang học lớp này nhưng chưa có học phí tháng {{ month }}/{{ year }}
     — thường là do được thêm vào lớp sau khi đã tạo học phí.
   </div>
-  {% if is_writable %}
+  {% if can_edit %}
   <form method="post" action="{{ url_for('admin.monthly_fee_generate') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="month" value="{{ month }}">
@@ -94,8 +122,8 @@
     <div class="card border-0 shadow-sm border-start border-success border-3">
       <div class="card-body py-2">
         <div class="small text-muted">Đã đóng</div>
-        <div class="fw-bold fs-5 text-success">{{ paid_count }}</div>
-        <div class="small text-success">{{ collected_amount | vnd }}</div>
+        <div class="fw-bold fs-5 text-success" id="kpiPaidCount">{{ paid_count }}</div>
+        <div class="small text-success" id="kpiPaidAmount">{{ collected_amount | vnd }}</div>
       </div>
     </div>
   </div>
@@ -103,8 +131,8 @@
     <div class="card border-0 shadow-sm border-start border-danger border-3">
       <div class="card-body py-2">
         <div class="small text-muted">Chưa đóng đủ</div>
-        <div class="fw-bold fs-5 text-danger">{{ unpaid_count }}</div>
-        <div class="small text-danger">{{ outstanding_amount | vnd }}</div>
+        <div class="fw-bold fs-5 text-danger" id="kpiUnpaidCount">{{ unpaid_count }}</div>
+        <div class="small text-danger" id="kpiUnpaidAmount">{{ outstanding_amount | vnd }}</div>
       </div>
     </div>
   </div>
@@ -114,9 +142,10 @@
       <input type="hidden" name="month" value="{{ month }}">
       <input type="hidden" name="year" value="{{ year }}">
       <input type="hidden" name="class_id" value="{{ cls.id }}">
-      <button type="submit" class="btn btn-outline-success btn-sm w-100"
-              onclick="return confirm('Gửi nhắc Zalo cho {{ unpaid_count }} phụ huynh chưa đóng?')">
-        <i class="bi bi-chat-dots me-1"></i>Nhắc Zalo ({{ unpaid_count }})
+      <button type="submit" class="btn btn-outline-success btn-sm w-100" id="btnRemindZalo"
+              data-unpaid-count="{{ unpaid_count }}"
+              onclick="return confirm('Gửi nhắc Zalo cho ' + this.dataset.unpaidCount + ' phụ huynh chưa đóng?')">
+        <i class="bi bi-chat-dots me-1"></i>Nhắc Zalo (<span id="zaloUnpaidCount">{{ unpaid_count }}</span>)
       </button>
     </form>
   </div>
@@ -174,7 +203,7 @@
       </thead>
       <tbody>
         {% for r in records %}
-        <tr class="{% if r.is_voided %}text-muted{% endif %}">
+        <tr id="tuitionRow{{ r.id }}" data-student-id="{{ r.student.id }}" class="{% if r.is_voided %}text-muted{% endif %}">
           <td class="ps-3 text-muted small">{{ loop.index + (pagination.page - 1) * pagination.per_page }}</td>
           <td>
             <a href="{{ url_for('admin.student_detail', student_id=r.student.id) }}"
@@ -207,7 +236,7 @@
               <i class="bi bi-image text-muted" style="font-size:0.75rem;"></i>
             </button>
             {% endif %}
-            {% if not r.is_paid and not r.is_voided and is_writable %}
+            {% if not r.is_paid and not r.is_voided and can_edit %}
             <button class="btn btn-link p-0 ms-1" type="button"
                     data-bs-toggle="collapse"
                     data-bs-target="#adj{{ r.id }}"
@@ -223,7 +252,7 @@
             {% elif r.note %}
             <div class="text-muted" style="font-size:0.72rem;">{{ r.note }}</div>
             {% endif %}
-            {% if not r.is_paid and not r.is_voided and is_writable %}
+            {% if not r.is_paid and not r.is_voided and can_edit %}
             <div class="collapse mt-1" id="adj{{ r.id }}">
               <form method="post"
                     action="{{ url_for('admin.tuition_adjust_amount', payment_id=r.id) }}"
@@ -243,8 +272,8 @@
             {{ r.debt_carried_over | vnd if r.debt_carried_over else '—' }}
           </td>
           <td class="text-end fw-semibold small">{{ r.total_due | vnd }}</td>
-          <td class="text-end small">{{ r.amount_collected | vnd if r.amount_collected else '—' }}</td>
-          <td class="text-center">
+          <td class="text-end small" id="tuitionCollected{{ r.id }}">{{ r.amount_collected | vnd if r.amount_collected else '—' }}</td>
+          <td class="text-center" id="tuitionStatus{{ r.id }}">
             {% if r.status == 'voided' %}
             <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Đã hủy</span>
             {% elif r.status == 'paid' %}
@@ -255,9 +284,9 @@
             <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Chưa đóng</span>
             {% endif %}
           </td>
-          <td class="text-center">
+          <td class="text-center" id="tuitionActions{{ r.id }}">
             {% if r.is_voided %}
-              {% if is_writable %}
+              {% if can_edit %}
               <form method="post" action="{{ url_for('admin.tuition_unvoid', payment_id=r.id) }}" class="d-inline">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-outline-secondary btn-sm"
@@ -268,14 +297,21 @@
               {% else %}
               <span class="text-muted small">—</span>
               {% endif %}
-            {% elif not r.is_paid and is_writable %}
-            <div class="d-flex gap-1 justify-content-center">
-              <button type="button" class="btn btn-success btn-sm"
+            {% elif not r.is_paid and can_edit %}
+            <div class="d-flex gap-2 align-items-center justify-content-center">
+              <label class="ios-switch" title="Đánh dấu đã thu đủ (tiền mặt) — lưu ngay lập tức">
+                <input type="checkbox" class="tuition-paid-toggle"
+                       data-payment-id="{{ r.id }}"
+                       data-remaining="{{ (r.total_due - r.amount_collected) | int }}">
+                <span class="ios-switch-slider"></span>
+              </label>
+              <button type="button" class="btn btn-outline-secondary btn-sm"
                       data-bs-toggle="modal" data-bs-target="#markPaidModal"
                       data-record-id="{{ r.id }}"
                       data-student-name="{{ r.student.full_name }}"
-                      data-remaining="{{ (r.total_due - r.amount_collected) | int }}">
-                <i class="bi bi-check-circle me-1"></i>Thu
+                      data-remaining="{{ (r.total_due - r.amount_collected) | int }}"
+                      title="Thu 1 phần / chuyển khoản / ghi chú riêng">
+                <i class="bi bi-three-dots"></i>
               </button>
               <button type="button" class="btn btn-outline-danger btn-sm"
                       data-bs-toggle="modal" data-bs-target="#voidModal"
@@ -296,7 +332,7 @@
             </div>
             {% elif not r.is_paid %}
             <span class="text-muted small">—</span>
-            {% elif is_writable %}
+            {% elif can_edit %}
             <div class="d-flex flex-column align-items-center gap-1">
               <span class="text-muted small">{{ r.method_label if r.method else '—' }}<br>{{ r.paid_at | date_vn if r.paid_at else '—' }}</span>
               <button type="button" class="btn btn-outline-warning btn-sm"
@@ -383,11 +419,11 @@
     </thead>
     <tbody>
       {% for r in all_records %}
-      <tr class="group-tuition-row" data-paid="{{ 'true' if r.is_paid else 'false' }}">
+      <tr class="group-tuition-row" data-paid="{{ 'true' if r.is_paid else 'false' }}" data-student-id="{{ r.student.id }}">
         <td class="text-muted group-tuition-stt">{{ loop.index }}</td>
         <td class="fw-semibold">{{ r.student.full_name }}</td>
         <td class="text-end">{{ r.total_due | vnd }}</td>
-        <td class="text-center">
+        <td class="text-center group-tuition-status">
           {% if r.is_paid %}
           <span class="badge tuition-status-paid">ĐÃ THU</span>
           {% else %}
@@ -680,6 +716,23 @@ document.getElementById('reverseModal').addEventListener('show.bs.modal', functi
 .tuition-card-individual { position: static; }
 .tuition-profile-box { background: #fff7ed; border-radius: 12px; padding: 14px; }
 .tuition-total-due { color: #ea580c; font-weight: 800; font-size: 1.2rem; }
+
+/* Công tắc kiểu iOS — bật nhanh "Đã thu đủ, tiền mặt" trên danh sách,
+   lưu ngay lập tức khi bật (xem #btnRemindZalo script bên dưới). */
+.ios-switch { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; }
+.ios-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+.ios-switch-slider {
+  position: absolute; inset: 0; cursor: pointer;
+  background-color: #e2e8f0; transition: background-color .2s; border-radius: 34px;
+}
+.ios-switch-slider::before {
+  position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px;
+  background-color: #fff; transition: transform .2s; border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,.3);
+}
+.ios-switch input:checked + .ios-switch-slider { background-color: #34c759; }
+.ios-switch input:checked + .ios-switch-slider::before { transform: translateX(18px); }
+.ios-switch input:disabled + .ios-switch-slider { opacity: .5; cursor: not-allowed; }
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -895,6 +948,86 @@ document.getElementById('btnCopyTuitionCard').addEventListener('click', function
       btn.disabled = false;
       btn.innerHTML = original;
     });
+});
+
+// Công tắc "Đã thu đủ, tiền mặt" — lưu ngay khi bật (không có bước Lưu
+// riêng để tránh mất thao tác nếu thoát trang giữa chừng), cập nhật lại
+// dòng/KPI/thẻ ảnh ẩn tại chỗ thay vì tải lại trang.
+function tuitionFmtVnd(n) {
+  return Math.round(n).toLocaleString('vi-VN') + ' ₫';
+}
+
+document.querySelectorAll('.tuition-paid-toggle').forEach(toggle => {
+  toggle.addEventListener('change', function () {
+    if (!this.checked) return; // 1 chiều — tắt lại không làm gì, dùng nút Hoàn tác
+    const paymentId = this.dataset.paymentId;
+    const remaining = parseInt(this.dataset.remaining, 10) || 0;
+    const row = document.getElementById(`tuitionRow${paymentId}`);
+    const studentName = row ? row.querySelector('a.fw-semibold').textContent.trim() : '';
+    this.disabled = true;
+
+    fetch(`/admin/tuition/${paymentId}/toggle-paid`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': '{{ csrf_token() }}' },
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (!data.success) {
+          alert(data.message || 'Không thể đánh dấu đã thu.');
+          this.checked = false;
+          this.disabled = false;
+          return;
+        }
+
+        document.getElementById(`tuitionStatus${paymentId}`).innerHTML =
+          '<span class="badge bg-success-subtle text-success border border-success-subtle">Đã đóng đủ</span>';
+        document.getElementById(`tuitionCollected${paymentId}`).textContent = tuitionFmtVnd(data.amount_collected);
+        document.getElementById(`tuitionActions${paymentId}`).innerHTML = `
+          <div class="d-flex flex-column align-items-center gap-1">
+            <span class="text-muted small">${data.method_label}<br>${data.paid_at || ''}</span>
+            <button type="button" class="btn btn-outline-warning btn-sm"
+                    data-bs-toggle="modal" data-bs-target="#reverseModal"
+                    data-record-id="${paymentId}" data-student-name="${studentName}"
+                    title="Hoàn tác khoản đã thu">
+              <i class="bi bi-arrow-counterclockwise me-1"></i>Hoàn tác
+            </button>
+          </div>`;
+
+        // KPI + nút Nhắc Zalo — cộng/trừ trực tiếp thay vì gọi lại server.
+        const paidCountEl = document.getElementById('kpiPaidCount');
+        const unpaidCountEl = document.getElementById('kpiUnpaidCount');
+        const paidAmountEl = document.getElementById('kpiPaidAmount');
+        const unpaidAmountEl = document.getElementById('kpiUnpaidAmount');
+        const zaloBtn = document.getElementById('btnRemindZalo');
+        const zaloCountEl = document.getElementById('zaloUnpaidCount');
+        if (paidCountEl) paidCountEl.textContent = parseInt(paidCountEl.textContent, 10) + 1;
+        if (unpaidCountEl) unpaidCountEl.textContent = Math.max(0, parseInt(unpaidCountEl.textContent, 10) - 1);
+        if (paidAmountEl) paidAmountEl.textContent = tuitionFmtVnd(
+          parseInt(paidAmountEl.textContent.replace(/\D/g, ''), 10) + remaining);
+        if (unpaidAmountEl) unpaidAmountEl.textContent = tuitionFmtVnd(
+          Math.max(0, parseInt(unpaidAmountEl.textContent.replace(/\D/g, ''), 10) - remaining));
+        if (zaloBtn) zaloBtn.dataset.unpaidCount = Math.max(0, parseInt(zaloBtn.dataset.unpaidCount, 10) - 1);
+        if (zaloCountEl) zaloCountEl.textContent = Math.max(0, parseInt(zaloCountEl.textContent, 10) - 1);
+
+        // Đồng bộ luôn dòng tương ứng trong thẻ ảnh ẩn (#groupTuitionCapture)
+        // để "Xuất ảnh học phí nhóm" ngay sau đó không bị lệch trạng thái.
+        const studentId = row ? row.dataset.studentId : null;
+        if (studentId) {
+          const captureRow = document.querySelector(
+            `#groupTuitionCapture .group-tuition-row[data-student-id="${studentId}"]`);
+          if (captureRow) {
+            captureRow.dataset.paid = 'true';
+            captureRow.querySelector('.group-tuition-status').innerHTML =
+              '<span class="badge tuition-status-paid">ĐÃ THU</span>';
+          }
+        }
+      })
+      .catch(() => {
+        alert('Lỗi kết nối — vui lòng thử lại.');
+        this.checked = false;
+        this.disabled = false;
+      });
+  });
 });
 </script>
 {% endblock %}
