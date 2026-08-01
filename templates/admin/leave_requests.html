@@ -70,14 +70,20 @@
       <tbody>
         {% for r in requests %}
         <tr>
-          <td class="fw-semibold">{{ r.student.full_name if r.student else '—' }}</td>
+          <td class="fw-semibold">
+            {% if r.student %}
+              {{ r.student.full_name }}{% if r.student.current_grade %} - {{ r.student.current_grade | replace('Lớp ', '') }}{% endif %}
+            {% else %}—{% endif %}
+          </td>
           <td class="small">
             {{ r.start_date.strftime('%d/%m/%Y') }}
             {% if r.end_date != r.start_date %} – {{ r.end_date.strftime('%d/%m/%Y') }}{% endif %}
           </td>
           <td class="small text-muted">{{ r.reason or '—' }}</td>
           <td class="small">
-            {% if r.status == 'APPROVED' %}
+            {% if r.status == 'APPROVED' and r.end_date < today %}
+              <span class="badge bg-secondary bg-opacity-50">Đã kết thúc</span>
+            {% elif r.status == 'APPROVED' %}
               <span class="badge bg-success bg-opacity-75">Đã duyệt</span>
             {% elif r.status == 'REJECTED' %}
               <span class="badge bg-secondary">Đã hủy</span>

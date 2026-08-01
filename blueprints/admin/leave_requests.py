@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 
 from flask import render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
@@ -102,7 +102,8 @@ def manage_leave_requests():
         .paginate(page=page, per_page=10, error_out=False)
     )
 
-    return render_template('admin/leave_requests.html', requests=pagination.items, pagination=pagination)
+    return render_template('admin/leave_requests.html', requests=pagination.items, pagination=pagination,
+                            today=date.today())
 
 
 @admin_bp.route('/leave-requests/<int:request_id>/edit', methods=['POST'])
