@@ -429,8 +429,18 @@ def classes():
         *[(Class.grade_level == g, i) for i, g in enumerate(GRADE_SEQUENCE)],
         else_=len(GRADE_SEQUENCE)
     )
-    pagination = query.order_by(grade_order, Class.name).paginate(page=page, per_page=10, error_out=False)
+    pagination = (query
+                  .options(joinedload(Class.course), joinedload(Class.primary_teacher))
+                  .order_by(grade_order, Class.name)
+                  .paginate(page=page, per_page=10, error_out=False))
     classes = pagination.items
+
+    class_ids = [c.id for c in classes]
+    enrollment_counts = dict(
+        db.session.query(Enrollment.class_id, db.func.count(Enrollment.id))
+        .filter(Enrollment.class_id.in_(class_ids), Enrollment.is_active == True)
+        .group_by(Enrollment.class_id).all()
+    ) if class_ids else {}
 
     courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
     teachers = Teacher.query.join(Teacher.user).filter(User.is_deleted == False).order_by('full_name').all()
@@ -447,6 +457,7 @@ def classes():
                            grade_level=grade_level, teacher_id=teacher_id,
                            courses=courses, teachers=teachers, grade_options=grade_options,
                            is_filtered=is_filtered, pagination=pagination,
+                           enrollment_counts=enrollment_counts,
                            grade_labels=GRADE_LEVEL_LABELS)
 
 

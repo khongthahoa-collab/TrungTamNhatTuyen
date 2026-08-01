@@ -840,8 +840,8 @@ class Class(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    course_id = db.Column(db.Integer, db.ForeignKey('courses.id'), nullable=False)
-    grade_level = db.Column(db.String(20))  # e.g., "Class 10", "Class 6A"
+    course_id = db.Column(db.Integer, db.ForeignKey('courses.id'), nullable=False, index=True)
+    grade_level = db.Column(db.String(20), index=True)  # e.g., "Class 10", "Class 6A"
     max_students = db.Column(db.Integer, default=20)
     monthly_fee = db.Column(db.Float, default=0)       # Học phí cơ bản mỗi tháng (đủ 4 tuần)
     sessions_per_week = db.Column(db.Integer, default=1)  # Số buổi học trong 1 tuần

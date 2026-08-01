@@ -91,7 +91,7 @@
             </td>
             <td class="small">{{ cls.primary_teacher.full_name if cls.primary_teacher else '—' }}</td>
             <td class="text-center small">
-              {% set active_enrollments = cls.enrollments | selectattr('is_active', 'equalto', true) | list | length %}
+              {% set active_enrollments = enrollment_counts.get(cls.id, 0) %}
               <span class="fw-semibold {% if cls.max_students and active_enrollments >= cls.max_students %}text-danger{% else %}text-success{% endif %}">
                 {{ active_enrollments }}
               </span>
