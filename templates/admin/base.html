@@ -18,14 +18,6 @@
         </a>
       </li>
 
-      {% if current_user.can_access('reports') %}
-      <li class="nav-item mb-1">
-        <a href="{{ url_for('admin.reports') }}" class="nav-link {% if current_admin_module == 'reports' %}active{% endif %}">
-          <i class="bi bi-bar-chart-line me-2"></i>Thống kê
-        </a>
-      </li>
-      {% endif %}
-
       {# ── Học vụ & Đào tạo ── #}
       {% if current_user.can_access('students') or current_user.can_access('classes') or current_user.can_access('courses') or current_user.can_access('attendance') or current_user.can_access('rewards') %}
       {% set group_active = current_admin_module in ('students', 'classes', 'courses', 'attendance', 'rewards') %}
@@ -114,14 +106,21 @@
       {% endif %}
 
       {# ── Tài chính ── #}
-      {% if current_user.can_access('tuition') or current_user.can_access('expenses') or current_user.can_access('salary') %}
-      {% set group_active = current_admin_module in ('tuition', 'expenses', 'salary') %}
+      {% if current_user.can_access('tuition') or current_user.can_access('expenses') or current_user.can_access('salary') or current_user.can_access('reports') %}
+      {% set group_active = current_admin_module in ('tuition', 'expenses', 'salary', 'reports') %}
       <li class="nav-item mb-1">
         <a href="#group-finance" class="nav-link d-flex align-items-center {% if not group_active %}collapsed{% endif %}" data-bs-toggle="collapse" role="button" aria-expanded="{{ 'true' if group_active else 'false' }}">
           <i class="bi bi-cash-stack me-2"></i>Tài chính
           <i class="bi bi-chevron-down ms-auto sidebar-caret"></i>
         </a>
         <ul class="nav nav-pills flex-column ps-3 collapse {% if group_active %}show{% endif %}" id="group-finance" data-bs-parent="#sidebarAccordion">
+          {% if current_user.can_access('reports') %}
+          <li class="nav-item mb-1">
+            <a href="{{ url_for('admin.reports') }}" class="nav-link {% if current_admin_module == 'reports' %}active{% endif %}">
+              <i class="bi bi-bar-chart-line me-2"></i>Thống kê
+            </a>
+          </li>
+          {% endif %}
           {% if current_user.can_access('tuition') %}
           <li class="nav-item mb-1">
             <a href="{{ url_for('admin.tuition') }}" class="nav-link {% if current_admin_module == 'tuition' %}active{% endif %}">
