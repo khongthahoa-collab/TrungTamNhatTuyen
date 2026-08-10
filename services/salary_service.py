@@ -53,10 +53,24 @@ def substituted_sessions(teacher_id, month, year):
 def get_or_create_salary(teacher, month, year):
     """Return (salary, created) — the existing row for this teacher/month/year,
     or a freshly created one (base amount from Teacher.base_salary, current
-    scheduled-session count). Never overwrites an existing row, and never
-    derives its base amount from another month's record."""
+    scheduled-session count).
+
+    An existing row that isn't finalized yet has its base_amount/session
+    counts refreshed from the teacher profile and current schedule — so
+    editing a teacher's base salary (or a schedule change) before the month
+    is chốt correctly flows through on the next "Tính toán" click, instead
+    of staying frozen at whatever it was when the stub row was first
+    created. bonus/deduction/advance/note (admin's manual entries on
+    /admin/salary/detail) are never touched here. Once finalized
+    (is_finalized), the row is completely frozen — recalculating never
+    derives from another month's record either."""
     existing = Salary.query.filter_by(teacher_id=teacher.id, month=month, year=year).first()
     if existing:
+        if not existing.is_finalized:
+            existing.base_amount = teacher.base_salary or 0
+            existing.sessions_scheduled = scheduled_sessions(teacher.id, month, year)
+            existing.sessions_substituted = substituted_sessions(teacher.id, month, year)
+            existing.total = existing.base_amount + existing.bonus - existing.deduction - existing.advance
         return existing, False
 
     base = teacher.base_salary or 0

@@ -1,5 +1,5 @@
 import secrets
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import request, g
 from extensions import db
 from models import User
@@ -23,6 +23,7 @@ def login():
         return api_error('Thông tin đăng nhập không đúng.', 401, code='invalid_credentials')
 
     user.api_token = secrets.token_hex(32)
+    user.token_expires_at = datetime.utcnow() + timedelta(hours=24)
     user.last_login = datetime.utcnow()
     db.session.commit()
 
@@ -33,6 +34,7 @@ def login():
 @api_login_required
 def logout():
     g.api_user.api_token = None
+    g.api_user.token_expires_at = None
     db.session.commit()
     return api_ok({'message': 'Đã đăng xuất.'})
 

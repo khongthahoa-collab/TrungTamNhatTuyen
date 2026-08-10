@@ -4,8 +4,10 @@ User.can_access/can_write permission system as the web app (see
 blueprints/permissions.py) so an API token has identical effective
 access to what that account can do in the browser.
 """
+from datetime import datetime, timedelta
 from functools import wraps
 from flask import Blueprint, request, jsonify, g
+from extensions import db
 from models import User
 
 api_bp = Blueprint('api', __name__, url_prefix='/api/v1')
@@ -95,14 +97,34 @@ def parse_amount(body, key='amount', required=True):
 
 def api_login_required(f):
     """Bearer-token auth — looks up User.api_token instead of the
-    session-cookie Flask-Login mechanism the HTML routes use."""
+    session-cookie Flask-Login mechanism the HTML routes use.
+
+    Tokens carry a 24h sliding expiration: the DB is only touched to
+    renew it once less than 12h remain, so a normal request stream
+    doesn't write on every call."""
     @wraps(f)
     def decorated(*args, **kwargs):
         auth_header = request.headers.get('Authorization', '')
-        token = auth_header[7:].strip() if auth_header.startswith('Bearer ') else None
-        user = User.query.filter_by(api_token=token, is_active=True, is_deleted=False).first() if token else None
+        if not auth_header.startswith('Bearer '):
+            return api_error('Thiếu hoặc sai access token.', 401, code='unauthorized')
+
+        token = auth_header[7:].strip()
+        if not token:
+            return api_error('Thiếu hoặc sai access token.', 401, code='unauthorized')
+
+        user = User.query.filter_by(api_token=token, is_active=True, is_deleted=False).first()
         if not user:
             return api_error('Thiếu hoặc sai access token.', 401, code='unauthorized')
+
+        now = datetime.utcnow()
+        if user.token_expires_at and user.token_expires_at < now:
+            return api_error('Access token đã hết hạn, vui lòng đăng nhập lại.', 401, code='token_expired')
+
+        renew_threshold = timedelta(hours=12)
+        if not user.token_expires_at or (user.token_expires_at - now) < renew_threshold:
+            user.token_expires_at = now + timedelta(hours=24)
+            db.session.commit()
+
         g.api_user = user
         return f(*args, **kwargs)
     return decorated

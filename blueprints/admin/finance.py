@@ -617,6 +617,16 @@ def expense_delete(exp_id):
 # Salary
 # ────────────────────────────────────────────────────────────────
 
+def _salary_month_finalized(month, year):
+    """Cả tháng đã 'Chốt lương' chưa — chỉ True khi có ít nhất 1 phiếu lương
+    và toàn bộ phiếu tháng đó đều is_finalized. Một giáo viên mới thêm sau
+    khi chốt (chưa có phiếu, hoặc phiếu vừa tạo chưa chốt) sẽ khiến trạng
+    thái quay lại False, đúng ý: tháng chưa thực sự chốt xong cho tới khi
+    tính/chốt luôn cho người đó."""
+    salaries = Salary.query.filter_by(month=month, year=year).all()
+    return bool(salaries) and all(s.is_finalized for s in salaries)
+
+
 @admin_bp.route('/salary')
 @login_required
 @require_master
@@ -626,6 +636,7 @@ def salary():
     month = request.args.get('month', today.month, type=int)
     year = request.args.get('year', today.year, type=int)
     page = request.args.get('page', 1, type=int)
+    is_finalized = _salary_month_finalized(month, year)
 
     pagination = (Teacher.query
                  .join(Teacher.user).filter(User.is_deleted == False)
@@ -669,7 +680,8 @@ def salary():
                            sub_counts=sub_counts,
                            month=month,
                            year=year,
-                           today=today)
+                           today=today,
+                           is_finalized=is_finalized)
 
 
 @admin_bp.route('/salary/calculate', methods=['POST'])
@@ -707,6 +719,41 @@ def salary_calculate():
     return redirect(url_for('admin.salary', month=month, year=year))
 
 
+@admin_bp.route('/salary/finalize', methods=['POST'])
+@login_required
+@require_master
+def salary_finalize():
+    """'Chốt lương tháng {}' — khoá sửa base_amount/bonus/deduction/advance
+    cho toàn bộ giáo viên của tháng này, giống hệt cơ chế Chốt danh sách
+    học phí (tuition_finalize_class)."""
+    month = request.form.get('month', type=int)
+    year = request.form.get('year', type=int)
+    salaries = Salary.query.filter_by(month=month, year=year).all()
+    now = datetime.utcnow()
+    for s in salaries:
+        s.is_finalized = True
+        s.paid_at = now
+    db.session.commit()
+    flash(f'Đã chốt lương tháng {month}/{year} cho {len(salaries)} giáo viên.', 'success')
+    return redirect(url_for('admin.salary', month=month, year=year))
+
+
+@admin_bp.route('/salary/unfinalize', methods=['POST'])
+@login_required
+@require_master
+def salary_unfinalize():
+    """Mở lại lương đã chốt — cho phép sửa lại khi phát hiện sai sót."""
+    month = request.form.get('month', type=int)
+    year = request.form.get('year', type=int)
+    salaries = Salary.query.filter_by(month=month, year=year).all()
+    for s in salaries:
+        s.is_finalized = False
+        s.paid_at = None
+    db.session.commit()
+    flash(f'Đã mở lại lương tháng {month}/{year}.', 'warning')
+    return redirect(url_for('admin.salary', month=month, year=year))
+
+
 @admin_bp.route('/salary/start/<int:teacher_id>', methods=['POST'])
 @login_required
 @require_master
@@ -728,6 +775,9 @@ def salary_detail(salary_id):
     sal = Salary.query.get_or_404(salary_id)
 
     if request.method == 'POST':
+        if sal.is_finalized:
+            flash('Lương tháng này đã được chốt — hãy Mở lại trước khi chỉnh sửa.', 'danger')
+            return redirect(url_for('admin.salary_detail', salary_id=sal.id))
         sal.base_amount = request.form.get('base_amount', 0, type=float)
         sal.bonus = request.form.get('bonus', 0, type=float)
         sal.deduction = request.form.get('deduction', 0, type=float)

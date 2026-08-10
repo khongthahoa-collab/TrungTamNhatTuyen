@@ -25,9 +25,9 @@ def login():
 
         if user and user.check_password(password) and user.is_active:
             # Teachers mainly use an installed PWA on their own phone, so a
-            # pure teacher account always gets a persistent session — but
-            # NOT an admin with a linked teacher profile, since that would
-            # leave a full admin session parked indefinitely on the device.
+            # pure teacher account always gets a persistent session. Other
+            # roles (admin, parent...) opt in via the checkbox instead —
+            # leave that decision to the checkbox on the login form.
             if user.role == 'teacher':
                 remember = True
             session['active_role'] = default_active_role(user)

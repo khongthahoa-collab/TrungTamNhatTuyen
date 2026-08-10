@@ -542,6 +542,7 @@ class User(UserMixin, db.Model):
     must_change_password = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
     is_deleted = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
     api_token = db.Column(db.String(64), unique=True, nullable=True, index=True)
+    token_expires_at = db.Column(db.DateTime, nullable=True)
     # Secret used to authenticate the WebCal subscription feed (query-string,
     # since calendar apps can't send cookies/headers) — deliberately separate
     # from api_token so subscribing/rotating a calendar link never touches
