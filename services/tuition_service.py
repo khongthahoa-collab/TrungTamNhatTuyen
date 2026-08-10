@@ -33,7 +33,7 @@ from urllib.parse import quote, urlencode
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from extensions import db
-from models import TuitionPayment, TuitionTransaction, TuitionFeeAuditLog, Class
+from models import TuitionPayment, TuitionTransaction, TuitionFeeAuditLog, Class, Enrollment
 from services.academic_year_service import assert_period_writable, is_period_writable
 
 
@@ -102,6 +102,49 @@ def batch_previous_month_debts(student_ids, class_id, month, year):
             debts[sid] = max(0, r.total_due - (r.amount_collected or 0))
 
     return debts
+
+
+def forecast_monthly_revenue(month, year):
+    """'Dự thu' — dự báo học phí sẽ phải thu tháng này, tính TRƯỚC khi tạo
+    phiếu thu thật (khác total_expected trong _tuition_overview_aggregate,
+    vốn chỉ cộng các phiếu ĐÃ tạo). Dùng đúng công thức monthly_fee_generate
+    sẽ áp dụng khi tạo phiếu thật: Class.monthly_fee × số học sinh đang học
+    active, cộng nợ tháng trước còn lại của từng học sinh đó — không có
+    proration/giảm giá nào được áp dụng ở nơi tạo phiếu thật nên ở đây cũng
+    vậy, để con số dự báo khớp đúng số sẽ thực sự lên hoá đơn sau này.
+
+    Trả về (total, per_class) — per_class là list dict {class, fee,
+    enrollment_count, subtotal} để hiển thị chi tiết từng lớp."""
+    active_classes = Class.query.filter_by(is_active=True).all()
+    class_ids = [c.id for c in active_classes]
+    enrollment_counts = {}
+    enrollments_by_class = {}
+    if class_ids:
+        enrollments = Enrollment.query.filter(
+            Enrollment.class_id.in_(class_ids), Enrollment.is_active == True
+        ).all()
+        for e in enrollments:
+            enrollments_by_class.setdefault(e.class_id, []).append(e.student_id)
+        enrollment_counts = {cid: len(sids) for cid, sids in enrollments_by_class.items()}
+
+    per_class = []
+    total = 0
+    for cls in active_classes:
+        student_ids = enrollments_by_class.get(cls.id, [])
+        if not student_ids:
+            continue
+        fee = cls.monthly_fee or 0
+        debt_map = batch_previous_month_debts(student_ids, cls.id, month, year)
+        subtotal = fee * len(student_ids) + sum(debt_map.values())
+        total += subtotal
+        per_class.append({
+            'class': cls,
+            'fee': fee,
+            'enrollment_count': enrollment_counts.get(cls.id, 0),
+            'subtotal': subtotal,
+        })
+
+    return total, per_class
 
 
 def create_tuition_payment(student_id, class_id, month, year, amount, debt_override=None,

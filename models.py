@@ -1493,6 +1493,26 @@ class Expense(db.Model):
         return f'<Expense category={self.category} amount={self.amount}>'
 
 
+class ExpenseForecast(db.Model):
+    """'Chi phí khác dự kiến' — phần Admin tự ước tính thủ công cho 'Dự chi'
+    của 1 tháng (thuê nhà, điện nước...), cộng thêm vào tổng lương cơ bản
+    tính tự động, vì các khoản này không có định mức/nguồn dữ liệu để tự
+    tính như lương giáo viên."""
+    __tablename__ = 'expense_forecasts'
+
+    id = db.Column(db.Integer, primary_key=True)
+    month = db.Column(db.Integer, nullable=False)
+    year = db.Column(db.Integer, nullable=False)
+    amount = db.Column(db.Float, default=0)
+    note = db.Column(db.Text)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint('month', 'year', name='uq_expense_forecast'),)
+
+    def __repr__(self):
+        return f'<ExpenseForecast {self.month}/{self.year} amount={self.amount}>'
+
+
 class ZaloLog(db.Model):
     """Log of Zalo messages sent to parents"""
     __tablename__ = 'zalo_logs'
