@@ -52,6 +52,7 @@
           <label class="form-label fw-semibold">Lương cơ bản (VNĐ)</label>
           <input type="text" inputmode="numeric" class="form-control money-input" name="base_amount" id="base_amount"
                  value="{{ salary.base_amount | int }}" {% if locked %}disabled{% endif %}>
+          <div class="form-text">*Cập nhật ở màn hình quản lý Giáo viên</div>
         </div>
         <div class="col-6 col-md-3">
           <label class="form-label fw-semibold">Thưởng (VNĐ)</label>

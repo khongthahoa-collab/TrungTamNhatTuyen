@@ -647,6 +647,14 @@ def salary():
     salaries_by_teacher = {
         s.teacher_id: s for s in Salary.query.filter_by(month=month, year=year).all()
     }
+    # Lương cơ bản mặc định luôn lấy từ hồ sơ giáo viên cho tới khi chốt —
+    # đồng bộ lại ngay khi xem trang, không bắt admin phải nhớ bấm "Tính
+    # toán" lại mỗi lần sửa lương cơ bản ở /admin/teachers.
+    for t in teachers:
+        sal = salaries_by_teacher.get(t.id)
+        if sal and not sal.is_finalized:
+            get_or_create_salary(t, month, year)
+    db.session.commit()
     session_counts = {}
     sub_counts = {}
     if teacher_ids:
@@ -788,6 +796,10 @@ def salary_detail(salary_id):
         db.session.commit()
         flash(f'Đang chỉnh sửa thông tin cho Phiếu lương {sal.month}/{sal.year} - {sal.teacher.full_name}', 'warning')
         return redirect(url_for('admin.salary_detail', salary_id=sal.id))
+
+    if not sal.is_finalized:
+        get_or_create_salary(sal.teacher, sal.month, sal.year)
+        db.session.commit()
 
     return render_template('admin/finance/salary_detail.html', salary=sal)
 
