@@ -12,7 +12,7 @@ from services.zalo_service import ZaloService
 from services.tuition_service import (create_tuition_payment, record_payment,
                                       record_fee_adjustment,
                                       void_tuition_payment, unvoid_tuition_payment, reverse_payment,
-                                      generate_missing_bills_for_class)
+                                      generate_missing_bills_for_class, generate_missing_bills_for_classes)
 from services.academic_year_service import FrozenPeriodError, is_period_writable, list_academic_year_months
 from blueprints.pagination_utils import paginate_list
 
@@ -126,20 +126,17 @@ def tuition():
     not_generated = request.args.get('not_generated') == '1'
 
     # Tự động tạo học phí còn thiếu cho mọi lớp sắp hiển thị, thay cho nút
-    # "Tạo học phí" thủ công cũ — mỗi lớp cô lập lỗi/commit riêng, 1 lớp lỗi
-    # không kéo theo mất dữ liệu các lớp khác đã tạo thành công.
-    auto_gen_q = Class.query.filter_by(is_active=True)
+    # "Tạo học phí" thủ công cũ — gộp lô 1 lần cho tất cả lớp (không lặp
+    # generate_missing_bills_for_class() theo từng lớp, vốn tốn ~5
+    # query/lớp và từng gây trang này tải rất chậm khi trường có vài chục
+    # lớp — xem generate_missing_bills_for_classes()).
+    auto_gen_class_ids_q = db.session.query(Class.id).filter_by(is_active=True)
     if course_id:
-        auto_gen_q = auto_gen_q.filter_by(course_id=course_id)
+        auto_gen_class_ids_q = auto_gen_class_ids_q.filter_by(course_id=course_id)
     if class_id:
-        auto_gen_q = auto_gen_q.filter_by(id=class_id)
-    auto_created, auto_errors = 0, 0
-    for cls in auto_gen_q.all():
-        try:
-            auto_created += generate_missing_bills_for_class(cls.id, month, year)
-        except Exception:
-            db.session.rollback()
-            auto_errors += 1
+        auto_gen_class_ids_q = auto_gen_class_ids_q.filter_by(id=class_id)
+    auto_gen_class_ids = [r[0] for r in auto_gen_class_ids_q.all()]
+    auto_created, auto_errors = generate_missing_bills_for_classes(auto_gen_class_ids, month, year)
     if auto_created:
         flash(f'Đã tự động tạo {auto_created} học phí mới cho tháng {month}/{year}.', 'success')
     if auto_errors:

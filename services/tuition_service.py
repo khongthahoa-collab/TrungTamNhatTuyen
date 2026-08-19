@@ -199,6 +199,69 @@ def generate_missing_bills_for_class(class_id, month, year):
     return created
 
 
+def generate_missing_bills_for_classes(class_ids, month, year):
+    """Bản gộp lô của generate_missing_bills_for_class() cho nhiều lớp cùng
+    lúc — dùng ở trang tổng hợp /admin/tuition, nơi phải quét TẤT CẢ lớp
+    mỗi lần mở trang. Gọi hàm kia trong vòng lặp từng tốn ~5 query/lớp
+    (is_period_writable và TuitionReport/Class/Enrollment/TuitionPayment
+    đều lặp lại dù phần lớn không phụ thuộc lớp cụ thể) — với vài chục lớp
+    thành hàng trăm round-trip mỗi lần tải trang, đúng kiểu N+1 xưa nay
+    codebase này cố tránh. Ở đây mọi thứ gộp thành ~5 query TỔNG, không
+    nhân theo số lớp, bất kể có tạo được gì hay không.
+
+    Trả về (created, errors) — created là tổng số hoá đơn mới tạo được,
+    errors là số lớp gặp lỗi khi insert (lớp lỗi bị rollback riêng, không
+    ảnh hưởng các lớp khác đã tạo thành công)."""
+    if not class_ids or not is_period_writable(month, year):
+        return 0, 0
+
+    finalized_class_ids = {
+        r.class_id for r in TuitionReport.query.filter(
+            TuitionReport.class_id.in_(class_ids), TuitionReport.month == month,
+            TuitionReport.year == year, TuitionReport.is_finalized == True,
+        ).all()
+    }
+    active_class_ids = {c.id for c in
+                         Class.query.filter(Class.id.in_(class_ids), Class.is_active == True).all()}
+
+    enrolled_by_class = {}
+    for e in Enrollment.query.filter(Enrollment.class_id.in_(class_ids), Enrollment.is_active == True).all():
+        enrolled_by_class.setdefault(e.class_id, []).append(e.student_id)
+
+    billed_by_class = {}
+    if enrolled_by_class:
+        for t in TuitionPayment.query.filter(
+            TuitionPayment.class_id.in_(class_ids), TuitionPayment.month == month, TuitionPayment.year == year,
+        ).all():
+            billed_by_class.setdefault(t.class_id, set()).add(t.student_id)
+
+    classes_by_id = {c.id: c for c in Class.query.filter(Class.id.in_(class_ids)).all()}
+
+    created, errors = 0, 0
+    for cid, student_ids in enrolled_by_class.items():
+        if cid in finalized_class_ids or cid not in active_class_ids:
+            continue
+        to_create_ids = [sid for sid in student_ids if sid not in billed_by_class.get(cid, set())]
+        if not to_create_ids:
+            continue
+
+        try:
+            debt_map = batch_previous_month_debts(to_create_ids, cid, month, year)
+            fee = classes_by_id[cid].monthly_fee or 0
+            for student_id in to_create_ids:
+                _, was_created = create_tuition_payment(
+                    student_id, cid, month, year, fee,
+                    debt_override=debt_map.get(student_id, 0), skip_period_check=True)
+                if was_created:
+                    created += 1
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            errors += 1
+
+    return created, errors
+
+
 def create_tuition_payment(student_id, class_id, month, year, amount, debt_override=None,
                            skip_period_check=False, **extra):
     """Create a TuitionPayment row with debt_carried_over computed from
