@@ -7,6 +7,7 @@ import json
 from urllib.parse import quote
 from flask import render_template, redirect, url_for, flash, request, session, Response, abort
 from flask_login import login_required, current_user
+from sqlalchemy.orm import joinedload
 from extensions import db
 from models import Exam, ExamLog, ExamAttempt, ExamFolder, Class, Course
 from blueprints.teacher import teacher_bp, require_teacher
@@ -94,7 +95,7 @@ def exams_results(exam_id):
     exam = Exam.query.get_or_404(exam_id)
     require_owns_or_admin(exam)
 
-    attempts = ExamAttempt.query.filter_by(exam_id=exam.id).filter(
+    attempts = ExamAttempt.query.options(joinedload(ExamAttempt.student)).filter_by(exam_id=exam.id).filter(
         ExamAttempt.student_id.isnot(None)).order_by(ExamAttempt.started_at.desc()).all()
 
     by_student = {}

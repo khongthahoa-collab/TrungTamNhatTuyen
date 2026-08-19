@@ -182,7 +182,8 @@ def attendance(student_id):
     children = current_user.children.filter_by(is_active=True).all()
 
     page = request.args.get('page', 1, type=int)
-    base_query = Attendance.query.filter_by(student_id=student.id)
+    base_query = (Attendance.query.filter_by(student_id=student.id)
+                 .options(joinedload(Attendance.schedule).joinedload(Schedule.class_)))
 
     # Status counts via SQL over the full history, not just the current
     # page — the template's summary cards need true totals.
@@ -214,7 +215,7 @@ def scores(student_id):
 
     score_type_filter = request.args.get('score_type', '')
 
-    q = student.scores
+    q = student.scores.options(joinedload(Score.class_))
     if score_type_filter:
         q = q.filter_by(score_type=score_type_filter)
     all_scores = q.order_by(Score.exam_date.desc(), Score.id.desc()).all()
@@ -382,7 +383,8 @@ def tuition(student_id):
     # Current month's status — fetched directly (not from the paginated
     # history below), so it's always correct regardless of which page of
     # older history the parent happens to be viewing.
-    current_records = student.tuition_payments.filter_by(year=today.year, month=today.month).all()
+    current_records = student.tuition_payments.options(joinedload(TuitionPayment.class_)).filter_by(
+        year=today.year, month=today.month).all()
     current_total = sum(r.amount for r in current_records)
     current_unpaid = sum(r.amount for r in current_records if not r.is_paid)
 
@@ -392,7 +394,7 @@ def tuition(student_id):
         func.count(TuitionPayment.id), func.coalesce(func.sum(TuitionPayment.amount), 0)
     ).first()
 
-    pagination = student.tuition_payments.order_by(
+    pagination = student.tuition_payments.options(joinedload(TuitionPayment.class_)).order_by(
         TuitionPayment.year.desc(), TuitionPayment.month.desc()
     ).paginate(page=page, per_page=50, error_out=False)
     records = pagination.items

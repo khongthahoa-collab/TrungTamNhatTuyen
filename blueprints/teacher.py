@@ -2,9 +2,9 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from datetime import date, timedelta, datetime, time as time_type
 import calendar
-from sqlalchemy.orm import contains_eager
+from sqlalchemy.orm import contains_eager, joinedload
 from extensions import db
-from models import Schedule, Attendance, Score, Class, Enrollment, Student, ClassDocument, Room, Notification, User, Salary, LeaveRequest, LeaveRequestStatus
+from models import Schedule, Attendance, Score, Class, Enrollment, Student, ClassDocument, Room, Notification, User, Salary, LeaveRequest, LeaveRequestStatus, Teacher
 from services.zalo_service import ZaloService
 from services.reward_service import create_suggested_reward
 from services.salary_service import scheduled_sessions, substituted_sessions, taught_classes_count
@@ -135,7 +135,11 @@ def schedule():
     # Nếu không còn là thành viên lớp nữa (bị gỡ khỏi trợ giảng), vẫn thấy các
     # buổi ĐÃ QUA mà chính họ từng đứng lớp — đổi danh sách trợ giảng chỉ
     # ảnh hưởng từ hôm nay trở đi, không xóa lịch sử.
-    query = Schedule.query.join(Class, Schedule.class_id == Class.id).filter(
+    query = Schedule.query.join(Class, Schedule.class_id == Class.id).options(
+        contains_eager(Schedule.class_),
+        joinedload(Schedule.teacher).joinedload(Teacher.user),
+        joinedload(Schedule.substitute_teacher).joinedload(Teacher.user),
+    ).filter(
         Schedule.date >= monday,
         Schedule.date <= monday + timedelta(days=6),
     )
@@ -632,12 +636,19 @@ def attendance_list():
     # buổi do chính họ đứng lớp — để trợ giảng thấy được lịch đầy đủ của lớp.
     # Ai thực sự dạy buổi nào (và ai được phép điểm danh) vẫn theo
     # Schedule.teacher_id, xem can_edit trong template + save_attendance().
-    schedules = Schedule.query.join(Class, Schedule.class_id == Class.id).filter(
-        _teacher_schedule_visibility(teacher),
-        Schedule.is_cancelled == False,
-        Schedule.date >= range_start,
-        Schedule.date <= range_end,
-    ).order_by(Schedule.date, Schedule.start_time).all()
+    schedules = (Schedule.query
+                .join(Class, Schedule.class_id == Class.id)
+                .options(
+                    contains_eager(Schedule.class_),
+                    joinedload(Schedule.teacher).joinedload(Teacher.user),
+                    joinedload(Schedule.substitute_teacher).joinedload(Teacher.user),
+                )
+                .filter(
+                    _teacher_schedule_visibility(teacher),
+                    Schedule.is_cancelled == False,
+                    Schedule.date >= range_start,
+                    Schedule.date <= range_end,
+                ).order_by(Schedule.date, Schedule.start_time).all())
 
     # Load attendance summaries
     summaries = AttendanceSummary.query.filter(
@@ -759,6 +770,7 @@ def attendance_session(schedule_id):
     # nghỉ/bị xoá) mới vào danh sách điểm danh hôm nay/tương lai.
     enrollments = (Enrollment.query
                    .join(Student, Enrollment.student_id == Student.id)
+                   .options(contains_eager(Enrollment.student))
                    .filter(Enrollment.class_id == schedule.class_id, Enrollment.is_active == True,
                            Student.is_active == True, Student.is_deleted == False)
                    .all())
@@ -773,7 +785,7 @@ def attendance_session(schedule_id):
         }
         missing_ids = recorded_student_ids - already_included_ids
         if missing_ids:
-            enrollments += Enrollment.query.filter(
+            enrollments += Enrollment.query.options(joinedload(Enrollment.student)).filter(
                 Enrollment.class_id == schedule.class_id,
                 Enrollment.student_id.in_(missing_ids),
             ).all()

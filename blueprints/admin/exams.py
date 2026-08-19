@@ -1,7 +1,9 @@
 import json
+from datetime import datetime
 from urllib.parse import quote
 from flask import render_template, redirect, url_for, flash, request, session, Response, abort
 from flask_login import login_required, current_user
+from sqlalchemy.orm import joinedload
 from extensions import db
 from models import Exam, ExamLog, ExamAttempt, ExamFolder, Class, Course, User, UserRole
 from blueprints.admin import admin_bp, require_admin_or_teacher
@@ -24,7 +26,7 @@ def exams_list():
     status = request.args.get('status', '').strip()
     creator_id = request.args.get('creator_id', type=int)
 
-    query = Exam.query
+    query = Exam.query.options(joinedload(Exam.folder), joinedload(Exam.creator))
     if folder_id:
         query = query.filter_by(folder_id=folder_id)
     if subject:
@@ -56,11 +58,23 @@ def exams_list():
     courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
     creators = User.query.filter(User.role.in_([UserRole.ADMIN, UserRole.TEACHER])).order_by(User.full_name).all()
 
+    # taken_exam_ids batched here instead of calling exam.taken_status per
+    # row in the template — that property runs its own
+    # attempts.filter_by(status='submitted').first() query per exam.
+    non_draft_ids = [e.id for e in exams if not e.is_draft]
+    taken_exam_ids = set()
+    if non_draft_ids:
+        taken_exam_ids = {
+            r[0] for r in db.session.query(ExamAttempt.exam_id)
+            .filter(ExamAttempt.exam_id.in_(non_draft_ids), ExamAttempt.status == 'submitted')
+            .distinct().all()
+        }
+
     return render_template('exams/admin_list.html', exams=exams, folders=folders, classes=classes,
                            courses=courses, creators=creators, exam_types=EXAM_TYPES,
                            folder_id=folder_id, subject=subject, exam_type=exam_type,
                            class_id=class_id, status=status, creator_id=creator_id,
-                           pagination=pagination)
+                           pagination=pagination, taken_exam_ids=taken_exam_ids, now=datetime.utcnow())
 
 
 @admin_bp.route('/exam/folders/new', methods=['POST'])
@@ -155,7 +169,7 @@ def exams_results(exam_id):
     exam = Exam.query.get_or_404(exam_id)
     require_owns_or_admin(exam)
 
-    attempts = ExamAttempt.query.filter_by(exam_id=exam.id).filter(
+    attempts = ExamAttempt.query.options(joinedload(ExamAttempt.student)).filter_by(exam_id=exam.id).filter(
         ExamAttempt.student_id.isnot(None)).order_by(ExamAttempt.started_at.desc()).all()
 
     by_student = {}

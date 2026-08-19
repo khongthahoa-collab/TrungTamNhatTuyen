@@ -37,7 +37,7 @@ def attendance_list():
             target_date = today
 
         day_query = Schedule.query.join(Class, Schedule.class_id == Class.id).options(
-            joinedload(Schedule.class_)
+            joinedload(Schedule.class_), joinedload(Schedule.teacher)
         ).filter(
             Schedule.date == target_date,
             Schedule.is_cancelled == False,
@@ -78,7 +78,9 @@ def attendance_list():
     pending_page = request.args.get('pending_page', 1, type=int)
     done_page = request.args.get('done_page', 1, type=int)
 
-    base_query = Schedule.query.filter_by(is_cancelled=False)
+    base_query = Schedule.query.options(
+        joinedload(Schedule.class_), joinedload(Schedule.teacher)
+    ).filter_by(is_cancelled=False)
     if class_id:
         base_query = base_query.filter_by(class_id=class_id)
     base_query = base_query.filter(
@@ -133,7 +135,7 @@ def attendance_list():
 def attendance_session(schedule_id):
     """Admin: attendance form for a specific session"""
     schedule = Schedule.query.get_or_404(schedule_id)
-    enrollments = Enrollment.query.filter_by(
+    enrollments = Enrollment.query.options(joinedload(Enrollment.student)).filter_by(
         class_id=schedule.class_id, is_active=True
     ).all()
     attendances = Attendance.query.filter_by(schedule_id=schedule_id).all()

@@ -1,5 +1,6 @@
 from datetime import date, time as time_type
 from flask import request, g
+from sqlalchemy.orm import joinedload, selectinload
 from extensions import db
 from models import Class, Course, Teacher, Schedule, Student, Enrollment, GRADE_SEQUENCE
 from blueprints.api import (api_bp, api_ok, api_error, api_login_required, api_require_module,
@@ -30,7 +31,13 @@ def classes_list():
         query = query.filter_by(primary_teacher_id=teacher_id)
 
     page, per_page = get_page_args()
-    pagination = query.order_by(Class.name).paginate(page=page, per_page=per_page, error_out=False)
+    pagination = (query
+                 .options(
+                     joinedload(Class.course),
+                     joinedload(Class.primary_teacher).joinedload(Teacher.user),
+                     selectinload(Class.assistant_teachers),
+                 )
+                 .order_by(Class.name).paginate(page=page, per_page=per_page, error_out=False))
     return api_ok([c.to_dict() for c in pagination.items], meta=pagination_meta(pagination))
 
 

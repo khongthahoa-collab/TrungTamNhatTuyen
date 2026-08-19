@@ -118,9 +118,15 @@
             <td>{% if exam.is_draft %}<span class="badge bg-secondary">Nháp</span>{% else %}<span class="badge bg-success">Đã đăng</span>{% endif %}</td>
             <td>
               {% if not exam.is_draft %}
-                {% set ts = exam.taken_status %}
+                {% if exam.availability_mode == 'range' and exam.available_to and now > exam.available_to %}
+                  {% set ts = 'expired' %}
+                {% elif exam.id in taken_exam_ids %}
+                  {% set ts = 'taken' %}
+                {% else %}
+                  {% set ts = 'not_taken' %}
+                {% endif %}
                 <span class="badge {% if ts == 'taken' %}bg-primary{% elif ts == 'expired' %}bg-danger{% else %}bg-warning text-dark{% endif %}">
-                  {{ exam.taken_status_label }}
+                  {{ {'taken': 'Đã thi', 'not_taken': 'Chưa thi', 'expired': 'Hết hạn'}[ts] }}
                 </span>
               {% else %}<span class="text-muted small">—</span>{% endif %}
             </td>
