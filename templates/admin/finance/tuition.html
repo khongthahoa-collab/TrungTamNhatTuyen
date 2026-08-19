@@ -202,17 +202,6 @@
                  class="btn btn-sm btn-outline-primary">
                 <i class="bi bi-eye me-1"></i>Xem
               </a>
-              {% elif item.enrolled_count > 0 and is_writable %}
-              <form method="post" action="{{ url_for('admin.monthly_fee_generate') }}" class="d-inline">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="month" value="{{ month }}">
-                <input type="hidden" name="year" value="{{ year }}">
-                <input type="hidden" name="class_id" value="{{ item.class.id }}">
-                <button type="submit" class="btn btn-sm btn-success"
-                        onclick="return confirm('Tạo học phí tháng {{ month }}/{{ year }} cho {{ item.enrolled_count }} học sinh lớp {{ item.class.name }}?')">
-                  <i class="bi bi-magic me-1"></i>Tạo HP
-                </button>
-              </form>
               {% else %}
               <span class="text-muted small">—</span>
               {% endif %}

@@ -86,25 +86,10 @@
 </div>
 
 {% if missing_count > 0 %}
-<div class="alert alert-warning d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-  <div>
-    <i class="bi bi-exclamation-triangle-fill me-2"></i>
-    <strong>{{ missing_count }} học sinh</strong> đang học lớp này nhưng chưa có học phí tháng {{ month }}/{{ year }}
-    — thường là do được thêm vào lớp sau khi đã tạo học phí.
-  </div>
-  {% if can_edit %}
-  <form method="post" action="{{ url_for('admin.monthly_fee_generate') }}">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <input type="hidden" name="month" value="{{ month }}">
-    <input type="hidden" name="year" value="{{ year }}">
-    <input type="hidden" name="class_id" value="{{ cls.id }}">
-    <input type="hidden" name="redirect_to" value="class_detail">
-    <button type="submit" class="btn btn-warning btn-sm"
-            onclick="return confirm('Tạo học phí tháng {{ month }}/{{ year }} cho {{ missing_count }} học sinh còn thiếu?')">
-      <i class="bi bi-magic me-1"></i>Tạo học phí cho {{ missing_count }} học sinh còn thiếu
-    </button>
-  </form>
-  {% endif %}
+<div class="alert alert-warning mb-3">
+  <i class="bi bi-exclamation-triangle-fill me-2"></i>
+  <strong>{{ missing_count }} học sinh</strong> đang học lớp này nhưng chưa có học phí tháng {{ month }}/{{ year }}
+  — năm học đang đóng băng nên hệ thống không tự tạo được, hoặc lần tự động tạo gần nhất gặp lỗi. Thử tải lại trang.
 </div>
 {% endif %}
 
@@ -366,10 +351,8 @@
 {% elif not records %}
 <div class="alert alert-info">
   <i class="bi bi-info-circle me-2"></i>
-  Chưa có dữ liệu học phí tháng {{ month }}/{{ year }} cho lớp này.
-  <a href="{{ url_for('admin.tuition', month=month, year=year) }}" class="alert-link">
-    Tạo học phí từ trang tổng hợp.
-  </a>
+  Chưa có dữ liệu học phí tháng {{ month }}/{{ year }} cho lớp này — lớp chưa có học sinh đang học,
+  hoặc năm học tháng này đã đóng băng.
 </div>
 {% endif %}
 

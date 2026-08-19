@@ -100,7 +100,6 @@ ADMIN_ENDPOINT_MODULES = {
     # finance.py — split across 4 modules
     'tuition': 'tuition', 'tuition_class_detail': 'tuition', 'tuition_add': 'tuition',
     'tuition_mark_paid': 'tuition', 'tuition_remind_zalo': 'tuition',
-    'monthly_fees': 'tuition', 'monthly_fee_update': 'tuition', 'monthly_fee_generate': 'tuition',
     'tuition_adjust_amount': 'tuition', 'tuition_void': 'tuition', 'tuition_unvoid': 'tuition',
     'tuition_reverse_payment': 'tuition', 'tuition_toggle_paid': 'tuition',
     'tuition_finalize_class': 'tuition', 'tuition_unfinalize_class': 'tuition',

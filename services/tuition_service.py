@@ -33,7 +33,7 @@ from urllib.parse import quote, urlencode
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from extensions import db
-from models import TuitionPayment, TuitionTransaction, TuitionFeeAuditLog, Class, Enrollment
+from models import TuitionPayment, TuitionTransaction, TuitionFeeAuditLog, TuitionReport, Class, Enrollment
 from services.academic_year_service import assert_period_writable, is_period_writable
 
 
@@ -145,6 +145,58 @@ def forecast_monthly_revenue(month, year):
         })
 
     return total, per_class
+
+
+def generate_missing_bills_for_class(class_id, month, year):
+    """Đảm bảo mọi học sinh đang học active của lớp này có 1 dòng
+    TuitionPayment cho month/year, dùng Class.monthly_fee — thay cho nút
+    "Tạo học phí" thủ công cũ, giờ gọi ngầm mỗi khi trang học phí được mở
+    thay vì phải bấm. An toàn gọi lại nhiều lần: học sinh đã có hoá đơn bị
+    bỏ qua, nên lần gọi sau chỉ nhặt thêm học sinh mới được thêm vào lớp
+    kể từ lần gọi trước — không có gì để làm thì trả về 0 ngay, gần như
+    miễn phí (chỉ 1-2 query kiểm tra rỗng).
+
+    Không làm gì (trả về 0) nếu: năm học đã đóng băng (is_period_writable
+    False), lớp/tháng này đã "Chốt danh sách", lớp không active, hoặc
+    không có học sinh active — đúng những điều kiện nút cũ vốn đã chặn."""
+    if not is_period_writable(month, year):
+        return 0
+
+    report = TuitionReport.query.filter_by(class_id=class_id, month=month, year=year).first()
+    if report and report.is_finalized:
+        return 0
+
+    cls = Class.query.get(class_id)
+    if not cls or not cls.is_active:
+        return 0
+
+    student_ids = [e.student_id for e in
+                   Enrollment.query.filter_by(class_id=class_id, is_active=True).all()]
+    if not student_ids:
+        return 0
+
+    existing_student_ids = {
+        t.student_id for t in TuitionPayment.query.filter(
+            TuitionPayment.class_id == class_id, TuitionPayment.student_id.in_(student_ids),
+            TuitionPayment.month == month, TuitionPayment.year == year,
+        ).all()
+    }
+    to_create_ids = [sid for sid in student_ids if sid not in existing_student_ids]
+    if not to_create_ids:
+        return 0
+
+    debt_map = batch_previous_month_debts(to_create_ids, class_id, month, year)
+    fee = cls.monthly_fee or 0
+    created = 0
+    for student_id in to_create_ids:
+        _, was_created = create_tuition_payment(
+            student_id, class_id, month, year, fee,
+            debt_override=debt_map.get(student_id, 0), skip_period_check=True)
+        if was_created:
+            created += 1
+
+    db.session.commit()
+    return created
 
 
 def create_tuition_payment(student_id, class_id, month, year, amount, debt_override=None,

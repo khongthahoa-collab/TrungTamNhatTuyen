@@ -136,6 +136,8 @@
             <th>Lớp</th>
             <th>SĐT phụ huynh</th>
             <th class="text-center">Lớp đang học</th>
+            <th class="text-end">Học phí</th>
+            <th class="text-end">Còn nợ</th>
             <th class="text-center">Ngày nghỉ</th>
             <th class="text-center">Trạng thái</th>
           </tr>
@@ -186,6 +188,13 @@
               <span class="badge bg-primary rounded-pill">{{ enrolled_count }}</span>
               {% else %}<span class="text-muted small">0</span>{% endif %}
             </td>
+            <td class="text-end small">
+              {% set fee = tuition_fee.get(student.id, 0) %}
+              {{ fee | vnd if fee else '—' }}
+            </td>
+            <td class="text-end small {% if tuition_debt.get(student.id, 0) > 0 %}text-danger fw-semibold{% else %}text-muted{% endif %}">
+              {{ tuition_debt.get(student.id, 0) | vnd if tuition_debt.get(student.id, 0) else '—' }}
+            </td>
             <td class="text-center">
               {% set absent = absent_counts.get(student.id, 0) %}
               {% if absent >= 5 %}
@@ -212,7 +221,7 @@
           </tr>
           {% else %}
           <tr>
-            <td colspan="10" class="text-center text-muted py-4">
+            <td colspan="12" class="text-center text-muted py-4">
               <i class="bi bi-inbox fs-4 d-block mb-2"></i>Không tìm thấy học sinh nào
             </td>
           </tr>

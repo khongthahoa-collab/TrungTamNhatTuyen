@@ -9,9 +9,10 @@ from models import (TuitionPayment, Student, Class, Salary, Teacher, Course,
 from blueprints.admin import admin_bp, require_admin, require_master
 from services.salary_service import calculate_all_salaries, get_or_create_salary
 from services.zalo_service import ZaloService
-from services.tuition_service import (create_tuition_payment, record_payment, get_previous_month_debt,
-                                      record_fee_adjustment, batch_previous_month_debts,
-                                      void_tuition_payment, unvoid_tuition_payment, reverse_payment)
+from services.tuition_service import (create_tuition_payment, record_payment,
+                                      record_fee_adjustment,
+                                      void_tuition_payment, unvoid_tuition_payment, reverse_payment,
+                                      generate_missing_bills_for_class)
 from services.academic_year_service import FrozenPeriodError, is_period_writable, list_academic_year_months
 from blueprints.pagination_utils import paginate_list
 
@@ -124,6 +125,26 @@ def tuition():
     course_id = request.args.get('course_id', type=int)
     not_generated = request.args.get('not_generated') == '1'
 
+    # Tự động tạo học phí còn thiếu cho mọi lớp sắp hiển thị, thay cho nút
+    # "Tạo học phí" thủ công cũ — mỗi lớp cô lập lỗi/commit riêng, 1 lớp lỗi
+    # không kéo theo mất dữ liệu các lớp khác đã tạo thành công.
+    auto_gen_q = Class.query.filter_by(is_active=True)
+    if course_id:
+        auto_gen_q = auto_gen_q.filter_by(course_id=course_id)
+    if class_id:
+        auto_gen_q = auto_gen_q.filter_by(id=class_id)
+    auto_created, auto_errors = 0, 0
+    for cls in auto_gen_q.all():
+        try:
+            auto_created += generate_missing_bills_for_class(cls.id, month, year)
+        except Exception:
+            db.session.rollback()
+            auto_errors += 1
+    if auto_created:
+        flash(f'Đã tự động tạo {auto_created} học phí mới cho tháng {month}/{year}.', 'success')
+    if auto_errors:
+        flash(f'{auto_errors} lớp gặp lỗi khi tự tạo học phí, vui lòng kiểm tra lại.', 'warning')
+
     classes, class_summaries, total_collected, total_outstanding, total_expected = \
         _tuition_overview_aggregate(month, year, class_id, course_id)
 
@@ -193,6 +214,14 @@ def tuition_class_detail(class_id):
     status_filter = request.args.get('status', '').strip()
 
     cls = Class.query.get_or_404(class_id)
+
+    try:
+        created = generate_missing_bills_for_class(class_id, month, year)
+        if created:
+            flash(f'Đã tự động tạo {created} học phí mới cho lớp {cls.name} tháng {month}/{year}.', 'success')
+    except Exception:
+        db.session.rollback()
+        flash('Có lỗi khi tự động tạo học phí cho lớp này, vui lòng thử lại.', 'warning')
 
     base_query = (
         TuitionPayment.query
@@ -264,12 +293,10 @@ def tuition_class_detail(class_id):
     )
 
     # Students enrolled in the class but with no TuitionPayment row this
-    # month — happens whenever a student is added to the class *after*
-    # tuition was already generated for that month (monthly_fee_generate
-    # itself already skips students who already have a row, so it's safe
-    # to re-run; the gap was that there was previously no way to trigger
-    # it again once a class had any tuition at all — see the "Tạo học
-    # phí cho N học sinh còn thiếu" button below).
+    # month yet — generate_missing_bills_for_class() already ran above and
+    # should have closed this gap; a nonzero count here past that point
+    # means the period is frozen or the auto-generate call hit an error
+    # (see the warning banner rendered below when this is > 0).
     enrolled_ids = {e.student_id for e in Enrollment.query.filter_by(class_id=class_id, is_active=True).all()}
     billed_ids = {t.student_id for t in TuitionPayment.query.filter_by(
         class_id=class_id, month=month, year=year).all()}
@@ -828,84 +855,6 @@ def salary_print():
 # A per-student exception for a given month is handled by editing that
 # one row's fee directly on the class-detail page instead.)
 # ────────────────────────────────────────────────────────────────
-
-@admin_bp.route('/tuition/monthly/generate', methods=['POST'])
-@login_required
-@require_admin
-def monthly_fee_generate():
-    """Tạo hàng loạt TuitionPayment cho tất cả học sinh đang học trong một
-    lớp cụ thể, dùng học phí chuẩn của lớp (Class.monthly_fee) làm mặc định.
-
-    Luôn giới hạn theo một lớp — generate cho toàn bộ trường trong một
-    request từng gây 502 khi số học sinh lớn (mỗi học sinh cần vài query
-    độc lập: tính nợ cũ, kiểm tra tồn tại, insert). Bó buộc theo lớp giữ
-    kích thước mỗi request nhỏ và cố định, bất kể trường có bao nhiêu lớp."""
-    month = request.form.get('month', type=int)
-    year = request.form.get('year', type=int)
-    class_id = request.form.get('class_id', type=int)
-    # Re-running this for a class that already has tuition generated is
-    # exactly how a class picks up students who were enrolled *after* the
-    # first generate — the loop below already skips anyone who already has
-    # a row, so this is always safe to call again. When triggered from the
-    # class-detail page ("Tạo học phí cho N học sinh còn thiếu"), send the
-    # admin back there instead of the overview.
-    redirect_target = (
-        url_for('admin.tuition_class_detail', class_id=class_id, month=month, year=year)
-        if request.form.get('redirect_to') == 'class_detail' and class_id
-        else url_for('admin.tuition', month=month, year=year)
-    )
-    if not class_id:
-        flash('Vui lòng chọn một lớp để tạo học phí.', 'danger')
-        return redirect(redirect_target)
-
-    if not is_period_writable(month, year):
-        flash('Không thể sửa đổi dữ liệu tài chính của năm học đã đóng băng', 'danger')
-        return redirect(redirect_target)
-    if _is_tuition_finalized(class_id, month, year):
-        flash('Danh sách học phí lớp này đã được chốt — hãy Mở lại trước khi thao tác.', 'danger')
-        return redirect(redirect_target)
-
-    cls = Class.query.get_or_404(class_id)
-
-    enrollments = Enrollment.query.filter_by(class_id=class_id, is_active=True).all()
-    student_ids = [e.student_id for e in enrollments]
-    existing_student_ids = set()
-    if student_ids:
-        existing_student_ids = {
-            t.student_id for t in TuitionPayment.query.filter(
-                TuitionPayment.class_id == class_id, TuitionPayment.student_id.in_(student_ids),
-                TuitionPayment.month == month, TuitionPayment.year == year,
-            ).all()
-        }
-
-    # Batch every student's previous-month debt in 1-2 queries instead of
-    # one SELECT per student inside the loop — the N+1 pattern that
-    # already caused a 502 once this session, just in this route instead.
-    # skip_period_check=True below: already checked once above for the
-    # whole batch, so create_tuition_payment() doesn't re-run the same
-    # AcademicYear query per student (which would otherwise silently
-    # cancel out this exact batching).
-    to_create_ids = [sid for sid in student_ids if sid not in existing_student_ids]
-    debt_map = batch_previous_month_debts(to_create_ids, class_id, month, year)
-
-    fee = cls.monthly_fee or 0
-    created = 0
-    try:
-        for student_id in to_create_ids:
-            _, was_created = create_tuition_payment(
-                student_id, class_id, month, year, fee,
-                debt_override=debt_map.get(student_id, 0), skip_period_check=True)
-            if was_created:
-                created += 1
-    except FrozenPeriodError as e:
-        db.session.rollback()
-        flash(str(e), 'danger')
-        return redirect(redirect_target)
-
-    db.session.commit()
-    flash(f'Đã tạo {created} học phí mới cho lớp {cls.name} tháng {month}/{year}.', 'success')
-    return redirect(redirect_target)
-
 
 @admin_bp.route('/tuition/<int:payment_id>/adjust-amount', methods=['POST'])
 @login_required

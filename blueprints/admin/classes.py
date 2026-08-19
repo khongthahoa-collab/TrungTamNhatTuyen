@@ -884,8 +884,8 @@ def class_add_students(class_id):
     # rather than raising mid-loop — enrollment itself should still
     # succeed; the school just needs to set up this year's AcademicYear.
     can_bill_this_month = is_period_writable(today.month, today.year)
-    # Batched the same way monthly_fee_generate() is — one query for every
-    # student's previous-month debt instead of one per student, and
+    # Batched the same way generate_missing_bills_for_class() is — one query
+    # for every student's previous-month debt instead of one per student, and
     # skip_period_check=True below avoids create_tuition_payment() re-running
     # the is_period_writable() check (already done once above) per student.
     debts = batch_previous_month_debts(ok_student_ids, class_id, today.month, today.year) if can_bill_this_month else {}

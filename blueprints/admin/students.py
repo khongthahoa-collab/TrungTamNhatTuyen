@@ -149,6 +149,37 @@ def students():
         )
         enrollment_counts = dict(enrollment_rows)
 
+    # Học phí tháng này + còn nợ (batched, chỉ trang hiện tại) — 1 học sinh
+    # có thể học nhiều lớp cùng lúc nên là tổng theo mọi TuitionPayment
+    # tháng này của học sinh đó. "Còn nợ" dùng đúng công thức ở Tổng quan
+    # (amount + debt_carried_over - amount_collected, chỉ hoá đơn chưa đóng
+    # đủ, loại voided) để không lệch số với dashboard/trang chi tiết học sinh.
+    today = date.today()
+    tuition_fee = {}
+    tuition_debt = {}
+    if student_ids:
+        total_due_expr = TuitionPayment.amount + TuitionPayment.debt_carried_over
+        tuition_rows = (
+            db.session.query(
+                TuitionPayment.student_id,
+                func.coalesce(func.sum(TuitionPayment.amount), 0),
+                func.coalesce(func.sum(case(
+                    (TuitionPayment.is_paid == False, total_due_expr - TuitionPayment.amount_collected),
+                    else_=0,
+                )), 0),
+            )
+            .filter(
+                TuitionPayment.student_id.in_(student_ids),
+                TuitionPayment.month == today.month,
+                TuitionPayment.year == today.year,
+                TuitionPayment.is_voided == False,
+            )
+            .group_by(TuitionPayment.student_id)
+            .all()
+        )
+        tuition_fee = {r[0]: r[1] for r in tuition_rows}
+        tuition_debt = {r[0]: r[2] for r in tuition_rows}
+
     all_teachers = Teacher.query.join(Teacher.user).order_by(User.full_name).all()
     school_rows = (db.session.query(Student.current_school)
                    .filter(Student.current_school.isnot(None), Student.current_school != '')
@@ -162,6 +193,8 @@ def students():
                            pagination=pagination,
                            absent_counts=absent_counts,
                            enrollment_counts=enrollment_counts,
+                           tuition_fee=tuition_fee,
+                           tuition_debt=tuition_debt,
                            q=q, level=level, active_only=active_only,
                            grade=grade, school_q=school_q, teacher_id=teacher_id,
                            is_filtered=is_filtered,
@@ -461,13 +494,19 @@ def student_detail(student_id):
         TuitionPayment.year.desc(), TuitionPayment.month.desc()
     ).limit(12).all()
 
-    # Học phí tháng hiện tại: tổng hợp theo lớp đang học
+    # Học phí tháng hiện tại: tổng hợp theo lớp đang học. "Còn lại" dùng
+    # total_due (amount + debt_carried_over) trừ amount_collected — khớp
+    # đúng công thức ở Tổng quan (dashboard.py) để 2 trang không lệch số;
+    # trước đây chỉ trừ amount nên bỏ sót nợ cũ và số đã đóng một phần.
+    # Loại voided khỏi mọi tổng — hoá đơn đã hủy không còn là khoản phải thu.
     current_month_tuition = student.tuition_payments.filter_by(
         month=today.month, year=today.year
-    ).all()
+    ).filter(TuitionPayment.is_voided == False).all()
     current_total = sum(t.amount for t in current_month_tuition)
-    current_unpaid = sum(t.amount for t in current_month_tuition if not t.is_paid)
-    current_paid = current_total - current_unpaid
+    current_paid = sum(t.amount_collected or 0 for t in current_month_tuition)
+    current_unpaid = sum(
+        t.total_due - (t.amount_collected or 0) for t in current_month_tuition if not t.is_paid
+    )
 
     from models import BankAccount
     from services.tuition_service import build_vietqr_url
