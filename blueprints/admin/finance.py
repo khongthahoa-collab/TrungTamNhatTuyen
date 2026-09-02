@@ -125,23 +125,6 @@ def tuition():
     course_id = request.args.get('course_id', type=int)
     not_generated = request.args.get('not_generated') == '1'
 
-    # Tự động tạo học phí còn thiếu cho mọi lớp sắp hiển thị, thay cho nút
-    # "Tạo học phí" thủ công cũ — gộp lô 1 lần cho tất cả lớp (không lặp
-    # generate_missing_bills_for_class() theo từng lớp, vốn tốn ~5
-    # query/lớp và từng gây trang này tải rất chậm khi trường có vài chục
-    # lớp — xem generate_missing_bills_for_classes()).
-    auto_gen_class_ids_q = db.session.query(Class.id).filter_by(is_active=True)
-    if course_id:
-        auto_gen_class_ids_q = auto_gen_class_ids_q.filter_by(course_id=course_id)
-    if class_id:
-        auto_gen_class_ids_q = auto_gen_class_ids_q.filter_by(id=class_id)
-    auto_gen_class_ids = [r[0] for r in auto_gen_class_ids_q.all()]
-    auto_created, auto_errors = generate_missing_bills_for_classes(auto_gen_class_ids, month, year)
-    if auto_created:
-        flash(f'Đã tự động tạo {auto_created} học phí mới cho tháng {month}/{year}.', 'success')
-    if auto_errors:
-        flash(f'{auto_errors} lớp gặp lỗi khi tự tạo học phí, vui lòng kiểm tra lại.', 'warning')
-
     classes, class_summaries, total_collected, total_outstanding, total_expected = \
         _tuition_overview_aggregate(month, year, class_id, course_id)
 
@@ -151,15 +134,38 @@ def tuition():
         # ĐÃ tạo học phí một phần).
         class_summaries = [s for s in class_summaries if not s['generated']]
 
+    page = request.args.get('page', 1, type=int)
+    summaries_pagination = paginate_list(class_summaries, page, per_page=10)
+
+    # Tự động tạo học phí còn thiếu — CHỈ cho các lớp đang hiển thị trên
+    # đúng trang này (10 lớp), không quét toàn trường mỗi lần tải trang.
+    # Bản trước quét hết mọi lớp active bất kể phân trang — với trường
+    # nhiều lớp, mỗi lần tải trang có thể mất vài giây; server chỉ chạy 1
+    # worker (xem Procfile) nên admin chốt sổ liên tiếp nhiều lớp (mỗi lần
+    # chốt xong quay lại trang này) từng dồn thành chuỗi request chậm nối
+    # đuôi nhau, chiếm hết worker duy nhất khiến MỌI trang khác (kể cả
+    # Dashboard) phải xếp hàng chờ — đây chính là nguyên nhân sự cố 31/08.
+    page_class_ids = [s['class'].id for s in summaries_pagination.items]
+    auto_created, auto_errors = generate_missing_bills_for_classes(page_class_ids, month, year)
+    if auto_created or auto_errors:
+        # Vừa tạo thêm hoá đơn — class_summaries ở trên đã tính TRƯỚC khi
+        # tạo nên chưa phản ánh đúng, tính lại (vẫn chỉ đọc, không ghi).
+        classes, class_summaries, total_collected, total_outstanding, total_expected = \
+            _tuition_overview_aggregate(month, year, class_id, course_id)
+        if not_generated:
+            class_summaries = [s for s in class_summaries if not s['generated']]
+        summaries_pagination = paginate_list(class_summaries, page, per_page=10)
+        if auto_created:
+            flash(f'Đã tự động tạo {auto_created} học phí mới cho tháng {month}/{year}.', 'success')
+        if auto_errors:
+            flash(f'{auto_errors} lớp gặp lỗi khi tự tạo học phí, vui lòng kiểm tra lại.', 'warning')
+
     # Footer totals must reflect every class this month, not just the
     # current page — computed from the full list before slicing it.
     total_students = sum(r['total'] for r in class_summaries)
     total_paid_count = sum(r['paid_count'] for r in class_summaries)
     total_unpaid_count = sum(r['unpaid_count'] for r in class_summaries)
     total_carried_debt = sum(r['carried_debt'] for r in class_summaries)
-
-    page = request.args.get('page', 1, type=int)
-    summaries_pagination = paginate_list(class_summaries, page, per_page=10)
 
     courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
     # Newest-first; bounds both the dropdown and prev/next nav to periods
