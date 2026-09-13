@@ -264,11 +264,19 @@ def scores(class_id):
     from models import ScoreSource, ScoreType
 
     if request.method == 'POST':
-        score_source = request.form.get('score_source')
+        # Form không còn ô chọn nguồn điểm: giáo viên nhập ở đây thì luôn là
+        # điểm Trung tâm. Điểm thi trường chỉ đến từ trang phụ huynh, nơi đã
+        # cố định score_source = school.
+        score_source = ScoreSource.CENTER
         score_type = request.form.get('score_type')
         exam_date_str = request.form.get('exam_date')
-        school_name = request.form.get('school_name', '').strip()
-        max_score = float(request.form.get('max_score', 10))
+        school_name = ''
+        # Ô "Điểm tối đa" đang tạm ẩn trên form — mặc định thang 10. Vẫn đọc
+        # từ form để khi mở lại ô đó thì không phải sửa chỗ này nữa.
+        try:
+            max_score = float(request.form.get('max_score') or 10)
+        except ValueError:
+            max_score = 10.0
 
         try:
             exam_date = date.fromisoformat(exam_date_str) if exam_date_str else date.today()

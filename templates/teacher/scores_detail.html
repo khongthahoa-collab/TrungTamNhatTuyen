@@ -43,11 +43,6 @@
             {% endfor %}
           </select>
         </div>
-        <div class="col-12 col-md-5">
-          <div class="text-muted" style="font-size:0.75rem;">
-            <i class="bi bi-info-circle me-1"></i>Chỉ tính điểm Trung tâm. Điểm thi ở trường không tham gia thống kê.
-          </div>
-        </div>
       </form>
     </div>
   </div>
@@ -94,7 +89,6 @@
   <div class="card border-0 shadow-sm mb-3">
     <div class="card-header bg-white fw-semibold small py-2">
       <i class="bi bi-arrow-up-right-circle me-1 text-primary"></i>Chỉ báo tiến bộ
-      <span class="text-muted fw-normal">· so điểm lần đầu với lần gần nhất trong năm {{ year }}</span>
     </div>
     <div class="table-responsive">
       <table class="table table-sm align-middle mb-0">
@@ -149,7 +143,6 @@
   <div class="card border-0 shadow-sm">
     <div class="card-header bg-white fw-semibold small py-2">
       <i class="bi bi-clock-history me-1 text-primary"></i>Lịch sử điểm
-      <span class="text-muted fw-normal">· ngưỡng Đạt: {{ pass_threshold | score }} trên thang 10</span>
     </div>
     <div class="table-responsive">
       <table class="table table-sm table-hover align-middle mb-0">

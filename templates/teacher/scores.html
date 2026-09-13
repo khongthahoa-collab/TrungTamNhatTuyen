@@ -26,24 +26,9 @@
       </div>
       <div class="card-body">
 
-        <!-- score_source radio -->
-        <div class="mb-3">
-          <label class="form-label fw-semibold mb-2">Nguồn điểm</label>
-          <div class="d-flex gap-2">
-            {% for key, label in score_sources.items() %}
-            <div class="flex-fill">
-              <input type="radio" class="btn-check" name="score_source" id="src_{{ key }}"
-                     value="{{ key }}"
-                     {% if loop.first %}checked{% endif %}
-                     onchange="toggleSchoolName()">
-              <label class="btn btn-outline-primary w-100 text-center" for="src_{{ key }}"
-                     style="min-height:48px;display:flex;align-items:center;justify-content:center;">
-                {{ label }}
-              </label>
-            </div>
-            {% endfor %}
-          </div>
-        </div>
+        {# Bỏ chọn "Nguồn điểm": giáo viên nhập điểm ở đây luôn là điểm
+           Trung tâm (score_source = center, gán ở phía server). Điểm thi
+           trường do phụ huynh tự báo qua trang phụ huynh. #}
 
         <!-- score_type select -->
         <div class="mb-3">
@@ -62,19 +47,17 @@
                  value="{{ today.strftime('%Y-%m-%d') }}" style="min-height:44px;">
         </div>
 
-        <!-- school_name (shown only when source = truong/school) -->
-        <div class="mb-3" id="schoolNameField" style="display:none;">
-          <label class="form-label fw-semibold" for="school_name">Tên trường</label>
-          <input type="text" class="form-control" name="school_name" id="school_name"
-                 placeholder="Nhập tên trường thi..." style="min-height:44px;">
-        </div>
+        {# Bỏ "Tên trường": chỉ có ý nghĩa với điểm thi trường, mà trang này
+           giờ chỉ nhập điểm Trung tâm. #}
 
-        <!-- max_score -->
+        {# Tạm ẩn "Điểm tối đa" — sẽ hiển thị lại khi cần nhiều thang điểm.
+           Server mặc định max_score = 10 khi form không gửi trường này.
         <div class="mb-0">
           <label class="form-label fw-semibold" for="max_score">Điểm tối đa</label>
           <input type="number" class="form-control" name="max_score" id="max_score"
                  value="10" min="1" max="1000" step="0.5" style="min-height:44px;">
         </div>
+        #}
 
       </div>
     </div>
@@ -168,18 +151,5 @@
 </div>
 {% endblock %}
 
-{% block extra_js %}
-<script>
-function toggleSchoolName() {
-  const selected = document.querySelector('input[name="score_source"]:checked');
-  const field = document.getElementById('schoolNameField');
-  if (selected && (selected.value === 'truong' || selected.value === 'school')) {
-    field.style.display = '';
-  } else {
-    field.style.display = 'none';
-  }
-}
-// Init on load
-toggleSchoolName();
-</script>
-{% endblock %}
+{# Đã bỏ block extra_js: hàm toggleSchoolName() cũ tham chiếu ô "Nguồn điểm"
+   và "Tên trường" — cả hai không còn nên hàm sẽ lỗi ngay khi tải trang. #}
