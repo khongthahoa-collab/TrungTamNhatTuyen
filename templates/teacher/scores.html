@@ -33,6 +33,17 @@
            Trung tâm (score_source = center, gán ở phía server). Điểm thi
            trường do phụ huynh tự báo qua trang phụ huynh. #}
 
+        <!-- semester select -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="semester">Kỳ</label>
+          <select class="form-select" name="semester" id="semester" style="min-height:44px;">
+            {% for key, label in semesters.items() %}
+            <option value="{{ key }}" {% if key == selected_semester %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <div class="form-text">Mặc định là kỳ của lần nhập điểm gần nhất ở lớp này.</div>
+        </div>
+
         <!-- score_type select -->
         <div class="mb-3">
           <label class="form-label fw-semibold" for="score_type">Loại điểm</label>
@@ -168,13 +179,14 @@
 {# Hàm toggleSchoolName() cũ đã bỏ cùng ô "Nguồn điểm"/"Tên trường". #}
 {% block extra_js %}
 <script>
-// Tự điền lần thi kế tiếp theo loại điểm đang chọn. Số lần được tính sẵn ở
-// server cho từng loại điểm (theo lớp + năm) nên đổi loại điểm không cần
-// gọi lại server. Giáo viên vẫn sửa tay được.
+// Tự điền lần thi kế tiếp theo kỳ + loại điểm đang chọn. Số lần được tính
+// sẵn ở server cho mọi tổ hợp kỳ/loại điểm (theo lớp + năm) nên đổi kỳ hay
+// đổi loại điểm đều không cần gọi lại server. Giáo viên vẫn sửa tay được.
 (function () {
+  const semSelect = document.getElementById('semester');
   const typeSelect = document.getElementById('score_type');
   const roundInput = document.getElementById('exam_round');
-  if (!typeSelect || !roundInput) return;
+  if (!semSelect || !typeSelect || !roundInput) return;
 
   let nextRounds = {};
   try {
@@ -189,9 +201,11 @@
 
   function fill() {
     if (touched) return;
-    roundInput.value = nextRounds[typeSelect.value] || 1;
+    const bySemester = nextRounds[semSelect.value] || {};
+    roundInput.value = bySemester[typeSelect.value] || 1;
   }
 
+  semSelect.addEventListener('change', fill);
   typeSelect.addEventListener('change', fill);
   fill();
 })();

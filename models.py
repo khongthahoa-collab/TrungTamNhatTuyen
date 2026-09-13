@@ -1176,9 +1176,14 @@ class Score(db.Model):
     class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False, index=True)
     score_source = db.Column(db.String(20), nullable=False, default=ScoreSource.CENTER)  # center/school
     score_type = db.Column(db.String(20), nullable=False)  # continuous/quiz_15/oral/midterm/final
+    # Kỳ học do giáo viên tự chọn khi nhập điểm (semester_1/semester_2/
+    # summer theo SemesterType). Không suy ra từ exam_date và bảng semesters
+    # vì ranh giới ở đó đang chia cơ học thành 3 phần bằng nhau của năm học
+    # (xem admin/academic.py), không khớp kỳ học thực tế của trường.
+    semester = db.Column(db.String(20))
     # Lần thi thứ mấy của cùng loại điểm đó (Thường xuyên lần 1, lần 2...),
-    # đánh số theo lớp + loại điểm + năm của exam_date. Nullable vì điểm cũ
-    # nhập trước khi có trường này không có số lần.
+    # đánh số theo lớp + loại điểm + năm + kỳ. Nullable vì điểm cũ nhập
+    # trước khi có trường này không có số lần.
     exam_round = db.Column(db.Integer)
     score_value = db.Column(db.Float, nullable=False)
     max_score = db.Column(db.Float, default=10.0)

@@ -34,14 +34,16 @@
             {% endfor %}
           </select>
         </div>
-        <div class="col-6 col-md-4">
-          <label class="form-label form-label-sm fw-semibold mb-1">Loại kiểm tra</label>
-          <select name="score_type" class="form-select form-select-sm" onchange="this.form.submit()">
-            <option value="">Tất cả</option>
-            {% for key, label in score_types.items() %}
-            <option value="{{ key }}" {% if score_type == key %}selected{% endif %}>{{ label }}</option>
+        <div class="col-12 col-md-7">
+          <label class="form-label form-label-sm fw-semibold mb-1">Kỳ</label>
+          <div class="btn-group w-100" role="group">
+            {% for key, label in semesters.items() %}
+            <input type="radio" class="btn-check" name="semester" id="sem_{{ key }}"
+                   value="{{ key }}" {% if semester == key %}checked{% endif %}
+                   onchange="this.form.submit()">
+            <label class="btn btn-outline-primary btn-sm" for="sem_{{ key }}">{{ label }}</label>
             {% endfor %}
-          </select>
+          </div>
         </div>
       </form>
     </div>
@@ -85,56 +87,56 @@
     </div>
   </div>
 
-  <!-- Chỉ báo tiến bộ -->
+  <!-- Chi tiết tiến bộ -->
   <div class="card border-0 shadow-sm mb-3">
     <div class="card-header bg-white fw-semibold small py-2">
-      <i class="bi bi-arrow-up-right-circle me-1 text-primary"></i>Chỉ báo tiến bộ
+      <i class="bi bi-arrow-up-right-circle me-1 text-primary"></i>Chi tiết tiến bộ
     </div>
     <div class="table-responsive">
       <table class="table table-sm align-middle mb-0">
         <thead class="table-light">
           <tr>
-            <th class="ps-3">Học sinh</th>
-            <th class="text-center">Số lần</th>
-            <th class="text-end">Lần đầu</th>
-            <th class="text-end">Gần nhất</th>
-            <th class="text-end">Thay đổi</th>
-            <th class="text-end">TB</th>
-            <th class="text-center">Đánh giá</th>
+            <th class="ps-3">Tên</th>
+            {% for key, label in matrix_columns %}
+            <th class="text-center">{{ label }}</th>
+            {% endfor %}
+            <th class="text-center">Gần nhất</th>
+            <th>Ghi chú</th>
           </tr>
         </thead>
         <tbody>
-          {% for p in progress %}
+          {% for r in matrix %}
           <tr>
-            <td class="ps-3 small fw-semibold">{{ p.student.full_name if p.student else '—' }}</td>
-            <td class="text-center small">{{ p.count }}</td>
-            <td class="text-end small">{{ p.first | score }}</td>
-            <td class="text-end small fw-semibold">{{ p.last | score }}</td>
-            <td class="text-end small fw-semibold
-                {% if p.delta > 0 %}text-success{% elif p.delta < 0 %}text-danger{% else %}text-muted{% endif %}">
-              {% if p.delta > 0 %}+{% endif %}{{ p.delta | score }}
+            <td class="ps-3 small fw-semibold text-nowrap">{{ r.student.full_name if r.student else '—' }}</td>
+            {% for key, label in matrix_columns %}
+            <td class="text-center small text-nowrap">
+              {% for item in r.cells[key] %}
+              <span class="{% if item.passed %}text-success{% else %}text-danger fw-semibold{% endif %}"
+                    {% if item.round %}title="Lần {{ item.round }}"{% endif %}>{{ item.value | score }}</span>{% if not loop.last %}<span class="text-muted mx-1">·</span>{% endif %}
+              {% else %}
+              <span class="text-muted">—</span>
+              {% endfor %}
             </td>
-            <td class="text-end small">{{ p.average | score }}</td>
-            <td class="text-center">
-              <span class="badge bg-{{ p.tone }}-subtle text-{{ p.tone }} border border-{{ p.tone }}-subtle small">
-                {{ p.label }}
-              </span>
+            {% endfor %}
+            <td class="text-center small fw-bold">
+              {% if r.latest is not none %}{{ r.latest | score }}{% else %}<span class="text-muted">—</span>{% endif %}
             </td>
+            <td class="small text-muted">{{ r.note or '' }}</td>
           </tr>
           {% else %}
           <tr>
-            <td colspan="7" class="text-center text-muted py-4 small">
-              Chưa có điểm Trung tâm nào trong năm {{ year }}.
+            <td colspan="{{ matrix_columns | length + 3 }}" class="text-center text-muted py-4 small">
+              Chưa có điểm Trung tâm nào trong {{ semesters.get(semester, semester) }} năm {{ year }}.
             </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-    {% if progress %}
+    {% if matrix %}
     <div class="card-footer bg-white text-muted" style="font-size:0.72rem;">
-      Chỉ báo tiến bộ chỉ so hai mốc điểm, chưa tính độ khó của từng bài hay khoảng cách thời gian —
-      không nên dùng làm kết luận duy nhất về học lực.
+      Mỗi ô liệt kê điểm của từng lần thi theo thứ tự lần (di chuột vào điểm để xem lần mấy).
+      Điểm đỏ là dưới ngưỡng đạt. Điểm 15 phút và Miệng không hiện ở bảng này.
     </div>
     {% endif %}
   </div>

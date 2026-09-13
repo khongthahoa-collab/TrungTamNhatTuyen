@@ -288,8 +288,13 @@ def scores(class_id):
             flash('Điểm tối đa phải lớn hơn 0.', 'danger')
             return redirect(url_for('teacher.scores', class_id=class_id))
 
+        from models import SemesterType
+        semester = request.form.get('semester') or SemesterType.SEMESTER_1
+        if semester not in SemesterType.LABELS:
+            semester = SemesterType.SEMESTER_1
+
         # Lần thi: bỏ trống thì tự lấy lần kế tiếp của đúng lớp + loại điểm +
-        # năm đang nhập, để giáo viên không phải tự nhớ đã tới lần mấy.
+        # năm + kỳ đang nhập, để giáo viên không phải tự nhớ đã tới lần mấy.
         exam_round_raw = (request.form.get('exam_round') or '').strip()
         if exam_round_raw:
             try:
@@ -300,7 +305,7 @@ def scores(class_id):
                 flash('Lần thi phải là số nguyên từ 1 trở lên.', 'danger')
                 return redirect(url_for('teacher.scores', class_id=class_id))
         else:
-            exam_round = _next_exam_round(class_id, score_type, exam_date.year)
+            exam_round = _next_exam_round(class_id, score_type, exam_date.year, semester)
 
         saved = 0
         skipped = []
@@ -328,6 +333,7 @@ def scores(class_id):
                 class_id=class_id,
                 score_source=score_source,
                 score_type=score_type,
+                semester=semester,
                 exam_round=exam_round,
                 score_value=val,
                 max_score=max_score,
@@ -364,6 +370,7 @@ def scores(class_id):
         .limit(20).all()
     )
 
+    from models import SemesterType
     today = date.today()
     return render_template('teacher/scores.html',
                            class_=class_,
@@ -371,34 +378,49 @@ def scores(class_id):
                            recent_scores=recent_scores,
                            score_sources=ScoreSource.LABELS,
                            score_types=ScoreType.LABELS,
-                           next_rounds=_next_exam_round_map(class_id, today.year, list(ScoreType.LABELS)),
+                           semesters=SemesterType.LABELS,
+                           selected_semester=_last_used_semester(class_id, SemesterType.SEMESTER_1),
+                           next_rounds=_next_exam_round_map(
+                               class_id, today.year,
+                               list(ScoreType.LABELS), list(SemesterType.LABELS)),
                            today=today)
 
 
-def _next_exam_round(class_id, score_type, year):
-    """Lần thi kế tiếp của cùng lớp + loại điểm + năm. Đánh số lại từ 1 mỗi
-    năm, khớp với bộ lọc năm ở trang chi tiết điểm."""
+def _next_exam_round(class_id, score_type, year, semester):
+    """Lần thi kế tiếp của cùng lớp + loại điểm + năm + kỳ. Đánh số lại từ 1
+    ở mỗi kỳ, khớp với cách trang chi tiết điểm lọc theo năm và kỳ."""
     from models import ScoreSource
     current_max = (db.session.query(db.func.max(Score.exam_round))
                    .filter(Score.class_id == class_id,
                            Score.score_type == score_type,
                            Score.score_source == ScoreSource.CENTER,
+                           Score.semester == semester,
                            extract('year', Score.exam_date) == year)
                    .scalar())
     return (current_max or 0) + 1
 
 
-def _next_exam_round_map(class_id, year, score_type_keys):
-    """{loại điểm: lần kế tiếp} cho mọi loại điểm — để form gợi ý ngay khi
-    giáo viên đổi loại điểm mà không phải gọi lại server."""
+def _next_exam_round_map(class_id, year, score_type_keys, semester_keys):
+    """{kỳ: {loại điểm: lần kế tiếp}} — form gợi ý ngay khi giáo viên đổi
+    loại điểm hoặc đổi kỳ mà không phải gọi lại server."""
     from models import ScoreSource
-    rows = (db.session.query(Score.score_type, db.func.max(Score.exam_round))
+    rows = (db.session.query(Score.semester, Score.score_type, db.func.max(Score.exam_round))
             .filter(Score.class_id == class_id,
                     Score.score_source == ScoreSource.CENTER,
                     extract('year', Score.exam_date) == year)
-            .group_by(Score.score_type).all())
-    used = {st: (mx or 0) for st, mx in rows}
-    return {key: used.get(key, 0) + 1 for key in score_type_keys}
+            .group_by(Score.semester, Score.score_type).all())
+    used = {(sem, st): (mx or 0) for sem, st, mx in rows}
+    return {sem: {st: used.get((sem, st), 0) + 1 for st in score_type_keys}
+            for sem in semester_keys}
+
+
+def _last_used_semester(class_id, default):
+    """Kỳ của lần nhập điểm gần nhất ở lớp này — dùng làm giá trị mặc định
+    cho form, để giáo viên nhập nhiều đợt trong cùng kỳ không phải chọn lại."""
+    row = (db.session.query(Score.semester)
+           .filter(Score.class_id == class_id, Score.semester.isnot(None))
+           .order_by(Score.created_at.desc()).first())
+    return row[0] if row and row[0] else default
 
 
 def _normalized_10(score):
@@ -425,7 +447,7 @@ def scores_detail(class_id):
 
     Chỉ tính điểm Trung tâm (score_source = center). Điểm thi ở trường không
     tham gia vào Đạt/Không đạt, điểm trung bình hay chỉ báo tiến bộ."""
-    from models import ScoreSource, ScoreType
+    from models import ScoreSource, ScoreType, SemesterType
 
     teacher = current_user.teacher_profile
     class_ = Class.query.get_or_404(class_id)
@@ -434,7 +456,9 @@ def scores_detail(class_id):
 
     today = date.today()
     year = request.args.get('year', today.year, type=int)
-    score_type = request.args.get('score_type', '').strip()
+    semester = request.args.get('semester', '').strip() or SemesterType.SEMESTER_1
+    if semester not in SemesterType.LABELS:
+        semester = SemesterType.SEMESTER_1
 
     # Lọc ngay trong SQL, không lấy hết điểm rồi lọc bằng Python.
     base_q = (Score.query
@@ -442,9 +466,8 @@ def scores_detail(class_id):
               .options(contains_eager(Score.student))
               .filter(Score.class_id == class_id,
                       Score.score_source == ScoreSource.CENTER,
+                      Score.semester == semester,
                       extract('year', Score.exam_date) == year))
-    if score_type:
-        base_q = base_q.filter(Score.score_type == score_type)
 
     # exam_date là cột nullable — các dòng thiếu ngày thi sẽ không khớp bất
     # kỳ bộ lọc năm nào và biến mất khỏi trang này. Đếm riêng để báo cho
@@ -480,46 +503,65 @@ def scores_detail(class_id):
         else:
             failed_count += 1
 
-    # Chỉ báo tiến bộ: so điểm lần đầu với lần gần nhất, tính trên điểm đã
-    # quy về thang 10 để không bị lệch khi các bài có thang điểm khác nhau.
+    # Bảng ma trận: mỗi học sinh 1 dòng, mỗi loại điểm 1 cột chứa điểm của
+    # từng lần thi xếp theo thứ tự lần. Chỉ hiện 3 cột KS/GK/CK — điểm 15
+    # phút và Miệng vẫn lưu bình thường nhưng không lên bảng này.
+    matrix_types = [ScoreType.CONTINUOUS, ScoreType.MIDTERM, ScoreType.FINAL]
+
     by_student = {}
     for sc in all_scores:
-        norm = _normalized_10(sc)
-        if norm is None or not sc.exam_date:
+        if sc.score_type not in matrix_types:
             continue
-        by_student.setdefault(sc.student_id, {'student': sc.student, 'items': []})
-        by_student[sc.student_id]['items'].append((sc.exam_date, sc.id, norm))
-
-    progress = []
-    for data in by_student.values():
-        items = sorted(data['items'], key=lambda x: (x[0], x[1]))
-        first_val = items[0][2]
-        last_val = items[-1][2]
-        count = len(items)
-        delta = last_val - first_val
-        if count < 2:
-            label, tone = 'Cần thêm lần kiểm tra', 'secondary'
-        elif delta > 0:
-            label, tone = 'Có tiến bộ', 'success'
-        elif delta < 0:
-            label, tone = 'Cần theo dõi', 'danger'
-        else:
-            label, tone = 'Ổn định', 'info'
-        progress.append({
-            'student': data['student'],
-            'count': count,
-            'first': first_val,
-            'last': last_val,
-            'delta': delta,
-            'average': sum(i[2] for i in items) / count,
-            'label': label,
-            'tone': tone,
+        norm = _normalized_10(sc)
+        if norm is None:
+            continue
+        row = by_student.setdefault(sc.student_id, {
+            'student': sc.student,
+            'cells': {t: [] for t in matrix_types},
+            'latest': None,
         })
-    progress.sort(key=lambda p: p['student'].full_name if p['student'] else '')
+        # exam_round là thứ tự giáo viên khai báo; điểm cũ chưa có số lần thì
+        # xếp sau cùng theo ngày thi để không chen lên trước các lần đã đánh số.
+        row['cells'][sc.score_type].append({
+            'value': norm,
+            'round': sc.exam_round,
+            'sort_key': (sc.exam_round is None, sc.exam_round or 0, sc.exam_date or date.min, sc.id),
+            'passed': norm >= PASS_THRESHOLD_10,
+        })
+        # "Gần nhất" chỉ xét trong 3 cột đang hiển thị — nếu tính cả loại
+        # điểm bị ẩn thì sẽ hiện ra con số không thấy ở đâu trong dòng đó.
+        latest_key = (sc.exam_date or date.min, sc.id)
+        if row['latest'] is None or latest_key > row['latest']['key']:
+            row['latest'] = {'key': latest_key, 'value': norm, 'note': sc.note}
+
+    matrix = []
+    for data in by_student.values():
+        cells = {t: sorted(items, key=lambda i: i['sort_key'])
+                 for t, items in data['cells'].items()}
+        matrix.append({
+            'student': data['student'],
+            'cells': cells,
+            'latest': data['latest']['value'] if data['latest'] else None,
+            'note': (data['latest'] or {}).get('note') or '',
+        })
+    matrix.sort(key=lambda r: r['student'].full_name if r['student'] else '')
+
+    # Hậu tố kỳ trên tiêu đề cột: KS I / KS II / KS Hè.
+    semester_suffix = {
+        SemesterType.SEMESTER_1: 'I',
+        SemesterType.SEMESTER_2: 'II',
+        SemesterType.SUMMER: 'Hè',
+    }.get(semester, '')
+    matrix_columns = [
+        (ScoreType.CONTINUOUS, f'KS {semester_suffix}'.strip()),
+        (ScoreType.MIDTERM, f'GK {semester_suffix}'.strip()),
+        (ScoreType.FINAL, f'CK {semester_suffix}'.strip()),
+    ]
 
     return render_template('teacher/scores_detail.html',
                            class_=class_,
-                           progress=progress,
+                           matrix=matrix,
+                           matrix_columns=matrix_columns,
                            total_scores=len(all_scores),
                            undated_count=undated_count,
                            invalid_max_count=invalid_max_count,
@@ -527,8 +569,8 @@ def scores_detail(class_id):
                            failed_count=failed_count,
                            year=year,
                            available_years=available_years,
-                           score_type=score_type,
-                           score_types=ScoreType.LABELS,
+                           semester=semester,
+                           semesters=SemesterType.LABELS,
                            pass_threshold=PASS_THRESHOLD_10,
                            today=today)
 
