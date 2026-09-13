@@ -101,9 +101,13 @@
               <div class="fw-semibold">{{ student.full_name }}</div>
             </div>
             <div style="width:90px;">
+              {# step="any": đề thi có điểm rất lẻ (3.1, 7.35...). Nếu để
+                 step cố định, trình duyệt chặn mọi giá trị không phải bội
+                 số của bước đó. Giới hạn 0 <= điểm <= thang điểm vẫn được
+                 kiểm tra ở server khi lưu. #}
               <input type="number" class="form-control form-control-sm text-center"
                      name="score_{{ student.id }}" placeholder="Điểm"
-                     min="0" step="0.25"
+                     min="0" step="any"
                      style="min-height:44px;font-size:1rem;font-weight:600;">
             </div>
             <div style="width:130px;">
