@@ -36,11 +36,22 @@
         <!-- score_type select -->
         <div class="mb-3">
           <label class="form-label fw-semibold" for="score_type">Loại điểm</label>
-          <select class="form-select" name="score_type" id="score_type" style="min-height:44px;">
+          <select class="form-select" name="score_type" id="score_type" style="min-height:44px;"
+                  data-next-rounds='{{ next_rounds | tojson }}'>
             {% for key, label in score_types.items() %}
             <option value="{{ key }}">{{ label }}</option>
             {% endfor %}
           </select>
+        </div>
+
+        <!-- exam_round -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="exam_round">Lần thi</label>
+          <input type="number" class="form-control" name="exam_round" id="exam_round"
+                 min="1" step="1" style="min-height:44px;">
+          <div class="form-text">
+            Ví dụ: Thường xuyên lần 1, lần 2... Hệ thống tự điền lần kế tiếp, sửa lại được nếu cần.
+          </div>
         </div>
 
         <!-- exam_date -->
@@ -127,7 +138,7 @@
             <td class="fw-semibold">{{ row.student.full_name }}</td>
             <td>
               <span class="badge bg-secondary bg-opacity-75">
-                {{ score_types.get(row.score_type, row.score_type) }}
+                {{ score_types.get(row.score_type, row.score_type) }}{% if row.exam_round %} · lần {{ row.exam_round }}{% endif %}
               </span>
             </td>
             <td>
@@ -154,5 +165,35 @@
 </div>
 {% endblock %}
 
-{# Đã bỏ block extra_js: hàm toggleSchoolName() cũ tham chiếu ô "Nguồn điểm"
-   và "Tên trường" — cả hai không còn nên hàm sẽ lỗi ngay khi tải trang. #}
+{# Hàm toggleSchoolName() cũ đã bỏ cùng ô "Nguồn điểm"/"Tên trường". #}
+{% block extra_js %}
+<script>
+// Tự điền lần thi kế tiếp theo loại điểm đang chọn. Số lần được tính sẵn ở
+// server cho từng loại điểm (theo lớp + năm) nên đổi loại điểm không cần
+// gọi lại server. Giáo viên vẫn sửa tay được.
+(function () {
+  const typeSelect = document.getElementById('score_type');
+  const roundInput = document.getElementById('exam_round');
+  if (!typeSelect || !roundInput) return;
+
+  let nextRounds = {};
+  try {
+    nextRounds = JSON.parse(typeSelect.dataset.nextRounds || '{}');
+  } catch (e) {
+    nextRounds = {};
+  }
+
+  // Chỉ ghi đè khi giáo viên chưa tự sửa, để không xoá số họ vừa nhập.
+  let touched = false;
+  roundInput.addEventListener('input', () => { touched = true; });
+
+  function fill() {
+    if (touched) return;
+    roundInput.value = nextRounds[typeSelect.value] || 1;
+  }
+
+  typeSelect.addEventListener('change', fill);
+  fill();
+})();
+</script>
+{% endblock %}

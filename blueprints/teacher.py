@@ -10,7 +10,6 @@ from services.zalo_service import ZaloService
 from services.reward_service import create_suggested_reward
 from services.salary_service import scheduled_sessions, substituted_sessions, taught_classes_count
 from services.auth_context import get_active_role
-from blueprints.pagination_utils import paginate_list
 
 teacher_bp = Blueprint('teacher', __name__)
 
@@ -289,6 +288,20 @@ def scores(class_id):
             flash('Điểm tối đa phải lớn hơn 0.', 'danger')
             return redirect(url_for('teacher.scores', class_id=class_id))
 
+        # Lần thi: bỏ trống thì tự lấy lần kế tiếp của đúng lớp + loại điểm +
+        # năm đang nhập, để giáo viên không phải tự nhớ đã tới lần mấy.
+        exam_round_raw = (request.form.get('exam_round') or '').strip()
+        if exam_round_raw:
+            try:
+                exam_round = int(float(exam_round_raw))
+            except ValueError:
+                exam_round = None
+            if exam_round is not None and exam_round < 1:
+                flash('Lần thi phải là số nguyên từ 1 trở lên.', 'danger')
+                return redirect(url_for('teacher.scores', class_id=class_id))
+        else:
+            exam_round = _next_exam_round(class_id, score_type, exam_date.year)
+
         saved = 0
         skipped = []
         suggested_rewards = []
@@ -315,6 +328,7 @@ def scores(class_id):
                 class_id=class_id,
                 score_source=score_source,
                 score_type=score_type,
+                exam_round=exam_round,
                 score_value=val,
                 max_score=max_score,
                 exam_date=exam_date,
@@ -344,18 +358,47 @@ def scores(class_id):
 
     # Existing scores for this class (most recent)
     recent_scores = (
-        Score.query.filter_by(class_id=class_id)
+        Score.query.options(joinedload(Score.student))
+        .filter_by(class_id=class_id)
         .order_by(Score.created_at.desc())
         .limit(20).all()
     )
 
+    today = date.today()
     return render_template('teacher/scores.html',
                            class_=class_,
                            students=students,
                            recent_scores=recent_scores,
                            score_sources=ScoreSource.LABELS,
                            score_types=ScoreType.LABELS,
-                           today=date.today())
+                           next_rounds=_next_exam_round_map(class_id, today.year, list(ScoreType.LABELS)),
+                           today=today)
+
+
+def _next_exam_round(class_id, score_type, year):
+    """Lần thi kế tiếp của cùng lớp + loại điểm + năm. Đánh số lại từ 1 mỗi
+    năm, khớp với bộ lọc năm ở trang chi tiết điểm."""
+    from models import ScoreSource
+    current_max = (db.session.query(db.func.max(Score.exam_round))
+                   .filter(Score.class_id == class_id,
+                           Score.score_type == score_type,
+                           Score.score_source == ScoreSource.CENTER,
+                           extract('year', Score.exam_date) == year)
+                   .scalar())
+    return (current_max or 0) + 1
+
+
+def _next_exam_round_map(class_id, year, score_type_keys):
+    """{loại điểm: lần kế tiếp} cho mọi loại điểm — để form gợi ý ngay khi
+    giáo viên đổi loại điểm mà không phải gọi lại server."""
+    from models import ScoreSource
+    rows = (db.session.query(Score.score_type, db.func.max(Score.exam_round))
+            .filter(Score.class_id == class_id,
+                    Score.score_source == ScoreSource.CENTER,
+                    extract('year', Score.exam_date) == year)
+            .group_by(Score.score_type).all())
+    used = {st: (mx or 0) for st, mx in rows}
+    return {key: used.get(key, 0) + 1 for key in score_type_keys}
 
 
 def _normalized_10(score):
@@ -424,20 +467,18 @@ def scores_detail(class_id):
 
     all_scores = base_q.order_by(Score.exam_date.desc(), Score.id.desc()).all()
 
-    # Bảng lịch sử (phân trang trong Python: tập dữ liệu đã lọc theo 1 lớp +
-    # 1 năm nên nhỏ, và phần tiến bộ bên dưới cần toàn bộ tập này).
-    page = request.args.get('page', 1, type=int)
-    history_pagination = paginate_list(all_scores, page, per_page=20)
-
-    rows = []
-    for sc in history_pagination.items:
+    # Đếm Đạt/Không đạt trên TOÀN BỘ tập đã lọc. Trước đây bảng lịch sử có
+    # phân trang nên hai số này chỉ tính trên trang đang xem; bỏ bảng lịch sử
+    # rồi thì tính trên cả tập, không còn cần chú thích "trang này".
+    passed_count = failed_count = invalid_max_count = 0
+    for sc in all_scores:
         norm = _normalized_10(sc)
-        rows.append({
-            'score': sc,
-            'student_name': sc.student.full_name if sc.student else '—',
-            'normalized': norm,
-            'passed': None if norm is None else norm >= PASS_THRESHOLD_10,
-        })
+        if norm is None:
+            invalid_max_count += 1
+        elif norm >= PASS_THRESHOLD_10:
+            passed_count += 1
+        else:
+            failed_count += 1
 
     # Chỉ báo tiến bộ: so điểm lần đầu với lần gần nhất, tính trên điểm đã
     # quy về thang 10 để không bị lệch khi các bài có thang điểm khác nhau.
@@ -476,17 +517,14 @@ def scores_detail(class_id):
         })
     progress.sort(key=lambda p: p['student'].full_name if p['student'] else '')
 
-    graded = [r for r in rows if r['normalized'] is not None]
     return render_template('teacher/scores_detail.html',
                            class_=class_,
-                           rows=rows,
-                           pagination=history_pagination,
                            progress=progress,
                            total_scores=len(all_scores),
                            undated_count=undated_count,
-                           invalid_max_count=sum(1 for r in rows if r['normalized'] is None),
-                           passed_count=sum(1 for r in graded if r['passed']),
-                           failed_count=sum(1 for r in graded if not r['passed']),
+                           invalid_max_count=invalid_max_count,
+                           passed_count=passed_count,
+                           failed_count=failed_count,
                            year=year,
                            available_years=available_years,
                            score_type=score_type,
