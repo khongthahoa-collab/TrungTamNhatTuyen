@@ -575,6 +575,95 @@ def scores_detail(class_id):
                            today=today)
 
 
+@teacher_bp.route('/scores/<int:class_id>/rounds')
+@login_required
+@require_teacher
+def scores_rounds(class_id):
+    """Thống kê theo từng lần thi — trả lời câu hỏi "cả lớp làm bài lần này
+    ra sao?", khác với bảng ma trận ở trang chi tiết (nhìn theo chiều học
+    sinh). Giá trị nằm ở các chỉ số cả lớp (TB, cao nhất, thấp nhất, số đạt)
+    mà bảng ma trận không thể hiện được.
+
+    Khác trang chi tiết ở một điểm: hiện MỌI loại điểm, kể cả 15 phút và
+    Miệng — đây là chỗ duy nhất xem được 2 loại đó sau khi bảng ma trận chỉ
+    còn 3 cột KS/GK/CK."""
+    from models import ScoreSource, ScoreType, SemesterType
+
+    teacher = current_user.teacher_profile
+    class_ = Class.query.get_or_404(class_id)
+    if not _teacher_can_access_class(teacher, class_):
+        abort(403)
+
+    today = date.today()
+    year = request.args.get('year', today.year, type=int)
+    semester = request.args.get('semester', '').strip() or SemesterType.SEMESTER_1
+    if semester not in SemesterType.LABELS:
+        semester = SemesterType.SEMESTER_1
+
+    scores = (Score.query
+              .join(Student, Score.student_id == Student.id)
+              .options(contains_eager(Score.student))
+              .filter(Score.class_id == class_id,
+                      Score.score_source == ScoreSource.CENTER,
+                      Score.semester == semester,
+                      extract('year', Score.exam_date) == year)
+              .all())
+
+    # Gom theo (loại điểm, lần thi). Điểm chưa có số lần gom vào nhóm riêng
+    # thay vì trộn lẫn với lần 1 — không được đoán số lần cho chúng.
+    groups = {}
+    for sc in scores:
+        norm = _normalized_10(sc)
+        if norm is None:
+            continue
+        key = (sc.score_type, sc.exam_round)
+        # Không đặt tên key là 'items': trong Jinja, r.items sẽ trỏ vào
+        # method .items() của dict chứ không phải key này.
+        g = groups.setdefault(key, {'entries': [], 'exam_date': sc.exam_date})
+        g['entries'].append({
+            'student': sc.student,
+            'value': norm,
+            'passed': norm >= PASS_THRESHOLD_10,
+            'note': sc.note,
+        })
+        # Ngày thi của nhóm: lấy ngày sớm nhất trong nhóm cho ổn định.
+        if sc.exam_date and (g['exam_date'] is None or sc.exam_date < g['exam_date']):
+            g['exam_date'] = sc.exam_date
+
+    type_order = {t: i for i, t in enumerate(ScoreType.LABELS)}
+    rounds = []
+    for (score_type, exam_round), g in groups.items():
+        entries = sorted(g['entries'], key=lambda i: (-i['value'],
+                                                      i['student'].full_name if i['student'] else ''))
+        values = [i['value'] for i in entries]
+        passed = sum(1 for i in entries if i['passed'])
+        rounds.append({
+            'score_type': score_type,
+            'type_label': ScoreType.LABELS.get(score_type, score_type),
+            'round': exam_round,
+            'exam_date': g['exam_date'],
+            'entries': entries,
+            'count': len(entries),
+            'average': sum(values) / len(values),
+            'highest': max(values),
+            'lowest': min(values),
+            'passed': passed,
+            'failed': len(entries) - passed,
+        })
+    # Lần chưa đánh số xếp cuối nhóm cùng loại điểm.
+    rounds.sort(key=lambda r: (type_order.get(r['score_type'], 99),
+                               r['round'] is None, r['round'] or 0))
+
+    return render_template('teacher/scores_rounds.html',
+                           class_=class_,
+                           rounds=rounds,
+                           year=year,
+                           semester=semester,
+                           semesters=SemesterType.LABELS,
+                           pass_threshold=PASS_THRESHOLD_10,
+                           today=today)
+
+
 @teacher_bp.route('/documents/<int:class_id>', methods=['GET', 'POST'])
 @login_required
 @require_teacher
