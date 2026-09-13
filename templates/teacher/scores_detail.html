@@ -1,0 +1,236 @@
+{% extends 'teacher/base.html' %}
+{% block title %}Chi tiết điểm {{ class_.name }} – Nhật Tuyền{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <!-- Header -->
+  <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+    <div>
+      <h5 class="fw-bold mb-0">
+        <i class="bi bi-graph-up text-primary me-1"></i>Chi tiết điểm
+      </h5>
+      <div class="text-muted small">{{ class_.name }} · Điểm Trung tâm Nhật Tuyến</div>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('teacher.scores', class_id=class_.id) }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-pencil-square me-1"></i>Nhập điểm
+      </a>
+      <a href="{{ url_for('teacher.scores_list') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i>
+      </a>
+    </div>
+  </div>
+
+  <!-- Bộ lọc -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2">
+      <form method="get" class="row g-2 align-items-end">
+        <div class="col-6 col-md-3">
+          <label class="form-label form-label-sm fw-semibold mb-1">Năm</label>
+          <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
+            {% for y in available_years %}
+            <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-6 col-md-4">
+          <label class="form-label form-label-sm fw-semibold mb-1">Loại kiểm tra</label>
+          <select name="score_type" class="form-select form-select-sm" onchange="this.form.submit()">
+            <option value="">Tất cả</option>
+            {% for key, label in score_types.items() %}
+            <option value="{{ key }}" {% if score_type == key %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12 col-md-5">
+          <div class="text-muted" style="font-size:0.75rem;">
+            <i class="bi bi-info-circle me-1"></i>Chỉ tính điểm Trung tâm. Điểm thi ở trường không tham gia thống kê.
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% if undated_count %}
+  <div class="alert alert-warning py-2 small">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    Có <strong>{{ undated_count }}</strong> điểm Trung tâm của lớp này chưa có ngày thi nên không thuộc năm nào —
+    không hiển thị ở trang này. Cần bổ sung ngày thi để đưa vào thống kê.
+  </div>
+  {% endif %}
+
+  {% if invalid_max_count %}
+  <div class="alert alert-warning py-2 small">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    Có <strong>{{ invalid_max_count }}</strong> điểm thiếu thang điểm hợp lệ (điểm tối đa trống hoặc bằng 0)
+    nên không quy đổi được sang thang 10, hiển thị là “—”.
+  </div>
+  {% endif %}
+
+  <!-- Tổng quan -->
+  <div class="row g-2 mb-3">
+    <div class="col-4">
+      <div class="card border-0 shadow-sm text-center py-2 h-100">
+        <div class="fw-bold text-primary" style="font-size:1.3rem;">{{ total_scores }}</div>
+        <div class="text-muted" style="font-size:0.72rem;">Lượt kiểm tra</div>
+      </div>
+    </div>
+    <div class="col-4">
+      <div class="card border-0 shadow-sm text-center py-2 h-100">
+        <div class="fw-bold text-success" style="font-size:1.3rem;">{{ passed_count }}</div>
+        <div class="text-muted" style="font-size:0.72rem;">Đạt (trang này)</div>
+      </div>
+    </div>
+    <div class="col-4">
+      <div class="card border-0 shadow-sm text-center py-2 h-100">
+        <div class="fw-bold text-danger" style="font-size:1.3rem;">{{ failed_count }}</div>
+        <div class="text-muted" style="font-size:0.72rem;">Không đạt (trang này)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chỉ báo tiến bộ -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-white fw-semibold small py-2">
+      <i class="bi bi-arrow-up-right-circle me-1 text-primary"></i>Chỉ báo tiến bộ
+      <span class="text-muted fw-normal">· so điểm lần đầu với lần gần nhất trong năm {{ year }}</span>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Học sinh</th>
+            <th class="text-center">Số lần</th>
+            <th class="text-end">Lần đầu</th>
+            <th class="text-end">Gần nhất</th>
+            <th class="text-end">Thay đổi</th>
+            <th class="text-end">TB</th>
+            <th class="text-center">Đánh giá</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in progress %}
+          <tr>
+            <td class="ps-3 small fw-semibold">{{ p.student.full_name if p.student else '—' }}</td>
+            <td class="text-center small">{{ p.count }}</td>
+            <td class="text-end small">{{ p.first | score }}</td>
+            <td class="text-end small fw-semibold">{{ p.last | score }}</td>
+            <td class="text-end small fw-semibold
+                {% if p.delta > 0 %}text-success{% elif p.delta < 0 %}text-danger{% else %}text-muted{% endif %}">
+              {% if p.delta > 0 %}+{% endif %}{{ p.delta | score }}
+            </td>
+            <td class="text-end small">{{ p.average | score }}</td>
+            <td class="text-center">
+              <span class="badge bg-{{ p.tone }}-subtle text-{{ p.tone }} border border-{{ p.tone }}-subtle small">
+                {{ p.label }}
+              </span>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="7" class="text-center text-muted py-4 small">
+              Chưa có điểm Trung tâm nào trong năm {{ year }}.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if progress %}
+    <div class="card-footer bg-white text-muted" style="font-size:0.72rem;">
+      Chỉ báo tiến bộ chỉ so hai mốc điểm, chưa tính độ khó của từng bài hay khoảng cách thời gian —
+      nên dùng kèm bảng lịch sử bên dưới, không dùng làm kết luận duy nhất về học lực.
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Bảng lịch sử điểm -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-white fw-semibold small py-2">
+      <i class="bi bi-clock-history me-1 text-primary"></i>Lịch sử điểm
+      <span class="text-muted fw-normal">· ngưỡng Đạt: {{ pass_threshold | score }} trên thang 10</span>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Học sinh</th>
+            <th>Loại kiểm tra</th>
+            <th class="text-end">Điểm</th>
+            <th class="text-center">Trạng thái</th>
+            <th>Ngày thi</th>
+            <th>Ghi chú</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td class="ps-3 small fw-semibold">{{ r.student_name }}</td>
+            <td class="small">
+              <span class="badge bg-primary bg-opacity-75 small">
+                {{ score_types.get(r.score.score_type, r.score.score_type) }}
+              </span>
+            </td>
+            <td class="text-end small fw-bold">
+              {% if r.normalized is not none %}
+                {{ r.normalized | score }}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% if r.passed is none %}
+                <span class="text-muted small">—</span>
+              {% elif r.passed %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle small">Đạt</span>
+              {% else %}
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle small">Không đạt</span>
+              {% endif %}
+            </td>
+            <td class="small text-muted text-nowrap">
+              {{ r.score.exam_date | date_vn if r.score.exam_date else '—' }}
+            </td>
+            <td class="small text-muted">{{ r.score.note or '–' }}</td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="6" class="text-center text-muted py-4 small">
+              <i class="bi bi-inbox d-block mb-2 fs-4"></i>
+              Chưa có điểm Trung tâm nào khớp bộ lọc.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if pagination.pages > 1 %}
+  <nav class="mt-3 d-flex justify-content-center">
+    <ul class="pagination pagination-sm mb-0">
+      <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('teacher.scores_detail', class_id=class_.id, year=year, score_type=score_type, page=pagination.prev_num) }}">
+          <i class="bi bi-chevron-left"></i>
+        </a>
+      </li>
+      {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+        {% if p %}
+        <li class="page-item {% if p == pagination.page %}active{% endif %}">
+          <a class="page-link" href="{{ url_for('teacher.scores_detail', class_id=class_.id, year=year, score_type=score_type, page=p) }}">{{ p }}</a>
+        </li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">…</span></li>
+        {% endif %}
+      {% endfor %}
+      <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('teacher.scores_detail', class_id=class_.id, year=year, score_type=score_type, page=pagination.next_num) }}">
+          <i class="bi bi-chevron-right"></i>
+        </a>
+      </li>
+    </ul>
+  </nav>
+  {% endif %}
+
+</div>
+{% endblock %}

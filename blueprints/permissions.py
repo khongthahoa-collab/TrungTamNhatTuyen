@@ -150,7 +150,7 @@ TEACHER_ENDPOINT_MODULES = {
     'schedule': 'schedule', 'checkin': 'schedule',
     'available_rooms': 'schedule', 'create_intensive': 'schedule',
     'attendance_list': 'attendance', 'attendance_session': 'attendance', 'save_attendance': 'attendance',
-    'scores': 'scores', 'scores_list': 'scores',
+    'scores': 'scores', 'scores_list': 'scores', 'scores_detail': 'scores',
     'documents': 'documents_teacher', 'delete_document': 'documents_teacher',
     # teacher's own exam screens (blueprints/teacher_exams.py) — separate routes from admin's,
     # gated by the same 'exams' module key as the admin side

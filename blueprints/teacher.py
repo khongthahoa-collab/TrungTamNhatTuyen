@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from datetime import date, timedelta, datetime, time as time_type
 import calendar
+from sqlalchemy import extract
 from sqlalchemy.orm import contains_eager, joinedload
 from extensions import db
 from models import Schedule, Attendance, Score, Class, Enrollment, Student, ClassDocument, Room, Notification, User, Salary, LeaveRequest, LeaveRequestStatus, Teacher
@@ -9,6 +10,7 @@ from services.zalo_service import ZaloService
 from services.reward_service import create_suggested_reward
 from services.salary_service import scheduled_sessions, substituted_sessions, taught_classes_count
 from services.auth_context import get_active_role
+from blueprints.pagination_utils import paginate_list
 
 teacher_bp = Blueprint('teacher', __name__)
 
@@ -29,6 +31,40 @@ def _teacher_schedule_visibility(teacher):
         is_current_member,
         db.and_(Schedule.date < date.today(), Schedule.teacher_id == teacher.id),
     )
+
+
+def _teacher_score_class_ids(teacher):
+    """Tập class_id giáo viên được xem/nhập điểm: là GV chính, HOẶC là trợ
+    giảng, HOẶC có lịch dạy buổi nào đó của lớp.
+
+    Trước đây mỗi trang điểm tự kiểm tra một kiểu khác nhau: trang danh sách
+    chấp nhận "có lịch dạy HOẶC là GV chính", còn trang nhập điểm chỉ chấp
+    nhận "có lịch dạy" — nên GV chính của lớp chưa xếp lịch thấy lớp trong
+    danh sách nhưng bấm vào thì bị 403. Gộp về một quy tắc duy nhất ở đây,
+    và bổ sung trợ giảng cho khớp với trang Lịch dạy/Điểm danh."""
+    scheduled_ids = {
+        r[0] for r in db.session.query(Schedule.class_id)
+        .filter(Schedule.class_id.isnot(None), Schedule.teacher_id == teacher.id)
+        .distinct().all()
+    }
+    primary_ids = {
+        r[0] for r in db.session.query(Class.id)
+        .filter(Class.primary_teacher_id == teacher.id).all()
+    }
+    assistant_ids = {c.id for c in teacher.assistant_classes}
+    return scheduled_ids | primary_ids | assistant_ids
+
+
+def _teacher_can_access_class(teacher, cls):
+    """Cùng quy tắc với _teacher_score_class_ids() nhưng cho đúng 1 lớp —
+    kiểm tra ngắn mạch, không phải tải toàn bộ danh sách lớp của giáo viên."""
+    if not teacher or not cls:
+        return False
+    if cls.primary_teacher_id == teacher.id:
+        return True
+    if any(t.id == teacher.id for t in cls.assistant_teachers):
+        return True
+    return Schedule.query.filter_by(class_id=cls.id, teacher_id=teacher.id).first() is not None
 
 
 def require_teacher(f):
@@ -221,11 +257,7 @@ def scores(class_id):
     teacher = current_user.teacher_profile
     class_ = Class.query.get_or_404(class_id)
 
-    # Check teacher teaches this class
-    teaches = Schedule.query.filter_by(
-        class_id=class_id, teacher_id=teacher.id
-    ).first()
-    if not teaches:
+    if not _teacher_can_access_class(teacher, class_):
         abort(403)
 
     students = class_.active_students
@@ -243,7 +275,14 @@ def scores(class_id):
         except ValueError:
             exam_date = date.today()
 
+        # Validate thang điểm một lần cho cả đợt nhập — max_score <= 0 sẽ
+        # gây chia cho 0 khi quy đổi điểm ở trang chi tiết.
+        if max_score <= 0:
+            flash('Điểm tối đa phải lớn hơn 0.', 'danger')
+            return redirect(url_for('teacher.scores', class_id=class_id))
+
         saved = 0
+        skipped = []
         suggested_rewards = []
         for student in students:
             val_str = request.form.get(f'score_{student.id}', '').strip()
@@ -252,6 +291,13 @@ def scores(class_id):
             try:
                 val = float(val_str)
             except ValueError:
+                skipped.append(f'{student.full_name} (không phải số)')
+                continue
+
+            # Chặn điểm âm hoặc vượt thang điểm ngay khi ghi, thay vì để dữ
+            # liệu sai lọt vào rồi làm sai thống kê Đạt/Không đạt về sau.
+            if val < 0 or val > max_score:
+                skipped.append(f'{student.full_name} (điểm phải từ 0 đến {max_score:g})')
                 continue
 
             note = request.form.get(f'note_{student.id}', '').strip()
@@ -284,6 +330,8 @@ def scores(class_id):
             names = ', '.join(f"{n} ({int(a):,}đ)" for n, a in suggested_rewards)
             msg += f' Đề xuất thưởng cho: {names} (Admin cần xác nhận).'
         flash(msg, 'success')
+        if skipped:
+            flash('Bỏ qua do dữ liệu không hợp lệ: ' + '; '.join(skipped), 'warning')
         return redirect(url_for('teacher.scores', class_id=class_id))
 
     # Existing scores for this class (most recent)
@@ -300,6 +348,143 @@ def scores(class_id):
                            score_sources=ScoreSource.LABELS,
                            score_types=ScoreType.LABELS,
                            today=date.today())
+
+
+def _normalized_10(score):
+    """Điểm quy về thang 10 để so sánh được giữa các bài có thang khác nhau.
+    Trả về None nếu max_score không hợp lệ (thiếu, 0 hoặc âm) — không được
+    mặc định coi max_score là 10 vì sẽ tạo ra điểm sai một cách âm thầm."""
+    max_s = score.max_score or 0
+    if max_s <= 0:
+        return None
+    return (score.score_value or 0) / max_s * 10
+
+
+# Ngưỡng Đạt: 50% thang điểm, tức 5 trên thang 10 sau khi quy đổi.
+PASS_THRESHOLD_10 = 5.0
+
+
+@teacher_bp.route('/scores/<int:class_id>/detail')
+@teacher_bp.route('/scores/<int:class_id>/detai')  # alias: giữ URL cũ trong tài liệu
+@login_required
+@require_teacher
+def scores_detail(class_id):
+    """Chi tiết điểm của một lớp theo năm — chỉ xem và phân tích, không nhập
+    điểm (trang nhập điểm giữ riêng ở /teacher/scores/<class_id>).
+
+    Chỉ tính điểm Trung tâm (score_source = center). Điểm thi ở trường không
+    tham gia vào Đạt/Không đạt, điểm trung bình hay chỉ báo tiến bộ."""
+    from models import ScoreSource, ScoreType
+
+    teacher = current_user.teacher_profile
+    class_ = Class.query.get_or_404(class_id)
+    if not _teacher_can_access_class(teacher, class_):
+        abort(403)
+
+    today = date.today()
+    year = request.args.get('year', today.year, type=int)
+    score_type = request.args.get('score_type', '').strip()
+
+    # Lọc ngay trong SQL, không lấy hết điểm rồi lọc bằng Python.
+    base_q = (Score.query
+              .join(Student, Score.student_id == Student.id)
+              .options(contains_eager(Score.student))
+              .filter(Score.class_id == class_id,
+                      Score.score_source == ScoreSource.CENTER,
+                      extract('year', Score.exam_date) == year))
+    if score_type:
+        base_q = base_q.filter(Score.score_type == score_type)
+
+    # exam_date là cột nullable — các dòng thiếu ngày thi sẽ không khớp bất
+    # kỳ bộ lọc năm nào và biến mất khỏi trang này. Đếm riêng để báo cho
+    # giáo viên biết thay vì âm thầm bỏ sót dữ liệu.
+    undated_count = Score.query.filter(
+        Score.class_id == class_id,
+        Score.score_source == ScoreSource.CENTER,
+        Score.exam_date.is_(None),
+    ).count()
+
+    # Các năm thực sự có dữ liệu, để đổ vào dropdown thay vì đoán khoảng năm.
+    year_rows = (db.session.query(extract('year', Score.exam_date))
+                 .filter(Score.class_id == class_id,
+                         Score.score_source == ScoreSource.CENTER,
+                         Score.exam_date.isnot(None))
+                 .distinct().all())
+    available_years = sorted({int(r[0]) for r in year_rows if r[0] is not None}, reverse=True)
+    if year not in available_years:
+        available_years = sorted(set(available_years) | {year}, reverse=True)
+
+    all_scores = base_q.order_by(Score.exam_date.desc(), Score.id.desc()).all()
+
+    # Bảng lịch sử (phân trang trong Python: tập dữ liệu đã lọc theo 1 lớp +
+    # 1 năm nên nhỏ, và phần tiến bộ bên dưới cần toàn bộ tập này).
+    page = request.args.get('page', 1, type=int)
+    history_pagination = paginate_list(all_scores, page, per_page=20)
+
+    rows = []
+    for sc in history_pagination.items:
+        norm = _normalized_10(sc)
+        rows.append({
+            'score': sc,
+            'student_name': sc.student.full_name if sc.student else '—',
+            'normalized': norm,
+            'passed': None if norm is None else norm >= PASS_THRESHOLD_10,
+        })
+
+    # Chỉ báo tiến bộ: so điểm lần đầu với lần gần nhất, tính trên điểm đã
+    # quy về thang 10 để không bị lệch khi các bài có thang điểm khác nhau.
+    by_student = {}
+    for sc in all_scores:
+        norm = _normalized_10(sc)
+        if norm is None or not sc.exam_date:
+            continue
+        by_student.setdefault(sc.student_id, {'student': sc.student, 'items': []})
+        by_student[sc.student_id]['items'].append((sc.exam_date, sc.id, norm))
+
+    progress = []
+    for data in by_student.values():
+        items = sorted(data['items'], key=lambda x: (x[0], x[1]))
+        first_val = items[0][2]
+        last_val = items[-1][2]
+        count = len(items)
+        delta = last_val - first_val
+        if count < 2:
+            label, tone = 'Cần thêm lần kiểm tra', 'secondary'
+        elif delta > 0:
+            label, tone = 'Có tiến bộ', 'success'
+        elif delta < 0:
+            label, tone = 'Cần theo dõi', 'danger'
+        else:
+            label, tone = 'Ổn định', 'info'
+        progress.append({
+            'student': data['student'],
+            'count': count,
+            'first': first_val,
+            'last': last_val,
+            'delta': delta,
+            'average': sum(i[2] for i in items) / count,
+            'label': label,
+            'tone': tone,
+        })
+    progress.sort(key=lambda p: p['student'].full_name if p['student'] else '')
+
+    graded = [r for r in rows if r['normalized'] is not None]
+    return render_template('teacher/scores_detail.html',
+                           class_=class_,
+                           rows=rows,
+                           pagination=history_pagination,
+                           progress=progress,
+                           total_scores=len(all_scores),
+                           undated_count=undated_count,
+                           invalid_max_count=sum(1 for r in rows if r['normalized'] is None),
+                           passed_count=sum(1 for r in graded if r['passed']),
+                           failed_count=sum(1 for r in graded if not r['passed']),
+                           year=year,
+                           available_years=available_years,
+                           score_type=score_type,
+                           score_types=ScoreType.LABELS,
+                           pass_threshold=PASS_THRESHOLD_10,
+                           today=today)
 
 
 @teacher_bp.route('/documents/<int:class_id>', methods=['GET', 'POST'])
@@ -531,14 +716,21 @@ def available_rooms():
 def scores_list():
     """List all classes the teacher can enter scores for."""
     teacher = current_user.teacher_profile
-    # Collect classes this teacher teaches (by schedule or assignment)
-    scheduled_ids = {s.class_id for s in Schedule.query.filter_by(teacher_id=teacher.id).all()}
-    primary_ids = {c.id for c in Class.query.filter(
-        Class.primary_teacher_id == teacher.id, Class.is_active == True
-    ).all()}
-    all_ids = scheduled_ids | primary_ids
-    classes = Class.query.filter(Class.id.in_(all_ids), Class.is_active == True).order_by(Class.name).all()
-    return render_template('teacher/scores_list.html', teacher=teacher, classes=classes)
+    class_ids = _teacher_score_class_ids(teacher)
+    classes = (Class.query
+               .options(joinedload(Class.course))
+               .filter(Class.id.in_(class_ids), Class.is_active == True)
+               .order_by(Class.name).all()) if class_ids else []
+    # Sĩ số gộp 1 query thay cho Class.current_enrollment (1 COUNT/lớp) mà
+    # template đang gọi theo từng dòng.
+    shown_ids = [c.id for c in classes]
+    enrollment_counts = dict(
+        db.session.query(Enrollment.class_id, db.func.count(Enrollment.id))
+        .filter(Enrollment.class_id.in_(shown_ids), Enrollment.is_active == True)
+        .group_by(Enrollment.class_id).all()
+    ) if shown_ids else {}
+    return render_template('teacher/scores_list.html', teacher=teacher, classes=classes,
+                           enrollment_counts=enrollment_counts)
 
 
 @teacher_bp.route('/notifications')

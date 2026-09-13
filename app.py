@@ -143,6 +143,21 @@ def create_app(config_name=None):
         except (ValueError, TypeError):
             return str(value)
 
+    @app.template_filter('score')
+    def format_score(value):
+        """Hiển thị điểm gọn: bỏ số 0 thừa ở cuối phần thập phân.
+        7.50 -> 7.5, 7.25 -> 7.25, 8.00 -> 8. Làm tròn 2 chữ số trước khi
+        bỏ số 0 để không hiện ra sai số dấu phẩy động (vd 7.249999...)."""
+        if value is None:
+            return '—'
+        try:
+            text = f'{float(value):.2f}'
+        except (ValueError, TypeError):
+            return str(value)
+        if '.' in text:
+            text = text.rstrip('0').rstrip('.')
+        return text or '0'
+
     @app.template_filter('date_vn')
     def format_date_vn(value):
         if not value:
