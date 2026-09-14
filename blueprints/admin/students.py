@@ -520,8 +520,18 @@ def student_detail(student_id):
 
     parent_account = User.query.get(student.parent_user_id) if student.parent_user_id else None
 
+    # Bài tập về nhà: lấy qua service chung để admin, giáo viên và phụ huynh
+    # không tính ra ba con số khác nhau cho cùng một học sinh.
+    from services import homework_service
+    homework_summary = homework_service.student_summary(student.id)
+    homework_records = homework_service.recent_records(student.id, limit=20)
+    homework_streak = homework_service.recent_missed_streak(student.id)
+
     return render_template('admin/students/detail.html',
                            student=student,
+                           homework_summary=homework_summary,
+                           homework_records=homework_records,
+                           homework_streak=homework_streak,
                            today=today,
                            available_classes=available_classes,
                            enrolled_class_ids=enrolled_class_ids,

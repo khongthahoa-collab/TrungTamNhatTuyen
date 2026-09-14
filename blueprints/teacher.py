@@ -664,6 +664,209 @@ def scores_rounds(class_id):
                            today=today)
 
 
+# ============================================================
+# Bài tập về nhà
+#
+# Nằm trong khu quản lý điểm nhưng lưu ở bảng riêng (homeworks /
+# homework_records), KHÔNG phải một loại điểm: nếu lưu vào bảng scores thì
+# mỗi dòng bắt buộc có score_value và "có làm bài" sẽ được cộng vào điểm
+# trung bình + số Đạt/Không đạt của trang Chi tiết điểm.
+# ============================================================
+
+@teacher_bp.route('/homework/<int:class_id>')
+@login_required
+@require_teacher
+def homework(class_id):
+    """Danh sách các buổi giao bài tập của một lớp + bảng tổng hợp theo học
+    sinh. Giá trị thật của tính năng nằm ở bảng tổng hợp (em nào hay không
+    làm bài), không phải ở từng dòng lẻ."""
+    from models import Homework, HomeworkRecord, HomeworkStatus, SemesterType
+
+    teacher = current_user.teacher_profile
+    class_ = Class.query.get_or_404(class_id)
+    if not _teacher_can_access_class(teacher, class_):
+        abort(403)
+
+    today = date.today()
+    year = request.args.get('year', today.year, type=int)
+    semester = request.args.get('semester', '').strip() or SemesterType.SEMESTER_1
+    if semester not in SemesterType.LABELS:
+        semester = SemesterType.SEMESTER_1
+
+    # Các năm thực sự có dữ liệu, cùng cách làm với trang Chi tiết điểm.
+    year_rows = (db.session.query(extract('year', Homework.assigned_date))
+                 .filter(Homework.class_id == class_id).distinct().all())
+    available_years = sorted({int(r[0]) for r in year_rows if r[0] is not None}, reverse=True)
+    if year not in available_years:
+        available_years = sorted(set(available_years) | {year}, reverse=True)
+
+    sessions = (Homework.query
+                .filter(Homework.class_id == class_id,
+                        Homework.semester == semester,
+                        extract('year', Homework.assigned_date) == year)
+                .order_by(Homework.assigned_date.desc(),
+                          Homework.assignment_round.desc(), Homework.id.desc())
+                .all())
+    session_ids = [h.id for h in sessions]
+
+    # Đếm gộp 1 query cho mọi buổi, thay vì mỗi buổi một COUNT trong template.
+    counts = {}
+    if session_ids:
+        rows = (db.session.query(HomeworkRecord.homework_id, HomeworkRecord.status,
+                                 db.func.count(HomeworkRecord.id))
+                .filter(HomeworkRecord.homework_id.in_(session_ids))
+                .group_by(HomeworkRecord.homework_id, HomeworkRecord.status).all())
+        for hw_id, status, n in rows:
+            counts.setdefault(hw_id, {})[status] = n
+
+    students = class_.active_students
+    # Tổng hợp theo học sinh lấy từ services/homework_service.py — admin và
+    # phụ huynh dùng đúng hàm này, nên ba màn hình không thể lệch số.
+    from services import homework_service
+    stats = homework_service.students_summary(
+        [s.id for s in students], class_ids=[class_id], year=year, semester=semester)
+    summary = [dict(stats[st.id], student=st) for st in students]
+    # Em hay không làm bài xếp lên đầu: đây là thứ giáo viên cần thấy ngay.
+    summary.sort(key=lambda r: (-r['not_done'], r['student'].full_name or ''))
+
+    session_rows = []
+    for h in sessions:
+        by_status = counts.get(h.id, {})
+        done = by_status.get(HomeworkStatus.DONE, 0)
+        not_done = by_status.get(HomeworkStatus.NOT_DONE, 0)
+        session_rows.append({
+            'homework': h,
+            'done': done,
+            'not_done': not_done,
+            'marked': done + not_done,
+        })
+
+    return render_template('teacher/homework.html',
+                           class_=class_,
+                           sessions=session_rows,
+                           summary=summary,
+                           student_count=len(students),
+                           year=year,
+                           available_years=available_years,
+                           semester=semester,
+                           semesters=SemesterType.LABELS,
+                           today=today)
+
+
+@teacher_bp.route('/homework/<int:class_id>/new', methods=['POST'])
+@login_required
+@require_teacher
+def homework_new(class_id):
+    """Tạo một buổi giao bài rồi đi thẳng tới màn hình đánh dấu."""
+    from models import Homework, SemesterType
+
+    teacher = current_user.teacher_profile
+    class_ = Class.query.get_or_404(class_id)
+    if not _teacher_can_access_class(teacher, class_):
+        abort(403)
+
+    semester = request.form.get('semester') or SemesterType.SEMESTER_1
+    if semester not in SemesterType.LABELS:
+        semester = SemesterType.SEMESTER_1
+
+    try:
+        assigned_date = date.fromisoformat(request.form.get('assigned_date') or '')
+    except ValueError:
+        assigned_date = date.today()
+
+    # Một lớp có thể giao nhiều lần bài tập khác nhau trong cùng ngày, nên
+    # KHÔNG gộp về buổi đã có. Đánh số lần giao trong ngày để phân biệt được
+    # các lần khi giáo viên không đặt tên bài.
+    current_max = (db.session.query(db.func.max(Homework.assignment_round))
+                   .filter(Homework.class_id == class_id,
+                           Homework.assigned_date == assigned_date)
+                   .scalar())
+
+    hw = Homework(
+        class_id=class_id,
+        assigned_date=assigned_date,
+        title=(request.form.get('title') or '').strip() or None,
+        semester=semester,
+        assignment_round=(current_max or 0) + 1,
+        created_by=current_user.id,
+    )
+    db.session.add(hw)
+    db.session.commit()
+    return redirect(url_for('teacher.homework_session', class_id=class_id, homework_id=hw.id))
+
+
+@teacher_bp.route('/homework/<int:class_id>/<int:homework_id>', methods=['GET', 'POST'])
+@login_required
+@require_teacher
+def homework_session(class_id, homework_id):
+    """Đánh dấu Có làm / Không làm cho từng học sinh của một buổi giao bài."""
+    from models import Homework, HomeworkRecord, HomeworkStatus
+
+    teacher = current_user.teacher_profile
+    class_ = Class.query.get_or_404(class_id)
+    if not _teacher_can_access_class(teacher, class_):
+        abort(403)
+
+    hw = Homework.query.filter_by(id=homework_id, class_id=class_id).first_or_404()
+    students = class_.active_students
+
+    if request.method == 'POST':
+        existing = {r.student_id: r for r in hw.records.all()}
+        now = datetime.utcnow()
+        for st in students:
+            raw = request.form.get(f'status_{st.id}')
+            note = (request.form.get(f'note_{st.id}') or '').strip()[:255] or None
+            # Không gửi trạng thái = chưa chấm em đó. Xoá bản ghi cũ nếu có,
+            # để "chưa chấm" không bị kẹt lại thành dữ liệu sai.
+            if raw not in HomeworkStatus.LABELS:
+                if st.id in existing:
+                    db.session.delete(existing[st.id])
+                continue
+            rec = existing.get(st.id)
+            if rec is None:
+                rec = HomeworkRecord(homework_id=hw.id, student_id=st.id)
+                db.session.add(rec)
+            rec.status = raw
+            rec.note = note
+            rec.recorded_at = now
+            rec.recorded_by = current_user.id
+
+        hw.title = (request.form.get('title') or '').strip() or None
+        hw.note = (request.form.get('note') or '').strip()[:255] or None
+        db.session.commit()
+        flash('Đã lưu tình hình làm bài tập.', 'success')
+        return redirect(url_for('teacher.homework', class_id=class_id,
+                                year=hw.assigned_date.year, semester=hw.semester))
+
+    records = {r.student_id: r for r in hw.records.all()}
+    return render_template('teacher/homework_session.html',
+                           class_=class_,
+                           homework=hw,
+                           students=students,
+                           records=records,
+                           statuses=HomeworkStatus.LABELS)
+
+
+@teacher_bp.route('/homework/<int:class_id>/<int:homework_id>/delete', methods=['POST'])
+@login_required
+@require_teacher
+def homework_delete(class_id, homework_id):
+    from models import Homework
+
+    teacher = current_user.teacher_profile
+    class_ = Class.query.get_or_404(class_id)
+    if not _teacher_can_access_class(teacher, class_):
+        abort(403)
+
+    hw = Homework.query.filter_by(id=homework_id, class_id=class_id).first_or_404()
+    year, semester = hw.assigned_date.year, hw.semester
+    # cascade='all, delete-orphan' dọn luôn homework_records của buổi này.
+    db.session.delete(hw)
+    db.session.commit()
+    flash('Đã xoá buổi giao bài.', 'success')
+    return redirect(url_for('teacher.homework', class_id=class_id, year=year, semester=semester))
+
+
 @teacher_bp.route('/documents/<int:class_id>', methods=['GET', 'POST'])
 @login_required
 @require_teacher

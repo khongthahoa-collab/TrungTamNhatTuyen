@@ -1,0 +1,113 @@
+{% extends 'teacher/base.html' %}
+{% block title %}Bài tập {{ class_.name }} – Nhật Tuyền{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <!-- Header -->
+  <div class="mb-3">
+    <a href="{{ url_for('teacher.homework', class_id=class_.id, year=homework.assigned_date.year, semester=homework.semester) }}"
+       class="btn btn-sm btn-outline-secondary mb-2">
+      <i class="bi bi-arrow-left me-1"></i>Quay lại
+    </a>
+    <h5 class="fw-bold mb-0">
+      <i class="bi bi-journal-check text-primary me-1"></i>Bài tập về nhà
+    </h5>
+    <div class="text-muted fw-semibold">
+      {{ class_.name }} · {{ homework.assigned_date | date_vn }} · {{ homework.display_title }}
+    </div>
+    <div class="text-muted small">Chỉ ghi nhận có làm / không làm — không chấm điểm.</div>
+  </div>
+
+  <form method="post"
+        action="{{ url_for('teacher.homework_session', class_id=class_.id, homework_id=homework.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <!-- Thông tin buổi giao bài -->
+    <div class="card shadow-sm border-0 mb-3">
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="title">Tên bài tập</label>
+          <input type="text" class="form-control" name="title" id="title"
+                 value="{{ homework.title or '' }}" placeholder="Bài 12 trang 45"
+                 style="min-height:44px;">
+        </div>
+        <div class="mb-0">
+          <label class="form-label fw-semibold" for="note">Ghi chú chung</label>
+          <input type="text" class="form-control" name="note" id="note"
+                 value="{{ homework.note or '' }}" placeholder="Cả lớp làm khá tốt..."
+                 style="min-height:44px;">
+        </div>
+      </div>
+    </div>
+
+    <!-- Đánh dấu nhanh cả lớp -->
+    <div class="d-flex gap-2 mb-3">
+      <button type="button" class="btn btn-outline-success btn-sm flex-fill"
+              onclick="markAll('done')" style="min-height:40px;">
+        <i class="bi bi-check2-all me-1"></i>Cả lớp có làm
+      </button>
+      <button type="button" class="btn btn-outline-secondary btn-sm flex-fill"
+              onclick="markAll(null)" style="min-height:40px;">
+        <i class="bi bi-eraser me-1"></i>Bỏ đánh dấu
+      </button>
+    </div>
+
+    <!-- Danh sách học sinh -->
+    <div class="card shadow-sm border-0 mb-3">
+      <div class="card-header fw-semibold py-2 bg-light d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-people me-1"></i>Học sinh</span>
+        <span class="badge bg-secondary">{{ students | length }} HS</span>
+      </div>
+      <div class="card-body p-0">
+        {% if students %}
+          {% for student in students %}
+          {% set rec = records.get(student.id) %}
+          <div class="px-3 py-2 border-bottom">
+            <div class="fw-semibold mb-2">{{ student.full_name }}</div>
+            <div class="btn-group w-100 mb-2" role="group">
+              {% for key, label in statuses.items() %}
+              <input type="radio" class="btn-check" name="status_{{ student.id }}"
+                     id="st_{{ student.id }}_{{ key }}" value="{{ key }}"
+                     {% if rec and rec.status == key %}checked{% endif %}>
+              <label class="btn {% if key == 'done' %}btn-outline-success{% else %}btn-outline-danger{% endif %}"
+                     for="st_{{ student.id }}_{{ key }}" style="min-height:44px;line-height:30px;">
+                {{ label }}
+              </label>
+              {% endfor %}
+            </div>
+            <input type="text" class="form-control form-control-sm"
+                   name="note_{{ student.id }}" value="{{ rec.note if rec and rec.note else '' }}"
+                   placeholder="Ghi chú riêng (vd: thiếu bài 3, 4)" style="min-height:40px;">
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="text-muted text-center py-3 small">Lớp chưa có học sinh</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-lg w-100 mb-4 shadow-sm"
+            style="min-height:52px;font-size:1.1rem;">
+      <i class="bi bi-save me-2"></i>Lưu
+    </button>
+  </form>
+
+  <div class="text-muted mb-4" style="font-size:0.72rem;">
+    Học sinh không chọn mức nào được coi là chưa ghi nhận và không tính vào tỉ lệ làm bài.
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Đánh dấu nhanh: đa số buổi cả lớp đều làm bài, giáo viên chỉ cần sửa lại
+// vài em. value = null nghĩa là bỏ chọn hết (đưa về "chưa chấm").
+function markAll(value) {
+  document.querySelectorAll('input[type="radio"][name^="status_"]').forEach(function (el) {
+    el.checked = value !== null && el.value === value;
+  });
+}
+</script>
+{% endblock %}

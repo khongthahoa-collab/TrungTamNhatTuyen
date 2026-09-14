@@ -152,6 +152,9 @@ TEACHER_ENDPOINT_MODULES = {
     'attendance_list': 'attendance', 'attendance_session': 'attendance', 'save_attendance': 'attendance',
     'scores': 'scores', 'scores_list': 'scores', 'scores_detail': 'scores',
     'scores_rounds': 'scores',
+    # Bài tập về nhà nằm trong khu quản lý điểm nên dùng chung quyền 'scores'.
+    'homework': 'scores', 'homework_new': 'scores',
+    'homework_session': 'scores', 'homework_delete': 'scores',
     'documents': 'documents_teacher', 'delete_document': 'documents_teacher',
     # teacher's own exam screens (blueprints/teacher_exams.py) — separate routes from admin's,
     # gated by the same 'exams' module key as the admin side

@@ -17,6 +17,10 @@
          class="btn btn-outline-primary btn-sm">
         <i class="bi bi-list-check me-1"></i>Từng lần thi
       </a>
+      <a href="{{ url_for('teacher.homework', class_id=class_.id) }}"
+         class="btn btn-outline-primary btn-sm">
+        <i class="bi bi-journal-check me-1"></i>Bài tập
+      </a>
       <a href="{{ url_for('teacher.scores', class_id=class_.id) }}" class="btn btn-primary btn-sm">
         <i class="bi bi-pencil-square me-1"></i>Nhập điểm
       </a>

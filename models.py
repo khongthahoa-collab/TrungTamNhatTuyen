@@ -115,6 +115,21 @@ class SemesterType:
     }
 
 
+class HomeworkStatus:
+    """Tình hình làm bài tập về nhà của một học sinh trong một buổi giao bài.
+
+    Cố ý chỉ có 2 mức: giáo viên đánh dấu trên điện thoại ngay sau buổi học,
+    càng ít nút càng nhiều khả năng được dùng thật. Muốn ghi chi tiết hơn
+    ("thiếu bài 3, 4") thì dùng ô ghi chú của từng học sinh."""
+    DONE = 'done'                 # Có làm
+    NOT_DONE = 'not_done'         # Không làm
+
+    LABELS = {
+        'done': 'Có làm',
+        'not_done': 'Không làm'
+    }
+
+
 class TuitionMethod:
     """Payment method for tuition"""
     CASH = 'cash'                # Tiền mặt
@@ -1226,6 +1241,76 @@ class Score(db.Model):
 
     def __repr__(self):
         return f'<Score student={self.student_id} value={self.score_value}>'
+
+
+class Homework(db.Model):
+    """Một buổi giao bài tập về nhà của một lớp.
+
+    Cố ý KHÔNG lưu bài tập thành một dòng trong bảng scores: mọi dòng ở đó
+    bắt buộc có score_value, nên "có làm bài" sẽ bị cộng vào điểm trung bình
+    và số Đạt/Không đạt ở trang Chi tiết điểm, làm sai lệch đánh giá học lực.
+    Tách bảng riêng thì thống kê điểm không phải biết tới bài tập.
+
+    Đây cũng KHÔNG phải hệ thống giao bài (nộp bài, tệp đính kèm, hạn nộp) —
+    chỉ ghi nhận tình hình làm bài, đúng phạm vi được yêu cầu."""
+    __tablename__ = 'homeworks'
+
+    id = db.Column(db.Integer, primary_key=True)
+    class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False, index=True)
+    assigned_date = db.Column(db.Date, nullable=False, default=date.today, index=True)
+    title = db.Column(db.String(200))        # vd "Bài 12 trang 45" — không bắt buộc
+    semester = db.Column(db.String(20))      # theo SemesterType, để lọc cùng kiểu trang điểm
+    note = db.Column(db.String(255))         # ghi chú chung cho cả lớp
+    # Lần giao thứ mấy trong cùng một ngày của lớp đó. Một lớp CÓ THỂ giao
+    # nhiều lần bài tập khác nhau trong cùng ngày, nên cố ý KHÔNG đặt ràng
+    # buộc duy nhất trên (class_id, assigned_date) — số lần này chỉ để phân
+    # biệt các lần giao khi giáo viên không đặt tên bài.
+    assignment_round = db.Column(db.Integer, default=1)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    class_ = db.relationship('Class', foreign_keys=[class_id])
+    records = db.relationship('HomeworkRecord', backref='homework',
+                              cascade='all, delete-orphan', lazy='dynamic')
+
+    @property
+    def display_title(self):
+        """Nhãn hiển thị thống nhất cho mọi màn hình (giáo viên, admin, phụ
+        huynh) — có đặt tên bài thì dùng tên, không thì gọi theo lần giao."""
+        if self.title:
+            return self.title
+        return f'Lần {self.assignment_round or 1}'
+
+    def __repr__(self):
+        return f'<Homework class={self.class_id} date={self.assigned_date} round={self.assignment_round}>'
+
+
+class HomeworkRecord(db.Model):
+    """Tình hình làm bài của một học sinh trong một lần giao bài.
+
+    Cố ý KHÔNG có cột điểm: bài tập về nhà chỉ được đánh giá có làm / không
+    làm, phần chi tiết ("thiếu bài 3, 4", "làm sai hết phần b") ghi vào cột
+    note."""
+    __tablename__ = 'homework_records'
+
+    id = db.Column(db.Integer, primary_key=True)
+    homework_id = db.Column(db.Integer, db.ForeignKey('homeworks.id'), nullable=False, index=True)
+    student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False, index=True)
+    status = db.Column(db.String(20), nullable=False, default=HomeworkStatus.DONE)
+    note = db.Column(db.String(255))
+    recorded_at = db.Column(db.DateTime, default=datetime.utcnow)
+    recorded_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+
+    student = db.relationship('Student', foreign_keys=[student_id])
+
+    __table_args__ = (db.UniqueConstraint('homework_id', 'student_id', name='uq_homework_record'),)
+
+    @property
+    def status_label(self):
+        return HomeworkStatus.LABELS.get(self.status, self.status)
+
+    def __repr__(self):
+        return f'<HomeworkRecord student={self.student_id} status={self.status}>'
 
 
 class Reward(db.Model):

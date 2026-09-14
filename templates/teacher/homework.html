@@ -1,0 +1,168 @@
+{% extends 'teacher/base.html' %}
+{% block title %}Bài tập về nhà {{ class_.name }} – Nhật Tuyền{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <!-- Header -->
+  <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+    <div>
+      <h5 class="fw-bold mb-0">
+        <i class="bi bi-journal-check text-primary me-1"></i>Bài tập về nhà
+      </h5>
+      <div class="text-muted small">{{ class_.name }} · {{ student_count }} học sinh</div>
+    </div>
+    <a href="{{ url_for('teacher.scores_list') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i>
+    </a>
+  </div>
+
+  <!-- Bộ lọc -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2">
+      <form method="get" class="row g-2 align-items-end">
+        <div class="col-6 col-md-3">
+          <label class="form-label form-label-sm fw-semibold mb-1">Năm</label>
+          <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
+            {% for y in available_years %}
+            <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12 col-md-7">
+          <label class="form-label form-label-sm fw-semibold mb-1">Kỳ</label>
+          <div class="btn-group w-100" role="group">
+            {% for key, label in semesters.items() %}
+            <input type="radio" class="btn-check" name="semester" id="sem_{{ key }}"
+                   value="{{ key }}" {% if semester == key %}checked{% endif %}
+                   onchange="this.form.submit()">
+            <label class="btn btn-outline-primary btn-sm" for="sem_{{ key }}">{{ label }}</label>
+            {% endfor %}
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Giao bài mới -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-white fw-semibold small py-2">
+      <i class="bi bi-plus-circle me-1 text-primary"></i>Giao bài mới
+    </div>
+    <div class="card-body">
+      <form method="post" action="{{ url_for('teacher.homework_new', class_id=class_.id) }}"
+            class="row g-2 align-items-end">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="semester" value="{{ semester }}">
+        <div class="col-12 col-md-4">
+          <label class="form-label fw-semibold small mb-1" for="assigned_date">Ngày giao</label>
+          <input type="date" class="form-control" name="assigned_date" id="assigned_date"
+                 value="{{ today.strftime('%Y-%m-%d') }}" style="min-height:44px;">
+        </div>
+        <div class="col-12 col-md-5">
+          <label class="form-label fw-semibold small mb-1" for="title">Tên bài tập (không bắt buộc)</label>
+          <input type="text" class="form-control" name="title" id="title"
+                 placeholder="Bài 12 trang 45" style="min-height:44px;">
+        </div>
+        <div class="col-12 col-md-3">
+          <button type="submit" class="btn btn-primary w-100" style="min-height:44px;">
+            <i class="bi bi-check2-square me-1"></i>Ghi nhận
+          </button>
+        </div>
+      </form>
+      <div class="form-text mt-2">
+        Một ngày có thể giao nhiều lần bài tập khác nhau — mỗi lần bấm ở đây tạo một lần giao mới.
+        Đặt tên bài để dễ phân biệt; bỏ trống thì hệ thống gọi theo "Lần 1", "Lần 2"...
+      </div>
+    </div>
+  </div>
+
+  <!-- Tổng hợp theo học sinh -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-white fw-semibold small py-2">
+      <i class="bi bi-people me-1 text-primary"></i>Tổng hợp theo học sinh
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Học sinh</th>
+            <th class="text-center">Có làm</th>
+            <th class="text-center">Không làm</th>
+            <th class="text-end pe-3">Tỉ lệ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in summary %}
+          <tr>
+            <td class="ps-3 small fw-semibold text-nowrap">{{ r.student.full_name }}</td>
+            <td class="text-center small text-success fw-semibold">{{ r.done }}</td>
+            <td class="text-center small {% if r.not_done %}text-danger fw-bold{% else %}text-muted{% endif %}">
+              {{ r.not_done }}
+            </td>
+            <td class="text-end pe-3 small">
+              {% if r.rate is not none %}
+              <span class="fw-bold {% if r.rate >= 80 %}text-success{% elif r.rate >= 50 %}text-warning{% else %}text-danger{% endif %}">
+                {{ r.rate }}%
+              </span>
+              <span class="text-muted">({{ r.done }}/{{ r.total }})</span>
+              {% else %}
+              <span class="text-muted">chưa ghi nhận</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="4" class="text-center text-muted py-4 small">Lớp chưa có học sinh</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Các buổi đã giao -->
+  <h6 class="text-uppercase text-muted fw-bold mb-2 mt-3" style="font-size:0.75rem;">
+    <i class="bi bi-clock-history me-1"></i>Các lần đã giao
+  </h6>
+
+  {% for s in sessions %}
+  <div class="card border-0 shadow-sm mb-2">
+    <div class="card-body py-2">
+      <div class="d-flex align-items-center justify-content-between gap-2">
+        <a href="{{ url_for('teacher.homework_session', class_id=class_.id, homework_id=s.homework.id) }}"
+           class="text-decoration-none text-body flex-grow-1 min-width-0">
+          <div class="fw-semibold small">
+            {{ s.homework.assigned_date | date_vn }}
+            <span class="text-muted fw-normal">· {{ s.homework.display_title }}</span>
+          </div>
+          <div class="d-flex flex-wrap gap-3 mt-1" style="font-size:0.78rem;">
+            <span class="text-muted">Có làm <strong class="text-success">{{ s.done }}</strong></span>
+            <span class="text-muted">Không làm
+              <strong class="{% if s.not_done %}text-danger{% else %}text-body{% endif %}">{{ s.not_done }}</strong>
+            </span>
+            {% if s.marked < student_count %}
+            <span class="text-warning">Chưa ghi nhận {{ student_count - s.marked }}</span>
+            {% endif %}
+          </div>
+        </a>
+        <form method="post"
+              action="{{ url_for('teacher.homework_delete', class_id=class_.id, homework_id=s.homework.id) }}"
+              onsubmit="return confirm('Xoá lần giao bài này? Toàn bộ ghi nhận của lần giao sẽ mất.');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-sm btn-outline-danger" title="Xoá lần giao">
+            <i class="bi bi-trash"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="alert alert-light border text-center text-muted py-5">
+    <i class="bi bi-journal-x d-block mb-2 fs-4"></i>
+    Chưa có lần giao bài nào trong {{ semesters.get(semester, semester) }} năm {{ year }}.
+  </div>
+  {% endfor %}
+
+</div>
+{% endblock %}

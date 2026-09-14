@@ -235,6 +235,30 @@ def scores(student_id):
                            active_classes=active_classes)
 
 
+@parent_bp.route('/students/<int:student_id>/homework')
+@login_required
+def homework(student_id):
+    """Tình hình làm bài tập về nhà của con.
+
+    Phụ huynh mới là người xử lý được việc ở nhà, nên đây là nơi ghi chép
+    của giáo viên thực sự có tác dụng. Chỉ xem, không sửa: bài tập do giáo
+    viên ghi nhận."""
+    if not current_user.is_parent:
+        abort(403)
+    student = _get_student_or_403(student_id)
+    children = current_user.children.filter_by(is_active=True).all()
+
+    from services import homework_service
+    summary = homework_service.student_summary(student.id)
+    records = homework_service.recent_records(student.id, limit=50)
+    streak = homework_service.recent_missed_streak(student.id)
+
+    return render_template('parent/homework.html',
+                           student=student, children=children,
+                           summary=summary, records=records,
+                           missed_streak=streak)
+
+
 @parent_bp.route('/students/<int:student_id>/scores/report', methods=['POST'])
 @login_required
 def score_report(student_id):

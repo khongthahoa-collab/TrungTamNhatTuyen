@@ -36,6 +36,14 @@
           <i class="bi bi-pencil-square me-1"></i>Nhập điểm
         </a>
       </div>
+      {# Hàng riêng chứ không nhét thành nút thứ 3 cùng hàng: 3 nút trên màn
+         hình điện thoại làm mỗi nút hẹp lại dưới ngưỡng bấm thoải mái. #}
+      <div class="d-grid mt-2">
+        <a href="{{ url_for('teacher.homework', class_id=cls.id) }}"
+           class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-journal-check me-1"></i>Bài tập về nhà
+        </a>
+      </div>
     </div>
     {% endfor %}
   </div>
