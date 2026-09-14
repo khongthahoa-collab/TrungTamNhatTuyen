@@ -688,9 +688,13 @@ def scores_rounds(class_id):
 @login_required
 @require_teacher
 def homework(class_id):
-    """Danh sách các buổi giao bài tập của một lớp + bảng tổng hợp theo học
-    sinh. Giá trị thật của tính năng nằm ở bảng tổng hợp (em nào hay không
-    làm bài), không phải ở từng dòng lẻ."""
+    """Một lần giao bài của lớp (mặc định lần mới nhất, đổi bằng ô chọn) +
+    bảng tổng hợp cả kỳ theo học sinh.
+
+    Cố ý chỉ dựng dữ liệu cho ĐÚNG một lần giao: mỗi lần giao kéo theo một
+    bảng cả lớp và một thẻ ảnh dựng sẵn, nên hiện hết cả kỳ làm trang phình
+    theo số bài đã giao (đo được 37 KB với 2 lần giao, 153 KB với 20). Ô
+    chọn vẫn liệt kê đủ mọi lần giao nên không mất đường tới bài nào."""
     from models import Homework, HomeworkRecord, HomeworkStatus, SemesterType
 
     teacher = current_user.teacher_profile
@@ -711,24 +715,23 @@ def homework(class_id):
     if year not in available_years:
         available_years = sorted(set(available_years) | {year}, reverse=True)
 
-    sessions = (Homework.query
-                .filter(Homework.class_id == class_id,
-                        Homework.semester == semester,
-                        extract('year', Homework.assigned_date) == year)
-                .order_by(Homework.assigned_date.desc(),
-                          Homework.assignment_round.desc(), Homework.id.desc())
-                .all())
-    session_ids = [h.id for h in sessions]
+    # Danh sách đổ vào ô chọn: chỉ lấy các cột cần cho nhãn, không nạp cả
+    # đối tượng — danh sách này dài theo cả kỳ.
+    options = (db.session.query(Homework.id, Homework.assigned_date,
+                                Homework.title, Homework.assignment_round)
+               .filter(Homework.class_id == class_id,
+                       Homework.semester == semester,
+                       extract('year', Homework.assigned_date) == year)
+               .order_by(Homework.assigned_date.desc(),
+                         Homework.assignment_round.desc(), Homework.id.desc())
+               .all())
 
-    # Đếm gộp 1 query cho mọi buổi, thay vì mỗi buổi một COUNT trong template.
-    counts = {}
-    if session_ids:
-        rows = (db.session.query(HomeworkRecord.homework_id, HomeworkRecord.status,
-                                 db.func.count(HomeworkRecord.id))
-                .filter(HomeworkRecord.homework_id.in_(session_ids))
-                .group_by(HomeworkRecord.homework_id, HomeworkRecord.status).all())
-        for hw_id, status, n in rows:
-            counts.setdefault(hw_id, {})[status] = n
+    # Bài đang xem: theo ?homework_id=, mặc định là bài mới nhất. Id không
+    # thuộc kỳ/năm đang lọc thì bỏ qua, không hiện nhầm bài của kỳ khác.
+    valid_ids = [o.id for o in options]
+    wanted = request.args.get('homework_id', type=int)
+    selected_id = wanted if wanted in valid_ids else (valid_ids[0] if valid_ids else None)
+    selected = Homework.query.get(selected_id) if selected_id else None
 
     students = class_.active_students
     # Tổng hợp theo học sinh lấy từ services/homework_service.py — admin và
@@ -740,26 +743,19 @@ def homework(class_id):
     # Em hay không làm bài xếp lên đầu: đây là thứ giáo viên cần thấy ngay.
     summary.sort(key=lambda r: (-r['not_done'], r['student'].full_name or ''))
 
-    # Bảng CẢ LỚP của từng lần giao, để dựng sẵn thẻ "Xuất ảnh" ngay trong
-    # HTML. Lấy gộp một truy vấn cho mọi lần giao đang hiện — mỗi lần giao
-    # một truy vấn sẽ thành N+1 khi lớp đã giao nhiều bài.
+    # Bảng CẢ LỚP của ĐÚNG bài đang xem — vừa là nội dung hiển thị, vừa là
+    # nội dung thẻ ảnh, nên giáo viên thấy trước chính xác thứ sắp xuất ra.
     #
     # Khác thẻ điểm danh (chỉ liệt kê em vắng): thẻ bài tập liệt kê đủ mọi
     # học sinh, kể cả em có làm, theo đúng thứ tự danh sách lớp.
-    by_homework = {}
-    if session_ids:
-        for r in (HomeworkRecord.query
-                  .filter(HomeworkRecord.homework_id.in_(session_ids)).all()):
-            by_homework.setdefault(r.homework_id, {})[r.student_id] = r
-
-    session_rows = []
-    for h in sessions:
-        by_status = counts.get(h.id, {})
-        done = by_status.get(HomeworkStatus.DONE, 0)
-        not_done = by_status.get(HomeworkStatus.NOT_DONE, 0)
-        recs = by_homework.get(h.id, {})
-        session_rows.append({
-            'homework': h,
+    detail = None
+    if selected:
+        recs = {r.student_id: r for r in
+                HomeworkRecord.query.filter_by(homework_id=selected.id).all()}
+        done = sum(1 for r in recs.values() if r.status == HomeworkStatus.DONE)
+        not_done = sum(1 for r in recs.values() if r.status == HomeworkStatus.NOT_DONE)
+        detail = {
+            'homework': selected,
             'done': done,
             'not_done': not_done,
             'marked': done + not_done,
@@ -770,11 +766,13 @@ def homework(class_id):
                       'status': recs[st.id].status if st.id in recs else None,
                       'note': recs[st.id].note if st.id in recs else None}
                      for st in students],
-        })
+        }
 
     return render_template('teacher/homework.html',
                            class_=class_,
-                           sessions=session_rows,
+                           options=options,
+                           selected_id=selected_id,
+                           detail=detail,
                            summary=summary,
                            student_count=len(students),
                            year=year,
@@ -866,8 +864,11 @@ def homework_session(class_id, homework_id):
         hw.note = (request.form.get('note') or '').strip()[:255] or None
         db.session.commit()
         flash('Đã lưu tình hình làm bài tập.', 'success')
+        # Quay về đúng bài vừa sửa, không phải bài mới nhất — giáo viên sửa
+        # lại một bài cũ mà bị nhảy về bài khác thì tưởng chưa lưu được.
         return redirect(url_for('teacher.homework', class_id=class_id,
-                                year=hw.assigned_date.year, semester=hw.semester))
+                                year=hw.assigned_date.year, semester=hw.semester,
+                                homework_id=hw.id))
 
     records = {r.student_id: r for r in hw.records.all()}
     return render_template('teacher/homework_session.html',

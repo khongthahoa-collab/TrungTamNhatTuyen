@@ -77,6 +77,150 @@
     </div>
   </div>
 
+  <!-- Lần giao đang xem -->
+  {% if detail %}
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body">
+      {# Ô chọn thay cho danh sách tất cả các lần giao: mỗi lần giao kéo theo
+         một bảng cả lớp và một thẻ ảnh dựng sẵn, hiện hết cả kỳ thì trang
+         phình theo số bài đã giao (37 KB với 2 lần, 153 KB với 20). #}
+      <label class="form-label fw-semibold small mb-1" for="homework_id">Lần giao</label>
+      <form method="get" class="mb-3">
+        <input type="hidden" name="year" value="{{ year }}">
+        <input type="hidden" name="semester" value="{{ semester }}">
+        <select name="homework_id" id="homework_id" class="form-select"
+                style="min-height:44px;" onchange="this.form.submit()">
+          {% for o in options %}
+          {# Nhãn ưu tiên tiêu đề; chỉ bài không đặt tên mới rơi về "Lần N",
+             để một ngày giao 2 bài không tên vẫn phân biệt được. #}
+          <option value="{{ o.id }}" {% if o.id == selected_id %}selected{% endif %}>
+            {{ o.assigned_date.strftime('%d/%m/%Y') }} · {{ o.title or 'Lần ' ~ (o.assignment_round or 1) }}
+          </option>
+          {% endfor %}
+        </select>
+      </form>
+
+      <div class="d-flex flex-wrap gap-3 mb-2" style="font-size:0.82rem;">
+        <span class="text-muted">Sĩ số <strong class="text-body">{{ student_count }}</strong></span>
+        <span class="text-muted">Có làm <strong class="text-success">{{ detail.done }}</strong></span>
+        <span class="text-muted">Không làm
+          <strong class="{% if detail.not_done %}text-danger{% else %}text-body{% endif %}">{{ detail.not_done }}</strong>
+        </span>
+        {% if detail.unmarked > 0 %}
+        <span class="text-warning">Chưa ghi nhận <strong>{{ detail.unmarked }}</strong></span>
+        {% endif %}
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th style="width:44px;">STT</th>
+              <th>Tên</th>
+              <th>Tình trạng</th>
+              <th>Ghi chú</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in detail.rows %}
+            <tr>
+              <td class="small text-muted">{{ loop.index }}</td>
+              <td class="small fw-semibold text-nowrap">{{ r.student.full_name }}</td>
+              {% if r.status == 'not_done' %}
+              <td class="small text-danger fw-semibold">Không làm</td>
+              {% elif r.status == 'done' %}
+              <td class="small">Có làm</td>
+              {% else %}
+              <td class="small text-muted">Chưa ghi nhận</td>
+              {% endif %}
+              <td class="small text-muted">{{ r.note or '' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-muted py-3 small">Lớp chưa có học sinh</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="d-flex gap-2 mt-3">
+        <button type="button" class="btn btn-outline-secondary btn-sm flex-fill btn-export"
+                data-homework="{{ detail.homework.id }}" style="min-height:40px;">
+          <i class="bi bi-image me-1"></i>Xuất ảnh
+        </button>
+        <a href="{{ url_for('teacher.homework_session', class_id=class_.id, homework_id=detail.homework.id) }}"
+           class="btn btn-primary btn-sm flex-fill d-flex align-items-center justify-content-center"
+           style="min-height:40px;">
+          <i class="bi bi-pencil-square me-1"></i>Sửa
+        </a>
+        <form method="post"
+              action="{{ url_for('teacher.homework_delete', class_id=class_.id, homework_id=detail.homework.id) }}"
+              onsubmit="return confirm('Xoá lần giao bài này? Toàn bộ ghi nhận của lần giao sẽ mất.');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-outline-danger btn-sm" style="min-height:40px;" title="Xoá lần giao">
+            <i class="bi bi-trash"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  {# Thẻ ảnh dựng sẵn ngoài màn hình — cùng bố cục thẻ "Xuất ảnh" của trang
+     Điểm danh. Dữ liệu đã lưu rồi nên render thẳng bằng Jinja, không phải
+     gom lại từ DOM như bên điểm danh (ở đó trạng thái đang sửa dở). #}
+  <div id="exportCapture-{{ detail.homework.id }}" class="p-3 rounded export-capture export-capture-offscreen">
+    <div class="d-flex align-items-center gap-2 mb-3 pb-2 export-header">
+      <img src="{{ url_for('static', filename='icons/logo-mark.png') }}" height="36" alt="logo" class="export-logo">
+      <div class="fw-bold text-white">THÔNG BÁO BÀI TẬP VỀ NHÀ</div>
+    </div>
+    <div class="small text-white mb-1"><strong>Lớp:</strong> {{ class_.name }}</div>
+    <div class="small text-white mb-3">
+      <strong>Ngày:</strong> {{ detail.homework.assigned_date.strftime('%d/%m/%Y') }}
+      &nbsp;&nbsp;<strong>Bài:</strong> {{ detail.homework.display_title }}
+    </div>
+    <div class="export-summary rounded p-2 p-sm-3">
+      <div class="small fw-semibold mb-2 export-counts">
+        Sĩ số: <strong>{{ student_count }}</strong> &nbsp;|&nbsp;
+        Có làm: <strong>{{ detail.done }}</strong> &nbsp;|&nbsp;
+        Không làm: <strong>{{ detail.not_done }}</strong>
+        {% if detail.unmarked > 0 %}
+        &nbsp;|&nbsp; Chưa ghi nhận: <strong>{{ detail.unmarked }}</strong>
+        {% endif %}
+      </div>
+      <table class="table table-sm mb-0 export-table">
+        <thead>
+          <tr><th>STT</th><th>Học sinh</th><th>Tình trạng</th><th>Ghi chú</th></tr>
+        </thead>
+        <tbody>
+          {% for r in detail.rows %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ r.student.full_name }}</td>
+            {% if r.status == 'not_done' %}
+            <td class="export-not-done">Không làm</td>
+            {% elif r.status == 'done' %}
+            <td>Có làm</td>
+            {% else %}
+            <td class="export-unmarked">Chưa ghi nhận</td>
+            {% endif %}
+            <td>{{ r.note or '' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="text-center py-2 export-unmarked">Lớp chưa có học sinh</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="small text-white text-center fst-italic mt-3 export-footer">
+      Trân trọng thông báo Phụ Huynh để nắm bắt tình hình học tập của con em!
+    </div>
+  </div>
+  {% else %}
+  <div class="alert alert-light border text-center text-muted py-5">
+    <i class="bi bi-journal-x d-block mb-2 fs-4"></i>
+    Chưa có lần giao bài nào trong {{ semesters.get(semester, semester) }} năm {{ year }}.
+  </div>
+  {% endif %}
+
   <!-- Tổng hợp theo học sinh -->
   <div class="card border-0 shadow-sm mb-3">
     <div class="card-header bg-white fw-semibold small py-2">
@@ -121,107 +265,6 @@
     </div>
   </div>
 
-  <!-- Các buổi đã giao -->
-  <h6 class="text-uppercase text-muted fw-bold mb-2 mt-3" style="font-size:0.75rem;">
-    <i class="bi bi-clock-history me-1"></i>Các lần đã giao
-  </h6>
-
-  {% for s in sessions %}
-  <div class="card border-0 shadow-sm mb-2">
-    <div class="card-body py-2">
-      <div class="d-flex align-items-center justify-content-between gap-2">
-        <a href="{{ url_for('teacher.homework_session', class_id=class_.id, homework_id=s.homework.id) }}"
-           class="text-decoration-none text-body flex-grow-1 min-width-0">
-          <div class="fw-semibold small">
-            {{ s.homework.assigned_date | date_vn }}
-            <span class="text-muted fw-normal">· {{ s.homework.display_title }}</span>
-          </div>
-          <div class="d-flex flex-wrap gap-3 mt-1" style="font-size:0.78rem;">
-            <span class="text-muted">Có làm <strong class="text-success">{{ s.done }}</strong></span>
-            <span class="text-muted">Không làm
-              <strong class="{% if s.not_done %}text-danger{% else %}text-body{% endif %}">{{ s.not_done }}</strong>
-            </span>
-            {% if s.marked < student_count %}
-            <span class="text-warning">Chưa ghi nhận {{ student_count - s.marked }}</span>
-            {% endif %}
-          </div>
-        </a>
-        <div class="d-flex gap-2 flex-shrink-0">
-          <button type="button" class="btn btn-sm btn-outline-secondary btn-export"
-                  data-homework="{{ s.homework.id }}" title="Xuất ảnh">
-            <i class="bi bi-image"></i>
-          </button>
-          <form method="post"
-                action="{{ url_for('teacher.homework_delete', class_id=class_.id, homework_id=s.homework.id) }}"
-                onsubmit="return confirm('Xoá lần giao bài này? Toàn bộ ghi nhận của lần giao sẽ mất.');">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-sm btn-outline-danger" title="Xoá lần giao">
-              <i class="bi bi-trash"></i>
-            </button>
-          </form>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  {# Thẻ ảnh dựng sẵn ngoài màn hình — cùng bố cục thẻ "Xuất ảnh" của trang
-     Điểm danh. Dữ liệu bài tập đã lưu rồi nên render thẳng bằng Jinja, không
-     phải gom lại từ DOM như bên điểm danh (ở đó trạng thái đang sửa dở). #}
-  <div id="exportCapture-{{ s.homework.id }}" class="p-3 rounded export-capture export-capture-offscreen">
-    <div class="d-flex align-items-center gap-2 mb-3 pb-2 export-header">
-      <img src="{{ url_for('static', filename='icons/logo-mark.png') }}" height="36" alt="logo" class="export-logo">
-      <div class="fw-bold text-white">THÔNG BÁO BÀI TẬP VỀ NHÀ</div>
-    </div>
-    <div class="small text-white mb-1"><strong>Lớp:</strong> {{ class_.name }}</div>
-    <div class="small text-white mb-3">
-      <strong>Ngày:</strong> {{ s.homework.assigned_date.strftime('%d/%m/%Y') }}
-      &nbsp;&nbsp;<strong>Bài:</strong> {{ s.homework.display_title }}
-    </div>
-    <div class="export-summary rounded p-2 p-sm-3">
-      <div class="small fw-semibold mb-2 export-counts">
-        Sĩ số: <strong>{{ student_count }}</strong> &nbsp;|&nbsp;
-        Có làm: <strong>{{ s.done }}</strong> &nbsp;|&nbsp;
-        Không làm: <strong>{{ s.not_done }}</strong>
-        {% if s.unmarked > 0 %}
-        &nbsp;|&nbsp; Chưa ghi nhận: <strong>{{ s.unmarked }}</strong>
-        {% endif %}
-      </div>
-      <table class="table table-sm mb-0 export-table">
-        <thead>
-          <tr><th>STT</th><th>Học sinh</th><th>Tình trạng</th><th>Ghi chú</th></tr>
-        </thead>
-        <tbody>
-          {% for r in s.rows %}
-          <tr>
-            <td>{{ loop.index }}</td>
-            <td>{{ r.student.full_name }}</td>
-            {% if r.status == 'not_done' %}
-            <td class="export-not-done">Không làm</td>
-            {% elif r.status == 'done' %}
-            <td>Có làm</td>
-            {% else %}
-            <td class="export-unmarked">Chưa ghi nhận</td>
-            {% endif %}
-            <td>{{ r.note or '' }}</td>
-          </tr>
-          {% else %}
-          <tr>
-            <td colspan="4" class="text-center py-2 export-unmarked">Lớp chưa có học sinh</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    <div class="small text-white text-center fst-italic mt-3 export-footer">
-      Trân trọng thông báo Phụ Huynh để nắm bắt tình hình học tập của con em!
-    </div>
-  </div>
-  {% else %}
-  <div class="alert alert-light border text-center text-muted py-5">
-    <i class="bi bi-journal-x d-block mb-2 fs-4"></i>
-    Chưa có lần giao bài nào trong {{ semesters.get(semester, semester) }} năm {{ year }}.
-  </div>
-  {% endfor %}
 
 </div>
 
