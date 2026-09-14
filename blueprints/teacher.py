@@ -740,16 +740,36 @@ def homework(class_id):
     # Em hay không làm bài xếp lên đầu: đây là thứ giáo viên cần thấy ngay.
     summary.sort(key=lambda r: (-r['not_done'], r['student'].full_name or ''))
 
+    # Bảng CẢ LỚP của từng lần giao, để dựng sẵn thẻ "Xuất ảnh" ngay trong
+    # HTML. Lấy gộp một truy vấn cho mọi lần giao đang hiện — mỗi lần giao
+    # một truy vấn sẽ thành N+1 khi lớp đã giao nhiều bài.
+    #
+    # Khác thẻ điểm danh (chỉ liệt kê em vắng): thẻ bài tập liệt kê đủ mọi
+    # học sinh, kể cả em có làm, theo đúng thứ tự danh sách lớp.
+    by_homework = {}
+    if session_ids:
+        for r in (HomeworkRecord.query
+                  .filter(HomeworkRecord.homework_id.in_(session_ids)).all()):
+            by_homework.setdefault(r.homework_id, {})[r.student_id] = r
+
     session_rows = []
     for h in sessions:
         by_status = counts.get(h.id, {})
         done = by_status.get(HomeworkStatus.DONE, 0)
         not_done = by_status.get(HomeworkStatus.NOT_DONE, 0)
+        recs = by_homework.get(h.id, {})
         session_rows.append({
             'homework': h,
             'done': done,
             'not_done': not_done,
             'marked': done + not_done,
+            'unmarked': len(students) - (done + not_done),
+            # Em chưa được ghi nhận vẫn có mặt trong bảng với trạng thái
+            # rỗng — giấu đi thì bảng thiếu người so với sĩ số ghi ở trên.
+            'rows': [{'student': st,
+                      'status': recs[st.id].status if st.id in recs else None,
+                      'note': recs[st.id].note if st.id in recs else None}
+                     for st in students],
         })
 
     return render_template('teacher/homework.html',

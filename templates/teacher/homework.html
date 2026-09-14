@@ -146,15 +146,74 @@
             {% endif %}
           </div>
         </a>
-        <form method="post"
-              action="{{ url_for('teacher.homework_delete', class_id=class_.id, homework_id=s.homework.id) }}"
-              onsubmit="return confirm('Xoá lần giao bài này? Toàn bộ ghi nhận của lần giao sẽ mất.');">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button type="submit" class="btn btn-sm btn-outline-danger" title="Xoá lần giao">
-            <i class="bi bi-trash"></i>
+        <div class="d-flex gap-2 flex-shrink-0">
+          <button type="button" class="btn btn-sm btn-outline-secondary btn-export"
+                  data-homework="{{ s.homework.id }}" title="Xuất ảnh">
+            <i class="bi bi-image"></i>
           </button>
-        </form>
+          <form method="post"
+                action="{{ url_for('teacher.homework_delete', class_id=class_.id, homework_id=s.homework.id) }}"
+                onsubmit="return confirm('Xoá lần giao bài này? Toàn bộ ghi nhận của lần giao sẽ mất.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-sm btn-outline-danger" title="Xoá lần giao">
+              <i class="bi bi-trash"></i>
+            </button>
+          </form>
+        </div>
       </div>
+    </div>
+  </div>
+
+  {# Thẻ ảnh dựng sẵn ngoài màn hình — cùng bố cục thẻ "Xuất ảnh" của trang
+     Điểm danh. Dữ liệu bài tập đã lưu rồi nên render thẳng bằng Jinja, không
+     phải gom lại từ DOM như bên điểm danh (ở đó trạng thái đang sửa dở). #}
+  <div id="exportCapture-{{ s.homework.id }}" class="p-3 rounded export-capture export-capture-offscreen">
+    <div class="d-flex align-items-center gap-2 mb-3 pb-2 export-header">
+      <img src="{{ url_for('static', filename='icons/logo-mark.png') }}" height="36" alt="logo" class="export-logo">
+      <div class="fw-bold text-white">THÔNG BÁO BÀI TẬP VỀ NHÀ</div>
+    </div>
+    <div class="small text-white mb-1"><strong>Lớp:</strong> {{ class_.name }}</div>
+    <div class="small text-white mb-3">
+      <strong>Ngày:</strong> {{ s.homework.assigned_date.strftime('%d/%m/%Y') }}
+      &nbsp;&nbsp;<strong>Bài:</strong> {{ s.homework.display_title }}
+    </div>
+    <div class="export-summary rounded p-2 p-sm-3">
+      <div class="small fw-semibold mb-2 export-counts">
+        Sĩ số: <strong>{{ student_count }}</strong> &nbsp;|&nbsp;
+        Có làm: <strong>{{ s.done }}</strong> &nbsp;|&nbsp;
+        Không làm: <strong>{{ s.not_done }}</strong>
+        {% if s.unmarked > 0 %}
+        &nbsp;|&nbsp; Chưa ghi nhận: <strong>{{ s.unmarked }}</strong>
+        {% endif %}
+      </div>
+      <table class="table table-sm mb-0 export-table">
+        <thead>
+          <tr><th>STT</th><th>Học sinh</th><th>Tình trạng</th><th>Ghi chú</th></tr>
+        </thead>
+        <tbody>
+          {% for r in s.rows %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ r.student.full_name }}</td>
+            {% if r.status == 'not_done' %}
+            <td class="export-not-done">Không làm</td>
+            {% elif r.status == 'done' %}
+            <td>Có làm</td>
+            {% else %}
+            <td class="export-unmarked">Chưa ghi nhận</td>
+            {% endif %}
+            <td>{{ r.note or '' }}</td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="4" class="text-center py-2 export-unmarked">Lớp chưa có học sinh</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="small text-white text-center fst-italic mt-3 export-footer">
+      Trân trọng thông báo Phụ Huynh để nắm bắt tình hình học tập của con em!
     </div>
   </div>
   {% else %}
@@ -165,4 +224,67 @@
   {% endfor %}
 
 </div>
+
+<style>
+/* Thẻ "Xuất ảnh": dùng lại đúng bộ style của thẻ điểm danh
+   (templates/teacher/attendance_list.html) để hai loại thông báo gửi cho
+   phụ huynh trông như cùng một bộ, không phải hai thiết kế rời rạc. */
+.export-capture { background:#16a34a; }
+.export-header { border-bottom:1px solid rgba(255,255,255,.35); }
+.export-logo { background:#fff; border-radius:8px; padding:2px; }
+.export-summary { background:#fff; }
+.export-counts { color:#212529; }
+.export-table, .export-table th, .export-table td {
+  border-color:#dee2e6 !important; color:#212529; background-color:transparent !important;
+}
+.export-capture-offscreen { position:absolute; left:-9999px; top:0; width:460px; }
+/* Màu đặt cứng, không dùng class Bootstrap: html2canvas chụp ra ảnh nên màu
+   phải chắc chắn, không phụ thuộc biến theme. */
+.export-table .export-not-done { color:#dc3545 !important; font-weight:600; }
+.export-table .export-unmarked { color:#6c757d !important; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+// Xuất ảnh: chụp thẻ dựng sẵn ngoài màn hình rồi tải thẳng về máy dưới dạng
+// JPEG (nhẹ hơn PNG nhiều với nội dung màu phẳng + chữ) — một lần bấm là
+// xong, không mở cửa sổ xem trước. Cùng cách làm với trang Điểm danh.
+document.querySelectorAll('.btn-export').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const hwId = btn.dataset.homework;
+    const capture = document.getElementById(`exportCapture-${hwId}`);
+    if (!capture || typeof html2canvas === 'undefined') return;
+
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    const filename = `bai-tap-${hwId}.jpg`;
+
+    html2canvas(capture, { scale: 2, backgroundColor: '#16a34a' }).then(canvas => {
+      return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+    }).then(blob => {
+      if (!blob) return;
+      // iOS WebKit (cả Safari LẪN Chrome trên iOS — Apple không cho dùng
+      // engine khác) bỏ qua thuộc tính <a download>: nó mở ảnh ra chứ không
+      // lưu. Share Sheet là cách duy nhất để có nút "Lưu ảnh" thật ở đó.
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      const file = (isIOS && window.File) ? new File([blob], filename, { type: 'image/jpeg' }) : null;
+      if (isIOS && file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        return navigator.share({ files: [file], title: 'Bài tập về nhà' }).catch(() => {});
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = url;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }).finally(() => {
+      btn.disabled = false;
+      btn.innerHTML = original;
+    });
+  });
+});
+</script>
 {% endblock %}
