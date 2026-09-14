@@ -129,7 +129,7 @@
               {% if r.status == 'not_done' %}
               <td class="small text-danger fw-semibold">Không làm</td>
               {% elif r.status == 'done' %}
-              <td class="small">Có làm</td>
+              <td class="small text-success fw-semibold">Có làm</td>
               {% else %}
               <td class="small text-muted">Chưa ghi nhận</td>
               {% endif %}
@@ -198,7 +198,7 @@
             {% if r.status == 'not_done' %}
             <td class="export-not-done">Không làm</td>
             {% elif r.status == 'done' %}
-            <td>Có làm</td>
+            <td class="export-done">Có làm</td>
             {% else %}
             <td class="export-unmarked">Chưa ghi nhận</td>
             {% endif %}
@@ -284,6 +284,7 @@
 /* Màu đặt cứng, không dùng class Bootstrap: html2canvas chụp ra ảnh nên màu
    phải chắc chắn, không phụ thuộc biến theme. */
 .export-table .export-not-done { color:#dc3545 !important; font-weight:600; }
+.export-table .export-done { color:#198754 !important; font-weight:600; }
 .export-table .export-unmarked { color:#6c757d !important; }
 </style>
 {% endblock %}
