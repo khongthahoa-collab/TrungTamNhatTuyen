@@ -65,6 +65,15 @@
   </div>
   {% endif %}
 
+  {% if unassigned_semester_count %}
+  <div class="alert alert-warning py-2 small">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    Có <strong>{{ unassigned_semester_count }}</strong> điểm Trung tâm của lớp này được nhập
+    trước khi có mục chọn Kỳ nên chưa thuộc kỳ nào — <strong>không hiện ở trang này dù chọn kỳ nào</strong>.
+    Điểm vẫn còn nguyên trong hệ thống; cần gán kỳ cho chúng để đưa vào thống kê.
+  </div>
+  {% endif %}
+
   {% if invalid_max_count %}
   <div class="alert alert-warning py-2 small">
     <i class="bi bi-exclamation-triangle-fill me-1"></i>

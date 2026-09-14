@@ -478,6 +478,16 @@ def scores_detail(class_id):
         Score.exam_date.is_(None),
     ).count()
 
+    # Điểm nhập TRƯỚC khi có cột "Kỳ" có semester = NULL nên không khớp bất
+    # kỳ kỳ nào và biến mất khỏi trang này ở CẢ BA kỳ. Đếm riêng để báo cho
+    # giáo viên, cùng cách đã làm với điểm thiếu ngày thi bên trên — im lặng
+    # bỏ sót điểm cũ là kiểu sai nguy hiểm nhất vì không ai phát hiện ra.
+    unassigned_semester_count = Score.query.filter(
+        Score.class_id == class_id,
+        Score.score_source == ScoreSource.CENTER,
+        Score.semester.is_(None),
+    ).count()
+
     # Các năm thực sự có dữ liệu, để đổ vào dropdown thay vì đoán khoảng năm.
     year_rows = (db.session.query(extract('year', Score.exam_date))
                  .filter(Score.class_id == class_id,
@@ -564,6 +574,7 @@ def scores_detail(class_id):
                            matrix_columns=matrix_columns,
                            total_scores=len(all_scores),
                            undated_count=undated_count,
+                           unassigned_semester_count=unassigned_semester_count,
                            invalid_max_count=invalid_max_count,
                            passed_count=passed_count,
                            failed_count=failed_count,
