@@ -44,27 +44,33 @@
   <div class="card border-0 shadow-sm mb-2">
     <div class="card-body py-2">
       <!-- Dòng tóm tắt: bấm để mở danh sách học sinh -->
-      <a class="text-decoration-none text-body d-block" data-bs-toggle="collapse"
-         href="#round{{ loop.index }}" role="button">
-        <div class="d-flex align-items-center justify-content-between gap-2">
-          <div class="fw-semibold small">
-            {{ r.type_label }}{% if r.round %} · lần {{ r.round }}{% else %}
-            <span class="text-muted fw-normal">· chưa đánh số lần</span>{% endif %}
-            {% if r.exam_date %}
-            <span class="text-muted fw-normal">· {{ r.exam_date | date_vn }}</span>
-            {% endif %}
+      <div class="d-flex align-items-start gap-2">
+        <a class="text-decoration-none text-body d-block flex-grow-1" data-bs-toggle="collapse"
+           href="#round{{ loop.index }}" role="button">
+          <div class="d-flex align-items-center justify-content-between gap-2">
+            <div class="fw-semibold small">
+              {{ r.type_label }}{% if r.round %} · lần {{ r.round }}{% else %}
+              <span class="text-muted fw-normal">· chưa đánh số lần</span>{% endif %}
+              {% if r.exam_date %}
+              <span class="text-muted fw-normal">· {{ r.exam_date | date_vn }}</span>
+              {% endif %}
+            </div>
+            <i class="bi bi-chevron-down text-muted small"></i>
           </div>
-          <i class="bi bi-chevron-down text-muted small"></i>
-        </div>
-        <div class="d-flex flex-wrap gap-3 mt-1" style="font-size:0.78rem;">
-          <span>TB <strong class="{% if r.average >= pass_threshold %}text-success{% else %}text-danger{% endif %}">{{ r.average | score }}</strong></span>
-          <span class="text-muted">Cao <strong class="text-body">{{ r.highest | score }}</strong></span>
-          <span class="text-muted">Thấp <strong class="text-body">{{ r.lowest | score }}</strong></span>
-          <span class="text-muted">Đạt
-            <strong class="{% if r.failed %}text-danger{% else %}text-success{% endif %}">{{ r.passed }}/{{ r.count }}</strong>
-          </span>
-        </div>
-      </a>
+          <div class="d-flex flex-wrap gap-3 mt-1" style="font-size:0.78rem;">
+            <span>TB <strong class="{% if r.average >= pass_threshold %}text-success{% else %}text-danger{% endif %}">{{ r.average | score }}</strong></span>
+            <span class="text-muted">Cao <strong class="text-body">{{ r.highest | score }}</strong></span>
+            <span class="text-muted">Thấp <strong class="text-body">{{ r.lowest | score }}</strong></span>
+            <span class="text-muted">Đạt
+              <strong class="{% if r.failed %}text-danger{% else %}text-success{% endif %}">{{ r.passed }}/{{ r.count }}</strong>
+            </span>
+          </div>
+        </a>
+        <button type="button" class="btn btn-outline-secondary btn-sm btn-export-round"
+                data-round="{{ loop.index }}" title="Xuất ảnh lần thi">
+          <i class="bi bi-image"></i><span class="d-none d-sm-inline ms-1">Xuất ảnh</span>
+        </button>
+      </div>
 
       <!-- Danh sách học sinh của đúng lần thi này -->
       <div class="collapse mt-2" id="round{{ loop.index }}">
@@ -101,6 +107,45 @@
       </div>
     </div>
   </div>
+
+  <div id="roundExportCapture-{{ loop.index }}" class="round-export-capture p-3">
+    <div class="d-flex align-items-center gap-2 mb-3 pb-2 round-export-header">
+      <img src="{{ url_for('static', filename='icons/logo-mark.png') }}" height="36" alt="logo" class="round-export-logo">
+      <div class="fw-bold text-white">KẾT QUẢ ĐIỂM THI</div>
+    </div>
+    <div class="small text-white mb-1"><strong>Lớp:</strong> {{ class_.name }}</div>
+    <div class="small text-white mb-3">
+      <strong>Kỳ:</strong> {{ semesters.get(semester, semester) }}
+      &nbsp;&nbsp;<strong>Năm:</strong> {{ year }}
+      &nbsp;&nbsp;<strong>Loại:</strong> {{ r.type_label }}{% if r.round %} · lần {{ r.round }}{% endif %}
+      {% if r.exam_date %}&nbsp;&nbsp;<strong>Ngày:</strong> {{ r.exam_date | date_vn }}{% endif %}
+    </div>
+    <div class="round-export-summary rounded p-2 p-sm-3">
+      <div class="small fw-semibold mb-2 round-export-counts">
+        Số bài: <strong>{{ r.count }}</strong> &nbsp;|&nbsp;
+        Trung bình: <strong>{{ r.average | score }}</strong> &nbsp;|&nbsp;
+        Đạt: <strong>{{ r.passed }}</strong> &nbsp;|&nbsp;
+        Không đạt: <strong>{{ r.failed }}</strong>
+      </div>
+      <table class="table table-sm mb-0 round-export-table">
+        <thead><tr><th>STT</th><th>Học sinh</th><th>Điểm</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead>
+        <tbody>
+          {% for it in r.entries %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ it.student.full_name if it.student else '—' }}</td>
+            <td>{{ it.value | score }}</td>
+            <td class="{% if it.passed %}round-export-passed{% else %}round-export-failed{% endif %}">
+              {{ 'Đạt' if it.passed else 'Không đạt' }}
+            </td>
+            <td>{{ it.note or '' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="small text-white text-center fst-italic mt-3">Trân trọng thông báo Phụ Huynh để nắm bắt kết quả học tập!</div>
+  </div>
   {% else %}
   <div class="alert alert-light border text-center text-muted py-5">
     <i class="bi bi-inbox d-block mb-2 fs-4"></i>
@@ -116,4 +161,56 @@
   {% endif %}
 
 </div>
+
+<style>
+.round-export-capture { position:absolute; left:-9999px; top:0; width:620px; background:#16a34a; }
+.round-export-header { border-bottom:1px solid rgba(255,255,255,.35); }
+.round-export-logo { background:#fff; border-radius:8px; padding:2px; }
+.round-export-summary { background:#fff; }
+.round-export-counts { color:#212529; }
+.round-export-table, .round-export-table th, .round-export-table td {
+  border-color:#dee2e6 !important; color:#212529; background-color:transparent !important;
+}
+.round-export-table .round-export-passed { color:#198754 !important; font-weight:600; }
+.round-export-table .round-export-failed { color:#dc3545 !important; font-weight:600; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+document.querySelectorAll('.btn-export-round').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const roundId = btn.dataset.round;
+    const capture = document.getElementById(`roundExportCapture-${roundId}`);
+    if (!capture || typeof html2canvas === 'undefined') return;
+
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    const filename = `diem-thi-lan-${roundId}.jpg`;
+
+    html2canvas(capture, { scale: 2, backgroundColor: '#16a34a' })
+      .then(canvas => new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9)))
+      .then(blob => {
+        if (!blob) return;
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const file = (isIOS && window.File) ? new File([blob], filename, { type: 'image/jpeg' }) : null;
+        if (isIOS && file && navigator.canShare && navigator.canShare({ files: [file] })) {
+          return navigator.share({ files: [file], title: 'Kết quả điểm thi' }).catch(() => {});
+        }
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = url;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      })
+      .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = original;
+      });
+  });
+});
+</script>
 {% endblock %}
