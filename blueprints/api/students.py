@@ -1,7 +1,7 @@
 from datetime import date
 from flask import request
 from extensions import db
-from models import Student, Enrollment, Class, GRADE_BY_LEVEL
+from models import Student, StudentLevel, Enrollment, Class, GRADE_BY_LEVEL
 from blueprints.api import (api_bp, api_ok, api_error, api_login_required, api_require_module,
                             get_page_args, pagination_meta, get_body, body_int, body_bool)
 from services.schedule_service import find_student_schedule_conflict, schedule_conflict_message
@@ -98,6 +98,12 @@ def students_update(student_id):
         student.is_active = is_active
     if body.get('date_of_birth'):
         student.date_of_birth = date.fromisoformat(body['date_of_birth'])
+    if student.student_user:
+        student.student_user.full_name = student.full_name
+        student.student_user.is_active = (
+            student.is_active
+            and student.level in (StudentLevel.SECONDARY, StudentLevel.HIGH_SCHOOL)
+        )
 
     db.session.commit()
     return api_ok(student.to_dict())
@@ -111,6 +117,9 @@ def students_delete(student_id):
     if not student:
         return api_error('Không tìm thấy học sinh.', 404, code='not_found')
     student.is_deleted = True
+    student.is_active = False
+    if student.student_user:
+        student.student_user.is_active = False
     db.session.commit()
     return api_ok({'message': 'Đã xoá học sinh.'})
 

@@ -2,6 +2,7 @@ import io
 import csv
 import os
 import re
+import secrets
 from flask import render_template, redirect, url_for, flash, request, abort, Response, current_app
 from flask_login import login_required, current_user
 from datetime import date, datetime
@@ -216,6 +217,12 @@ def students_bulk_delete():
 
     count = Student.query.filter(Student.id.in_(student_ids)).update(
         {'is_deleted': True, 'is_active': False}, synchronize_session=False
+    )
+    linked_user_ids = db.session.query(Student.user_id).filter(
+        Student.id.in_(student_ids), Student.user_id.isnot(None)
+    )
+    User.query.filter(User.id.in_(linked_user_ids)).update(
+        {'is_active': False}, synchronize_session=False
     )
     Enrollment.query.filter(
         Enrollment.student_id.in_(student_ids), Enrollment.is_active == True
@@ -519,6 +526,7 @@ def student_detail(student_id):
     } if current_unpaid > 0 else {}
 
     parent_account = User.query.get(student.parent_user_id) if student.parent_user_id else None
+    student_account = User.query.get(student.user_id) if student.user_id else None
 
     # Bài tập về nhà: lấy qua service chung để admin, giáo viên và phụ huynh
     # không tính ra ba con số khác nhau cho cùng một học sinh.
@@ -545,7 +553,85 @@ def student_detail(student_id):
                            active_bank_accounts=active_bank_accounts,
                            student_qr_by_account=student_qr_by_account,
                            parent_account=parent_account,
+                           student_account=student_account,
+                           student_login_allowed=student.level in (
+                               StudentLevel.SECONDARY, StudentLevel.HIGH_SCHOOL
+                           ),
                            default_temp_password=DEFAULT_TEMP_PASSWORD)
+
+
+def _new_student_temporary_password():
+    return secrets.token_urlsafe(12)
+
+
+@admin_bp.route('/students/<int:student_id>/create-student-account', methods=['POST'])
+@login_required
+@require_admin
+def student_create_login_account(student_id):
+    student = Student.query.get_or_404(student_id)
+    if student.is_deleted or not student.is_active:
+        flash('Chỉ có thể cấp tài khoản cho học sinh đang hoạt động.', 'warning')
+        return redirect(url_for('admin.student_detail', student_id=student_id))
+    if student.level not in (StudentLevel.SECONDARY, StudentLevel.HIGH_SCHOOL):
+        flash('Tài khoản học sinh chỉ áp dụng từ cấp 2 trở lên.', 'warning')
+        return redirect(url_for('admin.student_detail', student_id=student_id))
+    if student.user_id:
+        flash('Học sinh đã có tài khoản đăng nhập.', 'warning')
+        return redirect(url_for('admin.student_detail', student_id=student_id))
+
+    username = next_username(UserRole.STUDENT)
+    temporary_password = _new_student_temporary_password()
+    account = User(
+        full_name=student.full_name,
+        username=username,
+        role=UserRole.STUDENT,
+        is_active=True,
+        must_change_password=True,
+    )
+    account.set_password(temporary_password)
+    db.session.add(account)
+    db.session.flush()
+    student.user_id = account.id
+    db.session.commit()
+    flash(
+        f'Đã tạo tài khoản học sinh. Tên đăng nhập: {username} · '
+        f'Mật khẩu tạm: {temporary_password}. Hãy gửi riêng cho học sinh; '
+        'mật khẩu sẽ không được hiển thị lại và phải đổi khi đăng nhập lần đầu.',
+        'success',
+    )
+    return redirect(url_for('admin.student_detail', student_id=student_id))
+
+
+@admin_bp.route('/students/<int:student_id>/reset-student-password', methods=['POST'])
+@login_required
+@require_admin
+def student_reset_login_password(student_id):
+    student = Student.query.get_or_404(student_id)
+    account = User.query.get_or_404(student.user_id) if student.user_id else None
+    if not account or account.role != UserRole.STUDENT:
+        flash('Học sinh này chưa có tài khoản đăng nhập để đặt lại mật khẩu.', 'warning')
+        return redirect(url_for('admin.student_detail', student_id=student_id))
+
+    if student.is_deleted or not student.is_active or student.level not in (
+        StudentLevel.SECONDARY, StudentLevel.HIGH_SCHOOL
+    ):
+        account.is_active = False
+        db.session.commit()
+        flash('Tài khoản đã bị khóa vì hồ sơ học sinh không còn đủ điều kiện hoạt động.', 'warning')
+        return redirect(url_for('admin.student_detail', student_id=student_id))
+
+    temporary_password = _new_student_temporary_password()
+    account.set_password(temporary_password)
+    account.must_change_password = True
+    account.is_active = True
+    db.session.commit()
+    flash(
+        f'Đã đặt lại mật khẩu. Tên đăng nhập: {account.username} · '
+        f'Mật khẩu tạm: {temporary_password}. Hãy gửi riêng cho học sinh; '
+        'mật khẩu sẽ không được hiển thị lại và phải đổi khi đăng nhập lần đầu.',
+        'success',
+    )
+    return redirect(url_for('admin.student_detail', student_id=student_id))
 
 
 @admin_bp.route('/students/<int:student_id>/reset-parent-password', methods=['POST'])
@@ -633,6 +719,12 @@ def student_edit(student_id):
         student.parent_phone = request.form.get('parent_phone', '').strip()
         student.note = request.form.get('note', '').strip()
         student.is_active = request.form.get('is_active') == '1'
+        if student.student_user:
+            student.student_user.full_name = student.full_name
+            student.student_user.is_active = (
+                student.is_active
+                and student.level in (StudentLevel.SECONDARY, StudentLevel.HIGH_SCHOOL)
+            )
         if not student.is_active:
             # Học sinh nghỉ học ở trung tâm -> rút khỏi mọi lớp đang active, tránh
             # còn sót trong danh sách điểm danh/sĩ số dù đã được đánh dấu nghỉ.

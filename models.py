@@ -16,6 +16,7 @@ class UserRole:
     ADMIN = 'admin'
     TEACHER = 'teacher'
     PARENT = 'parent'
+    STUDENT = 'student'
 
 
 class StudentLevel:
@@ -568,6 +569,8 @@ class User(UserMixin, db.Model):
     teacher_profile = db.relationship('Teacher', backref='user', uselist=False)
     children = db.relationship('Student', backref='parent_user',
                                foreign_keys='Student.parent_user_id', lazy='dynamic')
+    student_profile = db.relationship('Student', back_populates='student_user',
+                                     foreign_keys='Student.user_id', uselist=False)
     created_exams = db.relationship('Exam', backref='creator', lazy='dynamic', foreign_keys='Exam.created_by')
 
     def set_password(self, password):
@@ -599,12 +602,17 @@ class User(UserMixin, db.Model):
         return self.role == UserRole.PARENT
 
     @property
+    def is_student(self):
+        return self.role == UserRole.STUDENT
+
+    @property
     def role_label(self):
         """Get human-readable role label"""
         return {
             UserRole.ADMIN: 'Quản trị viên',
             UserRole.TEACHER: 'Giáo viên',
-            UserRole.PARENT: 'Phụ huynh'
+            UserRole.PARENT: 'Phụ huynh',
+            UserRole.STUDENT: 'Học sinh',
         }.get(self.role, self.role)
 
     @property
@@ -976,6 +984,7 @@ class Student(db.Model):
     parent_name = db.Column(db.String(100))
     parent_phone = db.Column(db.String(15))
     parent_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, unique=True, index=True)
     note = db.Column(db.Text)
     photo_path = db.Column(db.String(255))
     is_active = db.Column(db.Boolean, default=True)
@@ -987,6 +996,8 @@ class Student(db.Model):
 
     # Relationships
     enrollments = db.relationship('Enrollment', backref='student', lazy='dynamic')
+    student_user = db.relationship('User', back_populates='student_profile',
+                                   foreign_keys=[user_id])
     attendances = db.relationship('Attendance', backref='student', lazy='dynamic')
     scores = db.relationship('Score', backref='student', lazy='dynamic')
     rewards = db.relationship('Reward', backref='student', lazy='dynamic')

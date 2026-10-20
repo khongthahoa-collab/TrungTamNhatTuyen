@@ -17,12 +17,31 @@ CHEAT_LIMIT = 3
 ERROR_ID_PATTERN = re.compile(r'\[(\*?)([A-F]):([^\]]*)\]')
 
 
+@parent_bp.before_request
+def block_student_access_to_parent_portal():
+    if current_user.is_authenticated and current_user.is_student:
+        abort(403)
+
+
 def _get_student_or_403(student_id):
     student = Student.query.get_or_404(student_id)
+    if current_user.is_student:
+        if not student.user_id or student.user_id != current_user.id:
+            abort(403)
+        return student
     kids = list(current_user.children.all())
     if student not in kids:
         abort(403)
     return student
+
+
+def _exam_url(endpoint, **values):
+    if current_user.is_student:
+        endpoint = 'student.exams_list' if endpoint == 'exams' else f'student.{endpoint}'
+        values.pop('student_id', None)
+    else:
+        endpoint = f'parent.{endpoint}'
+    return url_for(endpoint, **values)
 
 
 def _upcoming_schedules(student, start, end):
@@ -492,9 +511,20 @@ def download_document(doc_id):
 # ============================================================
 
 def _exams_for_student(student):
-    """Non-draft exams assigned to one of the student's active classes, or open to everyone."""
+    """Return published exams available to the current parent or student."""
     class_ids = {e.class_id for e in student.enrollments.filter_by(is_active=True).all()}
+    if current_user.is_student:
+        class_ids = {
+            class_id for (class_id,) in db.session.query(Enrollment.class_id)
+            .join(Class, Class.id == Enrollment.class_id)
+            .filter(Enrollment.student_id == student.id,
+                    Enrollment.is_active.is_(True),
+                    Class.is_active.is_(True))
+            .all()
+        }
     all_exams = Exam.query.filter_by(is_draft=False).order_by(Exam.created_at.desc()).all()
+    if current_user.is_student:
+        return [exam for exam in all_exams if exam.class_list and class_ids & set(exam.class_list)]
     return [exam for exam in all_exams if not exam.class_list or class_ids & set(exam.class_list)]
 
 
@@ -627,10 +657,10 @@ def _grade_attempt(exam, attempt, form):
 @parent_bp.route('/students/<int:student_id>/exams')
 @login_required
 def exams(student_id):
-    if not current_user.is_parent:
+    if not (current_user.is_parent or current_user.is_student):
         abort(403)
     student = _get_student_or_403(student_id)
-    children = current_user.children.filter_by(is_active=True).all()
+    children = current_user.children.filter_by(is_active=True).all() if current_user.is_parent else []
 
     rows = []
     for exam in _exams_for_student(student):
@@ -657,10 +687,10 @@ def exams(student_id):
 @parent_bp.route('/students/<int:student_id>/exams/<int:exam_id>')
 @login_required
 def exam_take(student_id, exam_id):
-    if not current_user.is_parent:
+    if not (current_user.is_parent or current_user.is_student):
         abort(403)
     student = _get_student_or_403(student_id)
-    children = current_user.children.filter_by(is_active=True).all()
+    children = current_user.children.filter_by(is_active=True).all() if current_user.is_parent else []
     exam = Exam.query.get_or_404(exam_id)
 
     if exam.is_draft or exam not in _exams_for_student(student):
@@ -682,17 +712,17 @@ def exam_take(student_id, exam_id):
             last_attempt.result_json = json.dumps(result)
             db.session.commit()
             flash('Đã hết thời gian làm bài, hệ thống tự động nộp bài.', 'warning')
-            return redirect(url_for('parent.exam_result', student_id=student.id, exam_id=exam.id))
+            return redirect(_exam_url('exam_result', student_id=student.id, exam_id=exam.id))
         attempt = last_attempt
     else:
         submitted_count = ExamAttempt.query.filter_by(
             exam_id=exam.id, student_id=student.id, status='submitted').count()
         if not exam.is_unlimited_attempts and submitted_count >= exam.allow_attempts:
             flash('Bạn đã hết lượt làm bài này.', 'warning')
-            return redirect(url_for('parent.exam_result', student_id=student.id, exam_id=exam.id))
+            return redirect(_exam_url('exam_result', student_id=student.id, exam_id=exam.id))
         if not exam.is_open_now():
             flash('Đề thi hiện chưa mở hoặc đã đóng theo thời gian quy định.', 'warning')
-            return redirect(url_for('parent.exams', student_id=student.id))
+            return redirect(_exam_url('exams', student_id=student.id))
 
         attempt = ExamAttempt(
             exam_id=exam.id,
@@ -736,7 +766,7 @@ def _notify_cheat_flag(exam, student, attempt):
 @parent_bp.route('/students/<int:student_id>/exams/<int:exam_id>/submit', methods=['POST'])
 @login_required
 def exam_submit(student_id, exam_id):
-    if not current_user.is_parent:
+    if not (current_user.is_parent or current_user.is_student):
         abort(403)
     student = _get_student_or_403(student_id)
     exam = Exam.query.get_or_404(exam_id)
@@ -744,7 +774,7 @@ def exam_submit(student_id, exam_id):
     attempt = ExamAttempt.query.filter_by(exam_id=exam.id, student_id=student.id, status='in_progress').order_by(
         ExamAttempt.started_at.desc()).first()
     if not attempt:
-        return redirect(url_for('parent.exam_result', student_id=student.id, exam_id=exam.id))
+        return redirect(_exam_url('exam_result', student_id=student.id, exam_id=exam.id))
 
     normalized, result = _grade_attempt(exam, attempt, request.form)
     try:
@@ -770,23 +800,23 @@ def exam_submit(student_id, exam_id):
                            target_id=exam.id, detail=log_detail))
     db.session.commit()
 
-    return redirect(url_for('parent.exam_result', student_id=student.id, exam_id=exam.id))
+    return redirect(_exam_url('exam_result', student_id=student.id, exam_id=exam.id))
 
 
 @parent_bp.route('/students/<int:student_id>/exams/<int:exam_id>/result')
 @login_required
 def exam_result(student_id, exam_id):
-    if not current_user.is_parent:
+    if not (current_user.is_parent or current_user.is_student):
         abort(403)
     student = _get_student_or_403(student_id)
-    children = current_user.children.filter_by(is_active=True).all()
+    children = current_user.children.filter_by(is_active=True).all() if current_user.is_parent else []
     exam = Exam.query.get_or_404(exam_id)
 
     attempt = ExamAttempt.query.filter_by(exam_id=exam.id, student_id=student.id, status='submitted').order_by(
         ExamAttempt.started_at.desc()).first()
     if not attempt:
         flash('Bạn chưa hoàn thành bài thi này.', 'warning')
-        return redirect(url_for('parent.exams', student_id=student.id))
+        return redirect(_exam_url('exams', student_id=student.id))
 
     submitted_count = ExamAttempt.query.filter_by(exam_id=exam.id, student_id=student.id, status='submitted').count()
     can_retake = exam.is_unlimited_attempts or submitted_count < exam.allow_attempts

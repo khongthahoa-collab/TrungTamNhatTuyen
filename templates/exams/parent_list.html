@@ -1,4 +1,4 @@
-{% extends 'parent/base.html' %}
+{% extends 'student/base.html' if current_user.is_student else 'parent/base.html' %}
 {% block content %}
 <div class="container py-3">
   <h4 class="fw-bold mb-1">Bài thi & ôn tập</h4>
@@ -25,20 +25,20 @@
       </div>
       <div class="d-flex gap-2 mt-2">
         {% if row.in_progress %}
-          <a href="{{ url_for('parent.exam_take', student_id=student.id, exam_id=exam.id) }}" class="btn btn-warning btn-sm">
+          <a href="{{ url_for('student.exam_take', exam_id=exam.id) if current_user.is_student else url_for('parent.exam_take', student_id=student.id, exam_id=exam.id) }}" class="btn btn-warning btn-sm">
             <i class="bi bi-play-fill me-1"></i>Tiếp tục làm bài
           </a>
         {% elif row.last_attempt %}
-          <a href="{{ url_for('parent.exam_result', student_id=student.id, exam_id=exam.id) }}" class="btn btn-outline-success btn-sm">
+          <a href="{{ url_for('student.exam_result', exam_id=exam.id) if current_user.is_student else url_for('parent.exam_result', student_id=student.id, exam_id=exam.id) }}" class="btn btn-outline-success btn-sm">
             Xem kết quả
           </a>
           {% if row.can_take %}
-          <a href="{{ url_for('parent.exam_take', student_id=student.id, exam_id=exam.id) }}" class="btn btn-outline-primary btn-sm">
+          <a href="{{ url_for('student.exam_take', exam_id=exam.id) if current_user.is_student else url_for('parent.exam_take', student_id=student.id, exam_id=exam.id) }}" class="btn btn-outline-primary btn-sm">
             Làm lại
           </a>
           {% endif %}
         {% elif row.is_open %}
-          <a href="{{ url_for('parent.exam_take', student_id=student.id, exam_id=exam.id) }}" class="btn btn-primary btn-sm">
+          <a href="{{ url_for('student.exam_take', exam_id=exam.id) if current_user.is_student else url_for('parent.exam_take', student_id=student.id, exam_id=exam.id) }}" class="btn btn-primary btn-sm">
             Làm bài
           </a>
         {% else %}

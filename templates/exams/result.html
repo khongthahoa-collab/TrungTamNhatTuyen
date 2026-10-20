@@ -1,4 +1,4 @@
-{% extends 'parent/base.html' %}
+{% extends 'student/base.html' if current_user.is_student else 'parent/base.html' %}
 {% block content %}
 <div class="container py-3" style="max-width:640px;">
   <div class="card border-0 shadow-sm">
@@ -32,11 +32,11 @@
       <p class="small text-muted mb-3">Nộp bài lúc {{ attempt.submitted_at | datetime_vn if attempt.submitted_at else '—' }}</p>
 
       <div class="d-flex justify-content-center gap-2">
-        <a href="{{ url_for('parent.exams', student_id=student.id) }}" class="btn btn-outline-secondary">
+        <a href="{{ url_for('student.exams_list') if current_user.is_student else url_for('parent.exams', student_id=student.id) }}" class="btn btn-outline-secondary">
           <i class="bi bi-arrow-left me-1"></i>Danh sách bài thi
         </a>
         {% if can_retake %}
-        <a href="{{ url_for('parent.exam_take', student_id=student.id, exam_id=exam.id) }}" class="btn btn-primary">
+        <a href="{{ url_for('student.exam_take', exam_id=exam.id) if current_user.is_student else url_for('parent.exam_take', student_id=student.id, exam_id=exam.id) }}" class="btn btn-primary">
           <i class="bi bi-arrow-repeat me-1"></i>Làm lại
         </a>
         {% endif %}

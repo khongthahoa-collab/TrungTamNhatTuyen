@@ -125,6 +125,57 @@
   </div>
 </div>
 
+<!-- Tài khoản đăng nhập của học sinh -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-semibold">
+    <i class="bi bi-pc-display me-2 text-primary"></i>Tài khoản thi online của học sinh
+  </div>
+  <div class="card-body">
+    {% if student_account %}
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div>
+        <div class="fw-semibold small">{{ student_account.full_name }}</div>
+        <div class="small text-muted">Tên đăng nhập: <strong>{{ student_account.username }}</strong></div>
+        <div class="small mt-1">
+          {% if student_account.is_active %}
+          <span class="badge bg-success-subtle text-success border border-success-subtle">Đang hoạt động</span>
+          {% else %}
+          <span class="badge bg-secondary">Đã khóa</span>
+          {% endif %}
+          {% if student_account.must_change_password %}
+          <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+            Bắt buộc đổi mật khẩu khi đăng nhập
+          </span>
+          {% endif %}
+        </div>
+      </div>
+      <form method="post" action="{{ url_for('admin.student_reset_login_password', student_id=student.id) }}"
+            onsubmit="return confirm('Đặt lại mật khẩu? Mật khẩu tạm mới chỉ hiện một lần sau khi xác nhận.')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-outline-warning btn-sm"
+                {% if not student_login_allowed or not student.is_active or student.is_deleted %}disabled{% endif %}>
+          <i class="bi bi-key me-1"></i>Đặt lại mật khẩu
+        </button>
+      </form>
+    </div>
+    {% elif student_login_allowed %}
+    <p class="text-muted small mb-2">
+      Học sinh có thể đăng nhập riêng để làm bài thi được giao cho lớp đang học.
+      Mật khẩu khởi tạo sẽ chỉ hiện một lần và học sinh phải đổi khi đăng nhập lần đầu.
+    </p>
+    <form method="post" action="{{ url_for('admin.student_create_login_account', student_id=student.id) }}"
+          onsubmit="return confirm('Tạo tài khoản thi online cho học sinh này?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-primary btn-sm" {% if not student.is_active or student.is_deleted %}disabled{% endif %}>
+        <i class="bi bi-person-plus me-1"></i>Tạo tài khoản học sinh
+      </button>
+    </form>
+    {% else %}
+    <p class="text-muted small mb-0">Tài khoản đăng nhập riêng chỉ áp dụng cho học sinh từ cấp 2 trở lên.</p>
+    {% endif %}
+  </div>
+</div>
+
 <!-- Tài khoản phụ huynh -->
 <div class="card border-0 shadow-sm mb-4">
   <div class="card-header bg-white fw-semibold"><i class="bi bi-person-badge me-2 text-primary"></i>Tài khoản phụ huynh</div>

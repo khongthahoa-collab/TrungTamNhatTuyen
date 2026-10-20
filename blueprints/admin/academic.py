@@ -182,6 +182,8 @@ def _advance_student_grades(target_year):
                 s.is_active = False
                 s.status = 'graduated'
                 s.grade_year = target_year
+                if s.student_user:
+                    s.student_user.is_active = False
                 graduated += 1
                 continue
             new_grade = GRADE_SEQUENCE[new_idx]

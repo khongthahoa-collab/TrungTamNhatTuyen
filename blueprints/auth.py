@@ -102,4 +102,6 @@ def _dashboard_for(user):
         return url_for('admin.dashboard')
     if user.is_teacher:
         return url_for('teacher.attendance_list')
+    if user.is_student:
+        return url_for('student.exams_list')
     return url_for('parent.dashboard')

@@ -3,11 +3,11 @@ auto-create on student creation), so username/password defaults stay in sync."""
 from models import User
 
 DEFAULT_TEMP_PASSWORD = 'pass@123'
-USERNAME_PREFIXES = {'admin': 'admin', 'teacher': 'teacher', 'parent': 'user'}
+USERNAME_PREFIXES = {'admin': 'admin', 'teacher': 'teacher', 'parent': 'user', 'student': 'student'}
 
 
 def next_username(role):
-    """First available role-prefixed username: admin1/admin2/..., teacher1/..., user1/..."""
+    """Return the first available username for the requested account role."""
     prefix = USERNAME_PREFIXES.get(role, 'user')
     n = 1
     while True:

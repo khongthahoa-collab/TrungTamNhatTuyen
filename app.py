@@ -50,6 +50,7 @@ def create_app(config_name=None):
     from blueprints.auth import auth_bp
     from blueprints.public import public_bp
     from blueprints.parent import parent_bp
+    from blueprints.student import student_bp
     from blueprints.teacher import teacher_bp
     from blueprints.admin import admin_bp
     from blueprints.api import api_bp
@@ -58,6 +59,7 @@ def create_app(config_name=None):
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(public_bp, url_prefix='/')
     app.register_blueprint(parent_bp, url_prefix='/parent')
+    app.register_blueprint(student_bp, url_prefix='/student')
     app.register_blueprint(teacher_bp, url_prefix='/teacher')
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(api_bp)

@@ -1,4 +1,4 @@
-{% extends 'parent/base.html' %}
+{% extends 'student/base.html' if current_user.is_student else 'parent/base.html' %}
 {% block content %}
 <div class="container py-3" style="max-width:720px;">
 
@@ -25,7 +25,8 @@
     </div>
   </div>
 
-  <form id="examForm" method="post" action="{{ url_for('parent.exam_submit', student_id=student.id, exam_id=exam.id) }}">
+  <form id="examForm" method="post"
+        action="{{ url_for('student.exam_submit', exam_id=exam.id) if current_user.is_student else url_for('parent.exam_submit', student_id=student.id, exam_id=exam.id) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="cheat_count" id="cheatCountField" value="0">
 
