@@ -37,7 +37,7 @@
   <div class="group-title">{{ group.title }}</div>
   {% if group.instruction %}<div class="group-instruction">{{ group.instruction }}</div>{% endif %}
   {% for q in group.questions %}
-  <div class="question">
+  <div class="question exam-math">
     {% if group.type == 'mcq' %}
       <div class="qtitle">Câu {{ loop.index }}. {{ q.text }}</div>
       <div class="options">

@@ -35,8 +35,51 @@
   script.onerror = () => rejectReady(new Error('Không tải được bộ hiển thị công thức toán/hóa.'));
   document.head.appendChild(script);
 
+  // Plain-text shorthand outside math delimiters: CO_{2} -> CO<sub>2</sub>,
+  // x^{2} -> x<sup>2</sup>. Text inside \( \), \[ \], $ $, $$ $$ is left to MathJax.
+  const MATH_SEGMENT = /(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\$[^$]*\$)/;
+  const SCRIPT_TOKEN = /([_^])\{([^{}]*)\}/g;
+
+  function renderScriptsInText(textNode) {
+    const parts = textNode.nodeValue.split(MATH_SEGMENT);
+    if (!parts.some((part, i) => i % 2 === 0 && /[_^]\{[^{}]*\}/.test(part))) return;
+    const fragment = document.createDocumentFragment();
+    parts.forEach((part, i) => {
+      if (i % 2 === 1) {
+        fragment.appendChild(document.createTextNode(part));
+        return;
+      }
+      let last = 0;
+      part.replace(SCRIPT_TOKEN, (match, kind, content, offset) => {
+        fragment.appendChild(document.createTextNode(part.slice(last, offset)));
+        const el = document.createElement(kind === '_' ? 'sub' : 'sup');
+        el.textContent = content;
+        fragment.appendChild(el);
+        last = offset + match.length;
+        return match;
+      });
+      fragment.appendChild(document.createTextNode(part.slice(last)));
+    });
+    textNode.parentNode.replaceChild(fragment, textNode);
+  }
+
+  function renderPlainScripts(root) {
+    const containers = root.matches && root.matches('.exam-math')
+      ? [root] : Array.from(root.querySelectorAll('.exam-math'));
+    containers.forEach(container => {
+      const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+        acceptNode: node => (node.parentElement.closest('textarea, script, style, code, mjx-container')
+          ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+      });
+      const nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      nodes.forEach(renderScriptsInText);
+    });
+  }
+
   window.typesetExamMath = function (root) {
     const target = root || document.body;
+    renderPlainScripts(target);
     typesetQueue = typesetQueue.then(async () => {
       await mathJaxReady;
       window.MathJax.typesetClear([target]);
