@@ -186,7 +186,8 @@ function applyAnswerLine(group, question, value) {
 }
 
 function normalizeSectionHeading(value) {
-  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').toUpperCase();
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd')
+    .toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
 }
 
 function naturalSectionType(title) {
@@ -257,10 +258,10 @@ function parseFromText(text) {
     }
     if (!curGroup) startGroup('Phần 1', 'mcq', lineOffset);
 
-    const qMatch = line.match(/^C[aâ]u\s*\d+[:.]\s*(.*)$/i);
+    const qMatch = line.match(/^C[aâ]u\s*(\d+)\s*(?:[:.]\s*(.*))?$/i);
     if (qMatch) {
       flushQuestion();
-      startQuestion(qMatch[1], lineOffset);
+      startQuestion(qMatch[2] || '', lineOffset);
       return;
     }
     const numberedQuestionMatch = line.match(/^(\d+)[.)]?\s*(.*)$/);
@@ -303,7 +304,7 @@ function parseFromText(text) {
       return;
     }
 
-    const statementMatch = line.match(/^(\*)?([a-f])(?:[).:]|\s|$)\s*(.*)$/i);
+    const statementMatch = line.match(/^(\*)?\s*([a-f])(?:[).:]|\s|$)\s*(.*)$/i);
     if (statementMatch && curGroup.type === 'true_false') {
       if (!curQuestion) startQuestion('', lineOffset);
       curQuestion.statements.push({ text: statementMatch[3], correct: Boolean(statementMatch[1]) });
@@ -371,6 +372,7 @@ function renderQuestionCard(gi, g, qi, q) {
   } else if (g.type === 'true_false') {
     body = `
       <textarea class="form-control mb-2 q-text" data-g="${gi}" data-q="${qi}" rows="2" placeholder="Đoạn dẫn / tình huống chung cho các ý a, b, c, d">${escapeHtml(q.text)}</textarea>
+      <div class="form-text mb-2">Mỗi ý được chọn Đúng/Sai độc lập; một câu có thể có nhiều ý đúng.</div>
       ${q.statements.map((st, si) => `
         <div class="d-flex align-items-start gap-2 mb-1">
           <span class="fw-semibold pt-1" style="width:18px;">${SL[si]})</span>
