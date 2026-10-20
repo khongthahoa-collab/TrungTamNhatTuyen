@@ -9,26 +9,6 @@
     <div class="text-muted small">Chọn lớp để nhập điểm hoặc xem kết quả gần nhất</div>
   </div>
 
-  {% if total_class_count %}
-  <div class="row g-2 mb-3">
-    <div class="col-6">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body py-2">
-          <div class="text-muted small">Lớp được phân công</div>
-          <div class="fw-bold fs-5">{{ total_class_count }}</div>
-        </div>
-      </div>
-    </div>
-    <div class="col-6">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body py-2">
-          <div class="text-muted small">Đã có điểm trung tâm</div>
-          <div class="fw-bold fs-5 text-success">{{ classes_with_scores }}</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <form method="get" class="card border-0 shadow-sm mb-3">
     <div class="card-body p-2">
       <label for="classSearch" class="form-label small fw-semibold mb-1">Tìm lớp</label>
@@ -37,22 +17,18 @@
         <input id="classSearch" type="search" name="q" value="{{ search_query }}"
                class="form-control" placeholder="Nhập tên lớp hoặc khóa học"
                autocomplete="off">
-        <button class="btn btn-primary" type="submit">Tìm</button>
+        <button class="btn btn-primary" type="submit" aria-label="Tìm lớp">
+          <i class="bi bi-search"></i>
+        </button>
       </div>
-      <label for="scoreStatus" class="form-label small fw-semibold mt-2 mb-1">Tình trạng điểm</label>
-      <select id="scoreStatus" name="status" class="form-select" onchange="this.form.submit()">
-        <option value="all" {% if score_status == 'all' %}selected{% endif %}>Tất cả lớp</option>
-        <option value="has_scores" {% if score_status == 'has_scores' %}selected{% endif %}>Đã có điểm trung tâm</option>
-        <option value="no_scores" {% if score_status == 'no_scores' %}selected{% endif %}>Chưa có điểm trung tâm</option>
-      </select>
+      {% if search_query %}
       <div class="d-flex justify-content-between align-items-center mt-2">
-        <span class="text-muted small">Hiển thị {{ classes | length }} / {{ total_class_count }} lớp</span>
-        {% if search_query or score_status != 'all' %}
+        <span class="text-muted small">Tìm thấy {{ classes | length }} lớp</span>
         <a href="{{ url_for('teacher.scores_list') }}" class="small text-decoration-none">
           Xóa bộ lọc
         </a>
-        {% endif %}
       </div>
+      {% endif %}
     </div>
   </form>
 
@@ -109,15 +85,14 @@
     </div>
     {% endfor %}
   </div>
-  {% elif search_query or score_status != 'all' %}
+  {% elif search_query %}
   <div class="alert alert-light border text-center text-muted py-4">
     <i class="bi bi-search fs-4 d-block mb-2"></i>
-    Không tìm thấy lớp phù hợp với bộ lọc.
+    Không tìm thấy lớp phù hợp với từ khóa.
     <div class="mt-2">
       <a href="{{ url_for('teacher.scores_list') }}" class="btn btn-outline-primary btn-sm">Xóa bộ lọc</a>
     </div>
   </div>
-  {% endif %}
   {% else %}
   <div class="alert alert-light border text-center text-muted py-5">
     <i class="bi bi-journal-x fs-3 d-block mb-2"></i>
