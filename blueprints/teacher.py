@@ -1144,7 +1144,7 @@ def available_rooms():
 @login_required
 @require_teacher
 def scores_list():
-    """List all classes the teacher can enter scores for."""
+    """Class hub for teachers to find score entry and review recent results."""
     teacher = current_user.teacher_profile
     class_ids = _teacher_score_class_ids(teacher)
     classes = (Class.query
@@ -1159,8 +1159,56 @@ def scores_list():
         .filter(Enrollment.class_id.in_(shown_ids), Enrollment.is_active == True)
         .group_by(Enrollment.class_id).all()
     ) if shown_ids else {}
-    return render_template('teacher/scores_list.html', teacher=teacher, classes=classes,
-                           enrollment_counts=enrollment_counts)
+
+    from models import ScoreSource
+    score_stats = {}
+    if shown_ids:
+        score_stats = {
+            class_id: {'count': count, 'latest_date': latest_date}
+            for class_id, count, latest_date in (
+                db.session.query(
+                    Score.class_id,
+                    db.func.count(Score.id),
+                    db.func.max(Score.exam_date),
+                )
+                .filter(
+                    Score.class_id.in_(shown_ids),
+                    Score.score_source == ScoreSource.CENTER,
+                )
+                .group_by(Score.class_id)
+                .all()
+            )
+        }
+
+    search_query = request.args.get('q', '').strip()
+    score_status = request.args.get('status', 'all')
+    if score_status not in {'all', 'has_scores', 'no_scores'}:
+        score_status = 'all'
+
+    visible_classes = []
+    query_lower = search_query.casefold()
+    for cls in classes:
+        has_scores = cls.id in score_stats
+        searchable_text = f'{cls.name} {cls.course.name if cls.course else ""}'.casefold()
+        if query_lower and query_lower not in searchable_text:
+            continue
+        if score_status == 'has_scores' and not has_scores:
+            continue
+        if score_status == 'no_scores' and has_scores:
+            continue
+        visible_classes.append(cls)
+
+    return render_template(
+        'teacher/scores_list.html',
+        teacher=teacher,
+        classes=visible_classes,
+        total_class_count=len(classes),
+        classes_with_scores=sum(1 for cls in classes if cls.id in score_stats),
+        enrollment_counts=enrollment_counts,
+        score_stats=score_stats,
+        search_query=search_query,
+        score_status=score_status,
+    )
 
 
 @teacher_bp.route('/notifications')

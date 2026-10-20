@@ -5,9 +5,56 @@
 <div class="container-fluid px-3 py-3">
 
   <div class="mb-3">
-    <h5 class="fw-bold mb-0"><i class="bi bi-pencil-square text-primary me-1"></i>Điểm số</h5>
-    <div class="text-muted small">Chọn lớp để xem kết quả hoặc nhập điểm mới</div>
+    <h5 class="fw-bold mb-1"><i class="bi bi-pencil-square text-primary me-1"></i>Điểm số</h5>
+    <div class="text-muted small">Chọn lớp để nhập điểm hoặc xem kết quả gần nhất</div>
   </div>
+
+  {% if total_class_count %}
+  <div class="row g-2 mb-3">
+    <div class="col-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body py-2">
+          <div class="text-muted small">Lớp được phân công</div>
+          <div class="fw-bold fs-5">{{ total_class_count }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body py-2">
+          <div class="text-muted small">Đã có điểm trung tâm</div>
+          <div class="fw-bold fs-5 text-success">{{ classes_with_scores }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <form method="get" class="card border-0 shadow-sm mb-3">
+    <div class="card-body p-2">
+      <label for="classSearch" class="form-label small fw-semibold mb-1">Tìm lớp</label>
+      <div class="input-group">
+        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+        <input id="classSearch" type="search" name="q" value="{{ search_query }}"
+               class="form-control" placeholder="Nhập tên lớp hoặc khóa học"
+               autocomplete="off">
+        <button class="btn btn-primary" type="submit">Tìm</button>
+      </div>
+      <label for="scoreStatus" class="form-label small fw-semibold mt-2 mb-1">Tình trạng điểm</label>
+      <select id="scoreStatus" name="status" class="form-select" onchange="this.form.submit()">
+        <option value="all" {% if score_status == 'all' %}selected{% endif %}>Tất cả lớp</option>
+        <option value="has_scores" {% if score_status == 'has_scores' %}selected{% endif %}>Đã có điểm trung tâm</option>
+        <option value="no_scores" {% if score_status == 'no_scores' %}selected{% endif %}>Chưa có điểm trung tâm</option>
+      </select>
+      <div class="d-flex justify-content-between align-items-center mt-2">
+        <span class="text-muted small">Hiển thị {{ classes | length }} / {{ total_class_count }} lớp</span>
+        {% if search_query or score_status != 'all' %}
+        <a href="{{ url_for('teacher.scores_list') }}" class="small text-decoration-none">
+          Xóa bộ lọc
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </form>
 
   {% if classes %}
   <div class="list-group shadow-sm">
@@ -23,6 +70,21 @@
           <div class="text-muted small">
             {% if cls.course %}{{ cls.course.name }} · {% endif %}
             {{ enrollment_counts.get(cls.id, 0) }} học sinh
+          </div>
+          {% set score_stat = score_stats.get(cls.id) %}
+          <div class="small mt-1">
+            {% if score_stat %}
+            <span class="badge bg-success-subtle text-success border border-success-subtle">
+              <i class="bi bi-check-circle me-1"></i>Đã có {{ score_stat.count }} điểm
+            </span>
+            {% if score_stat.latest_date %}
+            <span class="text-muted ms-1">Gần nhất {{ score_stat.latest_date | date_vn }}</span>
+            {% endif %}
+            {% else %}
+            <span class="badge bg-light text-muted border">
+              <i class="bi bi-inbox me-1"></i>Chưa có điểm trung tâm
+            </span>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -47,6 +109,15 @@
     </div>
     {% endfor %}
   </div>
+  {% elif search_query or score_status != 'all' %}
+  <div class="alert alert-light border text-center text-muted py-4">
+    <i class="bi bi-search fs-4 d-block mb-2"></i>
+    Không tìm thấy lớp phù hợp với bộ lọc.
+    <div class="mt-2">
+      <a href="{{ url_for('teacher.scores_list') }}" class="btn btn-outline-primary btn-sm">Xóa bộ lọc</a>
+    </div>
+  </div>
+  {% endif %}
   {% else %}
   <div class="alert alert-light border text-center text-muted py-5">
     <i class="bi bi-journal-x fs-3 d-block mb-2"></i>
