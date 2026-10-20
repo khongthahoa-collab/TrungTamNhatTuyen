@@ -49,6 +49,7 @@
             <option value="mcq">Trắc nghiệm 4 đáp án</option>
             <option value="true_false">Đúng / Sai theo nhóm</option>
             <option value="short_answer">Trả lời ngắn</option>
+            <option value="essay">Tự luận (chấm tay)</option>
             <option value="error_id">Tìm lỗi sai (gạch chân)</option>
           </select>
           <button type="button" id="addGroupBtn" class="btn btn-success btn-sm">
@@ -64,9 +65,9 @@
         <div class="card-header bg-white">
           <span class="fw-semibold small text-uppercase text-muted"><i class="bi bi-code-slash me-1"></i>Soạn bằng văn bản</span>
           <div class="form-text mb-0 mt-1" style="font-size:0.74rem;">
-            Cú pháp: <code>## Tên phần {mcq|true_false|short_answer|error_id}</code> · <code>Câu 1: ...</code> ·
+            Cú pháp: <code>## Tên phần {mcq|true_false|short_answer|essay|error_id}</code> · <code>Câu 1: ...</code> ·
             tuỳ loại: <code>A. đáp án</code> / <code>a) ý</code> · <code>Đáp án: ...</code> · <code>Giải thích: ...</code>.
-            Soạn bên này sẽ tự cập nhật khung trực quan bên trái và ngược lại.
+            Tiêu đề như <code>PHẦN 3. TỰ LUẬN TRẢ LỜI NGẮN</code> tự tạo phần mới. Bấm <strong>Văn bản</strong> ở phần/câu bên trái để đưa con trỏ tới nội dung tương ứng.
           </div>
         </div>
         <div class="card-body p-2">
@@ -92,6 +93,7 @@ const GROUP_TYPE_LABELS = {
   mcq: 'Trắc nghiệm 4 đáp án',
   true_false: 'Đúng / Sai theo nhóm',
   short_answer: 'Trả lời ngắn',
+  essay: 'Tự luận (chấm tay)',
   error_id: 'Tìm lỗi sai (gạch chân)',
 };
 const PREFILL_GROUPS = {{ prefill.groups | default([]) | tojson }};
@@ -108,6 +110,7 @@ function newQuestionForType(type) {
     ], explanation: '' };
   }
   if (type === 'short_answer') return { text: '', accepted_answers: [''], explanation: '' };
+  if (type === 'essay') return { text: '', explanation: '' };
   if (type === 'error_id') return { text: '', explanation: '' };
   return { text: '', options: ['', '', '', ''], correct_index: 0, explanation: '' };
 }
@@ -122,11 +125,13 @@ function defaultGroups() {
 function emptyQuestionForType(type) {
   if (type === 'true_false') return { text: '', statements: [], explanation: '' };
   if (type === 'short_answer') return { text: '', accepted_answers: [], explanation: '' };
+  if (type === 'essay') return { text: '', explanation: '' };
   if (type === 'error_id') return { text: '', explanation: '' };
   return { text: '', options: [], correct_index: 0, explanation: '' };
 }
 
 let groups = (PREFILL_GROUPS && PREFILL_GROUPS.length) ? JSON.parse(JSON.stringify(PREFILL_GROUPS)) : defaultGroups();
+let sourceOffsets = { groups: [], questions: [] };
 
 const groupsContainer = document.getElementById('groupsContainer');
 const rawTextEditor = document.getElementById('rawTextEditor');
@@ -145,10 +150,10 @@ function serializeToText(allGroups) {
       const n = qi + 1;
       lines.push(`Câu ${n}: ${q.text || ''}`);
       if (g.type === 'mcq') {
-        (q.options || []).forEach((opt, oi) => lines.push(`${LETTERS[oi]}. ${opt}`));
+        (q.options || []).forEach((opt, oi) => lines.push(`${q.correct_index === oi ? '*' : ''}${LETTERS[oi]}. ${opt}`));
         lines.push(`Đáp án: ${LETTERS[q.correct_index] || 'A'}`);
       } else if (g.type === 'true_false') {
-        (q.statements || []).forEach((st, si) => lines.push(`${SL[si]}) ${st.text}`));
+        (q.statements || []).forEach((st, si) => lines.push(`${st.correct ? '*' : ''}${SL[si]}) ${st.text}`));
         lines.push(`Đáp án: ${(q.statements || []).map((st, si) => `${SL[si]})${st.correct ? 'Đ' : 'S'}`).join(' ')}`);
       } else if (g.type === 'short_answer') {
         lines.push(`Đáp án: ${(q.accepted_answers || []).join(' | ')}`);
@@ -180,66 +185,145 @@ function applyAnswerLine(group, question, value) {
   }
 }
 
+function normalizeSectionHeading(value) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').toUpperCase();
+}
+
+function naturalSectionType(title) {
+  const normalized = normalizeSectionHeading(title);
+  if (normalized.includes('TRA LOI NGAN') || normalized.includes('SHORT ANSWER')) return 'short_answer';
+  if (normalized.includes('TU LUAN') || normalized.includes('ESSAY')) return 'essay';
+  if (normalized.includes('DUNG SAI') || normalized.includes('TRUE FALSE')) return 'true_false';
+  if (normalized.includes('TIM LOI SAI') || normalized.includes('ERROR IDENTIFICATION')) return 'error_id';
+  return 'mcq';
+}
+
 function parseFromText(text) {
   const lines = text.split('\n');
   const result = [];
+  const groupOffsets = [];
+  const questionOffsets = [];
   let curGroup = null;
   let curQuestion = null;
+  let curQuestionOffset = null;
+  let questionTextIsPlaceholder = false;
+  let explanationMode = false;
+  let textOffset = 0;
 
   function flushQuestion() {
-    if (curGroup && curQuestion && (curQuestion.text || '').trim()) curGroup.questions.push(curQuestion);
+    if (curGroup && curQuestion && (curQuestion.text || '').trim()) {
+      curGroup.questions.push(curQuestion);
+      questionOffsets[questionOffsets.length - 1].push(curQuestionOffset);
+    }
     curQuestion = null;
+    curQuestionOffset = null;
+    questionTextIsPlaceholder = false;
+    explanationMode = false;
   }
   function flushGroup() {
     flushQuestion();
     if (curGroup) result.push(curGroup);
     curGroup = null;
   }
+  function startGroup(title, type, sourceOffset) {
+    curGroup = { title, type, instruction: '', questions: [] };
+    groupOffsets.push(sourceOffset);
+    questionOffsets.push([]);
+  }
+  function startQuestion(text, sourceOffset) {
+    curQuestion = emptyQuestionForType(curGroup.type);
+    curQuestion.text = text || `Câu ${curGroup.questions.length + 1}`;
+    curQuestionOffset = sourceOffset;
+    questionTextIsPlaceholder = !text;
+    explanationMode = false;
+  }
 
   lines.forEach(raw => {
     const line = raw.trim();
+    const lineOffset = textOffset + raw.indexOf(line);
+    textOffset += raw.length + 1;
     if (!line) return;
 
-    const groupMatch = line.match(/^##\s*(.+?)\s*(\{(\w+)\})?\s*$/);
-    if (groupMatch) {
+    const dslGroupMatch = line.match(/^##\s*(.+?)\s*(?:\{(mcq|true_false|short_answer|essay|error_id)\})?\s*$/i);
+    const naturalGroupMatch = line.match(/^(?:PHẦN|SECTION)\s+\d+\s*[.:)-]?\s+.+$/i);
+    if (dslGroupMatch || naturalGroupMatch) {
       flushGroup();
-      const type = (groupMatch[3] && GROUP_TYPE_LABELS[groupMatch[3]]) ? groupMatch[3] : 'mcq';
-      curGroup = { title: groupMatch[1].trim(), type, instruction: '', questions: [] };
+      const title = dslGroupMatch ? dslGroupMatch[1].trim() : line;
+      const type = dslGroupMatch && dslGroupMatch[2]
+        ? dslGroupMatch[2].toLowerCase()
+        : naturalSectionType(title);
+      startGroup(title, type, lineOffset);
       return;
     }
-    if (!curGroup) curGroup = { title: 'Phần 1', type: 'mcq', instruction: '', questions: [] };
+    if (!curGroup) startGroup('Phần 1', 'mcq', lineOffset);
 
     const qMatch = line.match(/^C[aâ]u\s*\d+[:.]\s*(.*)$/i);
     if (qMatch) {
       flushQuestion();
-      curQuestion = emptyQuestionForType(curGroup.type);
-      curQuestion.text = qMatch[1];
+      startQuestion(qMatch[1], lineOffset);
       return;
     }
+    const numberedQuestionMatch = line.match(/^(\d+)[.)]?\s*(.*)$/);
+    if (numberedQuestionMatch) {
+      flushQuestion();
+      startQuestion(numberedQuestionMatch[2], lineOffset);
+      return;
+    }
+
+    if (/^Trả\s*lời\s*:\s*$/i.test(line)) return;
+    const ansMatch = line.match(/^Đáp\s*án\s*:\s*(.*)$/i);
+    if (ansMatch && curQuestion) {
+      explanationMode = false;
+      applyAnswerLine(curGroup, curQuestion, ansMatch[1]);
+      return;
+    }
+    const explanationMatch = line.match(/^(?:Giải\s*thích(?:\s*chi\s*tiết)?|Lời\s*giải)\s*:\s*(.*)$/i);
+    if (/^(?:Giải\s*thích\s*chi\s*tiết\s*câu\s*các\s*ý|Giải\s*thích\s*chi\s*tiết)\s*$/i.test(line)) {
+      if (curQuestion) {
+        explanationMode = true;
+        curQuestion.explanation = curQuestion.explanation || '';
+      }
+      return;
+    }
+    if (explanationMatch && curQuestion) {
+      explanationMode = true;
+      curQuestion.explanation = explanationMatch[1].trim();
+      return;
+    }
+    if (explanationMode && curQuestion) {
+      curQuestion.explanation += (curQuestion.explanation ? '\n' : '') + line;
+      return;
+    }
+
+    const optionMatch = line.match(/^(\*)?\s*([A-F])(?:[).:]|\s|$)\s*(.*)$/i);
+    if (optionMatch && curGroup.type === 'mcq') {
+      if (!curQuestion) startQuestion('', lineOffset);
+      curQuestion.options.push(optionMatch[3]);
+      if (optionMatch[1]) curQuestion.correct_index = curQuestion.options.length - 1;
+      return;
+    }
+
+    const statementMatch = line.match(/^(\*)?([a-f])(?:[).:]|\s|$)\s*(.*)$/i);
+    if (statementMatch && curGroup.type === 'true_false') {
+      if (!curQuestion) startQuestion('', lineOffset);
+      curQuestion.statements.push({ text: statementMatch[3], correct: Boolean(statementMatch[1]) });
+      return;
+    }
+
     if (!curQuestion) {
       curGroup.instruction = (curGroup.instruction ? curGroup.instruction + '\n' : '') + line;
       return;
     }
 
-    const optMatch = line.match(/^([A-F])\.\s*(.*)$/);
-    if (optMatch && curGroup.type === 'mcq') { curQuestion.options.push(optMatch[2]); return; }
-
-    const stMatch = line.match(/^([a-f])\)\s*(.*)$/);
-    if (stMatch && curGroup.type === 'true_false') {
-      curQuestion.statements.push({ text: stMatch[2], correct: false });
-      return;
+    if (questionTextIsPlaceholder) {
+      curQuestion.text = line;
+      questionTextIsPlaceholder = false;
+    } else {
+      curQuestion.text += (curQuestion.text ? ' ' : '') + line;
     }
-
-    const ansMatch = line.match(/^Đáp\s*án\s*:\s*(.*)$/i);
-    if (ansMatch) { applyAnswerLine(curGroup, curQuestion, ansMatch[1]); return; }
-
-    const expMatch = line.match(/^Giải\s*thích\s*:\s*(.*)$/i);
-    if (expMatch) { curQuestion.explanation = expMatch[1].trim(); return; }
-
-    curQuestion.text += (curQuestion.text ? ' ' : '') + line;
   });
   flushGroup();
-  return result.filter(g => g.questions.length);
+  return { groups: result, sourceOffsets: { groups: groupOffsets, questions: questionOffsets } };
 }
 
 // ────────────────────────────────────────────────────────────
@@ -258,7 +342,13 @@ function renderErrorIdPreview(text) {
 function renderQuestionCard(gi, g, qi, q) {
   const head = `
     <div class="d-flex justify-content-between align-items-center mb-2">
-      <span class="badge bg-success-subtle text-success border border-success-subtle">Câu ${qi + 1}</span>
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-success-subtle text-success border border-success-subtle">Câu ${qi + 1}</span>
+        <button type="button" class="btn btn-sm btn-outline-secondary jump-to-source" data-g="${gi}" data-q="${qi}"
+                title="Đưa con trỏ tới câu này trong văn bản">
+          <i class="bi bi-code-slash me-1"></i>Văn bản
+        </button>
+      </div>
       <button type="button" class="btn btn-sm btn-outline-danger remove-question" data-g="${gi}" data-q="${qi}" ${g.questions.length <= 1 ? 'disabled' : ''}>
         <i class="bi bi-trash"></i>
       </button>
@@ -308,6 +398,10 @@ function renderQuestionCard(gi, g, qi, q) {
       <button type="button" class="btn btn-sm btn-outline-secondary add-answer mt-1" data-g="${gi}" data-q="${qi}">
         <i class="bi bi-plus me-1"></i>Thêm biến thể đáp án
       </button>`;
+  } else if (g.type === 'essay') {
+    body = `
+      <textarea class="form-control mb-2 q-text" data-g="${gi}" data-q="${qi}" rows="3" placeholder="Nội dung câu hỏi tự luận">${escapeHtml(q.text)}</textarea>
+      <div class="form-text">Học sinh sẽ trả lời bằng văn bản tự do. Giáo viên chấm điểm sau khi nộp bài.</div>`;
   } else if (g.type === 'error_id') {
     body = `
       <div class="form-text mb-1">Dùng cú pháp <code>[A:đoạn]</code> cho mỗi phần, thêm <code>*</code> trước nhãn của phần cần chọn — ví dụ: <code>Every [A:member] of the class [*B:were] invited [C:to] the party.</code></div>
@@ -316,7 +410,7 @@ function renderQuestionCard(gi, g, qi, q) {
   }
 
   return `
-    <div class="border rounded p-3 mb-3">
+    <div class="question-editor-card border rounded p-3 mb-3" data-g="${gi}" data-q="${qi}">
       ${head}
       ${body}
       <textarea class="form-control mt-2 q-explanation" data-g="${gi}" data-q="${qi}" rows="1" placeholder="Hướng dẫn giải (không bắt buộc)">${escapeHtml(q.explanation || '')}</textarea>
@@ -324,12 +418,20 @@ function renderQuestionCard(gi, g, qi, q) {
 }
 
 function renderGroups() {
+  if (!groups.length) {
+    groupsContainer.innerHTML = '<div class="alert alert-light border small">Chưa có phần thi. Hãy thêm phần ở bên dưới hoặc nhập tiêu đề phần trong khung văn bản.</div>';
+    return;
+  }
   groupsContainer.innerHTML = groups.map((g, gi) => `
-    <div class="card border-0 shadow-sm mb-3">
+    <div class="card group-editor-card border-0 shadow-sm mb-3" data-g="${gi}">
       <div class="card-header bg-white d-flex flex-wrap gap-2 align-items-center justify-content-between">
         <input type="text" class="form-control form-control-sm fw-semibold group-title" style="max-width:320px;" data-g="${gi}"
                value="${escapeHtml(g.title)}" placeholder="Tên phần thi">
         <div class="d-flex gap-2 align-items-center">
+          <button type="button" class="btn btn-sm btn-outline-secondary jump-to-source" data-g="${gi}"
+                  title="Đưa con trỏ tới phần này trong văn bản">
+            <i class="bi bi-code-slash me-1"></i>Văn bản
+          </button>
           <select class="form-select form-select-sm group-type" data-g="${gi}" style="width:auto;">
             ${Object.entries(GROUP_TYPE_LABELS).map(([val, label]) => `<option value="${val}" ${g.type === val ? 'selected' : ''}>${label}</option>`).join('')}
           </select>
@@ -352,6 +454,19 @@ function renderGroups() {
 
 function syncTextFromState() {
   rawTextEditor.value = serializeToText(groups);
+  sourceOffsets = parseFromText(rawTextEditor.value).sourceOffsets;
+}
+
+function jumpToSource(gi, qi = null) {
+  const offset = qi === null
+    ? sourceOffsets.groups[gi]
+    : (sourceOffsets.questions[gi] || [])[qi] ?? sourceOffsets.groups[gi];
+  if (!Number.isInteger(offset)) return;
+  rawTextEditor.focus();
+  rawTextEditor.setSelectionRange(offset, offset);
+  const lineNumber = (rawTextEditor.value.slice(0, offset).match(/\n/g) || []).length;
+  const lineHeight = parseFloat(window.getComputedStyle(rawTextEditor).lineHeight) || 18;
+  rawTextEditor.scrollTop = Math.max(0, lineNumber * lineHeight - rawTextEditor.clientHeight / 3);
 }
 
 function renderAll() {
@@ -401,8 +516,24 @@ groupsContainer.addEventListener('change', e => {
 });
 
 groupsContainer.addEventListener('click', e => {
+  if (!(e.target instanceof Element)) return;
+  const jumpButton = e.target.closest('.jump-to-source');
+  if (jumpButton) {
+    jumpToSource(+jumpButton.dataset.g, jumpButton.dataset.q === undefined ? null : +jumpButton.dataset.q);
+    return;
+  }
+  if (e.target.closest('input, textarea, select, a, label')) return;
   const btn = e.target.closest('button');
-  if (!btn) return;
+  if (!btn) {
+    const questionCard = e.target.closest('.question-editor-card');
+    if (questionCard) {
+      jumpToSource(+questionCard.dataset.g, +questionCard.dataset.q);
+      return;
+    }
+    const groupCard = e.target.closest('.group-editor-card');
+    if (groupCard) jumpToSource(+groupCard.dataset.g);
+    return;
+  }
   const gi = +btn.dataset.g;
 
   if (btn.classList.contains('remove-group')) {
@@ -458,7 +589,8 @@ document.getElementById('addGroupBtn').addEventListener('click', () => {
 // ────────────────────────────────────────────────────────────
 rawTextEditor.addEventListener('input', () => {
   const parsed = parseFromText(rawTextEditor.value);
-  if (parsed.length) groups = parsed;
+  groups = parsed.groups;
+  sourceOffsets = parsed.sourceOffsets;
   renderGroups();
 });
 

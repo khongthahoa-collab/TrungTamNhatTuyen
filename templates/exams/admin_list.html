@@ -6,7 +6,7 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
   <div>
     <h4 class="fw-bold mb-1">Quản lý đề thi online</h4>
-    <p class="text-muted mb-0">Tạo đề, giao bài cho lớp và theo dõi kết quả — tham khảo chuẩn azota.vn</p>
+    <p class="text-muted mb-0">Tạo đề, giao bài và quản lý đề được chia sẻ cho giáo viên khác.</p>
   </div>
   <a href="{{ url_for('admin.exams_new') }}" class="btn btn-primary">
     <i class="bi bi-plus-lg me-1"></i>Tạo đề thi
@@ -70,6 +70,14 @@
           {% endfor %}
         </select>
       </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold mb-1">Thư viện giáo viên</label>
+        <select name="sharing" class="form-select form-select-sm">
+          <option value="">Tất cả</option>
+          <option value="shared" {% if sharing == 'shared' %}selected{% endif %}>Đang chia sẻ</option>
+          <option value="private" {% if sharing == 'private' %}selected{% endif %}>Riêng tư</option>
+        </select>
+      </div>
       <div class="col-12 d-flex gap-2 justify-content-between align-items-center">
         <a href="{{ url_for('admin.documents') }}" class="small text-decoration-none">
           <i class="bi bi-folder me-1"></i>Quản lý thư mục đề thi tại trang Tài liệu
@@ -97,6 +105,7 @@
             <th>Số lần làm</th>
             <th>Người tạo</th>
             <th>Trạng thái</th>
+            <th>Thư viện giáo viên</th>
             <th>Tình trạng thi</th>
             <th>Ngày tạo</th>
             <th class="text-end">Thao tác</th>
@@ -116,6 +125,29 @@
             <td>{% if exam.is_unlimited_attempts %}Không giới hạn{% else %}{{ exam.allow_attempts }} lần{% endif %}</td>
             <td class="small text-muted">{{ exam.creator.full_name if exam.creator else '—' }}</td>
             <td>{% if exam.is_draft %}<span class="badge bg-secondary">Nháp</span>{% else %}<span class="badge bg-success">Đã đăng</span>{% endif %}</td>
+            <td>
+              {% if exam.is_shared_with_teachers %}
+              <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Đang chia sẻ</span>
+              {% else %}
+              <span class="badge bg-light text-muted border">Riêng tư</span>
+              {% endif %}
+              {% if can_manage_exam_sharing %}
+              <form method="post" action="{{ url_for('admin.exam_toggle_sharing', exam_id=exam.id) }}" class="mt-1"
+                    onsubmit="return confirm('{% if exam.is_shared_with_teachers %}Gỡ đề này khỏi thư viện chia sẻ?{% else %}Chia sẻ đề này để tất cả giáo viên có thể xem và sao chép? Kết quả thi không được chia sẻ.{% endif %}')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                {% if exam.is_shared_with_teachers %}
+                <input type="hidden" name="shared" value="0">
+                <button type="submit" class="btn btn-outline-secondary btn-sm">Gỡ chia sẻ</button>
+                {% else %}
+                <input type="hidden" name="shared" value="1">
+                <button type="submit" class="btn btn-outline-primary btn-sm"
+                        {% if exam.is_draft %}disabled title="Chỉ chia sẻ được đề đã đăng"{% endif %}>
+                  Chia sẻ
+                </button>
+                {% endif %}
+              </form>
+              {% endif %}
+            </td>
             <td>
               {% if not exam.is_draft %}
                 {% if exam.availability_mode == 'range' and exam.available_to and now > exam.available_to %}
@@ -172,7 +204,7 @@
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="11" class="text-center text-muted py-4">Chưa có đề thi nào. Bấm "Tạo đề thi" để bắt đầu.</td></tr>
+          <tr><td colspan="12" class="text-center text-muted py-4">Chưa có đề thi nào. Bấm "Tạo đề thi" để bắt đầu.</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -185,21 +217,21 @@
 <nav class="mt-3 mb-4 d-flex justify-content-center" aria-label="Phân trang">
   <ul class="pagination pagination-sm mb-0">
     <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-      <a class="page-link" href="{{ url_for('admin.exams_list', page=pagination.prev_num, folder_id=folder_id, subject=subject, exam_type=exam_type, class_id=class_id, status=status, creator_id=creator_id) }}">
+      <a class="page-link" href="{{ url_for('admin.exams_list', page=pagination.prev_num, folder_id=folder_id, subject=subject, exam_type=exam_type, class_id=class_id, status=status, sharing=sharing, creator_id=creator_id) }}">
         <i class="bi bi-chevron-left"></i>
       </a>
     </li>
     {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
       {% if p %}
         <li class="page-item {% if p == pagination.page %}active{% endif %}">
-          <a class="page-link" href="{{ url_for('admin.exams_list', page=p, folder_id=folder_id, subject=subject, exam_type=exam_type, class_id=class_id, status=status, creator_id=creator_id) }}">{{ p }}</a>
+          <a class="page-link" href="{{ url_for('admin.exams_list', page=p, folder_id=folder_id, subject=subject, exam_type=exam_type, class_id=class_id, status=status, sharing=sharing, creator_id=creator_id) }}">{{ p }}</a>
         </li>
       {% else %}
         <li class="page-item disabled"><span class="page-link">…</span></li>
       {% endif %}
     {% endfor %}
     <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-      <a class="page-link" href="{{ url_for('admin.exams_list', page=pagination.next_num, folder_id=folder_id, subject=subject, exam_type=exam_type, class_id=class_id, status=status, creator_id=creator_id) }}">
+      <a class="page-link" href="{{ url_for('admin.exams_list', page=pagination.next_num, folder_id=folder_id, subject=subject, exam_type=exam_type, class_id=class_id, status=status, sharing=sharing, creator_id=creator_id) }}">
         <i class="bi bi-chevron-right"></i>
       </a>
     </li>

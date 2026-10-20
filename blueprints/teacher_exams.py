@@ -5,15 +5,16 @@ and the parsing/validation logic in blueprints/exams_shared.py.
 """
 import json
 from urllib.parse import quote
-from flask import render_template, redirect, url_for, flash, request, session, Response, abort
+from flask import render_template, redirect, url_for, flash, request, session, Response
 from flask_login import login_required, current_user
 from sqlalchemy.orm import joinedload
 from extensions import db
-from models import Exam, ExamLog, ExamAttempt, ExamFolder, Class, Course
+from models import Exam, ExamLog, ExamAttempt, ExamFolder, Class, Course, User
 from blueprints.teacher import teacher_bp, require_teacher
 from blueprints.exams_shared import (
     EXAM_TYPES, DURATION_OPTIONS, SESSION_KEY,
-    parse_groups_payload, require_owns_or_admin, session_draft, parse_confirm_settings,
+    parse_groups_payload, require_owns_or_admin, require_teacher_exam_access,
+    session_draft, parse_confirm_settings,
 )
 from blueprints.pagination_utils import paginate_list
 
@@ -27,9 +28,20 @@ def exams_list():
     exam_type = request.args.get('exam_type', '').strip()
     class_id = request.args.get('class_id', type=int)
     status = request.args.get('status', '').strip()
+    reuse_mode = request.args.get('reuse') == '1'
+    search = request.args.get('q', '').strip()
 
     # Each teacher only sees exams they created themselves — not other teachers'/admin's.
     query = Exam.query.filter_by(created_by=current_user.id)
+    if reuse_mode:
+        query = Exam.query.filter(db.or_(
+            Exam.created_by == current_user.id,
+            db.and_(Exam.is_shared_with_teachers.is_(True), Exam.is_draft.is_(False)),
+        ))
+        if search:
+            query = query.filter(db.or_(Exam.title.ilike(f'%{search}%'),
+                                        Exam.subject.ilike(f'%{search}%'),
+                                        Exam.creator.has(User.full_name.ilike(f'%{search}%'))))
     if folder_id:
         query = query.filter_by(folder_id=folder_id)
     if subject:
@@ -52,7 +64,7 @@ def exams_list():
     return render_template('teacher/exams_list.html', exams=exams, folders=folders, classes=classes,
                            courses=courses, exam_types=EXAM_TYPES,
                            folder_id=folder_id, subject=subject, exam_type=exam_type,
-                           class_id=class_id, status=status)
+                           class_id=class_id, status=status, reuse_mode=reuse_mode, search=search)
 
 
 @teacher_bp.route('/exams/<int:exam_id>/duplicate', methods=['POST'])
@@ -60,20 +72,23 @@ def exams_list():
 @require_teacher
 def exam_duplicate(exam_id):
     original = Exam.query.get_or_404(exam_id)
+    require_teacher_exam_access(original)
 
     new_exam = Exam(
         title=f'{original.title} (bản sao)',
         subject=original.subject,
         exam_type=original.exam_type,
         description=original.description,
+        scoring_mode=original.scoring_mode,
         class_ids='',
-        folder_id=original.folder_id,
+        folder_id=original.folder_id if original.created_by == current_user.id else None,
         duration_minutes=original.duration_minutes,
         availability_mode='always',
         allow_attempts=original.allow_attempts,
         shuffle_questions=True,
         shuffle_answers=True,
         is_draft=True,
+        is_shared_with_teachers=False,
         created_by=current_user.id,
         questions_json=original.questions_json,
     )
@@ -102,9 +117,12 @@ def exams_results(exam_id):
     for a in attempts:
         row = by_student.setdefault(a.student_id, {
             'student': a.student, 'submitted_count': 0, 'latest': None, 'max_cheat': 0, 'flagged': False,
+            'pending_essay_attempts': [],
         })
         if a.status == 'submitted':
             row['submitted_count'] += 1
+            if a.result.get('pending_essay_count', 0) > 0:
+                row['pending_essay_attempts'].append(a)
             if row['latest'] is None or a.started_at > row['latest'].started_at:
                 row['latest'] = a
         row['max_cheat'] = max(row['max_cheat'], a.cheat_count or 0)
@@ -118,6 +136,8 @@ def exams_results(exam_id):
             duration_seconds = int((latest.submitted_at - latest.started_at).total_seconds())
         rows.append({
             'student': data['student'],
+            'attempt': latest,
+            'pending_essay_attempts': data['pending_essay_attempts'],
             'result': latest.result if latest else {},
             'attempts_count': data['submitted_count'],
             'duration_seconds': duration_seconds,
@@ -146,6 +166,13 @@ def exams_new():
 
         session[SESSION_KEY] = {'title': title, 'groups': groups}
         return redirect(url_for('teacher.exams_confirm'))
+
+    if request.args.get('mode') != 'compose':
+        has_reusable_exams = Exam.query.filter(db.or_(
+            Exam.created_by == current_user.id,
+            db.and_(Exam.is_shared_with_teachers.is_(True), Exam.is_draft.is_(False)),
+        )).first() is not None
+        return render_template('teacher/exams_create.html', has_existing_exams=has_reusable_exams)
 
     draft = session_draft()
     return render_template('teacher/exams_form.html', prefill=draft)
@@ -210,6 +237,7 @@ def exams_confirm():
             existing.title = draft['title']
             existing.subject = settings['subject']
             existing.exam_type = settings['exam_type']
+            existing.scoring_mode = settings['scoring_mode']
             existing.description = settings['description']
             existing.class_ids = ','.join(settings['class_ids'])
             existing.folder_id = settings['folder_id']
@@ -234,6 +262,7 @@ def exams_confirm():
                 title=draft['title'],
                 subject=settings['subject'],
                 exam_type=settings['exam_type'],
+                scoring_mode=settings['scoring_mode'],
                 description=settings['description'],
                 class_ids=','.join(settings['class_ids']),
                 folder_id=settings['folder_id'],
@@ -282,8 +311,14 @@ def exams_delete(exam_id):
 @require_teacher
 def exams_preview(exam_id):
     exam = Exam.query.get_or_404(exam_id)
-    classes = Class.query.filter(Class.id.in_(exam.class_list)).all() if exam.class_list else []
-    return render_template('teacher/exams_preview.html', exam=exam, classes=classes)
+    require_teacher_exam_access(exam)
+    is_shared_source = exam.created_by != current_user.id
+    classes = (
+        Class.query.filter(Class.id.in_(exam.class_list)).all()
+        if exam.class_list and not is_shared_source else []
+    )
+    return render_template('teacher/exams_preview.html', exam=exam, classes=classes,
+                           can_edit_exam=not is_shared_source, is_shared_source=is_shared_source)
 
 
 @teacher_bp.route('/exams/<int:exam_id>/export')
@@ -293,6 +328,7 @@ def exams_export(exam_id):
     """Print-friendly export. fmt=pdf opens the browser print dialog (Save as PDF);
     fmt=doc downloads an HTML file Word can open directly."""
     exam = Exam.query.get_or_404(exam_id)
+    require_teacher_exam_access(exam)
     fmt = request.args.get('fmt', 'pdf')
     html = render_template('exams/export_print.html', exam=exam, fmt=fmt)
 

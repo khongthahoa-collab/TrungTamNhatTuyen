@@ -7,15 +7,26 @@
       <p class="text-muted mb-3">Kết quả bài làm của <strong>{{ student.full_name }}</strong></p>
 
       {% set result = attempt.result %}
+      {% if result.get('pending_essay_count', 0) > 0 %}
+      <div class="alert alert-info text-start">
+        <i class="bi bi-hourglass-split me-1"></i>
+        Bài đã được nộp. Còn {{ result.pending_essay_count }} câu tự luận đang chờ giáo viên chấm; điểm chính thức sẽ được cập nhật sau khi chấm xong.
+        {% if result.get('auto_earned') is not none %}
+        <div class="small mt-1">Điểm phần tự động chấm hiện tại: {{ (result.auto_earned / result.total * 10) | round(1) if result.total else 0 }}/10 (chưa gồm điểm tự luận).</div>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% if result.get('pending_essay_count', 0) == 0 or not result.get('essay_questions') %}
       <div class="display-4 fw-bold text-success mb-1">{{ result.get('score_10', 0) }}<span class="fs-4 text-muted">/10</span></div>
-      <p class="text-muted mb-3">Đúng {{ result.get('earned', 0) }}/{{ result.get('total', 0) }} câu (quy đổi) · {{ result.get('percent', 0) }}%</p>
+      <p class="text-muted mb-3">{{ 'Chia điểm theo phần' if result.get('scoring_mode') == 'section' else 'Chia điểm theo câu' }} · {{ result.get('percent', 0) }}%</p>
+      {% endif %}
 
       {% if result.get('breakdown') %}
       <div class="text-start small border rounded p-2 mb-3 bg-light">
         {% for part in result.breakdown %}
         <div class="d-flex justify-content-between">
           <span>{{ part.title }}</span>
-          <span class="fw-semibold">{{ part.earned }}/{{ part.total }}</span>
+          <span class="fw-semibold">{{ part.earned }}/{{ part.total }} điểm</span>
         </div>
         {% endfor %}
       </div>

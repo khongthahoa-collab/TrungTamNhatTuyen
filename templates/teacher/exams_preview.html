@@ -16,10 +16,17 @@
     </div>
   </div>
   <div class="d-flex gap-2 flex-wrap">
-    {% if current_user.is_admin or exam.created_by == current_user.id %}
+    {% if can_edit_exam %}
     <a href="{{ url_for('teacher.exams_edit', exam_id=exam.id) }}" class="btn btn-primary btn-sm">
       <i class="bi bi-pencil me-1"></i>Chỉnh sửa
     </a>
+    {% elif exam.is_shared_with_teachers %}
+    <form method="post" action="{{ url_for('teacher.exam_duplicate', exam_id=exam.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-primary btn-sm">
+        <i class="bi bi-copy me-1"></i>Sao chép để chỉnh sửa
+      </button>
+    </form>
     {% endif %}
     <a href="{{ url_for('teacher.exams_export', exam_id=exam.id, fmt='pdf') }}" target="_blank" class="btn btn-outline-secondary btn-sm">
       <i class="bi bi-file-earmark-pdf me-1"></i>Xuất PDF
@@ -47,6 +54,11 @@
     <div class="card border-0 shadow-sm">
       <div class="card-body">
         <h6 class="fw-semibold mb-3">Thông tin giao đề</h6>
+        {% if is_shared_source %}
+        <div class="alert alert-primary small">
+          Đề được admin chia sẻ để bạn tham khảo và sao chép. Lớp giao và kết quả của đề gốc được giữ riêng.
+        </div>
+        {% else %}
         <p class="small mb-1"><strong>Lớp được giao:</strong></p>
         {% if classes %}
         <ul class="small">
@@ -54,6 +66,7 @@
         </ul>
         {% else %}
         <p class="text-muted small">Chưa giao cho lớp nào.</p>
+        {% endif %}
         {% endif %}
         <p class="small mb-1"><strong>Người tạo:</strong> {{ exam.creator.full_name if exam.creator else '—' }}</p>
         <p class="small mb-0"><strong>Ngày tạo:</strong> {{ exam.created_at | datetime_vn if exam.created_at else '—' }}</p>

@@ -46,6 +46,7 @@
             <option value="mcq">Trắc nghiệm 4 đáp án</option>
             <option value="true_false">Đúng / Sai theo nhóm</option>
             <option value="short_answer">Trả lời ngắn</option>
+            <option value="essay">Tự luận (chấm tay)</option>
             <option value="error_id">Tìm lỗi sai (gạch chân)</option>
           </select>
           <button type="button" id="addGroupBtn" class="btn btn-success btn-sm">
@@ -61,7 +62,7 @@
         <div class="card-header bg-white">
           <span class="fw-semibold small text-uppercase text-muted"><i class="bi bi-code-slash me-1"></i>Soạn bằng văn bản</span>
           <div class="form-text mb-0 mt-1" style="font-size:0.74rem;">
-            Cú pháp: <code>## Tên phần {mcq|true_false|short_answer|error_id}</code> · <code>Câu 1: ...</code> ·
+            Cú pháp: <code>## Tên phần {mcq|true_false|short_answer|essay|error_id}</code> · <code>Câu 1: ...</code> ·
             tuỳ loại: <code>A. đáp án</code> / <code>a) ý</code> · <code>Đáp án: ...</code> · <code>Giải thích: ...</code>.
             Soạn bên này sẽ tự cập nhật khung trực quan bên trái và ngược lại.
           </div>
@@ -88,6 +89,7 @@ const GROUP_TYPE_LABELS = {
   mcq: 'Trắc nghiệm 4 đáp án',
   true_false: 'Đúng / Sai theo nhóm',
   short_answer: 'Trả lời ngắn',
+  essay: 'Tự luận (chấm tay)',
   error_id: 'Tìm lỗi sai (gạch chân)',
 };
 const PREFILL_GROUPS = {{ prefill.groups | default([]) | tojson }};
@@ -104,6 +106,7 @@ function newQuestionForType(type) {
     ], explanation: '' };
   }
   if (type === 'short_answer') return { text: '', accepted_answers: [''], explanation: '' };
+  if (type === 'essay') return { text: '', explanation: '' };
   if (type === 'error_id') return { text: '', explanation: '' };
   return { text: '', options: ['', '', '', ''], correct_index: 0, explanation: '' };
 }
@@ -118,6 +121,7 @@ function defaultGroups() {
 function emptyQuestionForType(type) {
   if (type === 'true_false') return { text: '', statements: [], explanation: '' };
   if (type === 'short_answer') return { text: '', accepted_answers: [], explanation: '' };
+  if (type === 'essay') return { text: '', explanation: '' };
   if (type === 'error_id') return { text: '', explanation: '' };
   return { text: '', options: [], correct_index: 0, explanation: '' };
 }
@@ -304,6 +308,10 @@ function renderQuestionCard(gi, g, qi, q) {
       <button type="button" class="btn btn-sm btn-outline-secondary add-answer mt-1" data-g="${gi}" data-q="${qi}">
         <i class="bi bi-plus me-1"></i>Thêm biến thể đáp án
       </button>`;
+  } else if (g.type === 'essay') {
+    body = `
+      <textarea class="form-control mb-2 q-text" data-g="${gi}" data-q="${qi}" rows="3" placeholder="Nội dung câu hỏi tự luận">${escapeHtml(q.text)}</textarea>
+      <div class="form-text">Học sinh trả lời tự do; giáo viên chấm điểm sau khi nộp bài.</div>`;
   } else if (g.type === 'error_id') {
     body = `
       <div class="form-text mb-1">Dùng cú pháp <code>[A:đoạn]</code> cho mỗi phần, thêm <code>*</code> trước nhãn của phần cần chọn — ví dụ: <code>Every [A:member] of the class [*B:were] invited [C:to] the party.</code></div>

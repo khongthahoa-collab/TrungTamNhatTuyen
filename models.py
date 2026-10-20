@@ -234,9 +234,13 @@ class Exam(db.Model):
     available_from = db.Column(db.DateTime)
     available_to = db.Column(db.DateTime)
     allow_attempts = db.Column(db.Integer, default=1)
+    scoring_mode = db.Column(db.String(20), nullable=False, default='question', server_default='question')
     shuffle_questions = db.Column(db.Boolean, default=True)
     shuffle_answers = db.Column(db.Boolean, default=True)
     is_draft = db.Column(db.Boolean, default=False)
+    is_shared_with_teachers = db.Column(
+        db.Boolean, nullable=False, default=False, server_default=db.false()
+    )
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -248,6 +252,7 @@ class Exam(db.Model):
         'mcq': 'Trắc nghiệm 4 đáp án',
         'true_false': 'Đúng / Sai theo nhóm',
         'short_answer': 'Trả lời ngắn',
+        'essay': 'Tự luận',
         'error_id': 'Tìm lỗi sai (gạch chân)',
     }
 

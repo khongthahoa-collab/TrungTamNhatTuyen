@@ -23,6 +23,7 @@
             <th class="text-center">Số lần làm bài</th>
             <th class="text-center">Thời gian làm bài</th>
             <th class="text-center">Số lần cảnh cáo</th>
+            <th class="text-center">Tự luận</th>
           </tr>
         </thead>
         <tbody>
@@ -33,7 +34,12 @@
               {% if row.flagged %}<i class="bi bi-exclamation-triangle-fill text-warning ms-1" title="Có dấu hiệu gian lận"></i>{% endif %}
             </td>
             <td class="text-center">
-              {% if row.result %}
+              {% if row.result and row.result.get('pending_essay_count', 0) > 0 %}
+              <a class="badge bg-warning text-dark text-decoration-none"
+                 href="{{ url_for('admin.exams_grade_attempt', exam_id=exam.id, attempt_id=row.attempt.id) }}">
+                Chờ chấm ({{ row.result.pending_essay_count }})
+              </a>
+              {% elif row.result %}
               <span class="badge {% if row.result.score_10 >= 8 %}bg-success{% elif row.result.score_10 >= 5 %}bg-primary{% else %}bg-danger{% endif %}">
                 {{ row.result.get('score_10', 0) }}/10
               </span>
@@ -50,10 +56,23 @@
               <span class="badge bg-warning text-dark rounded-pill">{{ row.cheat_count }}</span>
               {% else %}<span class="text-muted small">0</span>{% endif %}
             </td>
+            <td class="text-center">
+              {% for pending_attempt in row.pending_essay_attempts %}
+              <a href="{{ url_for('admin.exams_grade_attempt', exam_id=exam.id, attempt_id=pending_attempt.id) }}" class="btn btn-sm btn-outline-primary mb-1">
+                Chấm lượt {{ pending_attempt.started_at | datetime_vn }}
+              </a>
+              {% else %}
+              {% if row.result.get('essay_questions') %}
+              <a href="{{ url_for('admin.exams_grade_attempt', exam_id=exam.id, attempt_id=row.attempt.id) }}" class="btn btn-sm btn-outline-primary">
+                {{ 'Chấm bài' if row.result.get('pending_essay_count', 0) else 'Xem điểm tự luận' }}
+              </a>
+              {% endif %}
+              {% endfor %}
+            </td>
           </tr>
           {% else %}
           <tr>
-            <td colspan="5" class="text-center text-muted py-4">
+            <td colspan="6" class="text-center text-muted py-4">
               <i class="bi bi-bar-chart d-block mb-2 fs-4"></i>Chưa có học sinh nào làm bài
             </td>
           </tr>

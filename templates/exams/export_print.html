@@ -49,6 +49,10 @@
       </div>
     {% elif group.type == 'short_answer' %}
       <div class="qtitle">Câu {{ loop.index }}. {{ q.text }}</div>
+      <div class="answer-space" style="min-height:100px; border-bottom:1px solid #ccc;"></div>
+    {% elif group.type == 'essay' %}
+      <div class="qtitle">Câu {{ loop.index }}. {{ q.text }}</div>
+      <div class="answer-space" style="min-height:180px; border-bottom:1px solid #ccc;"></div>
     {% elif group.type == 'error_id' %}
       <div class="qtitle">Câu {{ loop.index }}. {{ q.text | error_id_render(false) }}</div>
     {% endif %}
@@ -68,6 +72,8 @@
           Câu {{ loop.index }}: {% for st in q.statements %}{{ ['a','b','c','d','e','f'][loop.index0] }}){{ 'Đ' if st.correct else 'S' }}{% if not loop.last %} {% endif %}{% endfor %}{% if not loop.last %}; {% endif %}
         {% elif group.type == 'short_answer' %}
           Câu {{ loop.index }}: {{ q.accepted_answers | join(' | ') }}{% if not loop.last %}; {% endif %}
+        {% elif group.type == 'essay' %}
+          Câu {{ loop.index }}: Giáo viên chấm tay{% if not loop.last %}; {% endif %}
         {% elif group.type == 'error_id' %}
           Câu {{ loop.index }}: {{ q.correct_label }}{% if not loop.last %}, {% endif %}
         {% endif %}

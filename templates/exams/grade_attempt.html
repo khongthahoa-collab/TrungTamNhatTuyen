@@ -1,0 +1,50 @@
+{% extends base_template %}
+{% block title %}Chấm tự luận · {{ exam.title }}{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ results_url }}">Kết quả</a></li>
+<li class="breadcrumb-item active">Chấm tự luận</li>
+{% endblock %}
+{% block content %}
+<div class="container-fluid px-3 pt-3" style="max-width:900px;">
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+      <h4 class="fw-bold mb-1">Chấm bài tự luận</h4>
+      <div class="text-muted">{{ exam.title }} · {{ attempt.student.full_name if attempt.student else 'Học sinh đã xóa' }}</div>
+    </div>
+    <a href="{{ results_url }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>Quay lại kết quả
+    </a>
+  </div>
+
+  <div class="alert alert-info">
+    Điểm tối đa của mỗi câu theo trọng số đề thi. Có thể lưu một phần; câu chưa nhập điểm sẽ tiếp tục ở trạng thái chờ chấm.
+  </div>
+
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% for item in items %}
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
+          <div>
+            <div class="small text-success fw-semibold">{{ item.title }} · Câu {{ item.position }}</div>
+            <div class="fw-semibold">{{ item.text }}</div>
+          </div>
+          <span class="badge {% if item.score != '' %}bg-success{% else %}bg-warning text-dark{% endif %}">
+            {{ 'Đã chấm' if item.score != '' else 'Chờ chấm' }}
+          </span>
+        </div>
+        <div class="border rounded bg-light p-3 mb-3" style="white-space:pre-wrap; overflow-wrap:anywhere;">{{ item.answer or 'Học sinh không nhập câu trả lời.' }}</div>
+        <label class="form-label" for="score_{{ item.key }}">Điểm câu này (tối đa {{ item.max_score | round(4) }})</label>
+        <input class="form-control" type="number" id="score_{{ item.key }}" name="score_{{ item.key }}"
+               min="0" max="{{ item.max_score }}" step="any" value="{{ item.score }}" inputmode="decimal">
+      </div>
+    </div>
+    {% endfor %}
+    <div class="d-flex justify-content-end gap-2 mb-4">
+      <a href="{{ results_url }}" class="btn btn-outline-secondary">Hủy</a>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check2-circle me-1"></i>Lưu điểm</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

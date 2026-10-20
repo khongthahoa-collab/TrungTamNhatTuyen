@@ -64,6 +64,10 @@
         {% elif group.type == 'short_answer' %}
           <div class="fw-semibold mb-2">Câu {{ q.position }}. {{ q.text }}</div>
           <input type="text" class="form-control" name="g{{ group.index }}_q{{ q.position }}" placeholder="Nhập câu trả lời" required>
+        {% elif group.type == 'essay' %}
+          <div class="fw-semibold mb-2">Câu {{ q.position }}. {{ q.text }}</div>
+          <textarea class="form-control" name="g{{ group.index }}_q{{ q.position }}" rows="6" maxlength="10000"
+                    placeholder="Nhập câu trả lời của bạn..." required></textarea>
         {% elif group.type == 'error_id' %}
           <div class="fw-semibold mb-2">Câu {{ q.position }}. {{ q.text | error_id_render(false) }}</div>
           <div class="d-flex flex-wrap gap-2">

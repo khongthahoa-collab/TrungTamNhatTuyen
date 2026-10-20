@@ -25,7 +25,7 @@ EXAM_TYPES = [
 DURATION_OPTIONS = [15, 20, 30, 60, 90]
 SESSION_KEY = 'exam_draft'
 
-GROUP_TYPES = {'mcq', 'true_false', 'short_answer', 'error_id'}
+GROUP_TYPES = {'mcq', 'true_false', 'short_answer', 'essay', 'error_id'}
 ERROR_ID_PATTERN = re.compile(r'\[(\*?)([A-F]):([^\]]*)\]')
 
 
@@ -70,6 +70,13 @@ def _parse_short_answer_question(item):
     }
 
 
+def _parse_essay_question(item):
+    text = str(item.get('text', '')).strip()
+    if not text:
+        return None
+    return {'text': text, 'explanation': str(item.get('explanation', '')).strip()}
+
+
 def _parse_error_id_question(item):
     text = str(item.get('text', '')).strip()
     matches = ERROR_ID_PATTERN.findall(text)
@@ -86,6 +93,7 @@ QUESTION_PARSERS = {
     'mcq': _parse_mcq_question,
     'true_false': _parse_true_false_question,
     'short_answer': _parse_short_answer_question,
+    'essay': _parse_essay_question,
     'error_id': _parse_error_id_question,
 }
 
@@ -124,8 +132,18 @@ def parse_groups_payload(raw):
 
 
 def require_owns_or_admin(exam):
-    if current_user.is_teacher and exam.created_by != current_user.id:
+    from services.auth_context import get_active_role
+    if get_active_role(current_user) == 'teacher' and exam.created_by != current_user.id:
         abort(403)
+
+
+def require_teacher_exam_access(exam, allow_shared=True):
+    from services.auth_context import get_active_role
+    if get_active_role(current_user) != 'teacher' or exam.created_by == current_user.id:
+        return
+    if allow_shared and exam.is_shared_with_teachers and not exam.is_draft:
+        return
+    abort(404)
 
 
 def session_draft():
@@ -145,6 +163,9 @@ def parse_confirm_settings(form):
     if subject == '__other__':
         subject = form.get('subject_other', '').strip()
     exam_type = form.get('exam_type', 'practice')
+    scoring_mode = form.get('scoring_mode', 'question')
+    if scoring_mode not in ('question', 'section'):
+        return None, 'Vui lòng chọn cách chia điểm hợp lệ.'
     description = form.get('description', '').strip()
     class_ids = form.getlist('class_ids')
     is_draft = form.get('is_draft') == 'on'
@@ -185,10 +206,41 @@ def parse_confirm_settings(form):
 
     return {
         'subject': subject or 'Chung', 'exam_type': exam_type, 'description': description,
+        'scoring_mode': scoring_mode,
         'class_ids': class_ids, 'is_draft': is_draft, 'duration_minutes': duration_minutes,
         'availability_mode': availability_mode, 'available_from': available_from, 'available_to': available_to,
         'allow_attempts': allow_attempts, 'folder_id': folder_id,
     }, None
+
+
+def apply_manual_essay_scores(result, scores):
+    """Recompute a stored result after updating weighted essay points."""
+    questions = result.get('essay_questions', [])
+    question_keys = {question['key'] for question in questions}
+    essay_scores = {
+        key: float(value)
+        for key, value in scores.items()
+        if key in question_keys
+    }
+    breakdown = [dict(group) for group in result.get('auto_breakdown', result.get('breakdown', []))]
+    for question in questions:
+        if question['key'] in essay_scores:
+            group_index = question['group_index']
+            breakdown[group_index]['earned'] += essay_scores[question['key']]
+    for group in breakdown:
+        group['earned'] = round(group['earned'], 2)
+
+    total_earned = result.get('auto_earned', result.get('earned', 0)) + sum(essay_scores.values())
+    total_weight = result.get('total', 0)
+    result.update({
+        'earned': round(total_earned, 2),
+        'percent': int(round(total_earned / total_weight * 100)) if total_weight else 0,
+        'score_10': round(total_earned / total_weight * 10, 1) if total_weight else 0,
+        'breakdown': breakdown,
+        'essay_scores': essay_scores,
+        'pending_essay_count': len(questions) - len(essay_scores),
+    })
+    return result
 
 
 def parse_folder_fields(form):

@@ -22,6 +22,9 @@
   {% elif qtype == 'short_answer' %}
     <div class="fw-semibold">Câu {{ index }}. {{ q.text }}</div>
     <div class="ms-3 mt-1 text-success"><i class="bi bi-check-circle-fill me-1"></i>Đáp án: {{ q.accepted_answers | join(' | ') }}</div>
+  {% elif qtype == 'essay' %}
+    <div class="fw-semibold">Câu {{ index }}. {{ q.text }}</div>
+    <div class="ms-3 mt-1 text-muted"><i class="bi bi-pencil-square me-1"></i>Học sinh trả lời tự do; giáo viên chấm điểm.</div>
   {% elif qtype == 'error_id' %}
     <div class="fw-semibold">Câu {{ index }}. {{ q.text | error_id_render }}</div>
   {% endif %}
@@ -30,7 +33,7 @@
   {% endif %}
 {% endmacro %}
 
-{% macro group_type_label(gtype) %}{{ {'mcq': 'Trắc nghiệm', 'true_false': 'Đúng/Sai', 'short_answer': 'Trả lời ngắn', 'error_id': 'Tìm lỗi sai'}.get(gtype, gtype) }}{% endmacro %}
+{% macro group_type_label(gtype) %}{{ {'mcq': 'Trắc nghiệm', 'true_false': 'Đúng/Sai', 'short_answer': 'Trả lời ngắn', 'essay': 'Tự luận', 'error_id': 'Tìm lỗi sai'}.get(gtype, gtype) }}{% endmacro %}
 
 {% macro render_group(g) %}
 <div class="mb-4">

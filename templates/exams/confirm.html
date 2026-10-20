@@ -112,6 +112,19 @@
 
       <div class="card border-0 shadow-sm mb-3">
         <div class="card-body">
+          <h6 class="fw-semibold mb-2"><i class="bi bi-calculator me-1 text-success"></i>Cách chia điểm</h6>
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="radio" name="scoring_mode" value="question" id="scoringQuestion"
+                   {% if (form and form.get('scoring_mode') == 'question') or (not form and (not existing or existing.scoring_mode != 'section')) %}checked{% endif %}>
+            <label class="form-check-label" for="scoringQuestion">Theo câu — các câu có trọng số bằng nhau</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="scoring_mode" value="section" id="scoringSection"
+                   {% if (form and form.get('scoring_mode') == 'section') or (not form and existing and existing.scoring_mode == 'section') %}checked{% endif %}>
+            <label class="form-check-label" for="scoringSection">Theo phần — mỗi phần có trọng số bằng nhau</label>
+          </div>
+          <div class="form-text mb-3">Điểm được quy đổi về thang 10. Với cách tính theo phần, các câu trong cùng phần chia đều điểm của phần đó; câu Đúng/Sai vẫn được điểm từng ý.</div>
+          <hr>
           <h6 class="fw-semibold mb-3"><i class="bi bi-clock-history me-1 text-success"></i>Thời lượng làm bài</h6>
           <div class="d-flex flex-wrap gap-2">
             {% for d in durations %}

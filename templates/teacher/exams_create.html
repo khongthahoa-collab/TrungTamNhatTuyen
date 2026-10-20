@@ -1,0 +1,99 @@
+{% extends 'teacher/base.html' %}
+{% block title %}Tạo đề thi – Giáo viên – Nhật Tuyền{% endblock %}
+{% block content %}
+<div class="container-fluid px-3 pt-3 pb-4">
+  <div class="mb-4">
+    <a href="{{ url_for('teacher.exams_list') }}" class="small text-decoration-none text-muted d-inline-block mb-2">
+      <i class="bi bi-arrow-left me-1"></i>Đề thi online
+    </a>
+    <h4 class="fw-bold mb-1">Bạn muốn bắt đầu như thế nào?</h4>
+    <p class="text-muted mb-0">Chọn cách tạo đề phù hợp. Bạn sẽ xem lại cài đặt và chọn lưu nháp hoặc giao cho lớp ở bước tiếp theo.</p>
+  </div>
+
+  <div class="row g-3 align-items-stretch">
+    <div class="col-12 {% if has_existing_exams %}col-lg-6{% else %}col-lg-8 col-xl-7{% endif %}">
+      <section class="card h-100 border-success shadow-sm">
+        <div class="card-body p-4 d-flex flex-column">
+          <div class="d-flex align-items-center gap-3 mb-3">
+            <span class="d-inline-flex align-items-center justify-content-center rounded-3 bg-success-subtle text-success"
+                  style="width:52px;height:52px;font-size:1.5rem;" aria-hidden="true">
+              <i class="bi bi-pencil-square"></i>
+            </span>
+            <div>
+              <span class="badge bg-success-subtle text-success border border-success-subtle mb-1">Khuyên dùng</span>
+              <h5 class="fw-bold mb-0">Soạn đề mới</h5>
+            </div>
+          </div>
+          <p class="text-muted">Tạo câu hỏi trực tiếp bằng biểu mẫu hoặc dán nội dung theo cú pháp văn bản. Có thể kết hợp nhiều dạng câu hỏi trong cùng một đề.</p>
+          <div class="d-flex flex-wrap gap-2 mb-4">
+            <span class="badge rounded-pill text-bg-light border">Trắc nghiệm</span>
+            <span class="badge rounded-pill text-bg-light border">Đúng / Sai</span>
+            <span class="badge rounded-pill text-bg-light border">Trả lời ngắn</span>
+            <span class="badge rounded-pill text-bg-light border">Tìm lỗi sai</span>
+          </div>
+          <div class="mt-auto">
+            <a href="{{ url_for('teacher.exams_new', mode='compose') }}" class="btn btn-success">
+              <i class="bi bi-plus-lg me-1"></i>Bắt đầu soạn đề
+            </a>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    {% if has_existing_exams %}
+    <div class="col-12 col-lg-6">
+      <section class="card h-100 border-0 shadow-sm">
+        <div class="card-body p-4 d-flex flex-column">
+          <div class="d-flex align-items-center gap-3 mb-3">
+            <span class="d-inline-flex align-items-center justify-content-center rounded-3 bg-primary-subtle text-primary"
+                  style="width:52px;height:52px;font-size:1.5rem;" aria-hidden="true">
+              <i class="bi bi-copy"></i>
+            </span>
+            <div>
+              <span class="badge bg-primary-subtle text-primary border border-primary-subtle mb-1">Tiết kiệm thời gian</span>
+              <h5 class="fw-bold mb-0">Dùng lại đề đã tạo</h5>
+            </div>
+          </div>
+          <p class="text-muted">Sao chép đề của bạn hoặc đề trong thư viện được admin chia sẻ, rồi chỉnh sửa nội dung và chọn lớp giao mới. Bản sao luôn là nháp để bạn kiểm tra trước.</p>
+          <div class="mt-auto">
+            <a href="{{ url_for('teacher.exams_list', reuse='1') }}" class="btn btn-outline-primary">
+              <i class="bi bi-folder2-open me-1"></i>Chọn đề có sẵn
+            </a>
+          </div>
+        </div>
+      </section>
+    </div>
+    {% endif %}
+  </div>
+
+  <section class="card border-0 shadow-sm mt-4">
+    <div class="card-body p-4">
+      <h6 class="fw-bold mb-3"><i class="bi bi-signpost-split text-primary me-2"></i>Các bước tiếp theo</h6>
+      <div class="row g-3">
+        <div class="col-12 col-md-4">
+          <div class="d-flex gap-3">
+            <span class="badge rounded-pill text-bg-primary align-self-start">1</span>
+            <div><div class="fw-semibold">Nhập câu hỏi</div><div class="small text-muted">Soạn trực quan hoặc dán nội dung theo mẫu.</div></div>
+          </div>
+        </div>
+        <div class="col-12 col-md-4">
+          <div class="d-flex gap-3">
+            <span class="badge rounded-pill text-bg-primary align-self-start">2</span>
+            <div><div class="fw-semibold">Cài đặt bài thi</div><div class="small text-muted">Chọn môn, thời lượng, lớp và thời gian làm bài.</div></div>
+          </div>
+        </div>
+        <div class="col-12 col-md-4">
+          <div class="d-flex gap-3">
+            <span class="badge rounded-pill text-bg-primary align-self-start">3</span>
+            <div><div class="fw-semibold">Kiểm tra và hoàn tất</div><div class="small text-muted">Xem trước đề, lưu nháp hoặc giao cho học sinh.</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="alert alert-light border small mb-0 mt-3">
+        <i class="bi bi-info-circle text-primary me-1"></i>
+        Bạn có thể soạn trực tiếp hoặc sao chép đề của mình/đề được admin chia sẻ; nhập đề từ Excel, PDF hoặc ma trận chưa được hỗ trợ.
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}

@@ -11,6 +11,7 @@ from extensions import db
 from models import (Student, Attendance, Score, Reward, TuitionPayment, Schedule, Enrollment,
                     ClassDocument, ScoreType, ScoreSource, ContactInquiry, Exam, ExamAttempt, ExamLog,
                     Class, User, UserRole, Notification)
+from blueprints.exams_shared import apply_manual_essay_scores
 
 parent_bp = Blueprint('parent', __name__)
 CHEAT_LIMIT = 3
@@ -582,14 +583,14 @@ def _ordered_questions(exam, order_data):
 
 
 def _grade_attempt(exam, attempt, form):
-    """Type-aware grading. Each question contributes equal weight to the overall score;
-    a true_false question earns the fraction of its sub-statements answered correctly (partial credit)."""
+    """Grade using the exam's per-question or equal-per-section weighting."""
     order_data = attempt.order_data
     groups_order = order_data.get('groups') or []
     breakdown = []
     normalized = {}
     total_earned = 0.0
     total_weight = 0
+    essay_questions = []
 
     for gi, group in enumerate(exam.question_groups):
         go = groups_order[gi] if gi < len(groups_order) else {}
@@ -598,14 +599,17 @@ def _grade_attempt(exam, attempt, form):
         q_order = go.get('q_order') or list(range(len(questions)))
         opt_orders = go.get('opt_orders') or {}
         group_earned = 0.0
-        group_total = 0
+        group_total = 0.0
+        question_weight = 1 / len(questions) if (
+            exam.scoring_mode == 'section' and questions
+        ) else 1.0
 
         for position, orig_qi in enumerate(q_order, start=1):
             if orig_qi >= len(questions):
                 continue
             q = questions[orig_qi]
             field = f'g{gi}_q{position}'
-            group_total += 1
+            group_total += question_weight
             earned = 0.0
 
             if gtype == 'mcq':
@@ -635,22 +639,39 @@ def _grade_attempt(exam, attempt, form):
                 raw_answer = form.get(field, '').strip()
                 normalized[field] = raw_answer
                 earned = 1.0 if raw_answer and raw_answer in q.get('accepted_answers', []) else 0.0
+            elif gtype == 'essay':
+                normalized[field] = form.get(field, '').strip()
+                essay_questions.append({
+                    'key': f'g{gi}_q{orig_qi}',
+                    'weight': question_weight,
+                    'group_index': gi,
+                    'group_title': group.get('title', ''),
+                    'question_text': q.get('text', ''),
+                    'position': position,
+                    'answer_field': field,
+                })
             elif gtype == 'error_id':
                 raw_choice = form.get(field, '').strip().upper()
                 normalized[field] = raw_choice
                 earned = 1.0 if raw_choice and raw_choice == q.get('correct_label') else 0.0
 
-            group_earned += earned
-            total_earned += earned
+            group_earned += earned * question_weight
+            total_earned += earned * question_weight
 
         total_weight += group_total
         breakdown.append({'title': group.get('title', ''), 'type': gtype,
-                          'earned': round(group_earned, 2), 'total': group_total})
+                          'earned': round(group_earned, 2), 'total': round(group_total, 2)})
 
     percent = int(round(total_earned / total_weight * 100)) if total_weight else 0
     score_10 = round(total_earned / total_weight * 10, 1) if total_weight else 0
-    result = {'earned': round(total_earned, 2), 'total': total_weight, 'percent': percent,
-             'score_10': score_10, 'breakdown': breakdown}
+    result = {'earned': round(total_earned, 2), 'total': round(total_weight, 2),
+             'percent': percent, 'score_10': score_10,
+             'scoring_mode': exam.scoring_mode or 'question', 'breakdown': breakdown}
+    if essay_questions:
+        result['auto_earned'] = round(total_earned, 2)
+        result['auto_breakdown'] = [dict(group) for group in breakdown]
+        result['essay_questions'] = essay_questions
+        result = apply_manual_essay_scores(result, {})
     return normalized, result
 
 
@@ -706,8 +727,8 @@ def exam_take(student_id, exam_id):
             normalized, result = _grade_attempt(exam, last_attempt, {})
             last_attempt.submitted_at = datetime.utcnow()
             last_attempt.status = 'submitted'
-            last_attempt.score = result['percent']
-            last_attempt.total_questions = result['total']
+            last_attempt.score = result['percent'] if result.get('pending_essay_count', 0) == 0 else 0
+            last_attempt.total_questions = exam.total_question_count
             last_attempt.answers_json = json.dumps(normalized)
             last_attempt.result_json = json.dumps(result)
             db.session.commit()
@@ -785,8 +806,8 @@ def exam_submit(student_id, exam_id):
 
     attempt.submitted_at = datetime.utcnow()
     attempt.status = 'submitted'
-    attempt.score = result['percent']
-    attempt.total_questions = result['total']
+    attempt.score = result['percent'] if result.get('pending_essay_count', 0) == 0 else 0
+    attempt.total_questions = exam.total_question_count
     attempt.cheat_count = cheat_count
     attempt.was_flagged = was_flagged
     attempt.answers_json = json.dumps(normalized)
