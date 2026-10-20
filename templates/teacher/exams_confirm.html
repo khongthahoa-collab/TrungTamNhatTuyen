@@ -1,7 +1,11 @@
 {% extends 'teacher/base.html' %}
 {% import 'exams/_macros.html' as exam_macros %}
 {% block title %}Cấu hình đề thi – Giáo viên – Nhật Tuyền{% endblock %}
-{% block extra_head %}{% include 'exams/_mathjax.html' %}{% endblock %}
+{% block extra_head %}
+{% include 'exams/_mathjax.html' %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
+{% endblock %}
 {% block content %}
 <div class="container-fluid px-3 pt-3">
 {% set existing_class_ids = existing.class_list if existing else [] %}
@@ -92,17 +96,19 @@
       <div class="card border-0 shadow-sm mb-3">
         <div class="card-body">
           <h6 class="fw-semibold mb-3"><i class="bi bi-people me-1 text-success"></i>Chọn lớp cần giao</h6>
-          <div class="border rounded p-2" style="max-height:200px; overflow:auto;">
+          <label class="form-label small text-muted" for="classIdsSelect">Tìm và chọn một hoặc nhiều lớp</label>
+          <select class="form-select" id="classIdsSelect" name="class_ids" multiple
+                  data-placeholder="Gõ tên lớp để tìm...">
             {% for cls in classes %}
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" name="class_ids" value="{{ cls.id }}" id="class_{{ cls.id }}"
-                     {% if (form and cls.id|string in form.getlist('class_ids')) or (not form and cls.id in existing_class_ids) %}checked{% endif %}>
-              <label class="form-check-label" for="class_{{ cls.id }}">{{ cls.name }}</label>
-            </div>
+            <option value="{{ cls.id }}"
+                    {% if (form and cls.id|string in form.getlist('class_ids')) or (not form and cls.id in existing_class_ids) %}selected{% endif %}>
+              {{ cls.name }}
+            </option>
             {% else %}
-            <p class="text-muted small mb-0">Chưa có lớp học nào trong hệ thống.</p>
+            <option disabled>Chưa có lớp học nào trong hệ thống.</option>
             {% endfor %}
-          </div>
+          </select>
+          <div class="form-text">Bạn có thể gõ tên lớp để lọc nhanh, rồi chọn nhiều lớp cùng lúc.</div>
           <div class="form-check form-switch mt-3">
             <input class="form-check-input" type="checkbox" name="is_draft" id="isDraft"
                    {% if (form and form.get('is_draft')=='on') or (not form and existing and existing.is_draft) or (not form and not existing) %}checked{% endif %}>
@@ -212,7 +218,16 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
+$('#classIdsSelect').select2({
+  theme: 'bootstrap-5',
+  placeholder: $('#classIdsSelect').data('placeholder'),
+  width: '100%',
+  closeOnSelect: false,
+});
+
 const subjectSelect = document.getElementById('subjectSelect');
 const subjectOther = document.getElementById('subjectOther');
 function syncSubjectOther() {
