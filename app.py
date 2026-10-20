@@ -4,6 +4,31 @@ from config import config
 from extensions import db, login_manager, csrf, migrate
 
 
+def _ensure_new_columns():
+    from sqlalchemy import inspect, text
+    new_columns = [
+        ('students', 'user_id', 'INTEGER REFERENCES users(id)'),
+        ('exams', 'scoring_mode', "VARCHAR(20) NOT NULL DEFAULT 'question'"),
+        ('exams', 'is_shared_with_teachers', 'BOOLEAN NOT NULL DEFAULT FALSE'),
+    ]
+    try:
+        inspector = inspect(db.engine)
+        tables = set(inspector.get_table_names())
+        with db.engine.begin() as conn:
+            for table, column, ddl in new_columns:
+                if table not in tables:
+                    continue
+                existing = {c['name'] for c in inspector.get_columns(table)}
+                if column not in existing:
+                    conn.execute(text(f'ALTER TABLE {table} ADD COLUMN {column} {ddl}'))
+            if 'students' in tables:
+                conn.execute(text(
+                    'CREATE UNIQUE INDEX IF NOT EXISTS ix_students_user_id ON students(user_id)'
+                ))
+    except Exception as exc:  # never block app startup on this
+        print(f'[ensure_new_columns] {exc}')
+
+
 def create_app(config_name=None):
     if config_name is None:
         config_name = os.environ.get('FLASK_ENV', 'default')
@@ -38,6 +63,12 @@ def create_app(config_name=None):
                 admin.set_password(os.environ.get('SEED_ADMIN_PASSWORD', '!123123@'))
                 db.session.add(admin)
                 db.session.commit()
+
+    # create_all() never adds columns to existing tables — make sure the
+    # columns added for student logins / exam scoring exist on every deploy
+    # (same statements as migrate_add_student_login.py & migrate_add_exam_*.py).
+    with app.app_context():
+        _ensure_new_columns()
 
     # User loader
     from models import User
