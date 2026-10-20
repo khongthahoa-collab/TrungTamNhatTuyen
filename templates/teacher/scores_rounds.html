@@ -14,11 +14,36 @@
         {{ class_.name }} · {{ semesters.get(semester, semester) }} · năm {{ year }}
       </div>
     </div>
-    <a href="{{ url_for('teacher.scores_detail', class_id=class_.id, year=year, semester=semester) }}"
-       class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-arrow-left"></i>
-    </a>
+    <div class="d-flex flex-wrap gap-2">
+      <a href="{{ url_for('teacher.scores', class_id=class_.id) }}"
+         class="btn btn-primary btn-sm">
+        <i class="bi bi-pencil-square me-1"></i>Nhập điểm
+      </a>
+      <a href="{{ url_for('teacher.scores_detail', class_id=class_.id, year=year, semester=semester) }}"
+         class="btn btn-outline-primary btn-sm">
+        <i class="bi bi-graph-up me-1"></i>Tiến bộ
+      </a>
+      <a href="{{ url_for('teacher.scores_list') }}"
+         class="btn btn-outline-secondary btn-sm" aria-label="Danh sách lớp">
+        <i class="bi bi-arrow-left"></i>
+      </a>
+    </div>
   </div>
+
+  {% if saved_count %}
+  <div class="alert alert-success d-flex align-items-start gap-2" role="status">
+    <i class="bi bi-check-circle-fill mt-1"></i>
+    <div>
+      <strong>Đã lưu {{ saved_count }} điểm.</strong>
+      Kết quả của {% for r in rounds if r.score_type == focus_type and r.round == focus_round %}
+      {{ r.type_label }}{% if r.round %} · lần {{ r.round }}{% endif %}
+      {% else %}bài kiểm tra vừa nhập{% endfor %} đang được mở bên dưới.
+      {% if skipped_count %}
+      <div class="small mt-1">{{ skipped_count }} điểm chưa được lưu do dữ liệu chưa hợp lệ. Xem thông báo để biết chi tiết.</div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
 
   <!-- Bộ lọc -->
   <div class="card border-0 shadow-sm mb-3">
@@ -46,7 +71,9 @@
       <!-- Dòng tóm tắt: bấm để mở danh sách học sinh -->
       <div class="d-flex align-items-start gap-2">
         <a class="text-decoration-none text-body d-block flex-grow-1" data-bs-toggle="collapse"
-           href="#round{{ loop.index }}" role="button">
+           href="#round{{ loop.index }}" role="button"
+           aria-expanded="{{ 'true' if r.score_type == focus_type and r.round == focus_round else 'false' }}"
+           aria-controls="round{{ loop.index }}">
           <div class="d-flex align-items-center justify-content-between gap-2">
             <div class="fw-semibold small">
               {{ r.type_label }}{% if r.round %} · lần {{ r.round }}{% else %}
@@ -73,7 +100,8 @@
       </div>
 
       <!-- Danh sách học sinh của đúng lần thi này -->
-      <div class="collapse mt-2" id="round{{ loop.index }}">
+      <div class="collapse mt-2{% if r.score_type == focus_type and r.round == focus_round %} show{% endif %}"
+           id="round{{ loop.index }}">
         <div class="table-responsive">
           <table class="table table-sm align-middle mb-0">
             <thead class="table-light">

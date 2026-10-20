@@ -353,13 +353,27 @@ def scores(class_id):
             saved += 1
 
         db.session.commit()
-        msg = f'Đã lưu {saved} điểm.'
-        if suggested_rewards:
-            names = ', '.join(f"{n} ({int(a):,}đ)" for n, a in suggested_rewards)
-            msg += f' Đề xuất thưởng cho: {names} (Admin cần xác nhận).'
-        flash(msg, 'success')
+        if saved:
+            msg = f'Đã lưu {saved} điểm.'
+            if suggested_rewards:
+                names = ', '.join(f"{n} ({int(a):,}đ)" for n, a in suggested_rewards)
+                msg += f' Đề xuất thưởng cho: {names} (Admin cần xác nhận).'
+            flash(msg, 'success')
+        else:
+            flash('Chưa có điểm nào được lưu. Hãy nhập điểm cho ít nhất một học sinh.', 'info')
         if skipped:
             flash('Bỏ qua do dữ liệu không hợp lệ: ' + '; '.join(skipped), 'warning')
+        if saved:
+            return redirect(url_for(
+                'teacher.scores_rounds',
+                class_id=class_id,
+                year=exam_date.year,
+                semester=semester,
+                focus_type=score_type,
+                focus_round=exam_round,
+                saved=saved,
+                skipped=len(skipped),
+            ))
         return redirect(url_for('teacher.scores', class_id=class_id))
 
     # Existing scores for this class (most recent)
@@ -672,6 +686,10 @@ def scores_rounds(class_id):
                            semester=semester,
                            semesters=SemesterType.LABELS,
                            pass_threshold=PASS_THRESHOLD_10,
+                           focus_type=request.args.get('focus_type'),
+                           focus_round=request.args.get('focus_round', type=int),
+                           saved_count=request.args.get('saved', 0, type=int),
+                           skipped_count=request.args.get('skipped', 0, type=int),
                            today=today)
 
 
