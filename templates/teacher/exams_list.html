@@ -182,30 +182,6 @@
             <td class="fw-semibold">
               {{ exam.title }}
               {% if exam.folder %}<div class="small text-muted"><i class="bi bi-folder me-1"></i>{{ exam.folder.name }}</div>{% endif %}
-              {% if exam.created_by == current_user.id %}
-              <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
-                {% if exam.is_shared_with_teachers %}
-                  <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Đang công khai</span>
-                {% else %}
-                  <span class="badge bg-light text-muted border">Chỉ mình tôi</span>
-                {% endif %}
-                <form method="post" action="{{ url_for('teacher.exam_toggle_sharing', exam_id=exam.id) }}"
-                      onsubmit="return confirm('{% if exam.is_shared_with_teachers %}Gỡ đề này khỏi thư viện chia sẻ cho giáo viên khác?{% else %}Công khai đề này để các giáo viên khác có thể xem và sao chép? Kết quả thi không được chia sẻ.{% endif %}')">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <input type="hidden" name="reuse" value="{{ '1' if reuse_mode else '0' }}">
-                  {% if exam.is_shared_with_teachers %}
-                  <input type="hidden" name="shared" value="0">
-                  <button type="submit" class="btn btn-outline-secondary btn-sm py-0">Gỡ công khai</button>
-                  {% else %}
-                  <input type="hidden" name="shared" value="1">
-                  <button type="submit" class="btn btn-outline-primary btn-sm py-0"
-                          {% if exam.is_draft %}disabled title="Hãy đăng đề trước khi công khai"{% endif %}>
-                    Công khai
-                  </button>
-                  {% endif %}
-                </form>
-              </div>
-              {% endif %}
             </td>
             <td>{{ exam.subject }}</td>
             <td>{{ exam.type_label }}</td>
@@ -233,6 +209,16 @@
                 <a href="{{ url_for('teacher.exams_edit', exam_id=exam.id) }}" class="btn btn-outline-secondary btn-sm" title="Chỉnh sửa">
                   <i class="bi bi-pencil"></i>
                 </a>
+                {% if exam.is_draft and exam.created_by == current_user.id %}
+                <form method="post" action="{{ url_for('teacher.exam_publish', exam_id=exam.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <select class="form-select form-select-sm" aria-label="Đổi trạng thái đề"
+                          onchange="if (this.value === 'published') { if (confirm('Đăng đề này cho học sinh?')) this.form.requestSubmit(); else this.value = 'draft'; }">
+                    <option value="draft" selected>Lưu nháp</option>
+                    <option value="published">Đã đăng</option>
+                  </select>
+                </form>
+                {% endif %}
                 <form method="post" action="{{ url_for('teacher.exams_delete', exam_id=exam.id) }}"
                       onsubmit="return confirm('Xóa đề này?')">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

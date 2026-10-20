@@ -28,6 +28,9 @@
     <label class="form-label fw-semibold small text-muted">TÊN ĐỀ THI</label>
     <input type="text" id="examTitle" class="form-control form-control-lg text-center fw-semibold"
            placeholder="Ví dụ: Đề ôn thi giữa kì 1" value="{{ prefill.title | default('') }}" maxlength="200">
+    <div id="localDraftStatus" class="form-text text-center" aria-live="polite">
+      Bản nháp được tự động lưu trên thiết bị này để có thể khôi phục nếu mất kết nối.
+    </div>
   </div>
 </div>
 
@@ -95,6 +98,23 @@ const GROUP_TYPE_LABELS = {
   error_id: 'Tìm lỗi sai (gạch chân)',
 };
 const PREFILL_GROUPS = {{ prefill.groups | default([]) | tojson }};
+const EDITOR_DRAFT_KEY = {{ ('admin-exam-editor-draft:' ~ current_user.id ~ ':' ~ (exam.id if editing else 'new')) | tojson }};
+let recoveredDraft = null;
+try {
+  const storedDraft = JSON.parse(localStorage.getItem(EDITOR_DRAFT_KEY) || 'null');
+  if (storedDraft && Array.isArray(storedDraft.groups) &&
+      Date.now() - storedDraft.savedAt < 7 * 24 * 60 * 60 * 1000) {
+    if (confirm('Tìm thấy bản nháp được lưu trên thiết bị. Bạn có muốn khôi phục bản nháp này không?')) {
+      recoveredDraft = storedDraft;
+    } else {
+      localStorage.removeItem(EDITOR_DRAFT_KEY);
+    }
+  } else if (storedDraft) {
+    localStorage.removeItem(EDITOR_DRAFT_KEY);
+  }
+} catch (error) {
+  console.warn('Không thể truy cập bản nháp đã lưu trên thiết bị.', error);
+}
 
 function escapeHtml(str) {
   return (str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -128,11 +148,41 @@ function emptyQuestionForType(type) {
   return { text: '', options: [], correct_index: 0, explanation: '' };
 }
 
-let groups = (PREFILL_GROUPS && PREFILL_GROUPS.length) ? JSON.parse(JSON.stringify(PREFILL_GROUPS)) : defaultGroups();
+let groups = recoveredDraft
+  ? JSON.parse(JSON.stringify(recoveredDraft.groups))
+  : (PREFILL_GROUPS && PREFILL_GROUPS.length) ? JSON.parse(JSON.stringify(PREFILL_GROUPS)) : defaultGroups();
 
 const groupsContainer = document.getElementById('groupsContainer');
 const rawTextEditor = document.getElementById('rawTextEditor');
 const titleEl = document.getElementById('examTitle');
+const localDraftStatus = document.getElementById('localDraftStatus');
+if (recoveredDraft) titleEl.value = recoveredDraft.title || '';
+let localDraftSaveTimer;
+
+function saveEditorDraftLocally() {
+  try {
+    localStorage.setItem(EDITOR_DRAFT_KEY, JSON.stringify({
+      title: titleEl.value,
+      groups,
+      rawText: rawTextEditor.value,
+      savedAt: Date.now(),
+    }));
+    localDraftStatus.textContent = 'Đã tự động lưu bản nháp trên thiết bị này.';
+    localDraftStatus.classList.remove('text-danger');
+  } catch (error) {
+    console.error('Không thể tự động lưu bản nháp trên thiết bị.', error);
+    localDraftStatus.textContent = 'Không thể lưu bản nháp trên thiết bị. Hãy tiếp tục để lưu lên hệ thống.';
+    localDraftStatus.classList.add('text-danger');
+  }
+}
+
+function scheduleEditorDraftSave() {
+  localDraftStatus.textContent = 'Đang lưu bản nháp trên thiết bị…';
+  clearTimeout(localDraftSaveTimer);
+  localDraftSaveTimer = setTimeout(saveEditorDraftLocally, 350);
+}
+
+window.addEventListener('pagehide', saveEditorDraftLocally);
 
 // ────────────────────────────────────────────────────────────
 // Serialize state -> raw text DSL
@@ -409,6 +459,7 @@ function renderGroups() {
 
 function syncTextFromState() {
   rawTextEditor.value = serializeToText(groups);
+  scheduleEditorDraftSave();
 }
 
 function renderAll() {
@@ -520,7 +571,10 @@ rawTextEditor.addEventListener('input', () => {
   const parsed = parseFromText(rawTextEditor.value);
   if (parsed.length) groups = parsed;
   renderGroups();
+  scheduleEditorDraftSave();
 });
+
+titleEl.addEventListener('input', scheduleEditorDraftSave);
 
 // ────────────────────────────────────────────────────────────
 // Submit
@@ -528,6 +582,7 @@ rawTextEditor.addEventListener('input', () => {
 document.getElementById('exam-form').addEventListener('submit', e => {
   document.getElementById('titleField').value = titleEl.value.trim();
   document.getElementById('groupsField').value = JSON.stringify({ groups });
+  saveEditorDraftLocally();
 
   if (!titleEl.value.trim()) {
     e.preventDefault();
@@ -541,6 +596,13 @@ document.getElementById('exam-form').addEventListener('submit', e => {
   }
 });
 
-renderAll();
+if (recoveredDraft && typeof recoveredDraft.rawText === 'string') {
+  const recoveredGroups = parseFromText(recoveredDraft.rawText);
+  if (recoveredGroups.length) groups = recoveredGroups;
+  rawTextEditor.value = recoveredDraft.rawText;
+  renderGroups();
+} else {
+  renderAll();
+}
 </script>
 {% endblock %}

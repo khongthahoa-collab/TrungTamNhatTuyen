@@ -14,7 +14,7 @@ from blueprints.teacher import teacher_bp, require_teacher
 from blueprints.exams_shared import (
     EXAM_TYPES, DURATION_OPTIONS, SESSION_KEY,
     parse_groups_payload, require_owns_or_admin, require_teacher_exam_access,
-    reset_student_exam_attempts,
+    publish_exam, reset_student_exam_attempts,
     session_draft, parse_confirm_settings,
 )
 from blueprints.pagination_utils import paginate_list
@@ -149,8 +149,21 @@ def exam_toggle_sharing(exam_id):
             'success',
         )
 
+    if request.form.get('return_to') == 'preview':
+        return redirect(url_for('teacher.exams_preview', exam_id=exam.id))
     list_args = {'reuse': '1'} if request.form.get('reuse') == '1' else {}
     return redirect(url_for('teacher.exams_list', **list_args))
+
+
+@teacher_bp.route('/exams/<int:exam_id>/publish', methods=['POST'])
+@login_required
+@require_teacher
+def exam_publish(exam_id):
+    exam = Exam.query.get_or_404(exam_id)
+    require_owns_or_admin(exam)
+    published, message = publish_exam(exam, current_user.id)
+    flash(message, 'success' if published else 'warning')
+    return redirect(url_for('teacher.exams_list'))
 
 
 @teacher_bp.route('/exams/<int:exam_id>/results')

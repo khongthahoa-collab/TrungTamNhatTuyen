@@ -60,6 +60,31 @@
           Đề được admin chia sẻ để bạn tham khảo và sao chép. Lớp giao và kết quả của đề gốc được giữ riêng.
         </div>
         {% else %}
+        <div class="mb-3">
+          <div class="small fw-semibold mb-1">Quyền hiển thị với giáo viên</div>
+          {% if exam.is_shared_with_teachers %}
+          <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Công khai</span>
+          {% else %}
+          <span class="badge bg-light text-muted border">Chỉ mình tôi</span>
+          {% endif %}
+          {% if can_edit_exam %}
+          <form method="post" action="{{ url_for('teacher.exam_toggle_sharing', exam_id=exam.id) }}" class="mt-2"
+                onsubmit="return confirm('{% if exam.is_shared_with_teachers %}Gỡ đề này khỏi thư viện chia sẻ cho giáo viên khác?{% else %}Công khai đề này để các giáo viên khác có thể xem và sao chép? Kết quả thi không được chia sẻ.{% endif %}')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="return_to" value="preview">
+            {% if exam.is_shared_with_teachers %}
+            <input type="hidden" name="shared" value="0">
+            <button type="submit" class="btn btn-outline-secondary btn-sm">Gỡ công khai</button>
+            {% else %}
+            <input type="hidden" name="shared" value="1">
+            <button type="submit" class="btn btn-outline-primary btn-sm"
+                    {% if exam.is_draft %}disabled title="Hãy đăng đề trước khi công khai"{% endif %}>
+              Công khai
+            </button>
+            {% endif %}
+          </form>
+          {% endif %}
+        </div>
         <p class="small mb-1"><strong>Lớp được giao:</strong></p>
         {% if classes %}
         <ul class="small">

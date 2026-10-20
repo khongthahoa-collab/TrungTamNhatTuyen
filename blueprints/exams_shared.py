@@ -173,6 +173,25 @@ def reset_student_exam_attempts(exam, student_id, actor_id):
     return attempt_count, student_name
 
 
+def publish_exam(exam, actor_id):
+    """Publish a draft exam after verifying it is assigned to at least one class."""
+    if not exam.class_list:
+        return False, 'Hãy chọn ít nhất một lớp trước khi đăng đề.'
+    if not exam.is_draft:
+        return False, 'Đề thi này đã được đăng.'
+
+    exam.is_draft = False
+    db.session.add(ExamLog(
+        user_id=actor_id,
+        action='publish_exam',
+        target_type='exam',
+        target_id=exam.id,
+        detail=f'Đăng đề "{exam.title}" từ danh sách đề thi',
+    ))
+    db.session.commit()
+    return True, f'Đã đăng đề "{exam.title}".'
+
+
 def session_draft():
     """Read the exam_draft session value, discarding it if missing or malformed — e.g. a stale
     shape left over from a previous schema version (session cookies persist across deploys)."""
@@ -195,7 +214,13 @@ def parse_confirm_settings(form, groups=None):
         return None, 'Vui lòng chọn cách chia điểm hợp lệ.'
     description = form.get('description', '').strip()
     class_ids = form.getlist('class_ids')
-    is_draft = form.get('is_draft') == 'on'
+    draft_value = form.get('is_draft', 'draft')
+    if draft_value in ('draft', 'published'):
+        is_draft = draft_value == 'draft'
+    elif draft_value in (None, 'on'):
+        is_draft = True
+    else:
+        return None, 'Vui lòng chọn trạng thái đề hợp lệ.'
 
     raw_duration = form.get('duration_minutes', '40')
     if raw_duration == 'custom':

@@ -109,10 +109,21 @@
             {% endfor %}
           </select>
           <div class="form-text">Bạn có thể gõ tên lớp để lọc nhanh, rồi chọn nhiều lớp cùng lúc.</div>
-          <div class="form-check form-switch mt-3">
-            <input class="form-check-input" type="checkbox" name="is_draft" id="isDraft"
-                   {% if (form and form.get('is_draft')=='on') or (not form and existing and existing.is_draft) or (not form and not existing) %}checked{% endif %}>
-            <label class="form-check-label" for="isDraft">Lưu dưới dạng nháp (chưa giao cho học sinh, có thể xem lại sau)</label>
+          <div class="mt-3">
+            <label class="form-label fw-semibold" for="statusDraft">Trạng thái đề</label>
+            <div class="d-flex flex-wrap gap-2">
+              <input type="radio" class="btn-check" name="is_draft" id="statusPublished" value="published"
+                     {% if (form and form.get('is_draft') == 'published') or (not form and existing and not existing.is_draft) %}checked{% endif %}>
+              <label class="btn btn-outline-success" for="statusPublished">
+                <i class="bi bi-send me-1"></i>Đã đăng
+              </label>
+              <input type="radio" class="btn-check" name="is_draft" id="statusDraft" value="draft"
+                     {% if (form and form.get('is_draft', 'draft') in ('draft', 'on')) or (not form and existing and existing.is_draft) or (not form and not existing) %}checked{% endif %}>
+              <label class="btn btn-outline-secondary" for="statusDraft">
+                <i class="bi bi-file-earmark-text me-1"></i>Lưu nháp
+              </label>
+            </div>
+            <div class="form-text">Đề mới mặc định được lưu nháp, chưa hiển thị cho học sinh. Nội dung đang soạn cũng được lưu tạm trên thiết bị để khôi phục nếu mất kết nối.</div>
           </div>
         </div>
       </div>
@@ -277,5 +288,19 @@ examTypeSelect.addEventListener('change', () => {
   if (examTypeSelect.value === 'practice') unlimited.checked = true;
   else once.checked = true;
 });
+
+{% if request.method == 'GET' %}
+try {
+  const localDraftKey = {{ ('teacher-exam-editor-draft:' ~ current_user.id ~ ':' ~ (existing.id if existing else 'new')) | tojson }};
+  const localDraft = JSON.parse(localStorage.getItem(localDraftKey) || 'null');
+  const serverGroups = {{ payload.groups | tojson }};
+  if (localDraft && localDraft.title === {{ payload.title | tojson }} &&
+      JSON.stringify(localDraft.groups) === JSON.stringify(serverGroups)) {
+    localStorage.removeItem(localDraftKey);
+  }
+} catch (error) {
+  console.warn('Không thể dọn bản nháp đã được lưu vào phiên làm việc.', error);
+}
+{% endif %}
 </script>
 {% endblock %}
