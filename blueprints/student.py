@@ -46,6 +46,13 @@ def exam_submit(exam_id):
     return parent.exam_submit(student.id, exam_id)
 
 
+@student_bp.route('/exams/<int:exam_id>/save', methods=['POST'])
+@login_required
+def exam_save_progress(exam_id):
+    student, _exam = _assigned_exam_or_404(exam_id)
+    return parent.exam_save_progress(student.id, exam_id)
+
+
 @student_bp.route('/exams/<int:exam_id>/result')
 @login_required
 def exam_result(exam_id):

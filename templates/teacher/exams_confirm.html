@@ -1,6 +1,7 @@
 {% extends 'teacher/base.html' %}
 {% import 'exams/_macros.html' as exam_macros %}
 {% block title %}Cấu hình đề thi – Giáo viên – Nhật Tuyền{% endblock %}
+{% block extra_head %}{% include 'exams/_mathjax.html' %}{% endblock %}
 {% block content %}
 <div class="container-fluid px-3 pt-3">
 {% set existing_class_ids = existing.class_list if existing else [] %}

@@ -1,5 +1,6 @@
 {% extends 'admin/base.html' %}
 {% import 'exams/_macros.html' as exam_macros %}
+{% block extra_head %}{% include 'exams/_mathjax.html' %}{% endblock %}
 {% block breadcrumb %}
 <li class="breadcrumb-item"><a href="{{ url_for('admin.exams_list') }}">Đề thi online</a></li>
 <li class="breadcrumb-item active">{% if editing %}Chỉnh sửa đề · Bước 2{% else %}Tạo đề · Bước 2{% endif %}</li>

@@ -1,5 +1,6 @@
 {% extends base_template %}
 {% block title %}Chấm tự luận · {{ exam.title }}{% endblock %}
+{% block extra_head %}{% include 'exams/_mathjax.html' %}{% endblock %}
 {% block breadcrumb %}
 <li class="breadcrumb-item"><a href="{{ results_url }}">Kết quả</a></li>
 <li class="breadcrumb-item active">Chấm tự luận</li>
@@ -28,13 +29,13 @@
         <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
           <div>
             <div class="small text-success fw-semibold">{{ item.title }} · Câu {{ item.position }}</div>
-            <div class="fw-semibold">{{ item.text }}</div>
+            <div class="fw-semibold exam-math">{{ item.text }}</div>
           </div>
           <span class="badge {% if item.score != '' %}bg-success{% else %}bg-warning text-dark{% endif %}">
             {{ 'Đã chấm' if item.score != '' else 'Chờ chấm' }}
           </span>
         </div>
-        <div class="border rounded bg-light p-3 mb-3" style="white-space:pre-wrap; overflow-wrap:anywhere;">{{ item.answer or 'Học sinh không nhập câu trả lời.' }}</div>
+        <div class="border rounded bg-light p-3 mb-3 exam-math" style="white-space:pre-wrap; overflow-wrap:anywhere;">{{ item.answer or 'Học sinh không nhập câu trả lời.' }}</div>
         <label class="form-label" for="score_{{ item.key }}">Điểm câu này (tối đa {{ item.max_score | round(4) }})</label>
         <input class="form-control" type="number" id="score_{{ item.key }}" name="score_{{ item.key }}"
                min="0" max="{{ item.max_score }}" step="any" value="{{ item.score }}" inputmode="decimal">

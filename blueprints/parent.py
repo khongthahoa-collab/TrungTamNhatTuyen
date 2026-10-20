@@ -2,7 +2,10 @@ import os
 import json
 import random
 import re
-from flask import Blueprint, render_template, redirect, url_for, flash, abort, send_from_directory, current_app, request
+from flask import (
+    Blueprint, render_template, redirect, url_for, flash, abort, send_from_directory,
+    current_app, request, jsonify,
+)
 from flask_login import login_required, current_user
 from datetime import date, datetime, timedelta
 from sqlalchemy import func
@@ -721,21 +724,25 @@ def exam_take(student_id, exam_id):
         ExamAttempt.started_at.desc()).first()
 
     if last_attempt and last_attempt.status == 'in_progress':
+        order_data = last_attempt.order_data
+        draft_answers = order_data.get('draft_answers', {})
         elapsed = (datetime.utcnow() - last_attempt.started_at).total_seconds()
         if elapsed >= exam.duration_minutes * 60:
-            # Time already ran out while the student was away — finalize with whatever was given (nothing).
-            normalized, result = _grade_attempt(exam, last_attempt, {})
+            normalized, result = _grade_attempt(exam, last_attempt, draft_answers)
             last_attempt.submitted_at = datetime.utcnow()
             last_attempt.status = 'submitted'
             last_attempt.score = result['percent'] if result.get('pending_essay_count', 0) == 0 else 0
             last_attempt.total_questions = exam.total_question_count
             last_attempt.answers_json = json.dumps(normalized)
             last_attempt.result_json = json.dumps(result)
+            order_data.pop('draft_answers', None)
+            last_attempt.order_json = json.dumps(order_data)
             db.session.commit()
             flash('Đã hết thời gian làm bài, hệ thống tự động nộp bài.', 'warning')
             return redirect(_exam_url('exam_result', student_id=student.id, exam_id=exam.id))
         attempt = last_attempt
     else:
+        draft_answers = {}
         submitted_count = ExamAttempt.query.filter_by(
             exam_id=exam.id, student_id=student.id, status='submitted').count()
         if not exam.is_unlimited_attempts and submitted_count >= exam.allow_attempts:
@@ -762,7 +769,39 @@ def exam_take(student_id, exam_id):
     remaining_seconds = max(0, int(exam.duration_minutes * 60 - (datetime.utcnow() - attempt.started_at).total_seconds()))
 
     return render_template('exams/take.html', exam=exam, attempt=attempt, student=student, children=children,
-                           questions=questions, remaining_seconds=remaining_seconds, cheat_limit=CHEAT_LIMIT)
+                           questions=questions, remaining_seconds=remaining_seconds, cheat_limit=CHEAT_LIMIT,
+                           draft_answers=draft_answers,
+                           save_progress_url=_exam_url('exam_save_progress', student_id=student.id, exam_id=exam.id),
+                           exams_list_url=_exam_url('exams', student_id=student.id))
+
+
+@parent_bp.route('/students/<int:student_id>/exams/<int:exam_id>/save', methods=['POST'])
+@login_required
+def exam_save_progress(student_id, exam_id):
+    if not (current_user.is_parent or current_user.is_student):
+        abort(403)
+    student = _get_student_or_403(student_id)
+    exam = Exam.query.get_or_404(exam_id)
+    if exam.is_draft or exam not in _exams_for_student(student):
+        abort(404)
+
+    attempt = ExamAttempt.query.filter_by(
+        exam_id=exam.id, student_id=student.id, status='in_progress'
+    ).order_by(ExamAttempt.started_at.desc()).first()
+    if not attempt:
+        return jsonify({'error': 'Lượt làm bài không còn hoạt động.'}), 409
+    if (datetime.utcnow() - attempt.started_at).total_seconds() >= exam.duration_minutes * 60:
+        return jsonify({'error': 'Đã hết thời gian làm bài.'}), 409
+
+    draft_answers = {
+        key: value for key, value in request.form.items()
+        if re.fullmatch(r'g\d+_q\d+(?:_\d+)?', key)
+    }
+    order_data = attempt.order_data
+    order_data['draft_answers'] = draft_answers
+    attempt.order_json = json.dumps(order_data)
+    db.session.commit()
+    return jsonify({'saved': True})
 
 
 def _notify_cheat_flag(exam, student, attempt):
@@ -812,6 +851,9 @@ def exam_submit(student_id, exam_id):
     attempt.was_flagged = was_flagged
     attempt.answers_json = json.dumps(normalized)
     attempt.result_json = json.dumps(result)
+    order_data = attempt.order_data
+    order_data.pop('draft_answers', None)
+    attempt.order_json = json.dumps(order_data)
 
     log_detail = f'{student.full_name} nộp bài "{exam.title}" — {result["earned"]}/{result["total"]} điểm {result["score_10"]}/10'
     if was_flagged:

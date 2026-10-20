@@ -103,6 +103,36 @@ def exam_duplicate(exam_id):
     return redirect(url_for('teacher.exams_confirm'))
 
 
+@teacher_bp.route('/exams/<int:exam_id>/sharing', methods=['POST'])
+@login_required
+@require_teacher
+def exam_toggle_sharing(exam_id):
+    exam = Exam.query.get_or_404(exam_id)
+    require_owns_or_admin(exam)
+    should_share = request.form.get('shared') == '1'
+
+    if should_share and exam.is_draft:
+        flash('Chỉ có thể công khai đề đã đăng cho các giáo viên khác.', 'warning')
+    else:
+        exam.is_shared_with_teachers = should_share
+        db.session.add(ExamLog(
+            user_id=current_user.id,
+            action='share_exam' if should_share else 'unshare_exam',
+            target_type='exam',
+            target_id=exam.id,
+            detail=f'{"Công khai đề" if should_share else "Gỡ công khai đề"} "{exam.title}" với giáo viên',
+        ))
+        db.session.commit()
+        flash(
+            f'Đã {"công khai" if should_share else "gỡ công khai"} đề "{exam.title}" '
+            'với thư viện giáo viên.',
+            'success',
+        )
+
+    list_args = {'reuse': '1'} if request.form.get('reuse') == '1' else {}
+    return redirect(url_for('teacher.exams_list', **list_args))
+
+
 @teacher_bp.route('/exams/<int:exam_id>/results')
 @login_required
 @require_teacher

@@ -1,4 +1,5 @@
 {% extends 'admin/base.html' %}
+{% block extra_head %}{% include 'exams/_mathjax.html' %}{% endblock %}
 {% block breadcrumb %}
 <li class="breadcrumb-item"><a href="{{ url_for('admin.exams_list') }}">Đề thi online</a></li>
 <li class="breadcrumb-item active">{% if editing %}Chỉnh sửa đề · Bước 1{% else %}Tạo đề · Bước 1{% endif %}</li>
@@ -64,6 +65,7 @@
           <div class="form-text mb-0 mt-1" style="font-size:0.74rem;">
             Cú pháp: <code>## Tên phần {mcq|true_false|short_answer|essay|error_id}</code> · <code>Câu 1: ...</code> ·
             tuỳ loại: <code>A. đáp án</code> / <code>a) ý</code> · <code>Đáp án: ...</code> · <code>Giải thích: ...</code>.
+            Công thức: toán <code>\(x^2+\frac{1}{2}\)</code> · hóa <code>\(\ce{H2SO4}\)</code> hoặc <code>\(\ce{Ca(OH)2}\)</code>.
             Soạn bên này sẽ tự cập nhật khung trực quan bên trái và ngược lại.
           </div>
         </div>
@@ -273,6 +275,36 @@ function renderErrorIdPreview(text) {
   });
 }
 
+function renderMathPreview(g, q) {
+  const lines = [`<div>${escapeHtml(q.text || 'Nội dung câu hỏi sẽ hiển thị tại đây.').replace(/\n/g, '<br>')}</div>`];
+  if (g.type === 'mcq') {
+    (q.options || []).forEach((option, index) => {
+      lines.push(`<div>${LETTERS[index]}. ${escapeHtml(option)}</div>`);
+    });
+  } else if (g.type === 'true_false') {
+    (q.statements || []).forEach((statement, index) => {
+      lines.push(`<div>${SL[index]}) ${escapeHtml(statement.text)}</div>`);
+    });
+  } else if (g.type === 'short_answer') {
+    (q.accepted_answers || []).forEach(answer => {
+      lines.push(`<div>Đáp án: ${escapeHtml(answer)}</div>`);
+    });
+  }
+  if (q.explanation) lines.push(`<div class="text-muted">Giải thích: ${escapeHtml(q.explanation).replace(/\n/g, '<br>')}</div>`);
+  return `<div class="exam-math-preview small bg-light rounded p-2 mt-2" data-exam-math>
+    <div class="text-muted fw-semibold mb-1">Xem trước công thức</div>${lines.join('')}
+  </div>`;
+}
+
+function refreshQuestionMathPreview(card) {
+  if (!card) return;
+  const preview = card.querySelector('.exam-math-preview');
+  const { g, q } = card.dataset;
+  if (!preview || !groups[g]?.questions[q]) return;
+  preview.innerHTML = renderMathPreview(groups[g], groups[g].questions[q]);
+  window.scheduleExamMathTypeset(preview);
+}
+
 function renderQuestionCard(gi, g, qi, q) {
   const head = `
     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -339,9 +371,10 @@ function renderQuestionCard(gi, g, qi, q) {
   }
 
   return `
-    <div class="border rounded p-3 mb-3">
+    <div class="question-editor-card border rounded p-3 mb-3" data-g="${gi}" data-q="${qi}">
       ${head}
       ${body}
+      ${renderMathPreview(g, q)}
       <textarea class="form-control mt-2 q-explanation" data-g="${gi}" data-q="${qi}" rows="1" placeholder="Hướng dẫn giải (không bắt buộc)">${escapeHtml(q.explanation || '')}</textarea>
     </div>`;
 }
@@ -371,6 +404,7 @@ function renderGroups() {
       </div>
     </div>
   `).join('');
+  window.typesetExamMath(groupsContainer);
 }
 
 function syncTextFromState() {
@@ -401,6 +435,9 @@ groupsContainer.addEventListener('input', e => {
   else if (t.classList.contains('opt-text')) { groups[gi].questions[+t.dataset.q].options[+t.dataset.oi] = t.value; syncTextFromState(); }
   else if (t.classList.contains('st-text')) { groups[gi].questions[+t.dataset.q].statements[+t.dataset.si].text = t.value; syncTextFromState(); }
   else if (t.classList.contains('ans-text')) { groups[gi].questions[+t.dataset.q].accepted_answers[+t.dataset.ai] = t.value; syncTextFromState(); }
+  if (t.matches('.q-text, .opt-text, .st-text, .ans-text, .q-explanation')) {
+    refreshQuestionMathPreview(t.closest('.question-editor-card'));
+  }
 });
 
 groupsContainer.addEventListener('change', e => {

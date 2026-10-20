@@ -28,6 +28,7 @@
           <a href="{{ url_for('student.exam_take', exam_id=exam.id) if current_user.is_student else url_for('parent.exam_take', student_id=student.id, exam_id=exam.id) }}" class="btn btn-warning btn-sm">
             <i class="bi bi-play-fill me-1"></i>Tiếp tục làm bài
           </a>
+          <span class="small text-muted align-self-center">Tiến độ đã lưu; thời gian vẫn tiếp tục chạy.</span>
         {% elif row.last_attempt %}
           <a href="{{ url_for('student.exam_result', exam_id=exam.id) if current_user.is_student else url_for('parent.exam_result', student_id=student.id, exam_id=exam.id) }}" class="btn btn-outline-success btn-sm">
             Xem kết quả

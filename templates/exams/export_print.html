@@ -19,6 +19,7 @@
   u { text-decoration: underline; }
   @media print { .print-bar { display: none; } }
 </style>
+{% include 'exams/_mathjax.html' %}
 </head>
 <body>
   {% if fmt == 'pdf' %}
@@ -83,7 +84,7 @@
   </div>
 
   {% if fmt == 'pdf' %}
-  <script>window.addEventListener('load', () => window.print());</script>
+  <script>window.addEventListener('load', () => window.typesetExamMath().then(() => window.print()));</script>
   {% endif %}
 </body>
 </html>

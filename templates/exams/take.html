@@ -1,4 +1,5 @@
 {% extends 'student/base.html' if current_user.is_student else 'parent/base.html' %}
+{% block extra_head %}{% include 'exams/_mathjax.html' %}{% endblock %}
 {% block content %}
 <div class="container py-3" style="max-width:720px;">
 
@@ -25,8 +26,15 @@
     </div>
   </div>
 
+  <div class="alert alert-info small d-flex align-items-start gap-2 mb-3">
+    <i class="bi bi-cloud-check mt-1"></i>
+    <div>Tiến độ được tự động lưu và khôi phục khi bạn quay lại. Đồng hồ vẫn tiếp tục chạy khi rời màn hình thi.</div>
+  </div>
+
   <form id="examForm" method="post"
         action="{{ url_for('student.exam_submit', exam_id=exam.id) if current_user.is_student else url_for('parent.exam_submit', student_id=student.id, exam_id=exam.id) }}">
+    <input type="hidden" id="saveProgressUrl" value="{{ save_progress_url }}">
+    <input type="hidden" id="examsListUrl" value="{{ exams_list_url }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="cheat_count" id="cheatCountField" value="0">
 
@@ -39,40 +47,55 @@
     <div class="card border-0 shadow-sm mb-3">
       <div class="card-body">
         {% if group.type == 'mcq' %}
-          <div class="fw-semibold mb-2">Câu {{ q.position }}. {{ q.text }}</div>
+          {% set answer_key = 'g' ~ group.index ~ '_q' ~ q.position %}
+          <div class="fw-semibold mb-2">Câu {{ q.position }}. <span class="exam-math">{{ q.text }}</span></div>
           {% for opt in q.options %}
           <label class="list-group-item list-group-item-action d-flex align-items-center gap-2 mb-2 rounded border">
-            <input class="form-check-input m-0" type="radio" name="g{{ group.index }}_q{{ q.position }}" value="{{ loop.index }}" required>
-            <span>{{ ['A','B','C','D','E','F'][loop.index0] }}. {{ opt }}</span>
+            <input class="form-check-input m-0" type="radio" name="{{ answer_key }}" value="{{ loop.index }}"
+                   {% if draft_answers.get(answer_key, '')|string == loop.index|string %}checked{% endif %} required>
+            <span>{{ ['A','B','C','D','E','F'][loop.index0] }}. <span class="exam-math">{{ opt }}</span></span>
           </label>
           {% endfor %}
         {% elif group.type == 'true_false' %}
-          <div class="fw-semibold mb-2">Câu {{ q.position }}. {{ q.text }}</div>
+          {% set answer_key = 'g' ~ group.index ~ '_q' ~ q.position %}
+          <div class="fw-semibold mb-2">Câu {{ q.position }}. <span class="exam-math">{{ q.text }}</span></div>
           {% for st in q.statements %}
+          {% set statement_key = answer_key ~ '_' ~ loop.index %}
           <div class="d-flex align-items-center gap-2 mb-2 border rounded p-2">
-            <span class="flex-grow-1 small">{{ ['a','b','c','d','e','f'][loop.index0] }}) {{ st }}</span>
+            <span class="flex-grow-1 small">{{ ['a','b','c','d','e','f'][loop.index0] }}) <span class="exam-math">{{ st }}</span></span>
             <div class="btn-group btn-group-sm flex-shrink-0" role="group">
-              <input type="radio" class="btn-check" name="g{{ group.index }}_q{{ q.position }}_{{ loop.index }}"
+              <input type="radio" class="btn-check" name="{{ statement_key }}"
+                     {% if draft_answers.get(statement_key, '') == '1' %}checked{% endif %}
                      id="g{{ group.index }}_q{{ q.position }}_{{ loop.index }}_d" value="1" required>
               <label class="btn btn-outline-success" for="g{{ group.index }}_q{{ q.position }}_{{ loop.index }}_d">Đúng</label>
-              <input type="radio" class="btn-check" name="g{{ group.index }}_q{{ q.position }}_{{ loop.index }}"
+              <input type="radio" class="btn-check" name="{{ statement_key }}"
+                     {% if draft_answers.get(statement_key, '') == '0' %}checked{% endif %}
                      id="g{{ group.index }}_q{{ q.position }}_{{ loop.index }}_s" value="0">
               <label class="btn btn-outline-danger" for="g{{ group.index }}_q{{ q.position }}_{{ loop.index }}_s">Sai</label>
             </div>
           </div>
           {% endfor %}
         {% elif group.type == 'short_answer' %}
-          <div class="fw-semibold mb-2">Câu {{ q.position }}. {{ q.text }}</div>
-          <input type="text" class="form-control" name="g{{ group.index }}_q{{ q.position }}" placeholder="Nhập câu trả lời" required>
+          {% set answer_key = 'g' ~ group.index ~ '_q' ~ q.position %}
+          <div class="fw-semibold mb-2">Câu {{ q.position }}. <span class="exam-math">{{ q.text }}</span></div>
+          <input type="text" class="form-control math-answer-input" name="{{ answer_key }}"
+                 value="{{ draft_answers.get(answer_key, '') }}" placeholder="Nhập câu trả lời" required>
+          <div class="form-text">Công thức toán: <code>\(x^2\)</code> · hóa: <code>\(\ce{H2O}\)</code></div>
+          <div class="small mt-1 exam-math math-answer-preview" aria-live="polite"></div>
         {% elif group.type == 'essay' %}
-          <div class="fw-semibold mb-2">Câu {{ q.position }}. {{ q.text }}</div>
-          <textarea class="form-control" name="g{{ group.index }}_q{{ q.position }}" rows="6" maxlength="10000"
-                    placeholder="Nhập câu trả lời của bạn..." required></textarea>
+          {% set answer_key = 'g' ~ group.index ~ '_q' ~ q.position %}
+          <div class="fw-semibold mb-2">Câu {{ q.position }}. <span class="exam-math">{{ q.text }}</span></div>
+          <textarea class="form-control math-answer-input" name="{{ answer_key }}" rows="6" maxlength="10000"
+                    placeholder="Nhập câu trả lời của bạn..." required>{{ draft_answers.get(answer_key, '') }}</textarea>
+          <div class="form-text">Công thức toán: <code>\(x^2\)</code> · hóa: <code>\(\ce{H2O}\)</code></div>
+          <div class="small mt-1 exam-math math-answer-preview" aria-live="polite"></div>
         {% elif group.type == 'error_id' %}
+          {% set answer_key = 'g' ~ group.index ~ '_q' ~ q.position %}
           <div class="fw-semibold mb-2">Câu {{ q.position }}. {{ q.text | error_id_render(false) }}</div>
           <div class="d-flex flex-wrap gap-2">
             {% for label in q.labels %}
-            <input type="radio" class="btn-check" name="g{{ group.index }}_q{{ q.position }}"
+            <input type="radio" class="btn-check" name="{{ answer_key }}"
+                   {% if draft_answers.get(answer_key, '') == label %}checked{% endif %}
                    id="g{{ group.index }}_q{{ q.position }}_{{ label }}" value="{{ label }}" required>
             <label class="btn btn-outline-primary" for="g{{ group.index }}_q{{ q.position }}_{{ label }}">{{ label }}</label>
             {% endfor %}
@@ -83,9 +106,15 @@
     {% endfor %}
     {% endfor %}
 
-    <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold" id="submitBtn">
-      <i class="bi bi-check-circle me-1"></i>Nộp bài
-    </button>
+    <div class="d-grid gap-2">
+      <div id="saveStatus" class="small text-center text-muted" aria-live="polite">Tiến độ đã sẵn sàng để lưu.</div>
+      <button type="submit" class="btn btn-primary py-2 fw-semibold" id="submitBtn">
+        <i class="bi bi-check-circle me-1"></i>Nộp bài
+      </button>
+      <button type="button" class="btn btn-outline-secondary" id="saveAndExitBtn">
+        <i class="bi bi-arrow-left me-1"></i>Lưu tiến độ và về danh sách
+      </button>
+    </div>
   </form>
 </div>
 {% endblock %}
@@ -99,6 +128,14 @@ const timerDisplay = document.getElementById('timerDisplay');
 const CHEAT_LIMIT = {{ cheat_limit }};
 let cheatCount = 0;
 let submitted = false;
+let autosaveTimer;
+let autosaveRequest = null;
+let saveInProgress = false;
+let draftRevision = 0;
+let draftDirty = false;
+const saveStatus = document.getElementById('saveStatus');
+const saveProgressUrl = document.getElementById('saveProgressUrl').value;
+const examsListUrl = document.getElementById('examsListUrl').value;
 
 function formatTime(totalSeconds) {
   const m = Math.floor(totalSeconds / 60);
@@ -120,9 +157,10 @@ function autoSubmit(reason) {
 
 // ── Countdown timer ──
 let remaining = {{ remaining_seconds }};
+const deadline = Date.now() + remaining * 1000;
 timerDisplay.textContent = formatTime(remaining);
 const timerInterval = setInterval(() => {
-  remaining -= 1;
+  remaining = Math.ceil((deadline - Date.now()) / 1000);
   if (remaining <= 0) {
     timerDisplay.textContent = '0:00';
     clearInterval(timerInterval);
@@ -161,6 +199,74 @@ form.addEventListener('submit', e => {
     return;
   }
   submitted = true;
+});
+
+form.addEventListener('input', event => {
+  const input = event.target;
+  if (input.matches('.math-answer-input')) {
+    const preview = input.nextElementSibling.nextElementSibling;
+    preview.textContent = input.value;
+    window.scheduleExamMathTypeset(preview);
+  }
+  scheduleDraftSave();
+});
+
+form.addEventListener('change', scheduleDraftSave);
+
+function scheduleDraftSave() {
+  if (submitted) return;
+  draftRevision += 1;
+  draftDirty = true;
+  saveStatus.textContent = 'Đang chờ lưu tiến độ…';
+  saveStatus.classList.remove('text-danger', 'text-success');
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(saveDraft, 500);
+}
+
+async function saveDraft() {
+  if (submitted) return false;
+  if (saveInProgress) {
+    const saved = await autosaveRequest;
+    return saved && (draftDirty ? saveDraft() : true);
+  }
+  if (!draftDirty) return true;
+  const revision = draftRevision;
+  saveInProgress = true;
+  saveStatus.textContent = 'Đang lưu tiến độ…';
+  autosaveRequest = fetch(saveProgressUrl, {
+    method: 'POST',
+    body: new FormData(form),
+    credentials: 'same-origin',
+  }).then(response => {
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return true;
+  }).catch(error => {
+    console.error('Không thể lưu tiến độ bài thi.', error);
+    saveStatus.textContent = 'Chưa lưu được. Hãy kiểm tra kết nối mạng trước khi rời trang.';
+    saveStatus.classList.add('text-danger');
+    return false;
+  });
+  const saved = await autosaveRequest;
+  saveInProgress = false;
+  if (!saved) return false;
+  if (revision !== draftRevision) return saveDraft();
+  draftDirty = false;
+  saveStatus.textContent = 'Đã lưu tiến độ.';
+  saveStatus.classList.remove('text-danger');
+  saveStatus.classList.add('text-success');
+  return true;
+}
+
+document.getElementById('saveAndExitBtn').addEventListener('click', async () => {
+  clearTimeout(autosaveTimer);
+  const saved = await saveDraft();
+  if (saved) window.location.assign(examsListUrl);
+});
+
+window.addEventListener('beforeunload', event => {
+  if (!draftDirty || submitted) return;
+  event.preventDefault();
+  event.returnValue = '';
 });
 </script>
 {% endblock %}

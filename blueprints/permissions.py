@@ -163,4 +163,5 @@ TEACHER_ENDPOINT_MODULES = {
     'exams_list': 'exams', 'exam_duplicate': 'exams', 'exams_results': 'exams',
     'exams_new': 'exams', 'exams_edit': 'exams', 'exams_confirm': 'exams',
     'exams_delete': 'exams', 'exams_preview': 'exams', 'exams_export': 'exams',
+    'exam_toggle_sharing': 'exams',
 }

@@ -1,4 +1,5 @@
 {% extends 'student/base.html' if current_user.is_student else 'parent/base.html' %}
+{% block extra_head %}{% include 'exams/_mathjax.html' %}{% endblock %}
 {% block content %}
 <div class="container py-3" style="max-width:640px;">
   <div class="card border-0 shadow-sm">
