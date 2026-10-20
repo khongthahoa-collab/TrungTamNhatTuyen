@@ -358,7 +358,7 @@ function renderMathPreview(g, q) {
     });
   }
   if (q.explanation) lines.push(`<div class="text-muted">Giải thích: ${escapeHtml(q.explanation).replace(/\n/g, '<br>')}</div>`);
-  return `<div class="exam-math-preview small bg-light rounded p-2 mt-2" data-exam-math>
+  return `<div class="exam-math exam-math-preview small bg-light rounded p-2 mt-2" data-exam-math>
     <div class="text-muted fw-semibold mb-1">Xem trước công thức</div>${lines.join('')}
   </div>`;
 }
