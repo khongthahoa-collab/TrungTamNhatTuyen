@@ -629,6 +629,10 @@ class User(UserMixin, db.Model):
         from blueprints.permissions import CORE_MODULES, MASTER_ONLY_MODULES
         if module_key in CORE_MODULES:
             return 'write'
+        if self.is_student:
+            # Student accounts only use the /student exam portal — never any
+            # admin/API module.
+            return 'deny'
         if module_key in MASTER_ONLY_MODULES:
             return 'write' if self.is_master else 'deny'
         if self.is_master:
