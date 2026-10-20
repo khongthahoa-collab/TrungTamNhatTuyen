@@ -233,29 +233,13 @@
                 <a href="{{ url_for('teacher.exams_edit', exam_id=exam.id) }}" class="btn btn-outline-secondary btn-sm" title="Chỉnh sửa">
                   <i class="bi bi-pencil"></i>
                 </a>
-                <div class="btn-group">
-                  <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" title="Thêm">
-                    <i class="bi bi-three-dots"></i>
+                <form method="post" action="{{ url_for('teacher.exams_delete', exam_id=exam.id) }}"
+                      onsubmit="return confirm('Xóa đề này?')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-outline-danger btn-sm" title="Xóa đề" aria-label="Xóa đề">
+                    <i class="bi bi-trash"></i>
                   </button>
-                  <ul class="dropdown-menu dropdown-menu-end">
-                    <li>
-                      <form method="post" action="{{ url_for('teacher.exam_duplicate', exam_id=exam.id) }}">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="dropdown-item"><i class="bi bi-copy me-2"></i>Sao chép để tái sử dụng</button>
-                      </form>
-                    </li>
-                    <li><a class="dropdown-item" href="{{ url_for('teacher.exams_results', exam_id=exam.id) }}"><i class="bi bi-arrow-counterclockwise me-2"></i>Xóa lịch sử làm bài (cho làm lại)</a></li>
-                    <li><a class="dropdown-item" href="{{ url_for('teacher.exams_export', exam_id=exam.id, fmt='pdf') }}" target="_blank"><i class="bi bi-printer me-2"></i>Xuất PDF (in)</a></li>
-                    <li><a class="dropdown-item" href="{{ url_for('teacher.exams_export', exam_id=exam.id, fmt='doc') }}"><i class="bi bi-file-earmark-word me-2"></i>Xuất Word</a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li>
-                      <form method="post" action="{{ url_for('teacher.exams_delete', exam_id=exam.id) }}" onsubmit="return confirm('Xóa đề này?')">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="dropdown-item text-danger"><i class="bi bi-trash me-2"></i>Xóa</button>
-                      </form>
-                    </li>
-                  </ul>
-                </div>
+                </form>
               </div>
             </td>
           </tr>
