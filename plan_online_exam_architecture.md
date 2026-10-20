@@ -1,0 +1,600 @@
+# Phuong an kien truc he thong thi online
+
+> Phien ban free-first: uu tien su dung cac dich vu mien phi dang co, khong yeu cau Redis, Railway service thu hai, VPS, Cloudflare Tunnel hoac goi database tra phi de he thong co the van hanh.
+
+> **CANH BAO QUAN TRONG (cap nhat 13/09/2026):** Tai lieu nay duoc viet cho quy mo vai chuc nguoi dung dong thoi (xem muc 13, Dot 2: "bat dau voi 10, 20 va 50 nguoi dung dong thoi"). Neu yeu cau thuc te la **1000 hoc sinh cung lam bai mot luc**, phan free-first cua tai lieu nay **khong dap ung duoc**, va nguyen nhan **khong phai** do truy van chua toi uu. Xem muc 3.5 moi ve mo hinh xu ly song song truoc khi dung tai lieu nay de lap ke hoach cho quy mo lon.
+
+## 0. Gia dinh ve chi phi va gioi han
+
+Tai lieu nay gia dinh:
+
+- Ung dung chay tren mot Railway service trong quota/credit mien phi hien co.
+- Database dung goi mien phi hien tai cua Supabase hoac PostgreSQL dang co.
+- Khong co Redis managed, worker rieng, VPS rieng hay queue service.
+- Cache cap ung dung chi dung bo nho cua process va khong duoc xem la noi luu du lieu chinh.
+- Dung localStorage/sessionStorage o trinh duyet cho autosave tam thoi.
+- Chi dung mot domain hien tai; subdomain thi rieng la tuy chon tuong lai.
+
+Cac goi mien phi co the co quota, gioi han dung luong, gioi han ket noi, cold start, sleep khi khong co traffic va khong co SLA. Can kiem tra bang gia va quota thuc te cua Railway, Supabase va Cloudflare truoc moi dot trien khai vi cac chinh sach co the thay doi.
+
+Khong nen cam ket mot moc response time co dinh tren free tier. Muc tieu uu tien la giam truy van thua, tranh request tang theo so luong de va giu he thong van dung duoc khi service vua wake up.
+
+## 1. Muc tieu
+
+Xay dung luong thi online cho hoc sinh theo mo hinh:
+
+- Quan tri vien/giao vien tao de tai trang quan tri.
+- Giao de cho mot lop hoac mot hoc sinh cu the.
+- Hoc sinh xem dung cac de duoc giao.
+- Hoc sinh lam bai, tu dong luu tien do va nop bai.
+- Giao vien xem ket qua theo hoc sinh.
+- He thong khong lam cham cac chuc nang quan ly hien tai.
+
+Phuong an khuyen nghi la **giu ung dung Flask hien tai trong giai doan dau, sua lai mo hinh giao de va toi uu truy van truoc; chi tach dich vu thi rieng khi co so lieu tai thuc te cho thay can thiet**.
+
+## 2. Hien trang va diem nghen
+
+Hien tai luong de thi da co san trong he thong. Tuy nhien, cach lay danh sach de cua hoc sinh co mot so van de:
+
+- Lay toan bo de da xuat ban roi moi loc trong Python.
+- Truong `class_ids` dang luu danh sach lop duoi dang chuoi, khong phai quan he database.
+- Moi de lai truy van rieng lich su `ExamAttempt` cua hoc sinh.
+- Trang ket qua dang lay nhieu attempt roi gom nhom trong Python.
+
+Mo hinh nay co the chay duoc khi du lieu it, nhung se cham dan khi so luong de, lop va hoc sinh tang.
+
+### Van de can giai quyet
+
+```text
+Lay tat ca de
+    -> Loc lop trong Python
+        -> Moi de truy van lich su lam bai
+            -> Tao danh sach hien thi
+```
+
+Phuong an moi can chuyen thanh:
+
+```text
+Lay cac assignment cua hoc sinh bang SQL
+    -> JOIN sang de thi
+        -> Truy van tong hop attempt mot lan
+            -> Tao danh sach hien thi
+```
+
+## 3. Kien truc tong the
+
+### Giai doan 1: dung chung ung dung hien tai
+
+```mermaid
+flowchart LR
+    S[Hoc sinh / Phu huynh] --> E[Flask Exam Routes]
+    T[Admin / Giao vien] --> A[Flask Admin Routes]
+    E --> DB[(PostgreSQL)]
+    A --> DB
+```
+
+Trong giai doan nay:
+
+- Trang tao de van o `/admin/exam`.
+- Giao vien va quan tri vien van dung he thong phan quyen hien tai.
+- Phan lam bai co the dat trong mot nhom route rieng, vi du `/exam/...`.
+- Khong tao mot ung dung frontend va backend hoan toan moi neu chua can thiet.
+- Khong them Redis, queue hoac worker nen neu chua co nhu cau do duoc.
+- Neu process bi restart, cache trong bo nho mat di; du lieu de thi, assignment va bai lam van phai nam trong database.
+
+### Giai doan 2: tach dich vu thi khi co tai cao
+
+```mermaid
+flowchart TD
+    U[Hoc sinh] --> CF[Cloudflare]
+    G[Admin / Giao vien] --> MAIN[Main App]
+    CF --> EXAM[exam.trungtamnhatuyen.vn]
+    MAIN --> DB[(PostgreSQL)]
+    EXAM --> DB
+    EXAM --> REDIS[(Redis tuy chon, co the phat sinh phi)]
+```
+
+Dich vu thi rieng khong nam trong pham vi van hanh mien phi co ban. Chi xem xet khi da do duoc luong truy cap dong thoi va xac nhan mot Railway service duy nhat khong dap ung duoc. Khi do can tinh them chi phi service, database, cache va domain; khong tach service chi de giai quyet mot truy van chua toi uu.
+
+## 3.5. Mo hinh xu ly song song (phan quyet dinh kha nang chiu tai)
+
+> Muc nay duoc bo sung ngay 13/09/2026 sau khi do trang thai thuc te cua he thong. Day la yeu to quyet dinh so nguoi dung dong thoi, va **khong** duoc giai quyet bang viec toi uu truy van.
+
+### Phan biet hai khai niem hay bi nham lan
+
+| Khai niem | Y nghia | Cach cai thien |
+|---|---|---|
+| Chi phi moi request | Mot request ton bao nhieu query, bao nhieu ms | Toi uu SQL, them index, bo N+1 (muc 4, 6, 10) |
+| So request song song | Bao nhieu request duoc xu ly **cung mot luc** | Doi worker class, tang worker, tang ha tang |
+
+Toan bo muc 4, 6 va 10 cua tai lieu nay chi giai quyet cot thu nhat. Neu 1000 hoc sinh vao cung luc, cot thu hai moi la diem nghen.
+
+### Trang thai da xac minh cua he thong (13/09/2026)
+
+```text
+Procfile:  gunicorn wsgi:app --workers 2
+Log khoi dong gunicorn: "Using worker: sync"
+config.py (production): pool_size=5, max_overflow=10
+```
+
+Worker kieu `sync` xu ly **dung 1 request tai mot thoi diem**. Vay nang luc song song thuc te:
+
+```text
+2 worker x 1 request = 2 request song song
+```
+
+Voi thoi gian xu ly khoang 200ms moi request, thong luong toi da khoang **10 request/giay**.
+
+### Phep tinh cho 1000 hoc sinh cung mo de
+
+```text
+1000 request / 10 request moi giay = 100 giay de xu ly het hang doi
+gunicorn timeout mac dinh              = 30 giay
+=> Khoang 700 hoc sinh cuoi hang bi timeout / loi 502
+=> Worker bi kill va restart giua chung
+```
+
+Ket qua khong phai "cham" ma la "sap". Tang `pool_size` hay them index deu khong thay doi con so 2 request song song.
+
+### Phep tinh cho autosave (nguy hiem hon luc mo de)
+
+Muc 8 de xuat autosave moi 20-30 giay. Voi 1000 hoc sinh:
+
+```text
+1000 hoc sinh / 25 giay = 40 request/giay LIEN TUC
+Nang luc hien tai        = ~10 request/giay
+=> Qua tai 4 lan, keo dai suot 15-45 phut lam bai
+```
+
+Autosave la dung ve nghiep vu (chong mat bai), nhung o quy mo 1000 user tren ha tang hien tai thi chinh no la thu lam sap he thong. Xem muc 8 da duoc cap nhat de giam tai.
+
+### Cac buoc bat buoc de chiu duoc tai lon
+
+Theo thu tu uu tien, tu re den dat:
+
+**1. Chia ca thi (re nhat, hieu qua nhat, khong can code)**
+
+Khong cho 1000 hoc sinh bat dau dung cung mot giay. Chia theo lop/khoi cach nhau 5-10 phut bien "1000 dong thoi" thanh "150-200 dong thoi", giam yeu cau ha tang khoang 5 lan ma khong sua mot dong code nao. Day la bien phap nen ap dung truoc tien trong moi truong hop.
+
+**2. Doi worker sang kieu bat dong bo (thay doi 1 dong, hieu qua lon nhat ve ky thuat)**
+
+```text
+web: gunicorn wsgi:app --worker-class gevent --workers 4 --worker-connections 1000
+```
+
+Worker `sync` ngoi cho database thi lang phi ca tien trinh. Worker `gevent` trong luc cho I/O co the phuc vu hang tram ket noi khac.
+
+Dieu kien di kem:
+
+- Them `gevent` vao `requirements.txt`.
+- Kiem thu ky: mot so thu vien dong bo khong tuong thich voi gevent monkey-patching.
+- Phai do lai tai sau khi doi, khong mac dinh la da xong.
+
+**3. Danh gia lai gioi han ket noi cua database**
+
+Voi 2 worker hien tai, so ket noi toi da da la `2 x (5 + 10) = 30`. Neu tang worker len 4, con so nay thanh 60 va nhieu kha nang vuot gioi han goi Supabase mien phi. Khi tang worker **phai** giam `pool_size` moi worker tuong ung, hoac chuyen sang pooler che do transaction, hoac nang goi database. Xem them canh bao o muc 10.
+
+**4. Do tai that truoc ngay thi (bat buoc)**
+
+Dung `locust` hoac `k6` mo phong 50 -> 100 -> 300 -> 1000 user. **Khong duoc** to chuc thi 1000 nguoi khi chua tung do. Ghi lai: thoi gian phan hoi trung binh, ty le loi, so worker bi kill, so loi ket noi database.
+
+### Ket luan muc nay
+
+- Thiet ke database trong tai lieu (muc 4, 5, 6): **dung va nen lam**, bat ke quy mo.
+- Chay 1000 user dong thoi tren ha tang free-first nhu tai lieu gia dinh: **khong kha thi**.
+- Duong di thuc te: lam Dot 1 -> chia ca thi -> doi gevent -> do tai that -> dua vao so do de quyet dinh nang goi database/ha tang.
+
+### Cau hoi can chot truoc khi lap ke hoach ha tang
+
+**1000 la so tai khoan dang ky, hay so nguoi bam lam bai trong cung mot phut?** Hai con so nay khac nhau 10-50 lan ve yeu cau ha tang. Neu thuc te la "1000 hoc sinh nhung chia nhieu ca, dinh cao nhat 100-150 nguoi", bai toan de hon rat nhieu va gan voi kha nang hien tai.
+
+## 4. Mo hinh giao de moi
+
+Khong nen tiep tuc phu thuoc vao `Exam.class_ids` dang chuoi. Can tao bang `exam_assignments`.
+
+### Bang `exam_assignments`
+
+| Cot | Y nghia |
+|---|---|
+| `id` | Khoa chinh |
+| `exam_id` | De duoc giao |
+| `target_type` | `class` hoac `student` |
+| `class_id` | Lop duoc giao, co the rong |
+| `student_id` | Hoc sinh duoc giao, co the rong |
+| `assigned_by` | Nguoi giao de |
+| `assigned_at` | Thoi diem giao |
+| `available_from` | Thoi diem mo de |
+| `available_to` | Thoi diem dong de |
+| `max_attempts` | So lan duoc phep lam |
+| `is_active` | Trang thai assignment |
+
+Can them cac index:
+
+```text
+(exam_id)
+(class_id, is_active)
+(student_id, is_active)
+(student_id, available_from, available_to)
+```
+
+### Vi du
+
+```text
+De Toan 15 phut
+    - Giao cho lop 6A
+    - Giao them rieng cho hoc sinh Nguyen Van A
+    - Mo tu 08:00 den 09:00
+    - Duoc lam toi da 1 lan
+```
+
+### Nguyen tac truy van
+
+Khi hoc sinh mo danh sach de:
+
+1. Xac dinh hoc sinh dang xem.
+2. Lay cac assignment dang hoat dong cua hoc sinh va lop dang hoc.
+3. JOIN sang bang `exams`.
+4. Loc de khong phai draft.
+5. Loc theo khoang thoi gian.
+6. Lay trang thai attempt bang mot truy van tong hop.
+
+Database chi tra ve cac de hoc sinh duoc phep thay, khong lay toan bo de roi loc trong Python.
+
+## 5. Phien ban de thi
+
+Nen tach noi dung de thi thanh phien ban bat bien de tranh thay doi ket qua sau khi giao de.
+
+### Bang `exam_versions`
+
+| Cot | Y nghia |
+|---|---|
+| `id` | Khoa chinh |
+| `exam_id` | De goc |
+| `version_number` | So phien ban |
+| `questions_json` | Noi dung cau hoi |
+| `created_at` | Thoi diem tao |
+| `published_at` | Thoi diem xuat ban |
+
+Khi giao de:
+
+1. Tao hoac chon mot `ExamVersion` da xuat ban.
+2. Assignment tro den phien ban do.
+3. Hoc sinh lam bai tren dung phien ban da giao.
+4. Neu giao vien sua de sau do, bai da giao khong bi thay doi.
+
+`ExamAttempt` nen luu `exam_version_id` de co the truy vet chinh xac hoc sinh da lam phien ban nao.
+
+## 6. Toi uu danh sach de hoc sinh
+
+Route danh sach de can duoc sua theo cac nguyen tac:
+
+- Khong dung `.all()` tren toan bo bang `Exam`.
+- Khong dung `exam.class_list` de loc trong Python.
+- Khong truy van `ExamAttempt` rieng cho tung de.
+- Dung mot truy van `GROUP BY` hoac truy van tong hop de lay:
+  - So lan da nop.
+  - Lan nop gan nhat.
+  - Lan dang lam.
+  - Diem gan nhat.
+- Phan trang o database.
+- Chi tai noi dung cau hoi day du khi hoc sinh bat dau lam bai.
+
+Danh sach de chi can tai metadata:
+
+```text
+Tieu de
+Mon hoc
+Loai bai kiem tra
+Thoi gian lam bai
+Han mo/dong
+Trang thai
+So luot da lam
+```
+
+Khong can tai `questions_json` day du cho tat ca de trong trang danh sach.
+
+## 7. Luong lam bai
+
+### Bat dau lam bai
+
+1. Kiem tra hoc sinh co assignment hop le.
+2. Kiem tra de dang mo va chua het so luot.
+3. Tao `ExamAttempt` neu chua co lan dang lam.
+4. Tao thu tu cau hoi va dap an neu co tron cau hoi.
+5. Luu thoi diem bat dau phia server.
+6. Tra ve noi dung cau hoi khong chua dap an dung.
+
+### Dang lam bai
+
+- Hien thi dong ho dua tren thoi gian server.
+- Luu dap an tam tren trinh duyet.
+- Gui phan thay doi len server moi 20-30 giay.
+- Gui autosave ngay khi hoc sinh chuyen cau neu can thiet.
+- Khi mat mang, hien thi ro trang thai chua dong bo.
+- Khi mo lai trang, tiep tuc lan lam bai dang do.
+
+### Nop bai
+
+1. Server kiem tra attempt hop le.
+2. Server kiem tra thoi gian.
+3. Server nhan dap an cuoi cung.
+4. Cham diem o server.
+5. Luu ket qua va thoi diem nop.
+6. Khoa attempt, khong cho sua tiep.
+
+Khong nen chi dua vao JavaScript de gioi han thoi gian. Thoi gian va trang thai cuoi cung phai duoc kiem tra phia server.
+
+## 8. Autosave
+
+Co the dung luong sau:
+
+```text
+Hoc sinh chon dap an
+    -> Luu vao bo nho trinh duyet
+    -> Debounce 20-30 giay
+    -> POST /exam/attempt/<id>/autosave
+    -> Server luu answers_json va updated_at
+```
+
+### Quy tac giam tai khi so hoc sinh dong thoi lon
+
+Autosave co dinh 25 giay cho 1000 hoc sinh tao ra ~40 request/giay lien tuc (xem phep tinh o muc 3.5). Ba quy tac sau giam tai dang ke ma khong mat tinh nang chong mat bai:
+
+**1. Chi gui khi co thay doi that**
+
+Neu hoc sinh khong doi dap an nao ke tu lan gui truoc thi khong gui. Hoc sinh doc de, suy nghi hoac lam bai tu luan dai co the khong thay doi gi trong nhieu phut. Quy tac nay thuong cat duoc phan lon request thua.
+
+**2. Them do lech ngau nhien (jitter)**
+
+Khong dung dung 25 giay cho moi may. Dung khoang ngau nhien 20-40 giay:
+
+```text
+delay = 20 + random(0, 20) giay
+```
+
+Neu khong co jitter, 1000 may mo de cung luc se autosave gan nhu dung cung mot giay, tao ra dinh tai 1000 request trong 1 giay thay vi trai deu. Day la loi kinh dien khi thiet ke autosave hang loat.
+
+**3. Cho phep server ha tan suat khi qua tai**
+
+Server co the tra ve trong response autosave mot goi y chu ky moi (vi du `next_interval: 60`), de khi tai cao thi client tu gian ra. Day la co che don gian, khong can them dich vu nao.
+
+### Danh doi can chap nhan
+
+Gian autosave ra nghia la neu mat mang dot ngot, hoc sinh co the mat nhieu dap an hon. Bu lai bang cach luu vao `localStorage` moi lan doi dap an (tuc thi, khong ton request) va khoi phuc tu do khi mo lai trang. Du lieu cuoi cung van phai nam o server khi nop bai.
+
+Can co cac endpoint:
+
+```text
+POST /exam/attempt/<id>/autosave
+POST /exam/attempt/<id>/submit
+GET  /exam/attempt/<id>/status
+```
+
+Nen luu them:
+
+```text
+last_saved_at
+last_client_sync_at
+```
+
+De hien thi trang thai:
+
+```text
+Dang luu...
+Da dong bo luc 10:32:15
+Chua dong bo, vui long kiem tra ket noi
+```
+
+## 9. Anti-cheat va an toan
+
+Khong nen xem cac bien phap chan chuot phai, F12, copy-paste la giai phap chong gian lan tuyet doi. Cac bien phap nay co the bi vuot qua va gay kho su dung tren dien thoai.
+
+Nen uu tien:
+
+- Tron thu tu cau hoi.
+- Tron thu tu dap an.
+- Tao phien ban de bat bien.
+- Ghi nhan thoi diem bat dau va nop bai phia server.
+- Ghi nhan so lan roi tab bang Page Visibility API.
+- Ghi nhan cac lan autosave va thay doi bat thuong.
+- Co the danh dau attempt can kiem tra lai.
+- Khong gui dap an dung xuong trinh duyet.
+
+Neu co quy dinh tu dong xu ly khi roi tab, nen chi danh dau canh bao o lan dau va chi xem xet tu dong nop sau khi da thong bao ro cho hoc sinh.
+
+## 10. Cache va hieu nang trong free tier
+
+### Bat buoc truoc
+
+- Them bang `exam_assignments`.
+- Them index cho assignment.
+- Them index cho `exam_attempts` theo `exam_id`, `student_id`, `status`.
+- Sua truy van danh sach de sang SQL.
+- Gop truy van trang thai attempt.
+- Phan trang trang ket qua.
+- Do thoi gian phan hoi cua cac route chinh.
+
+### Nen lam tiep ma khong phat sinh dich vu moi
+
+- Chi tai metadata de trong danh sach; chi tai `questions_json` khi bat dau lam bai.
+- Dung cache trong bo nho process cho noi dung de da xuat ban neu luong de nho. Chap nhan cache mat khi service restart.
+- Dung `selectinload` hoac `joinedload` de tranh N+1.
+- Cache metadata lop, mon hoc va loai de trong mot request hoac mot process, khong coi cache la du lieu chinh.
+- Khong cache ket qua ca nhan qua lau va khong cache du lieu nhay cam trong localStorage.
+- Dung HTTP compression va static asset versioning neu host cho phep; khong bat cache dai han cho trang dynamic co ket qua ca nhan.
+
+### Khong dua vao trong ban mien phi
+
+- Redis managed.
+- Background worker hoac job queue rieng.
+- Tach Railway service chi cho exam.
+- VPS va Cloudflare Tunnel.
+- Multi-region, autoscaling hoac database replica.
+
+### Hien tai can luu y
+
+Cau hinh connection pool trong `config.py` da co cac tuy chon quan ly ket noi. Tren free tier, khong nen tang `pool_size`, `max_overflow` hoac so worker tuy tien vi database co gioi han ket noi. Connection pool khong the khac phuc viec lay qua nhieu dong du lieu hoac truy van lap lai. Toi uu truy van va mo hinh assignment phai lam truoc khi tang tai.
+
+Neu database free co gioi han ket noi thap, uu tien mot Railway service voi so worker vua phai, dung pool nho va theo doi loi timeout. Khong tao nhieu process chi de giam response time tren ly thuyet, vi moi process co the mo them ket noi database.
+
+## 11. Sao luu va van hanh voi chi phi bang 0
+
+Free tier khong nen duoc xem la co backup va khong co downtime. Can co quy trinh toi thieu:
+
+- Sao luu database dinh ky bang `pg_dump` tu may tinh ca nhan hoac may quan tri tin cay.
+- Tai file backup ve may cuc bo va luu them mot ban tren mot dich vu luu tru mien phi khac neu chinh sach bao mat cho phep.
+- Khong luu mat khau database trong file script; dung bien moi truong hoac nhap tu terminal.
+- Thu khoi phuc mot ban backup tren database local it nhat moi thang.
+- Khong dung database free lam noi luu duy nhat cho du lieu diem va ket qua quan trong.
+- Theo doi dung luong database, so ket noi va log loi trong dashboard mien phi cua nha cung cap.
+- Neu Railway service ngu hoac cold start, giao dien phai hien thi dang ket noi lai thay vi ghi mat bai.
+
+Khong nen them job backup tu chay tren cung mot service free neu job do co the lam day quota hoac lam cham request thi. Trong giai doan dau, backup thu cong co lich ro rang an toan hon mot job chua duoc giam sat.
+
+## 12. Lua chon dang nhap
+
+### Giai doan dau: dung tai khoan phu huynh
+
+```text
+Phu huynh dang nhap
+    -> Chon hoc sinh
+        -> Xem de duoc giao
+            -> Hoc sinh lam bai
+```
+
+Uu diem:
+
+- Tai su dung co che dang nhap hien tai.
+- Khong phai tao hang tram tai khoan moi.
+- Phu hop voi luong parent dang co.
+
+### Giai doan mo rong: tai khoan rieng hoc sinh
+
+Chi nen them khi trung tam can:
+
+- Hoc sinh tu dang nhap.
+- Lam bai tai lop khong can tai khoan phu huynh.
+- Theo doi lich su hoc tap rieng.
+- Ho tro nhieu co so hoac nhieu trung tam.
+
+Khong nen thay doi dong thoi ca he thong tai khoan, assignment va ha tang thi trong mot dot.
+
+## 13. Lo trinh trien khai free-first
+
+### Dot 1: Toi uu database va giao de
+
+- Do thoi gian tai cac trang hien tai.
+- Tao migration cho `exam_assignments`.
+- Chuyen assignment theo lop cu sang bang moi.
+- Them giao de rieng cho hoc sinh.
+- Sua danh sach de dung SQL.
+- Them index.
+- Gop truy van attempt.
+- Kiem tra phan quyen va tranh truy cap cheo.
+
+### Dot 2: Hoan thien luong lam bai
+
+- Tao route lam bai rieng.
+- Hoan thien autosave.
+- Khoi phuc bai dang lam.
+- Tu dong nop khi server xac dinh het gio.
+- Luu phien ban de.
+- Hien thi trang thai dong bo.
+- Ghi nhan cold start, timeout, loi ket noi va thoi gian autosave.
+- Khong tao them service de vuot qua ket qua kiem thu ma chua danh gia quota.
+
+#### Do tai (bat buoc, khong duoc bo qua)
+
+Muc tieu do tai phai khop voi quy mo that, khong phai con so tuong trung. Neu yeu cau la 1000 hoc sinh, phai do den 1000.
+
+```text
+Dung locust hoac k6, tang dan:
+  50 user   -> ghi nhan ket qua
+  100 user  -> ghi nhan ket qua
+  300 user  -> ghi nhan ket qua
+  1000 user -> ghi nhan ket qua
+```
+
+Moi moc can ghi lai:
+
+```text
+Thoi gian phan hoi trung binh va p95
+Ty le request loi (timeout, 502, 500)
+So worker bi gunicorn kill vi qua timeout
+So loi het ket noi database
+Thoi diem he thong bat dau xuong cap
+```
+
+Con so quan trong nhat can tim la **nguong hoc sinh dong thoi ma he thong con phuc vu on dinh**. Con so do quyet dinh:
+
+- Co can doi sang worker gevent khong (muc 3.5).
+- Co can nang goi database khong.
+- Phai chia bao nhieu ca thi.
+
+Khong duoc to chuc mot dot thi that voi so luong lon hon nguong da do duoc.
+
+### Dot 3: chi mo rong khi can thiet
+
+Chi thuc hien khi co so lieu cho thay mot Railway service va database free khong dap ung duoc:
+
+- Truoc tien toi uu truy van va giam payload.
+- Sau do xem xet Redis hoac cache managed neu chi phi cho phep.
+- Tiep theo moi xem xet Railway service rieng cho exam.
+- Chi dung subdomain rieng khi co loi ich van hanh ro rang.
+- Dung pooler phu hop voi loai ket noi va nha cung cap dang su dung; khong coi pooler la cach tang quota database mien phi.
+- Uu tien log cua Railway, log ung dung va cac cong cu quan sat mien phi thay vi them he thong monitoring tra phi.
+
+## 14. Tieu chi danh gia thanh cong
+
+### Hieu nang
+
+- Trang danh sach de co it truy van va payload nho trong dieu kien service da warm.
+- Trang bat dau lam bai khong doc noi dung cua cac de khac.
+- Khong co truy van theo tung de trong trang danh sach.
+- So luong query moi request duoc theo doi va khong tang theo so luong de.
+- Co ghi nhan rieng cold start va thoi gian phan hoi database de khong nham lan hai loai cham.
+
+### Tinh dung dan
+
+- Hoc sinh chi thay de duoc giao.
+- Hoc sinh khong truy cap duoc de cua nguoi khac bang cach sua URL.
+- Bai da nop khong bi thay doi khi giao vien sua de.
+- Het gio phai duoc xu ly phia server.
+- Ket qua phai gan voi dung phien ban de da lam.
+
+### Kha nang mo rong
+
+- Ho tro giao cho lop.
+- Ho tro giao cho hoc sinh rieng.
+- Ho tro nhieu assignment cho cung mot de.
+- Co the tach dich vu thi ma khong phai viet lai nghiep vu cham diem.
+
+## 15. Ket luan
+
+Phuong an phu hop nhat la:
+
+> Giu phan tao de trong trang quan tri hien tai, xay dung module lam bai rieng dua tren bang `exam_assignments`, toi uu truy van bang SQL, luu phien ban de va autosave; sau do moi tach dich vu `exam` rieng khi co so lieu tai thuc te.
+
+Voi he thong chi dung tai nguyen mien phi, ban dau chi can mot ung dung Flask, mot database, browser storage va cache trong bo nho. Khong nen tach mot trang thi moi ngay tu dau neu nguyen nhan cham chua duoc do va xu ly. Diem can lam truoc la bo mo hinh `class_ids` dang chuoi, tranh lay toan bo de, tranh N+1 query va phan trang ket qua trong database.
+
+### Bo sung 13/09/2026: pham vi ap dung cua ket luan tren
+
+Ket luan tren **chi dung cho quy mo vai chuc nguoi dung dong thoi**, dung nhu gia dinh free-first o muc 0.
+
+Neu yeu cau that su la **1000 hoc sinh cung lam bai**, can hieu ro:
+
+1. **Phan thiet ke database cua tai lieu nay van dung va van nen lam truoc tien.** `exam_assignments`, `exam_versions`, bo `class_ids` dang chuoi, tranh N+1 — tat ca deu la no ky thuat that, can lam bat ke quy mo.
+
+2. **Nhung nhung viec do khong lam tang so nguoi dung dong thoi.** He thong hien tai chi xu ly 2 request song song (muc 3.5). Toi uu truy van lam moi request nhanh hon, khong lam duoc nhieu request cung luc hon.
+
+3. **Thu tu dung de mo rong quy mo:**
+
+```text
+Dot 1 (thiet ke DB)  -> van lam nhu tai lieu mo ta
+Chia ca thi          -> re nhat, khong can code, giam tai 5 lan
+Doi worker gevent    -> sua 1 dong Procfile + them thu vien
+Do tai that          -> tim nguong dong thoi thuc te
+Nang ha tang         -> chi khi so do chung minh la can
+```
+
+4. **Khong cam ket to chuc thi 1000 nguoi truoc khi co so lieu do tai.** Ke hoach thi phai dua tren nguong da do duoc, khong dua tren ky vong.
