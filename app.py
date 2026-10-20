@@ -9,6 +9,7 @@ def _ensure_new_columns():
     new_columns = [
         ('students', 'user_id', 'INTEGER REFERENCES users(id)'),
         ('exams', 'scoring_mode', "VARCHAR(20) NOT NULL DEFAULT 'question'"),
+        ('exams', 'scoring_config_json', "TEXT NOT NULL DEFAULT '{}'"),
         ('exams', 'is_shared_with_teachers', 'BOOLEAN NOT NULL DEFAULT FALSE'),
     ]
     try:

@@ -10,7 +10,7 @@ from blueprints.admin import admin_bp, require_admin, require_admin_or_teacher
 from blueprints.exams_shared import (
     EXAM_TYPES, DURATION_OPTIONS, SESSION_KEY,
     apply_manual_essay_scores, parse_groups_payload, require_owns_or_admin,
-    require_teacher_exam_access, session_draft,
+    require_teacher_exam_access, reset_student_exam_attempts, session_draft,
     parse_confirm_settings, parse_folder_fields,
 )
 from blueprints.pagination_utils import paginate_list
@@ -187,6 +187,7 @@ def exam_duplicate(exam_id):
         duration_minutes=original.duration_minutes,
         availability_mode='always',
         allow_attempts=original.allow_attempts,
+        scoring_config_json=original.scoring_config_json,
         shuffle_questions=True,
         shuffle_answers=True,
         is_draft=True,
@@ -252,6 +253,24 @@ def exams_results(exam_id):
     pagination = paginate_list(rows, page, per_page=50)
 
     return render_template('exams/results.html', exam=exam, rows=pagination.items, pagination=pagination)
+
+
+@admin_bp.route('/exam/<int:exam_id>/student/<int:student_id>/reset-attempts', methods=['POST'])
+@login_required
+@require_admin_or_teacher
+def exam_reset_attempts(exam_id, student_id):
+    exam = Exam.query.get_or_404(exam_id)
+    require_owns_or_admin(exam)
+    attempt_count, student_name = reset_student_exam_attempts(exam, student_id, current_user.id)
+    if attempt_count:
+        flash(
+            f'Đã xóa {attempt_count} lượt làm bài của {student_name}. '
+            'Học sinh có thể làm lại đề từ đầu.',
+            'success',
+        )
+    else:
+        flash('Học sinh không còn lịch sử làm bài của đề này.', 'info')
+    return redirect(url_for('admin.exams_results', exam_id=exam.id))
 
 
 @admin_bp.route('/exam/<int:exam_id>/attempt/<int:attempt_id>/grade', methods=['GET', 'POST'])
@@ -397,7 +416,7 @@ def exams_confirm():
     folders = ExamFolder.query.order_by(ExamFolder.name).all()
 
     if request.method == 'POST':
-        settings, error = parse_confirm_settings(request.form)
+        settings, error = parse_confirm_settings(request.form, draft['groups'])
         if error:
             flash(error, 'danger')
             return render_template('exams/confirm.html', payload=draft, classes=classes, courses=courses,
@@ -410,6 +429,7 @@ def exams_confirm():
             existing.subject = settings['subject']
             existing.exam_type = settings['exam_type']
             existing.scoring_mode = settings['scoring_mode']
+            existing.scoring_config_json = json.dumps(settings['scoring_config'])
             existing.description = settings['description']
             existing.class_ids = ','.join(settings['class_ids'])
             existing.folder_id = settings['folder_id']
@@ -435,6 +455,7 @@ def exams_confirm():
                 subject=settings['subject'],
                 exam_type=settings['exam_type'],
                 scoring_mode=settings['scoring_mode'],
+                scoring_config_json=json.dumps(settings['scoring_config']),
                 description=settings['description'],
                 class_ids=','.join(settings['class_ids']),
                 folder_id=settings['folder_id'],

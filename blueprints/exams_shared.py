@@ -10,7 +10,8 @@ import re
 from datetime import datetime
 from flask_login import current_user
 from flask import abort, session
-from models import ExamFolder
+from models import ExamAttempt, ExamFolder, ExamLog
+from extensions import db
 
 EXAM_TYPES = [
     ('practice', 'Ôn tập'),
@@ -22,7 +23,8 @@ EXAM_TYPES = [
     ('final_2', 'Cuối kì 2'),
     ('other', 'Khác'),
 ]
-DURATION_OPTIONS = [15, 20, 30, 60, 90]
+DURATION_OPTIONS = [15, 20, 30, 40, 45, 60, 90]
+DEFAULT_TRUE_FALSE_WEIGHTS = [10, 25, 50, 100]
 SESSION_KEY = 'exam_draft'
 
 GROUP_TYPES = {'mcq', 'true_false', 'short_answer', 'essay', 'error_id'}
@@ -146,6 +148,31 @@ def require_teacher_exam_access(exam, allow_shared=True):
     abort(404)
 
 
+def reset_student_exam_attempts(exam, student_id, actor_id):
+    """Delete all attempts for one student/exam while preserving an audit log."""
+    attempts = ExamAttempt.query.filter_by(exam_id=exam.id, student_id=student_id).all()
+    if not attempts:
+        return 0, None
+
+    student_name = attempts[0].student.full_name if attempts[0].student else 'Học sinh đã xóa'
+    attempt_count = len(attempts)
+    ExamAttempt.query.filter_by(exam_id=exam.id, student_id=student_id).delete(
+        synchronize_session=False
+    )
+    db.session.add(ExamLog(
+        user_id=actor_id,
+        action='reset_exam_attempts',
+        target_type='exam',
+        target_id=exam.id,
+        detail=(
+            f'Xóa {attempt_count} lượt làm bài của {student_name} '
+            f'(student_id={student_id}) khỏi đề "{exam.title}" để cho phép làm lại'
+        ),
+    ))
+    db.session.commit()
+    return attempt_count, student_name
+
+
 def session_draft():
     """Read the exam_draft session value, discarding it if missing or malformed — e.g. a stale
     shape left over from a previous schema version (session cookies persist across deploys)."""
@@ -156,7 +183,7 @@ def session_draft():
     return draft
 
 
-def parse_confirm_settings(form):
+def parse_confirm_settings(form, groups=None):
     """Parse & validate exam settings from the confirm-step form.
     Returns (settings_dict, None) on success, or (None, error_message) on validation failure."""
     subject = form.get('subject', '').strip()
@@ -164,18 +191,80 @@ def parse_confirm_settings(form):
         subject = form.get('subject_other', '').strip()
     exam_type = form.get('exam_type', 'practice')
     scoring_mode = form.get('scoring_mode', 'question')
-    if scoring_mode not in ('question', 'section'):
+    if scoring_mode not in ('question', 'section', 'question_custom', 'section_custom'):
         return None, 'Vui lòng chọn cách chia điểm hợp lệ.'
     description = form.get('description', '').strip()
     class_ids = form.getlist('class_ids')
     is_draft = form.get('is_draft') == 'on'
 
-    try:
-        duration_minutes = int(form.get('duration_minutes', 30))
-    except (ValueError, TypeError):
-        duration_minutes = 30
-    if duration_minutes not in DURATION_OPTIONS:
-        duration_minutes = 30
+    raw_duration = form.get('duration_minutes', '40')
+    if raw_duration == 'custom':
+        raw_custom_duration = form.get('duration_custom', '').strip()
+        match = re.fullmatch(r'(\d{1,2}):([0-5]\d)', raw_custom_duration)
+        if not match:
+            return None, 'Nhập thời lượng tùy chỉnh theo định dạng HH:MM, ví dụ 00:50 hoặc 01:15.'
+        duration_minutes = int(match.group(1)) * 60 + int(match.group(2))
+        if not 1 <= duration_minutes <= 1440:
+            return None, 'Thời lượng làm bài phải từ 00:01 đến 24:00.'
+    else:
+        try:
+            duration_minutes = int(raw_duration)
+        except (ValueError, TypeError):
+            return None, 'Vui lòng chọn thời lượng làm bài hợp lệ.'
+        if duration_minutes not in DURATION_OPTIONS:
+            return None, 'Vui lòng chọn thời lượng làm bài hợp lệ.'
+
+    groups = groups if isinstance(groups, list) else []
+
+    def parse_points(field_name, label):
+        raw_value = form.get(field_name, '').strip().replace(',', '.')
+        try:
+            value = float(raw_value)
+        except (TypeError, ValueError):
+            return None, f'Nhập điểm hợp lệ cho {label}.'
+        if not 0 < value <= 1000:
+            return None, f'Điểm của {label} phải lớn hơn 0 và không quá 1000.'
+        return round(value, 4), None
+
+    question_points = []
+    section_points = []
+    for group_index, group in enumerate(groups):
+        section_point, error = parse_points(
+            f'section_points_{group_index}', f'phần {group_index + 1}'
+        )
+        if error:
+            return None, error
+        section_points.append(section_point)
+
+        points_for_group = []
+        for question_index, _question in enumerate(group.get('questions', [])):
+            point, error = parse_points(
+                f'question_points_{group_index}_{question_index}',
+                f'câu {question_index + 1} phần {group_index + 1}',
+            )
+            if error:
+                return None, error
+            points_for_group.append(point)
+        question_points.append(points_for_group)
+
+    true_false_weights = []
+    for correct_count, default in enumerate(DEFAULT_TRUE_FALSE_WEIGHTS, start=1):
+        raw_weight = form.get(f'true_false_weight_{correct_count}', str(default)).strip().replace(',', '.')
+        try:
+            weight = float(raw_weight)
+        except (TypeError, ValueError):
+            return None, f'Nhập trọng số hợp lệ khi trả lời đúng {correct_count} ý.'
+        if not 0 <= weight <= 100:
+            return None, 'Trọng số câu đúng/sai phải nằm trong khoảng 0% đến 100%.'
+        true_false_weights.append(round(weight, 4))
+    if true_false_weights != sorted(true_false_weights):
+        return None, 'Trọng số đúng/sai phải tăng dần theo số ý trả lời đúng.'
+
+    scoring_config = {
+        'question_points': question_points,
+        'section_points': section_points,
+        'true_false_weights': true_false_weights,
+    }
 
     availability_mode = form.get('availability_mode', 'always')
     if availability_mode not in ('always', 'range', 'class_schedule'):
@@ -206,7 +295,7 @@ def parse_confirm_settings(form):
 
     return {
         'subject': subject or 'Chung', 'exam_type': exam_type, 'description': description,
-        'scoring_mode': scoring_mode,
+        'scoring_mode': scoring_mode, 'scoring_config': scoring_config,
         'class_ids': class_ids, 'is_draft': is_draft, 'duration_minutes': duration_minutes,
         'availability_mode': availability_mode, 'available_from': available_from, 'available_to': available_to,
         'allow_attempts': allow_attempts, 'folder_id': folder_id,

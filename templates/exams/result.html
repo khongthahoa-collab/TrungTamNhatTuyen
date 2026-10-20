@@ -19,7 +19,12 @@
       {% endif %}
       {% if result.get('pending_essay_count', 0) == 0 or not result.get('essay_questions') %}
       <div class="display-4 fw-bold text-success mb-1">{{ result.get('score_10', 0) }}<span class="fs-4 text-muted">/10</span></div>
-      <p class="text-muted mb-3">{{ 'Chia điểm theo phần' if result.get('scoring_mode') == 'section' else 'Chia điểm theo câu' }} · {{ result.get('percent', 0) }}%</p>
+      {% set scoring_mode = result.get('scoring_mode', 'question') %}
+      {% if scoring_mode == 'section' %}{% set scoring_label = 'Chia điểm đều theo phần' %}
+      {% elif scoring_mode == 'section_custom' %}{% set scoring_label = 'Điểm tùy chỉnh theo phần' %}
+      {% elif scoring_mode == 'question_custom' %}{% set scoring_label = 'Điểm tùy chỉnh theo câu' %}
+      {% else %}{% set scoring_label = 'Chia điểm đều theo câu' %}{% endif %}
+      <p class="text-muted mb-3">{{ scoring_label }} · {{ result.get('percent', 0) }}%</p>
       {% endif %}
 
       {% if result.get('breakdown') %}

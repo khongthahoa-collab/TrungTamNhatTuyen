@@ -1,0 +1,88 @@
+{% set current_scoring_config = existing.scoring_config if existing else {} %}
+<div class="form-check mb-2">
+  <input class="form-check-input scoring-mode" type="radio" name="scoring_mode" value="question" id="scoringQuestion"
+         {% if (form and form.get('scoring_mode') == 'question') or (not form and (not existing or existing.scoring_mode == 'question')) %}checked{% endif %}>
+  <label class="form-check-label" for="scoringQuestion">Theo câu — các câu có trọng số bằng nhau</label>
+</div>
+<div class="form-check mb-2">
+  <input class="form-check-input scoring-mode" type="radio" name="scoring_mode" value="section" id="scoringSection"
+         {% if (form and form.get('scoring_mode') == 'section') or (not form and existing and existing.scoring_mode == 'section') %}checked{% endif %}>
+  <label class="form-check-label" for="scoringSection">Theo phần — các phần có trọng số bằng nhau</label>
+</div>
+<div class="form-check mb-2">
+  <input class="form-check-input scoring-mode" type="radio" name="scoring_mode" value="question_custom" id="scoringQuestionCustom"
+         {% if (form and form.get('scoring_mode') == 'question_custom') or (not form and existing and existing.scoring_mode == 'question_custom') %}checked{% endif %}>
+  <label class="form-check-label" for="scoringQuestionCustom">Tự nhập điểm cho từng câu</label>
+</div>
+<div class="form-check">
+  <input class="form-check-input scoring-mode" type="radio" name="scoring_mode" value="section_custom" id="scoringSectionCustom"
+         {% if (form and form.get('scoring_mode') == 'section_custom') or (not form and existing and existing.scoring_mode == 'section_custom') %}checked{% endif %}>
+  <label class="form-check-label" for="scoringSectionCustom">Tự nhập điểm cho từng phần</label>
+</div>
+<div class="form-text mb-3">Điểm được quy đổi về thang 10. Với cách tính theo phần, điểm trong mỗi phần được chia đều cho các câu.</div>
+
+<div id="customQuestionPoints" class="border rounded p-3 mb-3 {% if not form or form.get('scoring_mode') != 'question_custom' %}d-none{% endif %}">
+  <div class="fw-semibold small mb-2">Điểm tối đa cho từng câu</div>
+  {% for group in payload.groups %}
+  {% set group_index = loop.index0 %}
+  <div class="small fw-semibold mt-2">{{ group.title }}</div>
+  <div class="row g-2">
+    {% for question in group.questions %}
+    {% set question_index = loop.index0 %}
+    {% set field_name = 'question_points_' ~ group_index ~ '_' ~ question_index %}
+    {% set saved_group = current_scoring_config.get('question_points', []) %}
+    {% set saved_points = saved_group[group_index] if group_index < saved_group|length else [] %}
+    <div class="col-6 col-md-4">
+      <label class="form-label small mb-1" for="{{ field_name }}">Câu {{ loop.index }}</label>
+      <div class="input-group input-group-sm">
+        <input class="form-control" type="number" min="0.01" max="1000" step="0.01"
+               id="{{ field_name }}" name="{{ field_name }}"
+               value="{{ form.get(field_name, saved_points[question_index] if question_index < saved_points|length else 1) if form else (saved_points[question_index] if question_index < saved_points|length else 1) }}">
+        <span class="input-group-text">điểm</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</div>
+
+<div id="customSectionPoints" class="border rounded p-3 mb-3 {% if not form or form.get('scoring_mode') != 'section_custom' %}d-none{% endif %}">
+  <div class="fw-semibold small mb-2">Điểm tối đa cho từng phần</div>
+  <div class="row g-2">
+    {% for group in payload.groups %}
+    {% set field_name = 'section_points_' ~ loop.index0 %}
+    {% set saved_points = current_scoring_config.get('section_points', []) %}
+    <div class="col-6 col-md-4">
+      <label class="form-label small mb-1" for="{{ field_name }}">{{ group.title }}</label>
+      <div class="input-group input-group-sm">
+        <input class="form-control" type="number" min="0.01" max="1000" step="0.01"
+               id="{{ field_name }}" name="{{ field_name }}"
+               value="{{ form.get(field_name, saved_points[loop.index0] if loop.index0 < saved_points|length else 1) if form else (saved_points[loop.index0] if loop.index0 < saved_points|length else 1) }}">
+        <span class="input-group-text">điểm</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% if payload.groups | selectattr('type', 'equalto', 'true_false') | list %}
+<div class="border rounded p-3">
+  <div class="fw-semibold small mb-1">Trọng số câu Đúng/Sai</div>
+  <div class="form-text mb-2">Tỉ lệ điểm nhận được theo số ý đúng; áp dụng cho mỗi câu Đúng/Sai và có thể điều chỉnh.</div>
+  <div class="row g-2">
+    {% set weights = current_scoring_config.get('true_false_weights', [10, 25, 50, 100]) %}
+    {% for correct_count in range(1, 5) %}
+    {% set field_name = 'true_false_weight_' ~ correct_count %}
+    <div class="col-6 col-md-3">
+      <label class="form-label small mb-1" for="{{ field_name }}">Đúng {{ correct_count }} ý</label>
+      <div class="input-group input-group-sm">
+        <input class="form-control" type="number" min="0" max="100" step="0.1"
+               id="{{ field_name }}" name="{{ field_name }}"
+               value="{{ form.get(field_name, weights[correct_count - 1]) if form else weights[correct_count - 1] }}">
+        <span class="input-group-text">%</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}

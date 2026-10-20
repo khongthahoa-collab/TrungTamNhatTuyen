@@ -586,7 +586,7 @@ def _ordered_questions(exam, order_data):
 
 
 def _grade_attempt(exam, attempt, form):
-    """Grade using the exam's per-question or equal-per-section weighting."""
+    """Grade with the exam's configured question/section points and TF rubric."""
     order_data = attempt.order_data
     groups_order = order_data.get('groups') or []
     breakdown = []
@@ -594,6 +594,12 @@ def _grade_attempt(exam, attempt, form):
     total_earned = 0.0
     total_weight = 0
     essay_questions = []
+    scoring_config = exam.scoring_config
+    configured_question_points = scoring_config.get('question_points', [])
+    configured_section_points = scoring_config.get('section_points', [])
+    true_false_weights = scoring_config.get('true_false_weights', [10, 25, 50, 100])
+    custom_question_points = exam.scoring_mode == 'question_custom'
+    custom_section_points = exam.scoring_mode == 'section_custom'
 
     for gi, group in enumerate(exam.question_groups):
         go = groups_order[gi] if gi < len(groups_order) else {}
@@ -603,15 +609,28 @@ def _grade_attempt(exam, attempt, form):
         opt_orders = go.get('opt_orders') or {}
         group_earned = 0.0
         group_total = 0.0
-        question_weight = 1 / len(questions) if (
-            exam.scoring_mode == 'section' and questions
-        ) else 1.0
+        section_points = (
+            configured_section_points[gi]
+            if custom_section_points and gi < len(configured_section_points)
+            else 1.0
+        )
+        question_points = (
+            configured_question_points[gi]
+            if custom_question_points and gi < len(configured_question_points)
+            else []
+        )
 
         for position, orig_qi in enumerate(q_order, start=1):
             if orig_qi >= len(questions):
                 continue
             q = questions[orig_qi]
             field = f'g{gi}_q{position}'
+            if exam.scoring_mode in ('section', 'section_custom'):
+                question_weight = section_points / len(questions) if questions else 0
+            elif custom_question_points and orig_qi < len(question_points):
+                question_weight = question_points[orig_qi]
+            else:
+                question_weight = 1.0
             group_total += question_weight
             earned = 0.0
 
@@ -637,7 +656,14 @@ def _grade_attempt(exam, attempt, form):
                         if (raw_val == '1') == bool(statements[orig_si].get('correct')):
                             correct_subs += 1
                 normalized[field] = chosen
-                earned = (correct_subs / len(statements)) if statements else 0.0
+                if statements and correct_subs == len(statements):
+                    earned = float(true_false_weights[3]) / 100
+                elif statements and correct_subs:
+                    weight_index = min(
+                        2,
+                        round((correct_subs - 1) * 3 / max(1, len(statements) - 1)),
+                    )
+                    earned = float(true_false_weights[weight_index]) / 100
             elif gtype == 'short_answer':
                 raw_answer = form.get(field, '').strip()
                 normalized[field] = raw_answer

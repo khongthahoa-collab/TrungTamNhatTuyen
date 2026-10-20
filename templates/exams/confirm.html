@@ -120,25 +120,26 @@
       <div class="card border-0 shadow-sm mb-3">
         <div class="card-body">
           <h6 class="fw-semibold mb-2"><i class="bi bi-calculator me-1 text-success"></i>Cách chia điểm</h6>
-          <div class="form-check mb-2">
-            <input class="form-check-input" type="radio" name="scoring_mode" value="question" id="scoringQuestion"
-                   {% if (form and form.get('scoring_mode') == 'question') or (not form and (not existing or existing.scoring_mode != 'section')) %}checked{% endif %}>
-            <label class="form-check-label" for="scoringQuestion">Theo câu — các câu có trọng số bằng nhau</label>
-          </div>
-          <div class="form-check">
-            <input class="form-check-input" type="radio" name="scoring_mode" value="section" id="scoringSection"
-                   {% if (form and form.get('scoring_mode') == 'section') or (not form and existing and existing.scoring_mode == 'section') %}checked{% endif %}>
-            <label class="form-check-label" for="scoringSection">Theo phần — mỗi phần có trọng số bằng nhau</label>
-          </div>
-          <div class="form-text mb-3">Điểm được quy đổi về thang 10. Với cách tính theo phần, các câu trong cùng phần chia đều điểm của phần đó; câu Đúng/Sai vẫn được điểm từng ý.</div>
+          {% include 'exams/_scoring_setup.html' %}
           <hr>
           <h6 class="fw-semibold mb-3"><i class="bi bi-clock-history me-1 text-success"></i>Thời lượng làm bài</h6>
           <div class="d-flex flex-wrap gap-2">
             {% for d in durations %}
-            <input type="radio" class="btn-check" name="duration_minutes" value="{{ d }}" id="dur_{{ d }}"
-                   {% if (form and form.get('duration_minutes')==d|string) or (not form and existing and existing.duration_minutes==d) or (not form and not existing and d==30) %}checked{% endif %}>
+            <input type="radio" class="btn-check duration-choice" name="duration_minutes" value="{{ d }}" id="dur_{{ d }}"
+                   {% if (form and form.get('duration_minutes')==d|string) or (not form and existing and existing.duration_minutes==d) or (not form and not existing and d==40) %}checked{% endif %}>
             <label class="btn btn-outline-success" for="dur_{{ d }}">{{ d }} phút</label>
             {% endfor %}
+            <input type="radio" class="btn-check duration-choice" name="duration_minutes" value="custom" id="dur_custom"
+                   {% if (form and form.get('duration_minutes')=='custom') or (not form and existing and existing.duration_minutes not in durations) %}checked{% endif %}>
+            <label class="btn btn-outline-success" for="dur_custom">Tùy chỉnh</label>
+          </div>
+          <div class="mt-2" id="customDurationBox">
+            <label class="form-label small mb-1" for="durationCustom">Thời lượng tùy chỉnh (HH:MM)</label>
+            <input type="text" inputmode="numeric" pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]|24:00"
+                   class="form-control form-control-sm" id="durationCustom" name="duration_custom"
+                   placeholder="HH:MM, ví dụ 00:50"
+                   value="{{ form.get('duration_custom', '') if form else ('%02d:%02d'|format(existing.duration_minutes // 60, existing.duration_minutes % 60) if existing and existing.duration_minutes not in durations else '') }}">
+            <div class="form-text">Ví dụ 00:50 là 50 phút, 01:15 là 1 giờ 15 phút (tối đa 24 giờ).</div>
           </div>
         </div>
       </div>
@@ -243,6 +244,29 @@ function syncAvailability() {
 }
 availRadios.forEach(r => r.addEventListener('change', syncAvailability));
 syncAvailability();
+
+const scoringModes = document.querySelectorAll('.scoring-mode');
+const customQuestionPoints = document.getElementById('customQuestionPoints');
+const customSectionPoints = document.getElementById('customSectionPoints');
+function syncScoringOptions() {
+  const mode = document.querySelector('.scoring-mode:checked')?.value;
+  customQuestionPoints.classList.toggle('d-none', mode !== 'question_custom');
+  customSectionPoints.classList.toggle('d-none', mode !== 'section_custom');
+}
+scoringModes.forEach(input => input.addEventListener('change', syncScoringOptions));
+syncScoringOptions();
+
+const durationChoices = document.querySelectorAll('.duration-choice');
+const customDurationBox = document.getElementById('customDurationBox');
+const customDurationInput = document.getElementById('durationCustom');
+function syncCustomDuration() {
+  const custom = document.querySelector('.duration-choice:checked')?.value === 'custom';
+  customDurationBox.classList.toggle('d-none', !custom);
+  customDurationInput.disabled = !custom;
+  customDurationInput.required = custom;
+}
+durationChoices.forEach(input => input.addEventListener('change', syncCustomDuration));
+syncCustomDuration();
 
 // Suggest attempt setting based on exam type (admin can still override)
 const examTypeSelect = document.getElementById('examTypeSelect');

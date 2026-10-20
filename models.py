@@ -229,12 +229,13 @@ class Exam(db.Model):
     description = db.Column(db.Text)
     class_ids = db.Column(db.Text, default='')
     folder_id = db.Column(db.Integer, db.ForeignKey('exam_folders.id'), nullable=True)
-    duration_minutes = db.Column(db.Integer, default=30)
+    duration_minutes = db.Column(db.Integer, default=40)
     availability_mode = db.Column(db.String(30), default='always')
     available_from = db.Column(db.DateTime)
     available_to = db.Column(db.DateTime)
     allow_attempts = db.Column(db.Integer, default=1)
     scoring_mode = db.Column(db.String(20), nullable=False, default='question', server_default='question')
+    scoring_config_json = db.Column(db.Text, nullable=False, default='{}', server_default='{}')
     shuffle_questions = db.Column(db.Boolean, default=True)
     shuffle_answers = db.Column(db.Boolean, default=True)
     is_draft = db.Column(db.Boolean, default=False)
@@ -265,6 +266,14 @@ class Exam(db.Model):
             data = {}
         groups = data.get('groups') if isinstance(data, dict) else None
         return groups if isinstance(groups, list) else []
+
+    @property
+    def scoring_config(self):
+        try:
+            config = json.loads(self.scoring_config_json or '{}')
+        except (TypeError, ValueError):
+            config = {}
+        return config if isinstance(config, dict) else {}
 
     @property
     def all_questions(self):

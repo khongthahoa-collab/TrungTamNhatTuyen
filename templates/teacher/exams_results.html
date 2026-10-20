@@ -24,6 +24,7 @@
             <th class="text-center">Thời gian làm bài</th>
             <th class="text-center">Số lần cảnh cáo</th>
             <th class="text-center">Tự luận</th>
+            <th class="text-end pe-3">Làm lại</th>
           </tr>
         </thead>
         <tbody>
@@ -69,10 +70,21 @@
               {% endif %}
               {% endfor %}
             </td>
+            <td class="text-end pe-3">
+              {% if row.student %}
+              <form method="post" action="{{ url_for('teacher.exam_reset_attempts', exam_id=exam.id, student_id=row.student.id) }}"
+                    onsubmit="return confirm('Xóa toàn bộ lượt đã nộp, đang làm và chờ chấm của học sinh này? Học sinh sẽ được làm lại đề từ đầu. Thao tác này không thể hoàn tác.')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-outline-danger btn-sm">
+                  <i class="bi bi-arrow-counterclockwise me-1"></i>Cho làm lại
+                </button>
+              </form>
+              {% endif %}
+            </td>
           </tr>
           {% else %}
           <tr>
-            <td colspan="6" class="text-center text-muted py-4">
+            <td colspan="7" class="text-center text-muted py-4">
               <i class="bi bi-bar-chart d-block mb-2 fs-4"></i>Chưa có học sinh nào làm bài
             </td>
           </tr>
