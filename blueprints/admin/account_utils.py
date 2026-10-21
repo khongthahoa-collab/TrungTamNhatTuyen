@@ -23,8 +23,10 @@ def next_username(role):
         n += 1
 
 
-def next_student_username(full_name, current_grade):
-    """Build a readable student username and append a number when it exists."""
+def next_student_username(full_name, current_grade, taken=None):
+    """Build a readable student username and append a number when it exists.
+    `taken` (a set of lower-cased usernames) replaces the per-candidate DB
+    lookup for bulk creation; the chosen name is added to it."""
     normalized_name = unicodedata.normalize(
         'NFKD', (full_name or '').replace('Đ', 'D').replace('đ', 'd')
     )
@@ -37,8 +39,15 @@ def next_student_username(full_name, current_grade):
     base = base[:50]
     candidate = base
     suffix = 2
-    while User.query.filter(func.lower(User.username) == candidate.lower()).first():
+    def exists(name):
+        if taken is not None:
+            return name.lower() in taken
+        return User.query.filter(func.lower(User.username) == name.lower()).first() is not None
+
+    while exists(candidate):
         suffix_text = str(suffix)
         candidate = f'{base[:50 - len(suffix_text)]}{suffix_text}'
         suffix += 1
+    if taken is not None:
+        taken.add(candidate.lower())
     return candidate
