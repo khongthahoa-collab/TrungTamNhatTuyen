@@ -1100,3 +1100,41 @@ footer a:hover { color: #fff !important; }
 .acct-action-toggle:hover  { background: #fdd9ae; }
 .acct-action-delete  { background: #fee2e2; color: #991b1b; }
 .acct-action-delete:hover  { background: #fdc9c9; }
+
+.exam-take-page { max-width: 720px; }
+.exam-take-toolbar { top: calc(56px + env(safe-area-inset-top)); z-index: 90; }
+.exam-take-toolbar-title { min-width: 0; }
+.exam-take-title,
+.exam-take-subtitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exam-question-title,
+.exam-answer-option > span { min-width: 0; overflow-wrap: anywhere; }
+.exam-answer-option { cursor: pointer; }
+.exam-bottom-actions button { min-height: 48px; }
+
+@media (max-width: 576px) {
+  .exam-take-page { padding: .5rem .65rem 1rem; }
+  .exam-take-toolbar .card-body { padding: .5rem .6rem; }
+  .exam-take-title { font-size: .9rem; }
+  .exam-take-subtitle { font-size: .7rem !important; }
+  .exam-take-toolbar .btn { min-height: 42px; padding: .35rem .55rem !important; white-space: nowrap; }
+  .exam-take-toolbar .fs-5 { font-size: 1rem !important; }
+  .exam-take-toolbar-caption { display: none; }
+  .exam-take-page .alert { padding: .6rem .7rem; line-height: 1.4; }
+  .exam-question-group-heading { margin-top: 1.25rem !important; }
+  .exam-take-page [data-exam-question] .card-body { padding: .85rem .75rem; }
+  .exam-question-title { font-size: .98rem; }
+  .exam-answer-option { min-height: 50px; padding: .65rem .7rem; align-items: flex-start !important; }
+  .exam-answer-radio { flex: 0 0 auto; width: 1.15em; height: 1.15em; margin-top: .2rem !important; }
+  .exam-true-false-row { display: grid !important; grid-template-columns: minmax(0, 1fr) auto; }
+  .exam-true-false-row > span { grid-column: 1 / -1; }
+  .exam-choice-button { min-width: 64px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  .exam-take-page input[type="text"],
+  .exam-take-page textarea { font-size: 16px; }
+  .exam-bottom-actions button { min-height: 50px; }
+  .exam-take-page mjx-container[display="true"] {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+}
