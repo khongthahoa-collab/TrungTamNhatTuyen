@@ -29,7 +29,7 @@
     <div class="fw-semibold">Câu {{ index }}. {{ q.text | error_id_render }}</div>
   {% endif %}
   {% if q.explanation %}
-  <div class="small text-muted ms-3 mt-1"><i class="bi bi-lightbulb me-1"></i><span class="exam-math">{{ q.explanation }}</span></div>
+  <div class="small text-muted ms-3 mt-1"><i class="bi bi-lightbulb me-1"></i><div class="exam-math">{{ q.explanation | markdown }}</div></div>
   {% endif %}
 {% endmacro %}
 

@@ -49,9 +49,9 @@
             <div class="fw-semibold mb-2">
               Câu {{ question.position }}. <span class="exam-math">{{ question.text }}</span>
             </div>
-            <div class="small">
+            <div class="small exam-math">
               <i class="bi bi-chat-square-text me-1 text-primary"></i>
-              <span class="exam-math">{{ question.explanation }}</span>
+              <div class="exam-explanation-markdown">{{ question.explanation | markdown }}</div>
             </div>
           </div>
           {% endfor %}

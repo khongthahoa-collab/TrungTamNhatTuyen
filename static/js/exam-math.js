@@ -9,7 +9,13 @@
   });
 
   window.MathJax = {
-    loader: { load: ['[tex]/mhchem', '[ui]/safe'] },
+    loader: {
+      paths: {
+        mathjax: 'https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5',
+        ui: '[mathjax]/ui',
+      },
+      load: ['[tex]/mhchem', '[ui]/safe'],
+    },
     tex: {
       inlineMath: [['\\(', '\\)'], ['$', '$']],
       displayMath: [['\\[', '\\]'], ['$$', '$$']],

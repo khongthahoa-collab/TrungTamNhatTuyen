@@ -283,4 +283,9 @@ def create_app(config_name=None):
 
         return Markup(re.sub(r'\[(\*?)([A-F]):([^\]]*)\]', repl, escaped))
 
+    @app.template_filter('markdown')
+    def markdown_render(text):
+        from services.markdown_utils import render_markdown
+        return render_markdown(text)
+
     return app
