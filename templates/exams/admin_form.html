@@ -325,30 +325,34 @@ function parseFromText(text) {
 // ────────────────────────────────────────────────────────────
 const ERROR_ID_PATTERN = /\[(\*?)([A-F]):([^\]]*)\]/g;
 
+function escapePreviewText(text) {
+  return escapeHtml(text).replace(/\\n|\n/g, '<br>');
+}
+
 function renderErrorIdPreview(text) {
   if (!text) return '<span class="text-muted fst-italic">(chưa có nội dung)</span>';
-  return escapeHtml(text).replace(/\[(\*?)([A-F]):([^\]]*)\]/g, (m, star, label, seg) => {
+  return escapePreviewText(text).replace(/\[(\*?)([A-F]):([^\]]*)\]/g, (m, star, label, seg) => {
     const cls = star ? 'text-success fw-bold' : '';
-    return `<span class="${cls}" style="text-decoration:underline;">${escapeHtml(seg)}</span><sup>${label}</sup>`;
+    return `<span class="${cls}" style="text-decoration:underline;">${escapePreviewText(seg)}</span><sup>${label}</sup>`;
   });
 }
 
 function renderMathPreview(g, q) {
-  const lines = [`<div>${escapeHtml(q.text || 'Nội dung câu hỏi sẽ hiển thị tại đây.').replace(/\n/g, '<br>')}</div>`];
+  const lines = [`<div>${escapePreviewText(q.text || 'Nội dung câu hỏi sẽ hiển thị tại đây.')}</div>`];
   if (g.type === 'mcq') {
     (q.options || []).forEach((option, index) => {
-      lines.push(`<div>${LETTERS[index]}. ${escapeHtml(option)}</div>`);
+      lines.push(`<div>${LETTERS[index]}. ${escapePreviewText(option)}</div>`);
     });
   } else if (g.type === 'true_false') {
     (q.statements || []).forEach((statement, index) => {
-      lines.push(`<div>${SL[index]}) ${escapeHtml(statement.text)}</div>`);
+      lines.push(`<div>${SL[index]}) ${escapePreviewText(statement.text)}</div>`);
     });
   } else if (g.type === 'short_answer') {
     (q.accepted_answers || []).forEach(answer => {
-      lines.push(`<div>Đáp án: ${escapeHtml(answer)}</div>`);
+      lines.push(`<div>Đáp án: ${escapePreviewText(answer)}</div>`);
     });
   }
-  if (q.explanation) lines.push(`<div class="text-muted">Giải thích: ${escapeHtml(q.explanation).replace(/\n/g, '<br>')}</div>`);
+  if (q.explanation) lines.push(`<div class="text-muted">Giải thích: ${escapePreviewText(q.explanation)}</div>`);
   return `<div class="exam-math exam-math-preview small bg-light rounded p-2 mt-2" data-exam-math>
     <div class="text-muted fw-semibold mb-1">Xem trước công thức</div>${lines.join('')}
   </div>`;
