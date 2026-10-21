@@ -722,8 +722,10 @@ def _grade_attempt(exam, attempt, form):
                 normalized[field] = raw_choice
                 if raw_choice:
                     try:
-                        chosen_orig = opt_order[int(raw_choice) - 1]
-                        earned = 1.0 if chosen_orig == q.get('correct_index') else 0.0
+                        chosen_position = int(raw_choice)
+                        if 1 <= chosen_position <= len(opt_order):
+                            chosen_orig = opt_order[chosen_position - 1]
+                            earned = 1.0 if chosen_orig == q.get('correct_index') else 0.0
                     except (ValueError, IndexError):
                         pass
             elif gtype == 'true_false':
@@ -939,15 +941,27 @@ def exam_submit(student_id, exam_id):
         abort(403)
     student = _get_student_or_403(student_id)
     exam = Exam.query.get_or_404(exam_id)
+    if exam.is_draft or exam not in _exams_for_student(student):
+        abort(404)
 
     attempt = ExamAttempt.query.filter_by(exam_id=exam.id, student_id=student.id, status='in_progress').order_by(
         ExamAttempt.started_at.desc()).first()
     if not attempt:
         return redirect(_exam_url('exam_result', student_id=student.id, exam_id=exam.id))
 
-    normalized, result = _grade_attempt(exam, attempt, request.form)
+    expired = (datetime.utcnow() - attempt.started_at).total_seconds() >= exam.duration_minutes * 60
+    if expired:
+        answers = attempt.order_data.get('draft_answers', {})
+        if not isinstance(answers, dict):
+            answers = {}
+    else:
+        answers = request.form
+    normalized, result = _grade_attempt(exam, attempt, answers)
     try:
-        cheat_count = int(request.form.get('cheat_count', 0)) if exam.exam_type != 'practice' else 0
+        cheat_count = (
+            int(request.form.get('cheat_count', 0))
+            if exam.exam_type != 'practice' and not expired else 0
+        )
     except (ValueError, TypeError):
         cheat_count = 0
     was_flagged = cheat_count > CHEAT_LIMIT
@@ -983,6 +997,8 @@ def exam_result(student_id, exam_id):
     student = _get_student_or_403(student_id)
     children = current_user.children.filter_by(is_active=True).all() if current_user.is_parent else []
     exam = Exam.query.get_or_404(exam_id)
+    if exam.is_draft or exam not in _exams_for_student(student):
+        abort(404)
 
     attempt = ExamAttempt.query.filter_by(exam_id=exam.id, student_id=student.id, status='submitted').order_by(
         ExamAttempt.started_at.desc()).first()

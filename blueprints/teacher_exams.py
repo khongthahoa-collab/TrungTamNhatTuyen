@@ -626,7 +626,7 @@ def exams_confirm():
             folder = ExamFolder.query.get(settings['folder_id'])
             if not folder or folder.created_by != current_user.id:
                 abort(403)
-            if folder.id != (existing.folder_id if existing else None) and not _folder_matches_assignment(
+            if not _folder_matches_assignment(
                 folder, settings['subject'], [int(class_id) for class_id in settings['class_ids']]
             ):
                 flash('Thư mục phải cùng môn học hoặc thuộc một trong các lớp được giao.', 'warning')
