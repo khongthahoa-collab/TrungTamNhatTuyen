@@ -40,6 +40,12 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="cheat_count" id="cheatCountField" value="0">
 
+    <div class="d-grid gap-2 mt-3">
+      <button type="submit" class="btn btn-primary py-2 fw-semibold" id="submitBtnTop">
+        <i class="bi bi-check-circle me-1"></i>Nộp bài
+      </button>
+    </div>
+
     {% for group in questions %}
     <div class="mt-4 mb-2">
       <h6 class="fw-bold text-success mb-1">{{ group.title }}</h6>

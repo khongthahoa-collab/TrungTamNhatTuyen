@@ -585,32 +585,86 @@ def _ordered_questions(exam, order_data):
     return display_groups
 
 
-def _ordered_explanations(exam, order_data):
-    """Build explanations in the order the student saw them, for submitted results only."""
+def _review_attempt_answers(exam, attempt):
+    """Build submitted answers and correct answers in the order the student saw them."""
+    order_data = attempt.order_data
+    submitted_answers = attempt.answers
     groups_order = order_data.get('groups') or []
-    explanation_groups = []
+    answer_groups = []
     for gi, group in enumerate(exam.question_groups):
         questions = group.get('questions', [])
         go = groups_order[gi] if gi < len(groups_order) else {}
+        group_type = group.get('type')
         q_order = go.get('q_order') or list(range(len(questions)))
-        explanations = []
+        opt_orders = go.get('opt_orders') or {}
+        reviewed_questions = []
         for position, orig_qi in enumerate(q_order, start=1):
             if orig_qi >= len(questions):
                 continue
             question = questions[orig_qi]
-            explanation = (question.get('explanation') or '').strip()
-            if explanation:
-                explanations.append({
-                    'position': position,
-                    'text': question.get('text', ''),
-                    'explanation': explanation,
-                })
-        if explanations:
-            explanation_groups.append({
+            field = f'g{gi}_q{position}'
+            reviewed = {
+                'position': position,
+                'text': question.get('text', ''),
+                'explanation': (question.get('explanation') or '').strip(),
+            }
+            if group_type == 'mcq':
+                options = question.get('options', [])
+                option_order = opt_orders.get(str(orig_qi)) or list(range(len(options)))
+                raw_choice = submitted_answers.get(field, '')
+                try:
+                    selected_position = int(raw_choice) if raw_choice else None
+                except (ValueError, TypeError):
+                    selected_position = None
+                correct_index = question.get('correct_index')
+                correct_position = next(
+                    (i for i, original_index in enumerate(option_order, start=1)
+                     if original_index == correct_index),
+                    None,
+                )
+                reviewed['options'] = [
+                    {
+                        'label': chr(ord('A') + display_index),
+                        'text': options[original_index],
+                        'selected': selected_position == display_index + 1,
+                        'correct': correct_position == display_index + 1,
+                    }
+                    for display_index, original_index in enumerate(option_order)
+                    if original_index < len(options)
+                ]
+            elif group_type == 'true_false':
+                statements = question.get('statements', [])
+                option_order = opt_orders.get(str(orig_qi)) or list(range(len(statements)))
+                submitted = submitted_answers.get(field, {})
+                if not isinstance(submitted, dict):
+                    submitted = {}
+                reviewed['statements'] = [
+                    {
+                        'label': chr(ord('a') + display_index),
+                        'text': statements[original_index].get('text', ''),
+                        'selected': submitted.get(str(display_index + 1), ''),
+                        'correct': bool(statements[original_index].get('correct')),
+                    }
+                    for display_index, original_index in enumerate(option_order)
+                    if original_index < len(statements)
+                ]
+            elif group_type == 'short_answer':
+                reviewed['student_answer'] = submitted_answers.get(field, '')
+                reviewed['correct_answers'] = question.get('accepted_answers', [])
+            elif group_type == 'essay':
+                reviewed['student_answer'] = submitted_answers.get(field, '')
+            elif group_type == 'error_id':
+                reviewed['student_answer'] = submitted_answers.get(field, '')
+                reviewed['correct_answer'] = question.get('correct_label', '')
+            reviewed_questions.append(reviewed)
+
+        if reviewed_questions:
+            answer_groups.append({
                 'title': group.get('title', ''),
-                'questions': explanations,
+                'type': group_type,
+                'questions': reviewed_questions,
             })
-    return explanation_groups
+    return answer_groups
 
 
 def _grade_attempt(exam, attempt, form):
@@ -941,4 +995,4 @@ def exam_result(student_id, exam_id):
 
     return render_template('exams/result.html', exam=exam, attempt=attempt, student=student, children=children,
                            can_retake=can_retake,
-                           explanation_groups=_ordered_explanations(exam, attempt.order_data))
+                           answer_groups=_review_attempt_answers(exam, attempt))

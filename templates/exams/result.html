@@ -1,7 +1,7 @@
 {% extends 'student/base.html' if current_user.is_student else 'parent/base.html' %}
 {% block extra_head %}{% include 'exams/_mathjax.html' %}{% endblock %}
 {% block content %}
-<div class="container py-3" style="max-width:640px;">
+<div class="container py-3" style="max-width:840px;">
   <div class="card border-0 shadow-sm">
     <div class="card-body text-center">
       <h4 class="fw-bold mb-1">{{ exam.title }}</h4>
@@ -38,21 +38,73 @@
       </div>
       {% endif %}
 
-      {% if explanation_groups %}
+      {% if answer_groups %}
       <div class="text-start mt-4">
-        <h5 class="fw-bold mb-3"><i class="bi bi-lightbulb me-1 text-warning"></i>Giải thích đáp án</h5>
-        {% for group in explanation_groups %}
+        <h5 class="fw-bold mb-3"><i class="bi bi-journal-check me-1 text-primary"></i>Bài làm và đáp án</h5>
+        {% for group in answer_groups %}
         <section class="mb-3">
           {% if group.title %}<h6 class="fw-semibold text-success">{{ group.title }}</h6>{% endif %}
           {% for question in group.questions %}
           <div class="border rounded p-3 mb-2">
             <div class="fw-semibold mb-2">
-              Câu {{ question.position }}. <span class="exam-math">{{ question.text }}</span>
+              Câu {{ question.position }}. <span class="exam-math">{{ question.text | error_id_render }}</span>
             </div>
-            <div class="small exam-math">
+            {% if group.type == 'mcq' %}
+              {% for option in question.options %}
+              <div class="d-flex align-items-start gap-2 small rounded p-2 mb-1
+                          {% if option.correct %}bg-success-subtle{% elif option.selected %}bg-danger-subtle{% endif %}">
+                <span class="fw-semibold">{{ option.label }}.</span>
+                <span class="exam-math flex-grow-1">{{ option.text }}</span>
+                {% if option.selected %}
+                <span class="badge {% if option.correct %}text-bg-success{% else %}text-bg-danger{% endif %} flex-shrink-0">
+                  Em chọn
+                </span>
+                {% endif %}
+                {% if option.correct %}
+                <span class="badge text-bg-success flex-shrink-0">Đáp án đúng</span>
+                {% endif %}
+              </div>
+              {% endfor %}
+              {% if not question.options | selectattr('selected') | list %}
+              <div class="small text-muted">Em chưa chọn đáp án.</div>
+              {% endif %}
+            {% elif group.type == 'true_false' %}
+              {% for statement in question.statements %}
+              {% set chosen = statement.selected == '1' %}
+              <div class="d-flex flex-wrap align-items-center gap-2 small rounded p-2 mb-1
+                          {% if statement.selected != '' and chosen == statement.correct %}bg-success-subtle{% elif statement.selected != '' %}bg-danger-subtle{% endif %}">
+                <span class="fw-semibold">{{ statement.label }})</span>
+                <span class="exam-math flex-grow-1">{{ statement.text }}</span>
+                <span class="text-muted">Em chọn: <strong>{{ 'Chưa trả lời' if statement.selected == '' else 'Đúng' if chosen else 'Sai' }}</strong></span>
+                <span class="text-success">Đáp án: <strong>{{ 'Đúng' if statement.correct else 'Sai' }}</strong></span>
+              </div>
+              {% endfor %}
+            {% elif group.type == 'short_answer' %}
+              <div class="small mb-1">Em trả lời:
+                <span class="exam-math fw-semibold" style="white-space:pre-wrap;">{{ question.student_answer or 'Chưa trả lời' }}</span>
+              </div>
+              <div class="small text-success">Đáp án đúng:
+                <span class="exam-math fw-semibold">{{ question.correct_answers | join(' | ') }}</span>
+              </div>
+            {% elif group.type == 'essay' %}
+              <div class="small mb-1">Em trả lời:
+                <div class="border rounded bg-light p-2 mt-1 exam-math" style="white-space:pre-wrap;">{{ question.student_answer or 'Chưa trả lời' }}</div>
+              </div>
+              <div class="small text-muted">Câu tự luận được giáo viên chấm thủ công.</div>
+            {% elif group.type == 'error_id' %}
+              <div class="small mb-1">Em chọn:
+                <span class="fw-semibold">{{ question.student_answer or 'Chưa trả lời' }}</span>
+              </div>
+              <div class="small text-success">Đáp án đúng:
+                <span class="fw-semibold">{{ question.correct_answer }}</span>
+              </div>
+            {% endif %}
+            {% if question.explanation %}
+            <div class="small exam-math mt-2">
               <i class="bi bi-chat-square-text me-1 text-primary"></i>
               <div class="exam-explanation-markdown">{{ question.explanation | markdown }}</div>
             </div>
+            {% endif %}
           </div>
           {% endfor %}
         </section>
