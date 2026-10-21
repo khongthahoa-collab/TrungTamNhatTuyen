@@ -1,4 +1,5 @@
 import os
+import re
 from flask import Flask, request
 from config import config
 from extensions import db, login_manager, csrf, migrate
