@@ -17,6 +17,7 @@
     </div>
   </div>
 
+  {% if track_screen_exits %}
   <div class="alert alert-warning small d-flex align-items-start gap-2 mb-3">
     <i class="bi bi-exclamation-triangle-fill mt-1"></i>
     <div>
@@ -25,6 +26,7 @@
       Đã vi phạm: <span id="cheatCountDisplay">0</span>/{{ cheat_limit }}
     </div>
   </div>
+  {% endif %}
 
   <div class="alert alert-info small d-flex align-items-start gap-2 mb-3">
     <i class="bi bi-cloud-check mt-1"></i>
@@ -122,6 +124,7 @@
 {% block extra_js %}
 <script>
 const form = document.getElementById('examForm');
+const trackScreenExits = {{ 'true' if track_screen_exits else 'false' }};
 const cheatField = document.getElementById('cheatCountField');
 const cheatDisplay = document.getElementById('cheatCountDisplay');
 const timerDisplay = document.getElementById('timerDisplay');
@@ -173,7 +176,7 @@ const timerInterval = setInterval(() => {
 
 // ── Anti-cheat: detect tab switch / window blur (treated as "leaving the exam screen") ──
 function flagViolation() {
-  if (submitted) return;
+  if (!trackScreenExits || submitted) return;
   cheatCount += 1;
   cheatField.value = cheatCount;
   cheatDisplay.textContent = cheatCount;
@@ -184,10 +187,12 @@ function flagViolation() {
   }
 }
 
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) flagViolation();
-});
-window.addEventListener('blur', flagViolation);
+if (trackScreenExits) {
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) flagViolation();
+  });
+  window.addEventListener('blur', flagViolation);
+}
 
 // Note: autoSubmit() calls form.submit() directly, which bypasses this listener entirely
 // (a browser quirk vs. requestSubmit()) — so this only ever runs for genuine user clicks.

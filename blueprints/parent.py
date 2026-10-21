@@ -796,6 +796,7 @@ def exam_take(student_id, exam_id):
 
     return render_template('exams/take.html', exam=exam, attempt=attempt, student=student, children=children,
                            questions=questions, remaining_seconds=remaining_seconds, cheat_limit=CHEAT_LIMIT,
+                           track_screen_exits=exam.exam_type != 'practice',
                            draft_answers=draft_answers,
                            save_progress_url=_exam_url('exam_save_progress', student_id=student.id, exam_id=exam.id),
                            exams_list_url=_exam_url('exams', student_id=student.id))
@@ -864,7 +865,7 @@ def exam_submit(student_id, exam_id):
 
     normalized, result = _grade_attempt(exam, attempt, request.form)
     try:
-        cheat_count = int(request.form.get('cheat_count', 0))
+        cheat_count = int(request.form.get('cheat_count', 0)) if exam.exam_type != 'practice' else 0
     except (ValueError, TypeError):
         cheat_count = 0
     was_flagged = cheat_count > CHEAT_LIMIT
