@@ -1,0 +1,98 @@
+{% extends 'teacher/base.html' %}
+{% block title %}{{ 'Bảng xếp hạng' if leaderboard else 'Thống kê đề thi' }} – Giáo viên – Nhật Tuyền{% endblock %}
+{% block content %}
+<div class="container-fluid px-3 pt-3">
+  <a href="{{ url_for('teacher.exams_list', folder_id=exam.folder_id) }}"
+     class="small text-decoration-none text-muted d-block mb-1">
+    <i class="bi bi-arrow-left me-1"></i>Quay lại danh sách đề
+  </a>
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+      <h5 class="fw-bold mb-1">{{ exam.title }}</h5>
+      <div class="text-muted small">{{ exam.subject }} · {{ exam.type_label }}</div>
+    </div>
+    <div class="btn-group btn-group-sm" role="group" aria-label="Chế độ xem">
+      <a class="btn {% if not leaderboard %}btn-primary{% else %}btn-outline-primary{% endif %}"
+         href="{{ url_for('teacher.exams_statistics', exam_id=exam.id) }}">Thống kê</a>
+      <a class="btn {% if leaderboard %}btn-primary{% else %}btn-outline-primary{% endif %}"
+         href="{{ url_for('teacher.exams_leaderboard', exam_id=exam.id) }}">Bảng xếp hạng</a>
+    </div>
+  </div>
+
+  {% if leaderboard %}
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-3">Hạng</th>
+              <th>Học sinh</th>
+              <th class="text-center">Điểm</th>
+              <th class="text-end pe-3">Thời gian</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+            <tr>
+              <td class="ps-3 fw-bold">{{ loop.index }}</td>
+              <td>{{ row.student.full_name }}</td>
+              <td class="text-center"><span class="badge bg-primary">{{ row.score }}/10</span></td>
+              <td class="text-end pe-3 small">
+                {% if row.duration is not none %}
+                  {{ (row.duration // 60)|int }} phút {{ '%02d' % (row.duration % 60) }} giây
+                {% else %}—{% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="4" class="text-center text-muted py-4">
+                Chưa có bài đã chấm để xếp hạng. Bài còn chờ chấm tự luận sẽ chưa được tính.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <p class="small text-muted mt-2 mb-0">Xếp theo điểm cao nhất của mỗi học sinh; nếu bằng điểm, ưu tiên thời gian làm nhanh hơn.</p>
+  {% else %}
+  <div class="row g-3">
+    <div class="col-6 col-xl-3">
+      <div class="card border-0 shadow-sm h-100"><div class="card-body">
+        <div class="small text-muted">Bài đã nộp</div>
+        <div class="fs-4 fw-bold">{{ metrics.submitted_attempts }}</div>
+        <div class="small text-muted">{{ metrics.submitted_students }} học sinh</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-xl-3">
+      <div class="card border-0 shadow-sm h-100"><div class="card-body">
+        <div class="small text-muted">Tỷ lệ nộp</div>
+        <div class="fs-4 fw-bold">{{ metrics.submitted_students }}/{{ metrics.assigned_students }}</div>
+        <div class="small text-muted">học sinh đã nộp / được giao</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-xl-3">
+      <div class="card border-0 shadow-sm h-100"><div class="card-body">
+        <div class="small text-muted">Điểm trung bình</div>
+        <div class="fs-4 fw-bold">{{ metrics.average_score if metrics.average_score is not none else '—' }}</div>
+        <div class="small text-muted">trên 10 · bài đã chấm</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-xl-3">
+      <div class="card border-0 shadow-sm h-100"><div class="card-body">
+        <div class="small text-muted">Đang làm / chờ chấm</div>
+        <div class="fs-4 fw-bold">{{ metrics.in_progress }} / {{ metrics.pending_essay_questions }}</div>
+        <div class="small text-muted">lượt thi / câu tự luận cần chấm</div>
+      </div></div>
+    </div>
+  </div>
+  {% if metrics.flagged_students %}
+  <div class="alert alert-warning small mt-3 mb-0">
+    Có {{ metrics.flagged_students }} học sinh đã bị đánh dấu cảnh báo trong các lượt đã nộp.
+  </div>
+  {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

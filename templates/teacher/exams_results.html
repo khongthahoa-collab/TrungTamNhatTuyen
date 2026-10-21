@@ -4,7 +4,7 @@
 <div class="container-fluid px-3 pt-3">
 <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
   <div>
-    <a href="{{ url_for('teacher.exams_list') }}" class="small text-decoration-none text-muted d-block mb-1">
+    <a href="{{ url_for('teacher.exams_list', folder_id=exam.folder_id) }}" class="small text-decoration-none text-muted d-block mb-1">
       <i class="bi bi-arrow-left me-1"></i>Đề thi online
     </a>
     <h5 class="fw-bold mb-1">{{ exam.title }}</h5>

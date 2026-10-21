@@ -30,4 +30,4 @@ RUN mkdir -p uploads/documents uploads/students
 EXPOSE 10000
 
 # Run application - bind to $PORT (Railway) or 5000 (local)
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-5000} --workers 2 --timeout 120 --access-logfile - --error-logfile - wsgi:app"]
+CMD ["sh", "-c", "python migrate_add_exam_folder_parent.py && gunicorn --bind 0.0.0.0:${PORT:-5000} --workers 2 --timeout 120 --access-logfile - --error-logfile - wsgi:app"]

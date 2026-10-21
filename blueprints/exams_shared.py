@@ -381,6 +381,8 @@ def parse_folder_fields(form):
 
     if not name:
         return None, 'Vui lòng nhập tên thư mục.'
+    if len(name) > 200:
+        return None, 'Tên thư mục không được vượt quá 200 ký tự.'
     if scope_type == 'class' and not class_id:
         return None, 'Vui lòng chọn lớp cho thư mục.'
     if scope_type == 'subject' and not subject:

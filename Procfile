@@ -6,4 +6,4 @@
 # phép xử lý song song, giảm hẳn rủi ro 1 request chậm làm nghẽn cả server.
 # Bắt đầu ở mức thận trọng (2) vì chưa rõ RAM của gói Railway đang dùng —
 # có thể tăng thêm nếu theo dõi thấy dư tài nguyên.
-web: gunicorn wsgi:app --workers 2
+web: python migrate_add_exam_folder_parent.py && gunicorn wsgi:app --workers 2

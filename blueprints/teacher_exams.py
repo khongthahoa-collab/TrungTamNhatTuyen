@@ -9,7 +9,7 @@ from flask import abort, render_template, redirect, url_for, flash, request, ses
 from flask_login import login_required, current_user
 from sqlalchemy.orm import joinedload
 from extensions import db
-from models import Exam, ExamLog, ExamAttempt, ExamFolder, Class, Course, User
+from models import Exam, ExamLog, ExamAttempt, ExamFolder, Class, Course, Enrollment, Student, User
 from blueprints.teacher import _teacher_score_class_ids, teacher_bp, require_teacher
 from blueprints.exams_shared import (
     EXAM_TYPES, DURATION_OPTIONS, SESSION_KEY,
@@ -41,16 +41,33 @@ def _validate_teacher_class_ids(class_ids):
         abort(403)
 
 
+def _folder_matches_exam(folder, exam):
+    return _folder_matches_assignment(folder, exam.subject, exam.class_list)
+
+
+def _folder_matches_assignment(folder, subject, class_ids):
+    if not folder:
+        return True
+    if folder.scope_type == 'class':
+        return not class_ids or folder.class_id in class_ids
+    return not subject or (folder.subject or '').casefold() == subject.casefold()
+
+
 @teacher_bp.route('/exams')
 @login_required
 @require_teacher
 def exams_list():
     folder_id = request.args.get('folder_id', type=int)
+    reuse_mode = request.args.get('reuse') == '1'
+    current_folder = None
+    if folder_id and not reuse_mode:
+        current_folder = ExamFolder.query.filter_by(
+            id=folder_id, created_by=current_user.id
+        ).first_or_404()
     subject = request.args.get('subject', '').strip()
     exam_type = request.args.get('exam_type', '').strip()
     class_id = request.args.get('class_id', type=int)
     status = request.args.get('status', '').strip()
-    reuse_mode = request.args.get('reuse') == '1'
     search = request.args.get('q', '').strip()
 
     # Each teacher only sees exams they created themselves — not other teachers'/admin's.
@@ -64,8 +81,8 @@ def exams_list():
             query = query.filter(db.or_(Exam.title.ilike(f'%{search}%'),
                                         Exam.subject.ilike(f'%{search}%'),
                                         Exam.creator.has(User.full_name.ilike(f'%{search}%'))))
-    if folder_id:
-        query = query.filter_by(folder_id=folder_id)
+    if not reuse_mode:
+        query = query.filter_by(folder_id=folder_id) if folder_id else query.filter(Exam.folder_id.is_(None))
     if subject:
         query = query.filter_by(subject=subject)
     if exam_type:
@@ -80,10 +97,88 @@ def exams_list():
         exams = [e for e in exams if class_id in e.class_list]
 
     folders = ExamFolder.query.filter_by(created_by=current_user.id).order_by(ExamFolder.name).all()
+    child_folders = [
+        folder for folder in folders
+        if folder.parent_id == (current_folder.id if current_folder else None)
+    ]
+    folder_exam_counts = {
+        folder_row[0]: folder_row[1]
+        for folder_row in db.session.query(Exam.folder_id, db.func.count(Exam.id)).filter(
+            Exam.created_by == current_user.id,
+            Exam.folder_id.isnot(None),
+        ).group_by(Exam.folder_id).all()
+    }
     classes = _teacher_accessible_classes()
     courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
+    exam_ids = [exam.id for exam in exams]
+    submission_counts = {}
+    active_exam_ids = set()
+    exams_with_attempts = set()
+    if exam_ids:
+        exams_with_attempts = {
+            exam_id for exam_id, in db.session.query(ExamAttempt.exam_id).filter(
+                ExamAttempt.exam_id.in_(exam_ids)
+            ).distinct().all()
+        }
+        for row in db.session.query(
+            ExamAttempt.exam_id,
+            db.func.count(ExamAttempt.id),
+            db.func.count(db.func.distinct(ExamAttempt.student_id)),
+        ).filter(
+            ExamAttempt.exam_id.in_(exam_ids),
+            ExamAttempt.status == 'submitted',
+            ExamAttempt.student_id.isnot(None),
+        ).group_by(ExamAttempt.exam_id).all():
+            submission_counts[row[0]] = {'attempts': row[1], 'students': row[2]}
+        active_exam_ids = {
+            exam_id for exam_id, in db.session.query(ExamAttempt.exam_id).filter(
+                ExamAttempt.exam_id.in_(exam_ids),
+                ExamAttempt.status == 'in_progress',
+            ).distinct().all()
+        }
 
-    return render_template('teacher/exams_list.html', exams=exams, folders=folders, classes=classes,
+    class_ids = {class_id for exam in exams for class_id in exam.class_list}
+    classes_by_id = {
+        cls.id: cls.name for cls in Class.query.filter(Class.id.in_(class_ids)).all()
+    } if class_ids else {}
+    enrolled_students_by_class = {}
+    if class_ids:
+        for enrolled_class_id, student_id in db.session.query(
+            Enrollment.class_id, Enrollment.student_id
+        ).join(Student, Student.id == Enrollment.student_id).filter(
+            Enrollment.class_id.in_(class_ids),
+            Enrollment.is_active.is_(True),
+            Student.is_active.is_(True),
+            Student.is_deleted.is_(False),
+        ).distinct().all():
+            enrolled_students_by_class.setdefault(enrolled_class_id, set()).add(student_id)
+
+    exam_rows = []
+    for exam in exams:
+        submitted = submission_counts.get(exam.id, {'attempts': 0, 'students': 0})
+        assigned_students = set()
+        for assigned_class_id in exam.class_list:
+            assigned_students.update(enrolled_students_by_class.get(assigned_class_id, set()))
+        exam_rows.append({
+            'exam': exam,
+            'submission_count': submitted['attempts'],
+            'submitted_students': submitted['students'],
+            'assigned_students': len(assigned_students),
+            'class_names': [classes_by_id[class_id] for class_id in exam.class_list if class_id in classes_by_id],
+            'active_attempts': exam.id in active_exam_ids,
+            'has_attempts': exam.id in exams_with_attempts,
+        })
+
+    breadcrumbs = []
+    folder = current_folder
+    while folder:
+        breadcrumbs.append(folder)
+        folder = folder.parent
+    breadcrumbs.reverse()
+
+    return render_template('teacher/exams_list.html', exams=exams, exam_rows=exam_rows,
+                           folders=folders, child_folders=child_folders, current_folder=current_folder,
+                           folder_exam_counts=folder_exam_counts, breadcrumbs=breadcrumbs, classes=classes,
                            courses=courses, exam_types=EXAM_TYPES,
                            folder_id=folder_id, subject=subject, exam_type=exam_type,
                            class_id=class_id, status=status, reuse_mode=reuse_mode, search=search)
@@ -93,7 +188,27 @@ def exams_list():
 @login_required
 @require_teacher
 def exam_folder_create():
-    fields, error = parse_folder_fields(request.form)
+    parent_id = request.form.get('parent_folder_id', type=int)
+    parent_folder = None
+    if parent_id:
+        parent_folder = ExamFolder.query.filter_by(
+            id=parent_id, created_by=current_user.id
+        ).first_or_404()
+        name = request.form.get('name', '').strip()
+        if not name:
+            fields, error = None, 'Vui lòng nhập tên thư mục.'
+        elif len(name) > 200:
+            fields, error = None, 'Tên thư mục không được vượt quá 200 ký tự.'
+        else:
+            fields, error = {
+                'name': name,
+                'parent_id': parent_folder.id,
+                'scope_type': parent_folder.scope_type,
+                'class_id': parent_folder.class_id,
+                'subject': parent_folder.subject,
+            }, None
+    else:
+        fields, error = parse_folder_fields(request.form)
     if error:
         flash(error, 'danger')
     else:
@@ -103,6 +218,8 @@ def exam_folder_create():
         db.session.add(folder)
         db.session.commit()
         flash(f'Đã tạo thư mục "{folder.name}".', 'success')
+        if parent_folder:
+            return redirect(url_for('teacher.exams_list', folder_id=parent_folder.id))
     return redirect(url_for('teacher.exams_list'))
 
 
@@ -189,7 +306,7 @@ def exam_toggle_sharing(exam_id):
 
     if request.form.get('return_to') == 'preview':
         return redirect(url_for('teacher.exams_preview', exam_id=exam.id))
-    list_args = {'reuse': '1'} if request.form.get('reuse') == '1' else {}
+    list_args = {'reuse': '1'} if request.form.get('reuse') == '1' else {'folder_id': exam.folder_id}
     return redirect(url_for('teacher.exams_list', **list_args))
 
 
@@ -201,7 +318,174 @@ def exam_publish(exam_id):
     require_owns_or_admin(exam)
     published, message = publish_exam(exam, current_user.id)
     flash(message, 'success' if published else 'warning')
-    return redirect(url_for('teacher.exams_list'))
+    return redirect(url_for('teacher.exams_list', folder_id=exam.folder_id))
+
+
+@teacher_bp.route('/exams/<int:exam_id>/unpublish', methods=['POST'])
+@login_required
+@require_teacher
+def exam_unpublish(exam_id):
+    exam = Exam.query.get_or_404(exam_id)
+    require_owns_or_admin(exam)
+    active_attempts = ExamAttempt.query.filter_by(exam_id=exam.id, status='in_progress').count()
+    if active_attempts:
+        flash('Chưa thể hủy xuất bản khi học sinh đang làm bài.', 'warning')
+    elif exam.is_draft:
+        flash('Đề thi này hiện đang ở trạng thái nháp.', 'info')
+    else:
+        exam.is_draft = True
+        db.session.add(ExamLog(
+            user_id=current_user.id, action='unpublish_exam', target_type='exam',
+            target_id=exam.id, detail=f'Hủy xuất bản đề "{exam.title}"',
+        ))
+        db.session.commit()
+        flash('Đã hủy xuất bản đề. Lịch sử bài làm được giữ nguyên.', 'success')
+    return redirect(url_for('teacher.exams_list', folder_id=exam.folder_id))
+
+
+@teacher_bp.route('/exams/<int:exam_id>/settings', methods=['POST'])
+@login_required
+@require_teacher
+def exam_settings(exam_id):
+    exam = Exam.query.get_or_404(exam_id)
+    require_owns_or_admin(exam)
+    title = request.form.get('title', '').strip()
+    folder_id = request.form.get('folder_id', type=int)
+    folder = ExamFolder.query.filter_by(
+        id=folder_id, created_by=current_user.id
+    ).first() if folder_id else None
+    if not title:
+        flash('Tên đề thi không được để trống.', 'danger')
+    elif len(title) > 200:
+        flash('Tên đề thi không được vượt quá 200 ký tự.', 'danger')
+    elif folder_id and not folder:
+        abort(403)
+    elif folder and folder.id != exam.folder_id and not _folder_matches_exam(folder, exam):
+        flash('Thư mục không phù hợp với môn học hoặc lớp được giao của đề.', 'warning')
+    else:
+        old_title = exam.title
+        exam.title = title
+        exam.folder_id = folder.id if folder else None
+        db.session.add(ExamLog(
+            user_id=current_user.id, action='update_exam_settings', target_type='exam',
+            target_id=exam.id, detail=f'Cập nhật cài đặt đề "{old_title}"',
+        ))
+        db.session.commit()
+        flash('Đã cập nhật cài đặt đề thi.', 'success')
+    return redirect(url_for('teacher.exams_list', folder_id=exam.folder_id))
+
+
+@teacher_bp.route('/exams/<int:exam_id>/move', methods=['POST'])
+@login_required
+@require_teacher
+def exam_move(exam_id):
+    exam = Exam.query.get_or_404(exam_id)
+    require_owns_or_admin(exam)
+    folder_id = request.form.get('folder_id', type=int)
+    folder = ExamFolder.query.filter_by(
+        id=folder_id, created_by=current_user.id
+    ).first() if folder_id else None
+    if folder_id and not folder:
+        abort(403)
+    if folder and folder.id == exam.folder_id:
+        flash('Đề thi hiện đã ở trong thư mục được chọn.', 'info')
+    elif not _folder_matches_exam(folder, exam):
+        flash('Không thể chuyển đề vào thư mục khác môn học hoặc lớp được giao.', 'warning')
+    else:
+        exam.folder_id = folder.id if folder else None
+        db.session.add(ExamLog(
+            user_id=current_user.id, action='move_exam_folder', target_type='exam',
+            target_id=exam.id,
+            detail=f'Chuyển đề "{exam.title}" đến {folder.path_label if folder else "Tất cả"}',
+        ))
+        db.session.commit()
+        flash('Đã chuyển đề đến thư mục mới.', 'success')
+    return redirect(url_for('teacher.exams_list', folder_id=exam.folder_id))
+
+
+def _exam_submitted_attempts(exam):
+    return ExamAttempt.query.options(joinedload(ExamAttempt.student)).filter_by(
+        exam_id=exam.id, status='submitted'
+    ).filter(ExamAttempt.student_id.isnot(None)).order_by(ExamAttempt.started_at.desc()).all()
+
+
+@teacher_bp.route('/exams/<int:exam_id>/statistics')
+@login_required
+@require_teacher
+def exams_statistics(exam_id):
+    exam = Exam.query.get_or_404(exam_id)
+    require_owns_or_admin(exam)
+    attempts = _exam_submitted_attempts(exam)
+    submitted_student_ids = {attempt.student_id for attempt in attempts}
+    assigned_class_ids = exam.class_list
+    assigned_student_ids = set()
+    if assigned_class_ids:
+        assigned_student_ids = {
+            student_id for student_id, in db.session.query(Enrollment.student_id).join(
+                Student, Student.id == Enrollment.student_id
+            ).filter(
+                Enrollment.class_id.in_(assigned_class_ids),
+                Enrollment.is_active.is_(True),
+                Student.is_active.is_(True),
+                Student.is_deleted.is_(False),
+            ).distinct().all()
+        }
+    graded_scores = [
+        attempt.result.get('score_10', 0)
+        for attempt in attempts if not attempt.result.get('pending_essay_count', 0)
+    ]
+    metrics = {
+        'submitted_attempts': len(attempts),
+        'submitted_students': len(submitted_student_ids),
+        'assigned_students': len(assigned_student_ids),
+        'in_progress': ExamAttempt.query.filter_by(exam_id=exam.id, status='in_progress').count(),
+        'pending_essay_questions': sum(
+            attempt.result.get('pending_essay_count', 0) for attempt in attempts
+        ),
+        'average_score': round(sum(graded_scores) / len(graded_scores), 1) if graded_scores else None,
+        'flagged_students': len({attempt.student_id for attempt in attempts if attempt.was_flagged}),
+    }
+    return render_template('teacher/exam_insights.html', exam=exam, metrics=metrics, rows=[],
+                           leaderboard=False)
+
+
+@teacher_bp.route('/exams/<int:exam_id>/leaderboard')
+@login_required
+@require_teacher
+def exams_leaderboard(exam_id):
+    exam = Exam.query.get_or_404(exam_id)
+    require_owns_or_admin(exam)
+    best_by_student = {}
+    for attempt in _exam_submitted_attempts(exam):
+        result = attempt.result
+        if result.get('pending_essay_count', 0) or not attempt.student:
+            continue
+        duration = (
+            (attempt.submitted_at - attempt.started_at).total_seconds()
+            if attempt.submitted_at and attempt.started_at else float('inf')
+        )
+        candidate = {
+            'student': attempt.student,
+            'score': result.get('score_10', 0),
+            'duration': duration if duration != float('inf') else None,
+        }
+        previous = best_by_student.get(attempt.student_id)
+        candidate_duration = candidate['duration'] if candidate['duration'] is not None else float('inf')
+        previous_duration = previous['duration'] if previous and previous['duration'] is not None else float('inf')
+        if not previous or (-candidate['score'], candidate_duration) < (
+            -previous['score'], previous_duration
+        ):
+            best_by_student[attempt.student_id] = candidate
+    rows = sorted(
+        best_by_student.values(),
+        key=lambda row: (
+            -row['score'],
+            row['duration'] if row['duration'] is not None else float('inf'),
+            row['student'].full_name.casefold(),
+        ),
+    )
+    return render_template('teacher/exam_insights.html', exam=exam, metrics=None, rows=rows,
+                           leaderboard=True)
 
 
 @teacher_bp.route('/exams/<int:exam_id>/results')
@@ -342,6 +626,11 @@ def exams_confirm():
             folder = ExamFolder.query.get(settings['folder_id'])
             if not folder or folder.created_by != current_user.id:
                 abort(403)
+            if folder.id != (existing.folder_id if existing else None) and not _folder_matches_assignment(
+                folder, settings['subject'], [int(class_id) for class_id in settings['class_ids']]
+            ):
+                flash('Thư mục phải cùng môn học hoặc thuộc một trong các lớp được giao.', 'warning')
+                return _render_exam_confirm(draft, existing=existing, form=request.form)
 
         if existing:
             had_attempts = existing.attempts.count() > 0
@@ -409,12 +698,16 @@ def exams_confirm():
 def exams_delete(exam_id):
     exam = Exam.query.get_or_404(exam_id)
     require_owns_or_admin(exam)
+    folder_id = exam.folder_id
+    if exam.attempts.count():
+        flash('Không thể xóa đề đã có lịch sử làm bài. Hãy hủy xuất bản để ẩn đề và giữ kết quả.', 'warning')
+        return redirect(url_for('teacher.exams_list', folder_id=folder_id))
     db.session.delete(exam)
     db.session.add(ExamLog(user_id=current_user.id, action='delete_exam', target_type='exam', target_id=exam.id,
                            detail=f'Xóa đề "{exam.title}"'))
     db.session.commit()
     flash('Đã xóa đề thi.', 'success')
-    return redirect(url_for('teacher.exams_list'))
+    return redirect(url_for('teacher.exams_list', folder_id=folder_id))
 
 
 @teacher_bp.route('/exams/<int:exam_id>/preview')

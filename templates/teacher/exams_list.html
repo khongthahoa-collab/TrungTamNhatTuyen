@@ -13,7 +13,7 @@
   <div class="d-flex flex-wrap gap-2">
     {% if not reuse_mode %}
     <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#newExamFolderModal">
-      <i class="bi bi-folder-plus me-1"></i>Tạo thư mục
+      <i class="bi bi-folder-plus me-1"></i>{{ 'Tạo thư mục con' if current_folder else 'Tạo thư mục' }}
     </button>
     {% endif %}
     <a href="{{ url_for('teacher.exams_new') }}" class="btn btn-primary">
@@ -35,11 +35,16 @@
       <form method="post" action="{{ url_for('teacher.exam_folder_create') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="modal-body">
+          {% if current_folder %}
+          <input type="hidden" name="parent_folder_id" value="{{ current_folder.id }}">
+          <div class="alert alert-info small">Thư mục con của <strong>{{ current_folder.path_label }}</strong>; phạm vi được kế thừa: {{ current_folder.scope_label }}.</div>
+          {% endif %}
           <div class="mb-3">
             <label class="form-label fw-semibold" for="newExamFolderName">Tên thư mục</label>
             <input type="text" id="newExamFolderName" name="name" class="form-control" required maxlength="200"
-                   placeholder="VD: Đề ôn thi giữa kì 1">
+                   placeholder="VD: Giữa kỳ 1">
           </div>
+          {% if not current_folder %}
           <fieldset class="mb-3">
             <legend class="form-label fw-semibold mb-2">Tạo theo</legend>
             <div class="form-check">
@@ -68,6 +73,7 @@
               {% for course in courses %}<option value="{{ course.name }}">{{ course.name }}</option>{% endfor %}
             </select>
           </div>
+          {% endif %}
         </div>
         <div class="modal-footer border-0">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
@@ -166,19 +172,57 @@
   {% endfor %}
 </div>
 {% else %}
-<!-- Bộ lọc -->
+<nav aria-label="Đường dẫn thư mục đề thi" class="mb-3">
+  <ol class="breadcrumb mb-0">
+    <li class="breadcrumb-item"><a href="{{ url_for('teacher.exams_list') }}">Tất cả</a></li>
+    {% for folder in breadcrumbs %}
+    <li class="breadcrumb-item {% if loop.last %}active{% endif %}">
+      {% if loop.last %}{{ folder.name }}{% else %}
+      <a href="{{ url_for('teacher.exams_list', folder_id=folder.id) }}">{{ folder.name }}</a>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+</nav>
+
+{% if current_folder %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+  <div>
+    <h6 class="fw-bold mb-1"><i class="bi bi-folder2-open text-warning me-1"></i>{{ current_folder.name }}</h6>
+    <div class="small text-muted">{{ current_folder.scope_label }} · {{ child_folders|length }} thư mục con · {{ folder_exam_counts.get(current_folder.id, 0) }} đề trực tiếp</div>
+  </div>
+  {% if current_folder.parent_id %}
+  <a href="{{ url_for('teacher.exams_list', folder_id=current_folder.parent_id) }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-up me-1"></i>Thư mục cha
+  </a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if child_folders %}
+<div class="row g-2 mb-3">
+  {% for folder in child_folders %}
+  <div class="col-12 col-sm-6 col-xl-4">
+    <a href="{{ url_for('teacher.exams_list', folder_id=folder.id) }}"
+       class="card exam-folder-card h-100 border-0 shadow-sm text-decoration-none">
+      <div class="card-body py-3 d-flex align-items-center gap-3">
+        <i class="bi bi-folder-fill text-warning fs-3"></i>
+        <div class="min-w-0">
+          <div class="fw-semibold text-body text-truncate">{{ folder.name }}</div>
+          <div class="small text-muted">{{ folder.scope_label }} · {{ folder_exam_counts.get(folder.id, 0) }} đề</div>
+        </div>
+        <i class="bi bi-chevron-right ms-auto text-muted"></i>
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
 <div class="card border-0 shadow-sm mb-3">
   <div class="card-body py-3">
     <form method="get" class="row g-2 align-items-end">
-      <div class="col-6 col-md-2">
-        <label class="form-label small fw-semibold mb-1">Thư mục</label>
-        <select name="folder_id" class="form-select form-select-sm">
-          <option value="">Tất cả thư mục</option>
-          {% for folder in folders %}
-          <option value="{{ folder.id }}" {% if folder_id == folder.id %}selected{% endif %}>{{ folder.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
+      {% if current_folder %}<input type="hidden" name="folder_id" value="{{ current_folder.id }}">{% endif %}
       <div class="col-6 col-md-2">
         <label class="form-label small fw-semibold mb-1">Môn</label>
         <select name="subject" class="form-select form-select-sm">
@@ -216,7 +260,8 @@
       </div>
       <div class="col-12 d-flex gap-2 justify-content-end align-items-center">
         <button type="submit" class="btn btn-primary btn-sm">Lọc</button>
-        <a href="{{ url_for('teacher.exams_list') }}" class="btn btn-outline-secondary btn-sm" title="Xóa lọc"><i class="bi bi-x"></i></a>
+        <a href="{{ url_for('teacher.exams_list', folder_id=current_folder.id) if current_folder else url_for('teacher.exams_list') }}"
+           class="btn btn-outline-secondary btn-sm" title="Xóa lọc"><i class="bi bi-x"></i></a>
       </div>
     </form>
   </div>
@@ -225,35 +270,51 @@
 <div class="card border-0 shadow-sm">
   <div class="card-body p-0">
     <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
+      <table class="table table-hover align-middle mb-0 exam-list-table">
         <thead class="table-light">
           <tr>
             <th>Tên đề</th>
-            <th>Môn</th>
-            <th>Loại</th>
-            <th>Số câu</th>
-            <th>Thời lượng</th>
-            <th>Số lần làm</th>
+            <th class="text-center">Số bài đã nộp</th>
             <th>Trạng thái</th>
-            <th>Tình trạng thi</th>
-            <th>Ngày tạo</th>
+            <th>Lớp đã giao</th>
             <th class="text-end">Thao tác</th>
           </tr>
         </thead>
         <tbody>
-          {% for exam in exams %}
-          <tr>
+          {% for row in exam_rows %}
+          {% set exam = row.exam %}
+          <tr class="exam-list-row"
+              data-exam-preview="{{ url_for('teacher.exams_preview', exam_id=exam.id) }}"
+              data-exam-results="{{ url_for('teacher.exams_results', exam_id=exam.id) }}"
+              data-exam-settings="{{ url_for('teacher.exam_settings', exam_id=exam.id) }}"
+              data-exam-edit="{{ url_for('teacher.exams_edit', exam_id=exam.id) }}"
+              data-exam-statistics="{{ url_for('teacher.exams_statistics', exam_id=exam.id) }}"
+              data-exam-leaderboard="{{ url_for('teacher.exams_leaderboard', exam_id=exam.id) }}"
+              data-exam-share="{{ url_for('teacher.exam_toggle_sharing', exam_id=exam.id) }}"
+              data-exam-publish="{{ url_for('teacher.exam_publish', exam_id=exam.id) }}"
+              data-exam-unpublish="{{ url_for('teacher.exam_unpublish', exam_id=exam.id) }}"
+              data-exam-duplicate="{{ url_for('teacher.exam_duplicate', exam_id=exam.id) }}"
+              data-exam-move="{{ url_for('teacher.exam_move', exam_id=exam.id) }}"
+              data-exam-delete="{{ url_for('teacher.exams_delete', exam_id=exam.id) }}"
+              data-exam-copy-link="{{ url_for('student.exam_take', exam_id=exam.id, _external=True) }}"
+              data-exam-title="{{ exam.title }}"
+              data-exam-folder="{{ exam.folder_id or '' }}"
+              data-exam-subject="{{ exam.subject }}"
+              data-exam-class-ids="{{ exam.class_list|join(',') }}"
+              data-exam-draft="{{ 'true' if exam.is_draft else 'false' }}"
+              data-exam-shared="{{ 'true' if exam.is_shared_with_teachers else 'false' }}"
+              data-exam-active-attempts="{{ 'true' if row.active_attempts else 'false' }}"
+              data-exam-has-attempts="{{ 'true' if row.has_attempts else 'false' }}">
             <td class="fw-semibold">
-              {{ exam.title }}
-              {% if exam.folder %}<div class="small text-muted"><i class="bi bi-folder me-1"></i>{{ exam.folder.name }}</div>{% endif %}
+              <div>{{ exam.title }}</div>
+              <div class="small text-muted">{{ exam.subject }} · {{ exam.type_label }} · {{ exam.total_question_count }} câu</div>
             </td>
-            <td>{{ exam.subject }}</td>
-            <td>{{ exam.type_label }}</td>
-            <td>{{ exam.total_question_count }} <span class="text-muted small">({{ exam.question_groups | length }} phần)</span></td>
-            <td>{{ exam.duration_minutes }} phút</td>
-            <td>{% if exam.is_unlimited_attempts %}Không giới hạn{% else %}{{ exam.allow_attempts }} lần{% endif %}</td>
-            <td>{% if exam.is_draft %}<span class="badge bg-secondary">Nháp</span>{% else %}<span class="badge bg-success">Đã đăng</span>{% endif %}</td>
+            <td class="text-center">
+              <span class="fw-semibold">{{ row.submission_count }}</span>
+              <div class="small text-muted">{{ row.submitted_students }}/{{ row.assigned_students }} học sinh</div>
+            </td>
             <td>
+              {% if exam.is_draft %}<span class="badge bg-secondary">Nháp</span>{% else %}<span class="badge bg-success">Đã đăng</span>{% endif %}
               {% if not exam.is_draft %}
                 {% set ts = exam.taken_status %}
                 <span class="badge {% if ts == 'taken' %}bg-primary{% elif ts == 'expired' %}bg-danger{% else %}bg-warning text-dark{% endif %}">
@@ -261,45 +322,124 @@
                 </span>
               {% else %}<span class="text-muted small">—</span>{% endif %}
             </td>
-            <td class="small text-muted">{{ exam.created_at | date_vn if exam.created_at else '—' }}</td>
+            <td>
+              {% for class_name in row.class_names %}
+              <span class="badge bg-light text-dark border me-1 mb-1">{{ class_name }}</span>
+              {% else %}<span class="text-muted small">Chưa giao lớp</span>{% endfor %}
+            </td>
             <td class="text-end">
-              <div class="d-flex gap-1 justify-content-end">
-                <a href="{{ url_for('teacher.exams_preview', exam_id=exam.id) }}" class="btn btn-outline-primary btn-sm" title="Xem">
+              <div class="d-inline-flex gap-1 align-items-center">
+                <a href="{{ url_for('teacher.exams_preview', exam_id=exam.id) }}" class="btn btn-outline-secondary btn-sm" title="Xem nội dung">
                   <i class="bi bi-eye"></i>
                 </a>
-                <a href="{{ url_for('teacher.exams_results', exam_id=exam.id) }}" class="btn btn-outline-info btn-sm" title="Kết quả làm bài">
-                  <i class="bi bi-bar-chart-line"></i>
-                </a>
-                <a href="{{ url_for('teacher.exams_edit', exam_id=exam.id) }}" class="btn btn-outline-secondary btn-sm" title="Chỉnh sửa">
-                  <i class="bi bi-pencil"></i>
-                </a>
-                {% if exam.is_draft and exam.created_by == current_user.id %}
-                <form method="post" action="{{ url_for('teacher.exam_publish', exam_id=exam.id) }}">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <select class="form-select form-select-sm" aria-label="Đổi trạng thái đề"
-                          onchange="if (this.value === 'published') { if (confirm('Đăng đề này cho học sinh?')) this.form.requestSubmit(); else this.value = 'draft'; }">
-                    <option value="draft" selected>Lưu nháp</option>
-                    <option value="published">Đã đăng</option>
-                  </select>
-                </form>
-                {% endif %}
-                <form method="post" action="{{ url_for('teacher.exams_delete', exam_id=exam.id) }}"
-                      onsubmit="return confirm('Xóa đề này?')">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <button type="submit" class="btn btn-outline-danger btn-sm" title="Xóa đề" aria-label="Xóa đề">
-                    <i class="bi bi-trash"></i>
-                  </button>
-                </form>
+                <button type="button" class="btn btn-outline-primary btn-sm exam-context-trigger"
+                        aria-label="Thao tác với {{ exam.title }}" aria-haspopup="menu" aria-expanded="false">
+                  <i class="bi bi-three-dots"></i>
+                </button>
               </div>
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="10" class="text-center text-muted py-4">Chưa có đề thi nào. Bấm "Tạo đề thi" để bắt đầu.</td></tr>
+          <tr><td colspan="5" class="text-center text-muted py-4">
+            {% if child_folders %}Chưa có đề trực tiếp trong thư mục này.{% elif current_folder %}Thư mục này chưa có đề hoặc thư mục con.{% else %}Chưa có đề ngoài thư mục. Bấm "Tạo đề thi" để bắt đầu.{% endif %}
+          </td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
   </div>
+</div>
+
+<div class="modal fade" id="examSettingsModal" tabindex="-1" aria-labelledby="examSettingsTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <form id="examSettingsForm" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold" id="examSettingsTitle">Cài đặt đề</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+        </div>
+        <div class="modal-body">
+          <label class="form-label fw-semibold" for="examSettingsName">Tên đề</label>
+          <input class="form-control mb-3" id="examSettingsName" name="title" required maxlength="200">
+          <label class="form-label fw-semibold" for="examSettingsFolder">Thư mục</label>
+          <select class="form-select" id="examSettingsFolder" name="folder_id">
+            <option value="">Tất cả (chưa xếp thư mục)</option>
+            {% for folder in folders %}
+            <option value="{{ folder.id }}" data-folder-scope="{{ folder.scope_type }}"
+                    data-folder-class="{{ folder.class_id or '' }}" data-folder-subject="{{ folder.subject or '' }}">
+              {{ folder.path_label }} · {{ folder.scope_label }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+          <button type="submit" class="btn btn-primary">Lưu cài đặt</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="examMoveModal" tabindex="-1" aria-labelledby="examMoveTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <form id="examMoveForm" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold" id="examMoveTitle">Di chuyển đề</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+        </div>
+        <div class="modal-body">
+          <label class="form-label fw-semibold" for="examMoveFolder">Chuyển đến</label>
+          <select class="form-select" id="examMoveFolder" name="folder_id">
+            <option value="">Tất cả (chưa xếp thư mục)</option>
+            {% for folder in folders %}
+            <option value="{{ folder.id }}" data-folder-scope="{{ folder.scope_type }}"
+                    data-folder-class="{{ folder.class_id or '' }}" data-folder-subject="{{ folder.subject or '' }}">
+              {{ folder.path_label }} · {{ folder.scope_label }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="submit" class="btn btn-primary">Di chuyển</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="exam-context-menu shadow" id="examContextMenu" role="menu" hidden>
+  <a class="exam-context-item" role="menuitem" data-menu-link="preview"><i class="bi bi-info-circle"></i>Xem nội dung đề</a>
+  <a class="exam-context-item" role="menuitem" data-menu-link="results"><i class="bi bi-people"></i>Danh sách đã làm</a>
+  <button type="button" class="exam-context-item" role="menuitem" data-menu-action="copy-link"><i class="bi bi-link-45deg"></i>Copy link</button>
+  <div class="exam-context-divider"></div>
+  <form method="post" id="examShareForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="shared" id="examShareValue">
+    <button type="submit" class="exam-context-item" id="examShareButton"><i class="bi bi-share"></i><span></span></button>
+  </form>
+  <button type="button" class="exam-context-item" data-menu-action="settings"><i class="bi bi-gear"></i>Cài đặt</button>
+  <a class="exam-context-item" role="menuitem" data-menu-link="edit"><i class="bi bi-pencil-square"></i>Chỉnh sửa</a>
+  <form method="post" id="examStatusForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="exam-context-item"><i class="bi bi-upload"></i><span></span></button>
+  </form>
+  <a class="exam-context-item" role="menuitem" data-menu-link="statistics"><i class="bi bi-graph-up"></i>Thống kê</a>
+  <a class="exam-context-item" role="menuitem" data-menu-link="leaderboard"><i class="bi bi-trophy"></i>Bảng xếp hạng</a>
+  <div class="exam-context-divider"></div>
+  <form method="post" id="examDuplicateForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="exam-context-item"><i class="bi bi-copy"></i>Sao chép</button>
+  </form>
+  <button type="button" class="exam-context-item" data-menu-action="move"><i class="bi bi-arrows-move"></i>Cut / Di chuyển</button>
+  <form method="post" id="examDeleteForm" onsubmit="return confirm('Xóa đề này? Thao tác này không thể hoàn tác.')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="exam-context-item text-danger"><i class="bi bi-trash"></i>Xóa</button>
+  </form>
 </div>
 {% endif %}
 </div>
@@ -316,6 +456,7 @@
   const subjectSelect = document.getElementById('teacherExamFolderSubject');
 
   function syncFolderScope() {
+    if (!classBox || !subjectBox || !classSelect || !subjectSelect) return;
     const isClass = document.getElementById('teacherExamFolderScopeClass').checked;
     classBox.classList.toggle('d-none', !isClass);
     subjectBox.classList.toggle('d-none', isClass);
@@ -325,6 +466,167 @@
 
   radios.forEach(radio => radio.addEventListener('change', syncFolderScope));
   syncFolderScope();
+
+  const menu = document.getElementById('examContextMenu');
+  const settingsForm = document.getElementById('examSettingsForm');
+  const moveForm = document.getElementById('examMoveForm');
+  let activeTrigger = null;
+
+  function closeMenu(restoreFocus = false) {
+    const trigger = activeTrigger;
+    menu.hidden = true;
+    menu.classList.remove('show');
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    activeTrigger = null;
+    if (restoreFocus && trigger) trigger.focus();
+  }
+
+  function openModal(id) {
+    closeMenu();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById(id)).show();
+  }
+
+  function filterFolderOptions(select, row) {
+    const classIds = new Set(row.dataset.examClassIds.split(',').filter(Boolean));
+    const subject = row.dataset.examSubject.trim().toLocaleLowerCase();
+    Array.from(select.options).forEach(option => {
+      if (!option.value) {
+        option.hidden = false;
+        return;
+      }
+      const sameScope = option.dataset.folderScope === 'class'
+        ? !classIds.size || classIds.has(option.dataset.folderClass)
+        : !subject || option.dataset.folderSubject.trim().toLocaleLowerCase() === subject;
+      option.hidden = !sameScope && option.value !== row.dataset.examFolder;
+    });
+  }
+
+  function openMenu(row, x, y, trigger) {
+    closeMenu();
+    activeTrigger = trigger;
+    if (trigger) trigger.setAttribute('aria-expanded', 'true');
+    menu.hidden = false;
+    menu.classList.add('show');
+    menu.style.left = '0px';
+    menu.style.top = '0px';
+
+    menu.querySelectorAll('[data-menu-link]').forEach(link => {
+      link.href = row.dataset[`exam${link.dataset.menuLink[0].toUpperCase()}${link.dataset.menuLink.slice(1)}`];
+    });
+
+    const shared = row.dataset.examShared === 'true';
+    const draft = row.dataset.examDraft === 'true';
+    const activeAttempts = row.dataset.examActiveAttempts === 'true';
+    const hasAttempts = row.dataset.examHasAttempts === 'true';
+    const shareButton = document.getElementById('examShareButton');
+    const copyLinkButton = menu.querySelector('[data-menu-action="copy-link"]');
+    copyLinkButton.disabled = draft;
+    copyLinkButton.title = draft ? 'Hãy đăng đề trước khi sao chép liên kết làm bài.' : '';
+    document.getElementById('examShareForm').action = row.dataset.examShare;
+    document.getElementById('examShareValue').value = shared ? '0' : '1';
+    shareButton.querySelector('span').textContent = shared
+      ? 'Gỡ chia sẻ thư viện giáo viên' : 'Chia sẻ với giáo viên';
+    shareButton.disabled = draft;
+    shareButton.title = draft ? 'Hãy đăng đề trước khi chia sẻ.' : '';
+
+    const statusForm = document.getElementById('examStatusForm');
+    statusForm.action = draft ? row.dataset.examPublish : row.dataset.examUnpublish;
+    const statusButton = statusForm.querySelector('button');
+    statusButton.querySelector('span').textContent = draft ? 'Đăng đề' : 'Hủy xuất bản';
+    statusButton.disabled = !draft && activeAttempts;
+    statusButton.title = !draft && activeAttempts ? 'Có học sinh đang làm bài.' : '';
+    statusButton.querySelector('i').className = `bi ${draft ? 'bi-upload' : 'bi-x-lg'}`;
+
+    document.getElementById('examDuplicateForm').action = row.dataset.examDuplicate;
+    document.getElementById('examDeleteForm').action = row.dataset.examDelete;
+    const deleteButton = document.querySelector('#examDeleteForm button');
+    deleteButton.disabled = hasAttempts;
+    deleteButton.title = hasAttempts ? 'Đề có lịch sử làm bài; hãy hủy xuất bản để ẩn đề.' : '';
+    settingsForm.action = row.dataset.examSettings;
+    document.getElementById('examSettingsName').value = row.dataset.examTitle;
+    filterFolderOptions(document.getElementById('examSettingsFolder'), row);
+    document.getElementById('examSettingsFolder').value = row.dataset.examFolder;
+    moveForm.action = row.dataset.examMove;
+    filterFolderOptions(document.getElementById('examMoveFolder'), row);
+    document.getElementById('examMoveFolder').value = row.dataset.examFolder;
+
+    const bounds = menu.getBoundingClientRect();
+    menu.style.left = `${Math.max(8, Math.min(x, window.innerWidth - bounds.width - 8))}px`;
+    menu.style.top = `${Math.max(8, Math.min(y, window.innerHeight - bounds.height - 8))}px`;
+    menu.querySelector('.exam-context-item:not(:disabled)')?.focus();
+  }
+
+  document.querySelectorAll('.exam-list-row').forEach(row => {
+    const trigger = row.querySelector('.exam-context-trigger');
+    trigger.addEventListener('click', event => {
+      event.stopPropagation();
+      openMenu(row, trigger.getBoundingClientRect().right - 250, trigger.getBoundingClientRect().bottom + 4, trigger);
+    });
+    row.addEventListener('contextmenu', event => {
+      event.preventDefault();
+      openMenu(row, event.clientX, event.clientY, trigger);
+    });
+  });
+
+  menu.addEventListener('click', event => {
+    const action = event.target.closest('[data-menu-action]');
+    if (!action || !activeTrigger) return;
+    const row = activeTrigger.closest('.exam-list-row');
+    if (action.dataset.menuAction === 'settings') {
+      openModal('examSettingsModal');
+    } else if (action.dataset.menuAction === 'move') {
+      openModal('examMoveModal');
+    } else if (action.dataset.menuAction === 'copy-link') {
+      const link = row.dataset.examCopyLink;
+      closeMenu();
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(link)
+          .then(() => alert('Đã sao chép đường dẫn xem đề.'))
+          .catch(error => {
+            console.error('Không thể sao chép đường dẫn đề thi.', error);
+            alert(`Không thể tự sao chép. Hãy sao chép đường dẫn này: ${link}`);
+          });
+      } else {
+        alert(`Đường dẫn xem đề: ${link}`);
+      }
+    }
+  });
+
+  document.getElementById('examStatusForm').addEventListener('submit', event => {
+    const action = event.currentTarget.querySelector('button span').textContent;
+    const message = action === 'Đăng đề'
+      ? 'Đăng đề thi này cho học sinh?'
+      : 'Hủy xuất bản đề? Lịch sử bài làm hiện có sẽ được giữ nguyên.';
+    if (!confirm(message)) event.preventDefault();
+  });
+  document.getElementById('examShareForm').addEventListener('submit', event => {
+    const shared = document.getElementById('examShareValue').value === '1';
+    if (!confirm(shared ? 'Chia sẻ đề trong thư viện dành cho giáo viên?' : 'Gỡ đề khỏi thư viện chia sẻ giáo viên?')) {
+      event.preventDefault();
+    }
+  });
+
+  document.addEventListener('pointerdown', event => {
+    if (!menu.hidden && !menu.contains(event.target) && !event.target.closest('.exam-context-trigger')) closeMenu();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !menu.hidden) {
+      event.preventDefault();
+      closeMenu(true);
+      return;
+    }
+    if (!menu.hidden && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+      const items = Array.from(menu.querySelectorAll('.exam-context-item:not(:disabled)'));
+      const currentIndex = items.indexOf(document.activeElement);
+      const nextIndex = event.key === 'Home' ? 0
+        : event.key === 'End' ? items.length - 1
+          : (currentIndex + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+      event.preventDefault();
+      items[nextIndex]?.focus();
+    }
+  });
+  window.addEventListener('resize', closeMenu);
+  window.addEventListener('scroll', closeMenu, true);
 })();
 </script>
 {% endif %}

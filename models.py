@@ -195,11 +195,12 @@ class_assistant_teachers = db.Table(
 # ============================================================
 
 class ExamFolder(db.Model):
-    """Folder to organize exams for reuse, scoped to either a class or a subject."""
+    """Hierarchical exam folder, scoped to a class or subject."""
     __tablename__ = 'exam_folders'
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
+    parent_id = db.Column(db.Integer, db.ForeignKey('exam_folders.id'), nullable=True, index=True)
     scope_type = db.Column(db.String(20), nullable=False, default='class')  # 'class' | 'subject'
     class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=True)
     subject = db.Column(db.String(100), nullable=True)
@@ -207,12 +208,26 @@ class ExamFolder(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     class_ = db.relationship('Class', backref='exam_folders')
+    parent = db.relationship(
+        'ExamFolder',
+        remote_side=[id],
+        backref=db.backref('children', lazy='selectin'),
+    )
 
     @property
     def scope_label(self):
         if self.scope_type == 'class':
             return self.class_.name if self.class_ else 'Lớp đã xóa'
         return self.subject or 'Môn học'
+
+    @property
+    def path_label(self):
+        path = [self.name]
+        folder = self.parent
+        while folder:
+            path.append(folder.name)
+            folder = folder.parent
+        return ' › '.join(reversed(path))
 
     def __repr__(self):
         return f'<ExamFolder {self.name}>'
