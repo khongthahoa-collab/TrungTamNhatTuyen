@@ -2,7 +2,6 @@ import io
 import csv
 import os
 import re
-import secrets
 from flask import render_template, redirect, url_for, flash, request, abort, Response, current_app
 from flask_login import login_required, current_user
 from datetime import date, datetime
@@ -12,7 +11,10 @@ from models import (Student, User, Enrollment, Class, TuitionPayment, Score, Rew
                     StudentLevel, UserRole, Attendance, AttendanceStatus, Teacher, Schedule, School,
                     GRADE_BY_LEVEL, GRADE_SEQUENCE)
 from blueprints.admin import admin_bp, require_admin
-from blueprints.admin.account_utils import next_username, DEFAULT_TEMP_PASSWORD
+from blueprints.admin.account_utils import (
+    next_username, next_student_username, DEFAULT_TEMP_PASSWORD,
+    DEFAULT_STUDENT_TEMP_PASSWORD,
+)
 from blueprints.admin.academic import current_academic_year_start
 from services.schedule_service import (find_student_schedule_conflict, schedule_conflict_message,
                                        notify_class_teachers)
@@ -557,11 +559,8 @@ def student_detail(student_id):
                            student_login_allowed=student.level in (
                                StudentLevel.SECONDARY, StudentLevel.HIGH_SCHOOL
                            ),
-                           default_temp_password=DEFAULT_TEMP_PASSWORD)
-
-
-def _new_student_temporary_password():
-    return secrets.token_urlsafe(12)
+                           default_temp_password=DEFAULT_TEMP_PASSWORD,
+                           student_default_temp_password=DEFAULT_STUDENT_TEMP_PASSWORD)
 
 
 @admin_bp.route('/students/<int:student_id>/create-student-account', methods=['POST'])
@@ -579,8 +578,7 @@ def student_create_login_account(student_id):
         flash('Học sinh đã có tài khoản đăng nhập.', 'warning')
         return redirect(url_for('admin.student_detail', student_id=student_id))
 
-    username = next_username(UserRole.STUDENT)
-    temporary_password = _new_student_temporary_password()
+    username = next_student_username(student.full_name, student.current_grade)
     account = User(
         full_name=student.full_name,
         username=username,
@@ -588,15 +586,15 @@ def student_create_login_account(student_id):
         is_active=True,
         must_change_password=True,
     )
-    account.set_password(temporary_password)
+    account.set_password(DEFAULT_STUDENT_TEMP_PASSWORD)
     db.session.add(account)
     db.session.flush()
     student.user_id = account.id
     db.session.commit()
     flash(
         f'Đã tạo tài khoản học sinh. Tên đăng nhập: {username} · '
-        f'Mật khẩu tạm: {temporary_password}. Hãy gửi riêng cho học sinh; '
-        'mật khẩu sẽ không được hiển thị lại và phải đổi khi đăng nhập lần đầu.',
+        f'Mật khẩu mặc định: {DEFAULT_STUDENT_TEMP_PASSWORD}. Hãy gửi riêng cho học sinh; '
+        'học sinh phải đổi mật khẩu khi đăng nhập lần đầu.',
         'success',
     )
     return redirect(url_for('admin.student_detail', student_id=student_id))
@@ -620,15 +618,14 @@ def student_reset_login_password(student_id):
         flash('Tài khoản đã bị khóa vì hồ sơ học sinh không còn đủ điều kiện hoạt động.', 'warning')
         return redirect(url_for('admin.student_detail', student_id=student_id))
 
-    temporary_password = _new_student_temporary_password()
-    account.set_password(temporary_password)
+    account.set_password(DEFAULT_STUDENT_TEMP_PASSWORD)
     account.must_change_password = True
     account.is_active = True
     db.session.commit()
     flash(
         f'Đã đặt lại mật khẩu. Tên đăng nhập: {account.username} · '
-        f'Mật khẩu tạm: {temporary_password}. Hãy gửi riêng cho học sinh; '
-        'mật khẩu sẽ không được hiển thị lại và phải đổi khi đăng nhập lần đầu.',
+        f'Mật khẩu mặc định: {DEFAULT_STUDENT_TEMP_PASSWORD}. Hãy gửi riêng cho học sinh; '
+        'học sinh phải đổi mật khẩu khi đăng nhập lần tiếp theo.',
         'success',
     )
     return redirect(url_for('admin.student_detail', student_id=student_id))
