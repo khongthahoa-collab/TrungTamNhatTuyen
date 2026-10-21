@@ -149,15 +149,31 @@
           {% endif %}
         </div>
       </div>
-      <form method="post" action="{{ url_for('admin.student_reset_login_password', student_id=student.id) }}"
-            onsubmit="return confirm('Đặt lại mật khẩu về {{ student_default_temp_password }}? Học sinh sẽ phải đổi mật khẩu khi đăng nhập lần tiếp theo.')">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="btn btn-outline-warning btn-sm"
-                {% if not student_login_allowed or not student.is_active or student.is_deleted %}disabled{% endif %}>
-          <i class="bi bi-key me-1"></i>Đặt lại mật khẩu
-        </button>
-      </form>
+      <div class="d-flex flex-wrap gap-2">
+        <form method="post" action="{{ url_for('admin.student_reset_login_password', student_id=student.id) }}"
+              onsubmit="return confirm('Đặt lại mật khẩu về {{ student_default_temp_password }}? Học sinh sẽ phải đổi mật khẩu khi đăng nhập lần tiếp theo.')">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-outline-warning btn-sm"
+                  {% if not student_login_allowed or not student.is_active or student.is_deleted %}disabled{% endif %}>
+            <i class="bi bi-key me-1"></i>Đặt lại mật khẩu
+          </button>
+        </form>
+      </div>
     </div>
+    <form method="post" action="{{ url_for('admin.student_change_login_username', student_id=student.id) }}"
+          class="row g-2 align-items-end mt-3">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="col-12 col-sm-8 col-md-6">
+        <label class="form-label small fw-semibold" for="studentUsername">Đổi tên đăng nhập</label>
+        <input type="text" class="form-control form-control-sm" id="studentUsername" name="username"
+               value="{{ student_account.username }}" maxlength="50" required autocomplete="off">
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-outline-primary btn-sm">
+          <i class="bi bi-person-gear me-1"></i>Lưu tên đăng nhập
+        </button>
+      </div>
+    </form>
     {% elif student_login_allowed %}
     <p class="text-muted small mb-2">
       Học sinh có thể đăng nhập riêng để làm bài thi được giao cho lớp đang học.

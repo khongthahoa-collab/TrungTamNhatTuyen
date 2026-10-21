@@ -6,6 +6,7 @@ from flask import render_template, redirect, url_for, flash, request, abort, Res
 from flask_login import login_required, current_user
 from datetime import date, datetime
 from sqlalchemy import func, case
+from sqlalchemy.exc import IntegrityError
 from extensions import db
 from models import (Student, User, Enrollment, Class, TuitionPayment, Score, Reward,
                     StudentLevel, UserRole, Attendance, AttendanceStatus, Teacher, Schedule, School,
@@ -597,6 +598,36 @@ def student_create_login_account(student_id):
         'học sinh phải đổi mật khẩu khi đăng nhập lần đầu.',
         'success',
     )
+    return redirect(url_for('admin.student_detail', student_id=student_id))
+
+
+@admin_bp.route('/students/<int:student_id>/change-student-username', methods=['POST'])
+@login_required
+@require_admin
+def student_change_login_username(student_id):
+    student = Student.query.get_or_404(student_id)
+    account = User.query.get_or_404(student.user_id) if student.user_id else None
+    if not account or account.role != UserRole.STUDENT:
+        flash('Học sinh này chưa có tài khoản đăng nhập để đổi tên đăng nhập.', 'warning')
+        return redirect(url_for('admin.student_detail', student_id=student_id))
+
+    username = request.form.get('username', '').strip()
+    if not username:
+        flash('Tên đăng nhập không được để trống.', 'warning')
+        return redirect(url_for('admin.student_detail', student_id=student_id))
+    if len(username) > 50:
+        flash('Tên đăng nhập không được vượt quá 50 ký tự.', 'warning')
+        return redirect(url_for('admin.student_detail', student_id=student_id))
+
+    account.username = username
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        flash('Không thể lưu tên đăng nhập này vì database yêu cầu tên đăng nhập phải duy nhất.', 'warning')
+        return redirect(url_for('admin.student_detail', student_id=student_id))
+
+    flash(f'Đã đổi tên đăng nhập học sinh thành {username}.', 'success')
     return redirect(url_for('admin.student_detail', student_id=student_id))
 
 
