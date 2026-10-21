@@ -36,19 +36,34 @@
   document.head.appendChild(script);
 
   // Plain-text shorthand outside math delimiters: CO_{2} -> CO<sub>2</sub>,
-  // x^{2} -> x<sup>2</sup>. Text inside \( \), \[ \], $ $, $$ $$ is left to MathJax.
+  // x^{2} -> x<sup>2</sup>. TeX commands inside math remain with MathJax except \times.
   const MATH_SEGMENT = /(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\$[^$]*\$)/;
   const SCRIPT_TOKEN = /([_^])\{([^{}]*)\}/g;
+  const SYMBOL_COMMAND = /\\(rightarrow|times|uparrow)\b/g;
+
+  function replaceSymbolCommands(text, inMath) {
+    return text.replace(SYMBOL_COMMAND, (match, command) => {
+      if (command === 'times') return 'x';
+      if (inMath) return match;
+      if (command === 'rightarrow') return '→';
+      return '↑';
+    });
+  }
 
   function renderScriptsInText(textNode) {
     const parts = textNode.nodeValue.split(MATH_SEGMENT);
-    if (!parts.some((part, i) => i % 2 === 0 && /[_^]\{[^{}]*\}/.test(part))) return;
+    if (!parts.some((part, i) => (
+      i % 2 === 0
+        ? /[_^]\{[^{}]*\}|\\(?:rightarrow|times|uparrow)\b/.test(part)
+        : /\\times\b/.test(part)
+    ))) return;
     const fragment = document.createDocumentFragment();
     parts.forEach((part, i) => {
       if (i % 2 === 1) {
-        fragment.appendChild(document.createTextNode(part));
+        fragment.appendChild(document.createTextNode(replaceSymbolCommands(part, true)));
         return;
       }
+      part = replaceSymbolCommands(part, false);
       let last = 0;
       part.replace(SCRIPT_TOKEN, (match, kind, content, offset) => {
         fragment.appendChild(document.createTextNode(part.slice(last, offset)));
