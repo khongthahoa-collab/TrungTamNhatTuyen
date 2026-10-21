@@ -133,6 +133,19 @@ def parse_groups_payload(raw):
     return groups
 
 
+def posted_exam_draft(form):
+    """Read a validated exam draft carried in the confirmation form instead of a session cookie."""
+    title = form.get('title', '').strip()
+    groups = parse_groups_payload(form.get('groups_json', ''))
+    if not title or not groups:
+        return None
+    draft = {'title': title, 'groups': groups}
+    edit_exam_id = form.get('edit_exam_id', type=int)
+    if edit_exam_id:
+        draft['edit_exam_id'] = edit_exam_id
+    return draft
+
+
 def require_owns_or_admin(exam):
     from services.auth_context import get_active_role
     if get_active_role(current_user) == 'teacher' and exam.created_by != current_user.id:

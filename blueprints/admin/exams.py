@@ -11,7 +11,7 @@ from blueprints.exams_shared import (
     EXAM_TYPES, DURATION_OPTIONS, SESSION_KEY,
     apply_manual_essay_scores, parse_groups_payload, require_owns_or_admin,
     require_teacher_exam_access, reset_student_exam_attempts, session_draft,
-    parse_confirm_settings, parse_folder_fields,
+    parse_confirm_settings, parse_folder_fields, posted_exam_draft,
 )
 from blueprints.pagination_utils import paginate_list
 from services.auth_context import get_active_role
@@ -362,8 +362,7 @@ def exams_new():
             flash('Vui lòng nhập tên đề thi và ít nhất 1 câu hỏi hợp lệ trong các phần thi.', 'danger')
             return render_template('exams/admin_form.html', prefill={'title': title, 'groups': groups})
 
-        session[SESSION_KEY] = {'title': title, 'groups': groups}
-        return redirect(url_for('admin.exams_confirm'))
+        return _render_admin_exam_confirm({'title': title, 'groups': groups})
 
     draft = session_draft()
     return render_template('exams/admin_form.html', prefill=draft)
@@ -385,8 +384,9 @@ def exams_edit(exam_id):
             return render_template('exams/admin_form.html', prefill={'title': title, 'groups': groups},
                                    editing=True, exam=exam)
 
-        session[SESSION_KEY] = {'title': title, 'groups': groups, 'edit_exam_id': exam.id}
-        return redirect(url_for('admin.exams_confirm'))
+        return _render_admin_exam_confirm(
+            {'title': title, 'groups': groups, 'edit_exam_id': exam.id}, existing=exam,
+        )
 
     draft = session_draft()
     if not draft or draft.get('edit_exam_id') != exam.id:
@@ -394,13 +394,24 @@ def exams_edit(exam_id):
     return render_template('exams/admin_form.html', prefill=draft, editing=True, exam=exam)
 
 
+def _render_admin_exam_confirm(draft, existing=None, form=None):
+    classes = Class.query.filter_by(is_active=True).order_by(Class.name).all()
+    courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
+    folders = ExamFolder.query.order_by(ExamFolder.name).all()
+    return render_template(
+        'exams/confirm.html', payload=draft, classes=classes, courses=courses,
+        folders=folders, exam_types=EXAM_TYPES, durations=DURATION_OPTIONS, form=form,
+        editing=bool(existing), existing=existing,
+    )
+
+
 @admin_bp.route('/exam/confirm', methods=['GET', 'POST'])
 @login_required
 @require_admin_or_teacher
 def exams_confirm():
-    """Shared step-2 settings page for both creating a new exam and editing an existing one —
-    which mode is active is tracked entirely via the session draft's 'edit_exam_id'."""
-    draft = session_draft()
+    """Handle exam settings with the draft carried in the POST body, falling back to old sessions."""
+    has_posted_draft = request.method == 'POST' and 'groups_json' in request.form
+    draft = posted_exam_draft(request.form) if has_posted_draft else session_draft()
     if not draft or not draft.get('groups'):
         flash('Vui lòng nhập nội dung đề thi trước.', 'warning')
         return redirect(url_for('admin.exams_new'))
@@ -411,17 +422,11 @@ def exams_confirm():
         existing = Exam.query.get_or_404(edit_exam_id)
         require_owns_or_admin(existing)
 
-    classes = Class.query.filter_by(is_active=True).order_by(Class.name).all()
-    courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
-    folders = ExamFolder.query.order_by(ExamFolder.name).all()
-
     if request.method == 'POST':
         settings, error = parse_confirm_settings(request.form, draft['groups'])
         if error:
             flash(error, 'danger')
-            return render_template('exams/confirm.html', payload=draft, classes=classes, courses=courses,
-                                   folders=folders, exam_types=EXAM_TYPES, durations=DURATION_OPTIONS,
-                                   form=request.form, editing=bool(existing), existing=existing)
+            return _render_admin_exam_confirm(draft, existing=existing, form=request.form)
 
         if existing:
             had_attempts = existing.attempts.count() > 0
@@ -480,9 +485,7 @@ def exams_confirm():
 
         return redirect(url_for('admin.exams_list'))
 
-    return render_template('exams/confirm.html', payload=draft, classes=classes, courses=courses,
-                           folders=folders, exam_types=EXAM_TYPES, durations=DURATION_OPTIONS, form=None,
-                           editing=bool(existing), existing=existing)
+    return _render_admin_exam_confirm(draft, existing=existing)
 
 
 @admin_bp.route('/exam/<int:exam_id>/delete', methods=['POST'])

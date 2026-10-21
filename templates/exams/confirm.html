@@ -31,8 +31,11 @@
 </div>
 {% endif %}
 
-<form method="post">
+<form method="post" action="{{ url_for('admin.exams_confirm') }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="title" value="{{ payload.title }}">
+  <input type="hidden" name="groups_json" value="{{ {'groups': payload.groups} | tojson | forceescape }}">
+  <input type="hidden" name="edit_exam_id" value="{{ payload.get('edit_exam_id', '') }}">
   <div class="row g-3">
     <div class="col-lg-7">
       <div class="card border-0 shadow-sm mb-3">
