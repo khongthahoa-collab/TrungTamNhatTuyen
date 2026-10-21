@@ -29,9 +29,9 @@
     <div class="fw-semibold">Câu {{ index }}. {{ q.text | error_id_render | exam_newlines }}</div>
   {% endif %}
   {% if q.explanation %}
-  <div class="small text-muted ms-3 mt-1">
+  <div class="small text-muted ms-3 mt-1 exam-answer-explanation">
     <div class="fw-semibold"><i class="bi bi-lightbulb me-1"></i>Giải thích đáp án</div>
-    <div class="exam-math">{{ q.explanation | markdown | exam_newlines }}</div>
+    <div class="exam-math exam-answer-explanation-content">{{ q.explanation | markdown | exam_newlines }}</div>
   </div>
   {% endif %}
 {% endmacro %}

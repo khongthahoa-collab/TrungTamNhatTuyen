@@ -1075,6 +1075,13 @@ footer a:hover { color: #fff !important; }
   color: #c3ccc7;
 }
 
+.exam-answer-explanation {
+  line-height: 1.35;
+}
+.exam-answer-explanation-content > p {
+  margin: 0;
+}
+
 /* ── Admin circular pastel action buttons — shared across list pages
    (accounts, permission groups, leave requests, ...) so the same row of
    Sửa/Khóa/Xoá-style icons looks identical everywhere. ── */
