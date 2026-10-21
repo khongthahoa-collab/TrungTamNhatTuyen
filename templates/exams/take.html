@@ -3,7 +3,7 @@
 {% block content %}
 <div class="container py-3 exam-take-page">
 
-  <form id="examForm" method="post"
+  <form id="examForm" method="post" novalidate
         action="{{ url_for('student.exam_submit', exam_id=exam.id) if current_user.is_student else url_for('parent.exam_submit', student_id=student.id, exam_id=exam.id) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" id="saveProgressUrl" value="{{ save_progress_url }}">
