@@ -10,10 +10,73 @@
     <h5 class="fw-bold mb-1">Quản lý đề thi online</h5>
     <p class="text-muted small mb-0">Tạo đề, giao bài cho lớp và theo dõi kết quả</p>
   </div>
-  <a href="{{ url_for('teacher.exams_new') }}" class="btn btn-primary">
-    <i class="bi bi-plus-lg me-1"></i>Tạo đề thi
-  </a>
+  <div class="d-flex flex-wrap gap-2">
+    {% if not reuse_mode %}
+    <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#newExamFolderModal">
+      <i class="bi bi-folder-plus me-1"></i>Tạo thư mục
+    </button>
+    {% endif %}
+    <a href="{{ url_for('teacher.exams_new') }}" class="btn btn-primary">
+      <i class="bi bi-plus-lg me-1"></i>Tạo đề thi
+    </a>
+  </div>
 </div>
+
+{% if not reuse_mode %}
+<div class="modal fade" id="newExamFolderModal" tabindex="-1" aria-labelledby="newExamFolderTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-4 border-0 shadow">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-bold" id="newExamFolderTitle">
+          <i class="bi bi-folder-plus me-2 text-success"></i>Tạo thư mục đề thi
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+      </div>
+      <form method="post" action="{{ url_for('teacher.exam_folder_create') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="newExamFolderName">Tên thư mục</label>
+            <input type="text" id="newExamFolderName" name="name" class="form-control" required maxlength="200"
+                   placeholder="VD: Đề ôn thi giữa kì 1">
+          </div>
+          <fieldset class="mb-3">
+            <legend class="form-label fw-semibold mb-2">Tạo theo</legend>
+            <div class="form-check">
+              <input class="form-check-input new-exam-folder-scope" type="radio" name="scope_type"
+                     value="class" id="teacherExamFolderScopeClass" checked>
+              <label class="form-check-label" for="teacherExamFolderScopeClass">Lớp học</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input new-exam-folder-scope" type="radio" name="scope_type"
+                     value="subject" id="teacherExamFolderScopeSubject">
+              <label class="form-check-label" for="teacherExamFolderScopeSubject">Môn học</label>
+            </div>
+          </fieldset>
+          <div class="mb-3" id="teacherExamFolderClassBox">
+            <label class="form-label fw-semibold" for="teacherExamFolderClass">Chọn lớp</label>
+            <select id="teacherExamFolderClass" name="class_id" class="form-select">
+              <option value="">-- Chọn lớp --</option>
+              {% for cls in classes %}<option value="{{ cls.id }}">{{ cls.name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="mb-3 d-none" id="teacherExamFolderSubjectBox">
+            <label class="form-label fw-semibold" for="teacherExamFolderSubject">Chọn môn</label>
+            <select id="teacherExamFolderSubject" name="subject" class="form-select" disabled>
+              <option value="">-- Chọn môn --</option>
+              {% for course in courses %}<option value="{{ course.name }}">{{ course.name }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="submit" class="btn btn-success"><i class="bi bi-folder-plus me-1"></i>Tạo thư mục</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 {% if reuse_mode %}
 <div class="card border-0 shadow-sm mb-3">
@@ -239,4 +302,29 @@
 </div>
 {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% if not reuse_mode %}
+<script>
+(() => {
+  const radios = document.querySelectorAll('.new-exam-folder-scope');
+  const classBox = document.getElementById('teacherExamFolderClassBox');
+  const subjectBox = document.getElementById('teacherExamFolderSubjectBox');
+  const classSelect = document.getElementById('teacherExamFolderClass');
+  const subjectSelect = document.getElementById('teacherExamFolderSubject');
+
+  function syncFolderScope() {
+    const isClass = document.getElementById('teacherExamFolderScopeClass').checked;
+    classBox.classList.toggle('d-none', !isClass);
+    subjectBox.classList.toggle('d-none', isClass);
+    classSelect.disabled = !isClass;
+    subjectSelect.disabled = isClass;
+  }
+
+  radios.forEach(radio => radio.addEventListener('change', syncFolderScope));
+  syncFolderScope();
+})();
+</script>
+{% endif %}
 {% endblock %}

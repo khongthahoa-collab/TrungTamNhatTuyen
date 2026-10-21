@@ -13,7 +13,7 @@ from models import Exam, ExamLog, ExamAttempt, ExamFolder, Class, Course, User
 from blueprints.teacher import teacher_bp, require_teacher
 from blueprints.exams_shared import (
     EXAM_TYPES, DURATION_OPTIONS, SESSION_KEY,
-    parse_groups_payload, require_owns_or_admin, require_teacher_exam_access,
+    parse_folder_fields, parse_groups_payload, require_owns_or_admin, require_teacher_exam_access,
     publish_exam, reset_student_exam_attempts,
     session_draft, parse_confirm_settings, posted_exam_draft,
 )
@@ -66,6 +66,21 @@ def exams_list():
                            courses=courses, exam_types=EXAM_TYPES,
                            folder_id=folder_id, subject=subject, exam_type=exam_type,
                            class_id=class_id, status=status, reuse_mode=reuse_mode, search=search)
+
+
+@teacher_bp.route('/exams/folders/new', methods=['POST'])
+@login_required
+@require_teacher
+def exam_folder_create():
+    fields, error = parse_folder_fields(request.form)
+    if error:
+        flash(error, 'danger')
+    else:
+        folder = ExamFolder(created_by=current_user.id, **fields)
+        db.session.add(folder)
+        db.session.commit()
+        flash(f'Đã tạo thư mục "{folder.name}".', 'success')
+    return redirect(url_for('teacher.exams_list'))
 
 
 @teacher_bp.route('/exams/<int:exam_id>/duplicate', methods=['POST'])
