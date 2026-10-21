@@ -57,7 +57,8 @@
             <label class="form-label fw-semibold" for="teacherExamFolderClass">Chọn lớp</label>
             <select id="teacherExamFolderClass" name="class_id" class="form-select">
               <option value="">-- Chọn lớp --</option>
-              {% for cls in classes %}<option value="{{ cls.id }}">{{ cls.name }}</option>{% endfor %}
+              {% for cls in classes %}<option value="{{ cls.id }}">{{ cls.name }}</option>
+              {% else %}<option disabled>Chưa có lớp được phân công cho tài khoản này.</option>{% endfor %}
             </select>
           </div>
           <div class="mb-3 d-none" id="teacherExamFolderSubjectBox">

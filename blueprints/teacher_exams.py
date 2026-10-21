@@ -5,12 +5,12 @@ and the parsing/validation logic in blueprints/exams_shared.py.
 """
 import json
 from urllib.parse import quote
-from flask import render_template, redirect, url_for, flash, request, session, Response
+from flask import abort, render_template, redirect, url_for, flash, request, session, Response
 from flask_login import login_required, current_user
 from sqlalchemy.orm import joinedload
 from extensions import db
 from models import Exam, ExamLog, ExamAttempt, ExamFolder, Class, Course, User
-from blueprints.teacher import teacher_bp, require_teacher
+from blueprints.teacher import _teacher_score_class_ids, teacher_bp, require_teacher
 from blueprints.exams_shared import (
     EXAM_TYPES, DURATION_OPTIONS, SESSION_KEY,
     parse_folder_fields, parse_groups_payload, require_owns_or_admin, require_teacher_exam_access,
@@ -18,6 +18,27 @@ from blueprints.exams_shared import (
     session_draft, parse_confirm_settings, posted_exam_draft,
 )
 from blueprints.pagination_utils import paginate_list
+
+
+def _teacher_accessible_classes():
+    teacher = current_user.teacher_profile
+    if not teacher:
+        return []
+    class_ids = _teacher_score_class_ids(teacher)
+    if not class_ids:
+        return []
+    return (Class.query.filter(Class.is_active.is_(True), Class.id.in_(class_ids))
+            .order_by(Class.name).all())
+
+
+def _validate_teacher_class_ids(class_ids):
+    allowed_ids = {cls.id for cls in _teacher_accessible_classes()}
+    try:
+        selected_ids = {int(class_id) for class_id in class_ids}
+    except (TypeError, ValueError):
+        abort(403)
+    if not selected_ids.issubset(allowed_ids):
+        abort(403)
 
 
 @teacher_bp.route('/exams')
@@ -59,7 +80,7 @@ def exams_list():
         exams = [e for e in exams if class_id in e.class_list]
 
     folders = ExamFolder.query.filter_by(created_by=current_user.id).order_by(ExamFolder.name).all()
-    classes = Class.query.filter_by(is_active=True).order_by(Class.name).all()
+    classes = _teacher_accessible_classes()
     courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
 
     return render_template('teacher/exams_list.html', exams=exams, folders=folders, classes=classes,
@@ -76,6 +97,8 @@ def exam_folder_create():
     if error:
         flash(error, 'danger')
     else:
+        if fields['scope_type'] == 'class':
+            _validate_teacher_class_ids([fields['class_id']])
         folder = ExamFolder(created_by=current_user.id, **fields)
         db.session.add(folder)
         db.session.commit()
@@ -282,7 +305,7 @@ def exams_edit(exam_id):
 
 
 def _render_exam_confirm(draft, existing=None, form=None):
-    classes = Class.query.filter_by(is_active=True).order_by(Class.name).all()
+    classes = _teacher_accessible_classes()
     courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
     folders = ExamFolder.query.filter_by(created_by=current_user.id).order_by(ExamFolder.name).all()
     return render_template(
@@ -314,6 +337,11 @@ def exams_confirm():
         if error:
             flash(error, 'danger')
             return _render_exam_confirm(draft, existing=existing, form=request.form)
+        _validate_teacher_class_ids(settings['class_ids'])
+        if settings['folder_id']:
+            folder = ExamFolder.query.get(settings['folder_id'])
+            if not folder or folder.created_by != current_user.id:
+                abort(403)
 
         if existing:
             had_attempts = existing.attempts.count() > 0
