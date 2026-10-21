@@ -585,6 +585,34 @@ def _ordered_questions(exam, order_data):
     return display_groups
 
 
+def _ordered_explanations(exam, order_data):
+    """Build explanations in the order the student saw them, for submitted results only."""
+    groups_order = order_data.get('groups') or []
+    explanation_groups = []
+    for gi, group in enumerate(exam.question_groups):
+        questions = group.get('questions', [])
+        go = groups_order[gi] if gi < len(groups_order) else {}
+        q_order = go.get('q_order') or list(range(len(questions)))
+        explanations = []
+        for position, orig_qi in enumerate(q_order, start=1):
+            if orig_qi >= len(questions):
+                continue
+            question = questions[orig_qi]
+            explanation = (question.get('explanation') or '').strip()
+            if explanation:
+                explanations.append({
+                    'position': position,
+                    'text': question.get('text', ''),
+                    'explanation': explanation,
+                })
+        if explanations:
+            explanation_groups.append({
+                'title': group.get('title', ''),
+                'questions': explanations,
+            })
+    return explanation_groups
+
+
 def _grade_attempt(exam, attempt, form):
     """Grade with the exam's configured question/section points and TF rubric."""
     order_data = attempt.order_data
@@ -912,4 +940,5 @@ def exam_result(student_id, exam_id):
     can_retake = exam.is_unlimited_attempts or submitted_count < exam.allow_attempts
 
     return render_template('exams/result.html', exam=exam, attempt=attempt, student=student, children=children,
-                           can_retake=can_retake)
+                           can_retake=can_retake,
+                           explanation_groups=_ordered_explanations(exam, attempt.order_data))

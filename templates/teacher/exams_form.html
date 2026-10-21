@@ -5,7 +5,8 @@
 <div class="container-fluid px-3 pt-3">
 <div class="d-flex align-items-center justify-content-between mb-3">
   <div>
-    <a href="{{ url_for('teacher.exams_list') }}" class="small text-decoration-none text-muted d-block mb-1">
+    <a href="{{ url_for('teacher.exams_list') }}" class="small text-decoration-none text-muted d-block mb-1"
+       data-exam-editor-exit>
       <i class="bi bi-arrow-left me-1"></i>Đề thi online
     </a>
     <div class="d-flex align-items-center gap-2">
@@ -13,7 +14,8 @@
       <h6 class="fw-bold mb-0">{% if editing %}Chỉnh sửa nội dung đề thi{% else %}Soạn nội dung đề thi{% endif %}</h6>
     </div>
   </div>
-  <a href="{{ url_for('teacher.exams_list') }}" class="btn btn-outline-secondary btn-sm">
+  <a href="{{ url_for('teacher.exams_list') }}" class="btn btn-outline-secondary btn-sm"
+     data-exam-editor-exit>
     <i class="bi bi-x-lg me-1"></i>Hủy
   </a>
 </div>
@@ -83,7 +85,8 @@
   </div>
 
   <div class="d-flex justify-content-end gap-2 mt-3">
-    <a href="{{ url_for('teacher.exams_list') }}" class="btn btn-outline-secondary">Hủy</a>
+    <a href="{{ url_for('teacher.exams_list') }}" class="btn btn-outline-secondary"
+       data-exam-editor-exit>Hủy</a>
     <button type="submit" class="btn btn-primary">Tiếp tục: Cấu hình đề <i class="bi bi-arrow-right ms-1"></i></button>
   </div>
 </form>
@@ -174,12 +177,24 @@ function saveEditorDraftLocally() {
     }));
     localDraftStatus.textContent = 'Đã tự động lưu bản nháp trên thiết bị này.';
     localDraftStatus.classList.remove('text-danger');
+    return true;
   } catch (error) {
     console.error('Không thể tự động lưu bản nháp trên thiết bị.', error);
     localDraftStatus.textContent = 'Không thể lưu bản nháp trên thiết bị. Hãy tiếp tục để lưu lên hệ thống.';
     localDraftStatus.classList.add('text-danger');
+    return false;
   }
 }
+
+document.querySelectorAll('[data-exam-editor-exit]').forEach(link => {
+  link.addEventListener('click', event => {
+    if (!confirm('Thoát và lưu đề? Nội dung sẽ được lưu nháp trên thiết bị này để khôi phục khi quay lại.')) {
+      event.preventDefault();
+      return;
+    }
+    if (!saveEditorDraftLocally()) event.preventDefault();
+  });
+});
 
 function scheduleEditorDraftSave() {
   localDraftStatus.textContent = 'Đang lưu bản nháp trên thiết bị…';

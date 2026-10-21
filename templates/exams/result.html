@@ -38,6 +38,28 @@
       </div>
       {% endif %}
 
+      {% if explanation_groups %}
+      <div class="text-start mt-4">
+        <h5 class="fw-bold mb-3"><i class="bi bi-lightbulb me-1 text-warning"></i>Giải thích đáp án</h5>
+        {% for group in explanation_groups %}
+        <section class="mb-3">
+          {% if group.title %}<h6 class="fw-semibold text-success">{{ group.title }}</h6>{% endif %}
+          {% for question in group.questions %}
+          <div class="border rounded p-3 mb-2">
+            <div class="fw-semibold mb-2">
+              Câu {{ question.position }}. <span class="exam-math">{{ question.text }}</span>
+            </div>
+            <div class="small">
+              <i class="bi bi-chat-square-text me-1 text-primary"></i>
+              <span class="exam-math">{{ question.explanation }}</span>
+            </div>
+          </div>
+          {% endfor %}
+        </section>
+        {% endfor %}
+      </div>
+      {% endif %}
+
       {% if attempt.was_flagged %}
       <div class="alert alert-warning text-start small">
         <i class="bi bi-exclamation-triangle-fill me-1"></i>
