@@ -283,6 +283,22 @@ def create_app(config_name=None):
 
         return Markup(re.sub(r'\[(\*?)([A-F]):([^\]]*)\]', repl, escaped))
 
+    @app.template_filter('exam_newlines')
+    def exam_newlines(value):
+        """Render literal backslash-n and actual newlines as line breaks in exam content."""
+        from markupsafe import Markup, escape
+        text = str(value) if isinstance(value, Markup) else str(escape(value or ''))
+        math_segments = re.split(
+            r'(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|'
+            r'\$[^$\n]*\$)',
+            text,
+        )
+        rendered = ''.join(
+            segment if index % 2 else re.sub(r'\\n|\r?\n', '<br>', segment)
+            for index, segment in enumerate(math_segments)
+        )
+        return Markup(rendered)
+
     @app.template_filter('markdown')
     def markdown_render(text):
         from services.markdown_utils import render_markdown
