@@ -1,0 +1,25 @@
+<button type="button" class="btn btn-outline-info btn-sm" id="examGuideOpen"
+        data-user-id="{{ current_user.id }}" data-guide-page="{{ exam_guide_page }}">
+  <i class="bi bi-exclamation-circle-fill me-1" aria-hidden="true"></i>Hướng dẫn tạo và giao đề
+</button>
+<dialog id="examGuide" class="exam-guide rounded-3 border border-info shadow"
+        aria-labelledby="examGuideTitle" aria-describedby="examGuideText">
+  <div class="d-flex justify-content-between align-items-center gap-3 mb-2">
+    <span id="examGuideProgress" class="small text-muted" aria-live="polite"></span>
+    <button type="button" class="btn-close" id="examGuideClose" aria-label="Đóng hướng dẫn"></button>
+  </div>
+  <h6 id="examGuideTitle" class="fw-bold" tabindex="-1"></h6>
+  <p id="examGuideText" class="small mb-3"></p>
+  <p id="examGuideStorageWarning" class="small text-warning-emphasis" hidden>
+    Trình duyệt không cho phép lưu trạng thái hướng dẫn. Hướng dẫn có thể hiện lại khi bạn tải trang.
+  </p>
+  <div class="d-flex flex-wrap justify-content-between gap-2">
+    <button type="button" class="btn btn-link btn-sm ps-0" id="examGuideSkip">Bỏ qua</button>
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-outline-secondary btn-sm" id="examGuidePrevious">Quay lại</button>
+      <button type="button" class="btn btn-primary btn-sm" id="examGuideNext">Tiếp</button>
+    </div>
+  </div>
+</dialog>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/exam-guide.css') }}">
+<script src="{{ url_for('static', filename='js/exam-guide.js') }}" defer></script>

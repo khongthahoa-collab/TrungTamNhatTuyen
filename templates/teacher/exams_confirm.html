@@ -11,7 +11,7 @@
 {% set existing_class_ids = existing.class_list if existing else [] %}
 {% set course_names = courses | map(attribute='name') | list %}
 {% set subject_matches_course = existing and existing.subject in course_names %}
-<div class="d-flex align-items-center justify-content-between mb-3">
+<div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">
   <div>
     <a href="{{ url_for('teacher.exams_edit', exam_id=existing.id) if editing else url_for('teacher.exams_new', mode='compose') }}" class="small text-decoration-none text-muted d-block mb-1">
       <i class="bi bi-arrow-left me-1"></i>Quay lại chỉnh sửa
@@ -20,6 +20,8 @@
       <span class="badge rounded-pill bg-success">Bước 2/2</span>
       <h6 class="fw-bold mb-0">{% if editing %}Cập nhật cấu hình đề thi{% else %}Cấu hình & xác nhận đề thi{% endif %}</h6>
     </div>
+    {% set exam_guide_page = 'confirm' %}
+    {% include 'teacher/_exam_guide.html' %}
   </div>
 </div>
 
@@ -98,7 +100,7 @@
 
       <div class="card border-0 shadow-sm mb-3">
         <div class="card-body">
-          <h6 class="fw-semibold mb-3"><i class="bi bi-people me-1 text-success"></i>Chọn lớp cần giao</h6>
+          <h6 class="fw-semibold mb-3" data-guide="assignment"><i class="bi bi-people me-1 text-success"></i>Chọn lớp cần giao</h6>
           <label class="form-label small text-muted" for="classIdsSelect">Tìm và chọn một hoặc nhiều lớp</label>
           <select class="form-select" id="classIdsSelect" name="class_ids" multiple
                   data-placeholder="Gõ tên lớp để tìm...">
@@ -133,7 +135,7 @@
 
       <div class="card border-0 shadow-sm mb-3">
         <div class="card-body">
-          <h6 class="fw-semibold mb-2"><i class="bi bi-calculator me-1 text-success"></i>Cách chia điểm</h6>
+          <h6 class="fw-semibold mb-2" data-guide="scoring"><i class="bi bi-calculator me-1 text-success"></i>Cách chia điểm</h6>
           {% include 'exams/_scoring_setup.html' %}
           <hr>
           <h6 class="fw-semibold mb-3"><i class="bi bi-clock-history me-1 text-success"></i>Thời lượng làm bài</h6>
@@ -160,7 +162,7 @@
 
       <div class="card border-0 shadow-sm mb-3">
         <div class="card-body">
-          <h6 class="fw-semibold mb-3"><i class="bi bi-calendar-range me-1 text-success"></i>Thời gian có thể làm bài</h6>
+          <h6 class="fw-semibold mb-3" data-guide="availability"><i class="bi bi-calendar-range me-1 text-success"></i>Thời gian có thể làm bài</h6>
           <div class="form-check mb-2">
             <input class="form-check-input avail-radio" type="radio" name="availability_mode" value="always" id="avail_always"
                    {% if (form and form.get('availability_mode')=='always') or (not form and existing and existing.availability_mode=='always') or (not form and not existing) %}checked{% endif %}>
@@ -221,7 +223,7 @@
           {% endfor %}
         </div>
         <div class="card-footer bg-white">
-          <button type="submit" class="btn btn-primary w-100">
+          <button type="submit" class="btn btn-primary w-100" data-guide="save">
             <i class="bi bi-check-circle me-1"></i>{% if editing %}Lưu thay đổi{% else %}Xác nhận lưu đề thi{% endif %}
           </button>
         </div>

@@ -1,0 +1,20 @@
+.exam-guide {
+  position: fixed;
+  inset: auto;
+  width: min(360px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  margin: 0;
+  padding: 1rem;
+  overflow-y: auto;
+  color: var(--bs-body-color);
+  background: var(--bs-body-bg);
+}
+
+.exam-guide::backdrop {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.exam-guide-target {
+  outline: 3px solid var(--bs-info);
+  outline-offset: 4px;
+}
