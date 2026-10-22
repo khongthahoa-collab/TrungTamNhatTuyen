@@ -1,0 +1,32 @@
+name: Auto Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main  # Hoặc 'master' tùy tên nhánh chính của bạn
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploying to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          port: ${{ secrets.VPS_PORT }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd ~/TrungTamNhatTuyen
+            git pull origin main
+            docker build -t trungtam-app .
+            docker stop my-app-running 2>/dev/null || true
+            docker rm my-app-running 2>/dev/null || true
+            docker run -d \
+              --name my-app-running \
+              --network app-network \
+              --restart always \
+              -p 8000:3000 \
+              -e DATABASE_URL="postgresql://myuser:Linhlinh998@local-postgres:5432/trungtam_db" \
+              -e PORT=3000 \
+              trungtam-app
