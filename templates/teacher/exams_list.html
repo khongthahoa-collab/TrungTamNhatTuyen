@@ -23,6 +23,56 @@
 </div>
 
 {% if not reuse_mode %}
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-3">
+    <form method="get" class="row g-2 align-items-end">
+      {% if current_folder %}<input type="hidden" name="folder_id" value="{{ current_folder.id }}">{% endif %}
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold mb-1">Môn</label>
+        <select name="subject" class="form-select form-select-sm">
+          <option value="">Tất cả môn</option>
+          {% for course in courses %}
+          <option value="{{ course.name }}" {% if subject == course.name %}selected{% endif %}>{{ course.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold mb-1">Loại bài</label>
+        <select name="exam_type" class="form-select form-select-sm">
+          <option value="">Tất cả loại</option>
+          {% for value, label in exam_types %}
+          <option value="{{ value }}" {% if exam_type == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold mb-1">Lớp</label>
+        <select name="class_id" class="form-select form-select-sm">
+          <option value="">Tất cả lớp</option>
+          {% for cls in classes %}
+          <option value="{{ cls.id }}" {% if class_id == cls.id %}selected{% endif %}>{{ cls.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold mb-1">Trạng thái</label>
+        <select name="status" class="form-select form-select-sm">
+          <option value="">Tất cả</option>
+          <option value="draft" {% if status == 'draft' %}selected{% endif %}>Nháp</option>
+          <option value="published" {% if status == 'published' %}selected{% endif %}>Đã đăng</option>
+        </select>
+      </div>
+      <div class="col-12 d-flex gap-2 justify-content-end align-items-center">
+        <button type="submit" class="btn btn-primary btn-sm">Lọc</button>
+        <a href="{{ url_for('teacher.exams_list', folder_id=current_folder.id) if current_folder else url_for('teacher.exams_list') }}"
+           class="btn btn-outline-secondary btn-sm" title="Xóa lọc"><i class="bi bi-x"></i></a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% if not reuse_mode %}
 <div class="modal fade" id="newExamFolderModal" tabindex="-1" aria-labelledby="newExamFolderTitle" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content rounded-4 border-0 shadow">
@@ -218,54 +268,6 @@
   {% endfor %}
 </div>
 {% endif %}
-
-<div class="card border-0 shadow-sm mb-3">
-  <div class="card-body py-3">
-    <form method="get" class="row g-2 align-items-end">
-      {% if current_folder %}<input type="hidden" name="folder_id" value="{{ current_folder.id }}">{% endif %}
-      <div class="col-6 col-md-2">
-        <label class="form-label small fw-semibold mb-1">Môn</label>
-        <select name="subject" class="form-select form-select-sm">
-          <option value="">Tất cả môn</option>
-          {% for course in courses %}
-          <option value="{{ course.name }}" {% if subject == course.name %}selected{% endif %}>{{ course.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="col-6 col-md-2">
-        <label class="form-label small fw-semibold mb-1">Loại bài</label>
-        <select name="exam_type" class="form-select form-select-sm">
-          <option value="">Tất cả loại</option>
-          {% for value, label in exam_types %}
-          <option value="{{ value }}" {% if exam_type == value %}selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="col-6 col-md-2">
-        <label class="form-label small fw-semibold mb-1">Lớp</label>
-        <select name="class_id" class="form-select form-select-sm">
-          <option value="">Tất cả lớp</option>
-          {% for cls in classes %}
-          <option value="{{ cls.id }}" {% if class_id == cls.id %}selected{% endif %}>{{ cls.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="col-6 col-md-2">
-        <label class="form-label small fw-semibold mb-1">Trạng thái</label>
-        <select name="status" class="form-select form-select-sm">
-          <option value="">Tất cả</option>
-          <option value="draft" {% if status == 'draft' %}selected{% endif %}>Nháp</option>
-          <option value="published" {% if status == 'published' %}selected{% endif %}>Đã đăng</option>
-        </select>
-      </div>
-      <div class="col-12 d-flex gap-2 justify-content-end align-items-center">
-        <button type="submit" class="btn btn-primary btn-sm">Lọc</button>
-        <a href="{{ url_for('teacher.exams_list', folder_id=current_folder.id) if current_folder else url_for('teacher.exams_list') }}"
-           class="btn btn-outline-secondary btn-sm" title="Xóa lọc"><i class="bi bi-x"></i></a>
-      </div>
-    </form>
-  </div>
-</div>
 
 <div class="card border-0 shadow-sm">
   <div class="card-body p-0">
