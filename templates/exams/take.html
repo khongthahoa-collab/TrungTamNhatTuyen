@@ -18,14 +18,17 @@
         <div class="small text-muted exam-take-subtitle">{{ exam.subject }} · {{ student.full_name }}</div>
       </div>
       <div class="d-flex align-items-center gap-2 flex-shrink-0">
-        <button type="submit" class="btn btn-primary btn-sm fw-semibold" id="submitBtnTop">
-          <i class="bi bi-check-circle me-1"></i>Nộp bài
-        </button>
         <div class="text-end">
           <div class="fs-5 fw-bold" id="timerDisplay">--:--</div>
           <div class="small text-muted exam-take-toolbar-caption">Thời gian còn lại</div>
         </div>
+        <button type="submit" class="btn btn-primary btn-sm fw-semibold" id="submitBtnTop">
+          <i class="bi bi-check-circle me-1"></i>Nộp bài
+        </button>
       </div>
+    </div>
+    <div class="px-3 pb-2 d-flex flex-wrap align-items-center justify-content-between gap-2 small">
+      <button type="button" class="btn btn-outline-secondary btn-sm" id="nextUnansweredBtn">Đến câu chưa làm</button>
     </div>
   </div>
 
@@ -45,24 +48,46 @@
     <div>Tiến độ được tự động lưu và khôi phục khi bạn quay lại. Đồng hồ vẫn tiếp tục chạy khi rời màn hình thi.</div>
   </div>
 
+  <section class="card border-0 shadow-sm mb-3" aria-labelledby="examProgressTitle">
+    <div class="card-body">
+      <h2 class="h6 fw-semibold" id="examProgressTitle">Tiến độ làm bài</h2>
+      <p class="small text-muted">○ Chưa làm · ◐ Chưa xong · ● Đã làm. Bấm số câu để đến câu đó. Trạng thái không cho biết đáp án đúng hay sai.</p>
+      {% for group in questions %}
+      <div class="small fw-semibold mb-2">Phần {{ loop.index }}</div>
+      <nav class="exam-question-grid mb-3" aria-label="Câu hỏi {{ group.title }}">
+        {% for q in group.questions %}
+        <a class="btn btn-outline-secondary exam-question-link" href="#exam-g{{ group.index }}-q{{ q.position }}">
+          <span data-question-indicator aria-hidden="true">○</span>
+          <span>{{ q.position }}</span>
+        </a>
+        {% endfor %}
+      </nav>
+      {% endfor %}
+    </div>
+  </section>
+
     {% for group in questions %}
     <div class="mt-4 mb-2 exam-question-group-heading">
       <h6 class="fw-bold text-success mb-1">{{ group.title }}</h6>
       {% if group.instruction %}<p class="small text-muted">{{ group.instruction }}</p>{% endif %}
     </div>
     {% for q in group.questions %}
-    <div class="card border-0 shadow-sm mb-3" data-exam-question>
+    <div class="card border-0 shadow-sm mb-3" data-exam-question
+         id="exam-g{{ group.index }}-q{{ q.position }}" tabindex="-1">
       <div class="card-body">
+        <div class="small text-muted mb-2" data-question-status></div>
         {% if group.type == 'mcq' %}
           {% set answer_key = 'g' ~ group.index ~ '_q' ~ q.position %}
           <div class="fw-semibold mb-2 exam-question-title">Câu {{ q.position }}. <span class="exam-math">{{ q.text }}</span></div>
+          <div class="exam-mcq-options{% if q.options | length == 4 %} exam-mcq-options-grid{% endif %}">
           {% for opt in q.options %}
-          <label class="list-group-item list-group-item-action d-flex align-items-center gap-2 mb-2 rounded border exam-answer-option">
+          <label class="list-group-item list-group-item-action d-flex align-items-center gap-2 rounded border exam-answer-option">
             <input class="form-check-input m-0 exam-answer-radio" type="radio" name="{{ answer_key }}" value="{{ loop.index }}"
                    {% if draft_answers.get(answer_key, '')|string == loop.index|string %}checked{% endif %}>
             <span>{{ ['A','B','C','D','E','F'][loop.index0] }}. <span class="exam-math">{{ opt }}</span></span>
           </label>
           {% endfor %}
+          </div>
         {% elif group.type == 'true_false' %}
           {% set answer_key = 'g' ~ group.index ~ '_q' ~ q.position %}
           <div class="fw-semibold mb-2 exam-question-title">Câu {{ q.position }}. <span class="exam-math">{{ q.text }}</span></div>
@@ -199,29 +224,69 @@ if (trackScreenExits) {
   window.addEventListener('blur', flagViolation);
 }
 
-// Note: autoSubmit() calls form.submit() directly, which bypasses this listener entirely
-// (a browser quirk vs. requestSubmit()) — so this only ever runs for genuine user clicks.
-function countUnansweredQuestions() {
-  return Array.from(form.querySelectorAll('[data-exam-question]')).filter(question => {
-    const radioGroups = new Map();
-    question.querySelectorAll('input[type="radio"]').forEach(input => {
-      if (!radioGroups.has(input.name)) radioGroups.set(input.name, []);
-      radioGroups.get(input.name).push(input);
-    });
-    const hasUnansweredChoice = Array.from(radioGroups.values())
-      .some(group => !group.some(input => input.checked));
-    const hasEmptyTextAnswer = Array.from(question.querySelectorAll('input[type="text"], textarea'))
-      .some(input => !input.value.trim());
-    return hasUnansweredChoice || hasEmptyTextAnswer;
-  }).length;
+const examQuestions = Array.from(form.querySelectorAll('[data-exam-question]'));
+const questionLinks = Array.from(form.querySelectorAll('.exam-question-link'));
+const nextUnansweredBtn = document.getElementById('nextUnansweredBtn');
+function questionProgress(question) {
+  const radioGroups = new Map();
+  question.querySelectorAll('input[type="radio"]').forEach(input => {
+    radioGroups.set(input.name, Boolean(radioGroups.get(input.name) || input.checked));
+  });
+  const fields = [
+    ...radioGroups.values(),
+    ...Array.from(question.querySelectorAll('input[type="text"], textarea'), input => Boolean(input.value.trim())),
+  ];
+  const answered = fields.filter(Boolean).length;
+  return { answered, total: fields.length, complete: fields.length > 0 && answered === fields.length };
 }
 
+function countUnansweredQuestions() {
+  return examQuestions.filter(question => !questionProgress(question).complete).length;
+}
+
+function updateExamProgress() {
+  let completed = 0;
+  examQuestions.forEach((question, index) => {
+    const progress = questionProgress(question);
+    if (progress.complete) completed += 1;
+    const status = progress.complete ? 'Đã làm'
+      : progress.answered ? `Chưa xong (${progress.answered}/${progress.total} ý)` : 'Chưa làm';
+    const statusElement = question.querySelector('[data-question-status]');
+    statusElement.textContent = status;
+    statusElement.classList.toggle('text-success', progress.complete);
+    statusElement.classList.toggle('text-muted', !progress.complete);
+    const link = questionLinks[index];
+    link.classList.toggle('btn-success', progress.complete);
+    link.classList.toggle('btn-outline-secondary', !progress.complete);
+    link.querySelector('[data-question-indicator]').textContent = progress.complete ? '●' : progress.answered ? '◐' : '○';
+    link.title = status;
+    link.setAttribute('aria-label', `${link.closest('nav').getAttribute('aria-label')}, Câu ${question.id.split('-q')[1]}: ${status}`);
+  });
+  nextUnansweredBtn.disabled = completed === examQuestions.length;
+}
+
+nextUnansweredBtn.addEventListener('click', () => {
+  const question = examQuestions.find(question => !questionProgress(question).complete);
+  if (question) {
+    question.scrollIntoView({ block: 'start', behavior: 'instant' });
+    question.focus({ preventScroll: true });
+  }
+});
+const examToolbar = document.querySelector('.exam-take-toolbar');
+new ResizeObserver(() => {
+  document.querySelector('.exam-take-page').style.setProperty('--exam-toolbar-height', `${examToolbar.offsetHeight}px`);
+}).observe(examToolbar);
+form.addEventListener('input', updateExamProgress);
+form.addEventListener('change', updateExamProgress);
+updateExamProgress();
+
+// autoSubmit() bypasses this listener so only manual submissions ask for confirmation.
 form.addEventListener('submit', e => {
   if (submitted) return;
   cheatField.value = cheatCount;
   const unansweredCount = countUnansweredQuestions();
   const confirmation = unansweredCount
-    ? 'Còn câu hỏi chưa làm. Em xác nhận bỏ trống hay không?'
+    ? `Còn ${unansweredCount} câu chưa làm xong. Em xác nhận nộp bài hay không?`
     : 'Bạn có chắc muốn nộp bài? Sau khi nộp sẽ không thể chỉnh sửa lại.';
   if (!confirm(confirmation)) {
     e.preventDefault();

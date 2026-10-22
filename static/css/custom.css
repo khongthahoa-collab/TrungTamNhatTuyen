@@ -1134,10 +1134,20 @@ footer a:hover { color: #fff !important; }
 .exam-question-title,
 .exam-answer-option > span { min-width: 0; overflow-wrap: anywhere; }
 .exam-answer-option { cursor: pointer; }
+.exam-mcq-options { display: grid; gap: .5rem; }
+.exam-mcq-options-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.exam-mcq-options .exam-answer-option { min-width: 0; min-height: 50px; padding: .65rem .7rem; }
+.exam-mcq-options .exam-answer-radio { flex-shrink: 0; }
 .exam-bottom-actions button { min-height: 48px; }
+.exam-question-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: .5rem; }
+.exam-question-link { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: .375rem; padding-inline: .375rem; }
+.exam-take-page [data-exam-question] {
+  scroll-margin-top: calc(56px + env(safe-area-inset-top) + var(--exam-toolbar-height, 150px) + 1rem);
+}
 
 @media (max-width: 576px) {
   .exam-take-page { padding: .5rem .65rem 1rem; }
+  .exam-mcq-options-grid { grid-template-columns: minmax(0, 1fr); }
   .exam-take-toolbar .card-body { padding: .5rem .6rem; }
   .exam-take-title { font-size: .9rem; }
   .exam-take-subtitle { font-size: .7rem !important; }
