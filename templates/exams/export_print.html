@@ -61,6 +61,7 @@
   {% endfor %}
   {% endfor %}
 
+  {% if fmt != 'pdf' %}
   <div class="answer-key">
     <strong>Bảng đáp án</strong>
     {% for group in exam.question_groups %}
@@ -82,6 +83,7 @@
     </div>
     {% endfor %}
   </div>
+  {% endif %}
 
   {% if fmt == 'pdf' %}
   <script>window.addEventListener('load', () => window.typesetExamMath().then(() => window.print()));</script>
