@@ -17,10 +17,26 @@
   .answer-key .group-block { margin-bottom: 8px; }
   .print-bar { text-align: center; margin-bottom: 20px; }
   .print-watermark { position: fixed; inset: 0; display: grid; place-items: center; overflow: hidden; pointer-events: none; z-index: 0; }
-  .print-watermark img { width: 1000px; height: 1000px; max-width: none; opacity: 0.06; }
+  .print-watermark img { width: 180mm; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; opacity: 0.06; }
   .print-content { position: relative; z-index: 1; }
   u { text-decoration: underline; }
   @media print { .print-bar { display: none; } }
+  {% if fmt == 'pdf' %}
+  @page {
+    size: A4 portrait;
+    margin: 15mm;
+    @bottom-center {
+      content: "Trang " counter(page);
+      font-family: 'Times New Roman', Georgia, serif;
+      font-size: 10pt;
+      color: #444;
+    }
+  }
+  @media print {
+    body { margin: 0; }
+    .print-watermark { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  }
+  {% endif %}
 </style>
 {% include 'exams/_mathjax.html' %}
 </head>
