@@ -2,6 +2,12 @@
 {% block extra_head %}{% include 'exams/_mathjax.html' %}{% endblock %}
 {% block content %}
 <div class="container py-3" style="max-width:840px;">
+  <div class="d-flex justify-content-end mb-3">
+    <a href="{{ url_for('student.exams_list') if current_user.is_student else url_for('parent.exams', student_id=student.id) }}"
+       class="btn btn-outline-secondary" aria-label="Quay lại danh sách bài thi">
+      <i class="bi bi-arrow-left me-1" aria-hidden="true"></i>Quay lại
+    </a>
+  </div>
   <div class="card border-0 shadow-sm">
     <div class="card-body text-center">
       <h4 class="fw-bold mb-1">{{ exam.title }}</h4>
@@ -40,7 +46,7 @@
 
       {% if answer_groups %}
       <div class="text-start mt-4">
-        <h5 class="fw-bold mb-3"><i class="bi bi-journal-check me-1 text-primary"></i>Bài làm và đáp án</h5>
+        <h5 class="fw-bold mb-3">Bài làm và đáp án</h5>
         {% for group in answer_groups %}
         <section class="mb-3">
           {% if group.title %}<h6 class="fw-semibold text-success">{{ group.title }}</h6>{% endif %}
@@ -95,7 +101,7 @@
             {% endif %}
             {% if question.explanation %}
             <div class="small exam-math mt-2">
-              <div class="fw-semibold mb-1"><i class="bi bi-chat-square-text me-1 text-primary"></i>Giải thích đáp án</div>
+              <div class="fw-semibold mb-0"><i class="bi bi-chat-square-text me-1 text-primary"></i>Giải thích đáp án</div>
               <div class="exam-explanation-markdown">{{ question.explanation | markdown }}</div>
             </div>
             {% endif %}

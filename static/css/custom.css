@@ -1127,6 +1127,8 @@ footer a:hover { color: #fff !important; }
 .acct-action-delete:hover  { background: #fdc9c9; }
 
 .exam-take-page { max-width: 720px; }
+.exam-explanation-markdown > :first-child { margin-top: 0; }
+.exam-explanation-markdown > :last-child { margin-bottom: 0; }
 .exam-time-warning {
   box-sizing: border-box;
   width: min(440px, calc(100% - 2rem));
