@@ -386,6 +386,9 @@ def scores(class_id):
 
     from models import SemesterType
     today = date.today()
+    selected_semester = request.args.get('semester')
+    if selected_semester not in SemesterType.LABELS:
+        selected_semester = _last_used_semester(class_id, SemesterType.SEMESTER_1)
     return render_template('teacher/scores.html',
                            class_=class_,
                            students=students,
@@ -393,7 +396,8 @@ def scores(class_id):
                            score_sources=ScoreSource.LABELS,
                            score_types=ScoreType.LABELS,
                            semesters=SemesterType.LABELS,
-                           selected_semester=_last_used_semester(class_id, SemesterType.SEMESTER_1),
+                           selected_semester=selected_semester,
+                           year=request.args.get('year', today.year, type=int),
                            next_rounds=_next_exam_round_map(
                                class_id, today.year,
                                list(ScoreType.LABELS), list(SemesterType.LABELS)),
@@ -509,8 +513,7 @@ def scores_detail(class_id):
                          Score.exam_date.isnot(None))
                  .distinct().all())
     available_years = sorted({int(r[0]) for r in year_rows if r[0] is not None}, reverse=True)
-    if year not in available_years:
-        available_years = sorted(set(available_years) | {year}, reverse=True)
+    available_years = sorted(set(available_years) | {year, today.year}, reverse=True)
 
     all_scores = base_q.order_by(Score.exam_date.desc(), Score.id.desc()).all()
 
@@ -679,10 +682,21 @@ def scores_rounds(class_id):
     rounds.sort(key=lambda r: (type_order.get(r['score_type'], 99),
                                r['round'] is None, r['round'] or 0))
 
+    year_rows = (db.session.query(extract('year', Score.exam_date))
+                 .filter(Score.class_id == class_id,
+                         Score.score_source == ScoreSource.CENTER,
+                         Score.exam_date.isnot(None))
+                 .distinct().all())
+    available_years = sorted(
+        {int(row[0]) for row in year_rows if row[0] is not None} | {year, today.year},
+        reverse=True,
+    )
+
     return render_template('teacher/scores_rounds.html',
                            class_=class_,
                            rounds=rounds,
                            year=year,
+                           available_years=available_years,
                            semester=semester,
                            semesters=SemesterType.LABELS,
                            pass_threshold=PASS_THRESHOLD_10,

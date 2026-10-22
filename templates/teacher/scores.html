@@ -1,22 +1,16 @@
 {% extends 'teacher/base.html' %}
 {% block title %}Nhập điểm: {{ class_.name }} – Nhật Tuyền{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/teacher-scores.css') }}">
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid px-3 py-3">
+<div class="container-fluid px-3 py-3 score-workspace">
 
-  <!-- Header -->
-  <div class="mb-3">
-    {# Quay về danh sách lớp — nơi giáo viên bấm vào để tới đây. Trước đây
-       nút này trỏ về teacher.dashboard (trang cá nhân/lương), không phải
-       trang vừa rời đi. #}
-    <a href="{{ url_for('teacher.scores_list') }}" class="btn btn-sm btn-outline-secondary mb-2">
-      <i class="bi bi-arrow-left me-1"></i>Quay lại
-    </a>
-    <h5 class="fw-bold mb-0">
-      <i class="bi bi-pencil-square text-primary me-1"></i>Nhập điểm
-    </h5>
-    <div class="text-muted fw-semibold">{{ class_.name }}</div>
-  </div>
+  {% set score_page = 'entry' %}
+  {% set score_page_title = 'Nhập điểm cho lớp' %}
+  {% include 'teacher/_scores_nav.html' %}
+  <p class="small text-muted">1. Chọn bài kiểm tra · 2. Nhập điểm · 3. Kiểm tra và lưu. Để trống nếu học sinh chưa có điểm; điểm 0 vẫn được lưu.</p>
 
   <!-- ===== SCORE ENTRY FORM ===== -->
   <form method="post" action="{{ url_for('teacher.scores', class_id=class_.id) }}" id="scoresForm">
@@ -27,14 +21,14 @@
       <div class="card-header fw-semibold py-2 bg-light">
         <i class="bi bi-info-circle me-1"></i>Thông tin bài kiểm tra
       </div>
-      <div class="card-body">
+      <div class="card-body row g-3">
 
         {# Bỏ chọn "Nguồn điểm": giáo viên nhập điểm ở đây luôn là điểm
            Trung tâm (score_source = center, gán ở phía server). Điểm thi
            trường do phụ huynh tự báo qua trang phụ huynh. #}
 
         <!-- semester select -->
-        <div class="mb-3">
+        <div class="col-6">
           <label class="form-label fw-semibold" for="semester">Kỳ</label>
           <select class="form-select" name="semester" id="semester" style="min-height:44px;">
             {% for key, label in semesters.items() %}
@@ -45,7 +39,7 @@
         </div>
 
         <!-- score_type select -->
-        <div class="mb-3">
+        <div class="col-6">
           <label class="form-label fw-semibold" for="score_type">Loại điểm</label>
           <select class="form-select" name="score_type" id="score_type" style="min-height:44px;"
                   data-next-rounds='{{ next_rounds | tojson }}'>
@@ -56,9 +50,9 @@
         </div>
 
         <!-- exam_round -->
-        <div class="mb-3">
+        <div class="col-6">
           <label class="form-label fw-semibold" for="exam_round">Lần thi</label>
-          <input type="number" class="form-control" name="exam_round" id="exam_round"
+          <input type="number" class="form-control" name="exam_round" id="exam_round" placeholder="Tự động"
                  min="1" step="1" style="min-height:44px;">
           <div class="form-text">
             Ví dụ: Thường xuyên lần 1, lần 2... Hệ thống tự điền lần kế tiếp, sửa lại được nếu cần.
@@ -66,10 +60,10 @@
         </div>
 
         <!-- exam_date -->
-        <div class="mb-3">
+        <div class="col-6">
           <label class="form-label fw-semibold" for="exam_date">Ngày kiểm tra</label>
           <input type="date" class="form-control" name="exam_date" id="exam_date"
-                 value="{{ today.strftime('%Y-%m-%d') }}" style="min-height:44px;">
+                 value="{{ today.strftime('%Y-%m-%d') }}" required style="min-height:44px;">
         </div>
 
         {# Bỏ "Tên trường": chỉ có ý nghĩa với điểm thi trường, mà trang này
@@ -88,31 +82,43 @@
     </div>
 
     <!-- Students score table -->
-    <div class="card shadow-sm border-0 mb-3">
+    <div class="card shadow-sm border-0 mb-3" data-student-filter>
       <div class="card-header fw-semibold py-2 bg-light d-flex justify-content-between align-items-center">
         <span><i class="bi bi-people me-1"></i>Điểm học sinh</span>
         <span class="badge bg-secondary">{{ students | length }} HS</span>
       </div>
+      <div class="p-3 border-bottom">
+        <label for="entryStudentSearch" class="form-label small fw-semibold">Tìm học sinh</label>
+        <div class="score-search-row">
+          <input type="search" id="entryStudentSearch" class="form-control" placeholder="Gõ tên, có thể không dấu" data-student-search enterkeyhint="search">
+          <div class="form-check">
+            <input type="checkbox" id="entryUnfilled" class="form-check-input" data-student-only>
+            <label for="entryUnfilled" class="form-check-label small">Chỉ ô chưa nhập</label>
+          </div>
+        </div>
+        <p class="small text-muted mt-2 mb-0">Thang điểm 10. Nhấn Enter trong ô điểm để chuyển tới học sinh tiếp theo. Tìm kiếm không xóa điểm đã nhập.</p>
+      </div>
       <div class="card-body p-0">
         {% if students %}
           {% for student in students %}
-          <div class="d-flex align-items-center gap-2 px-3 py-2 border-bottom">
-            <div class="flex-grow-1">
-              <div class="fw-semibold">{{ student.full_name }}</div>
+          <div class="score-student-row border-bottom" data-student-row data-student-name="{{ student.full_name }}">
+            <div class="score-student-name">
+              <label for="studentScore{{ student.id }}" class="fw-semibold">{{ loop.index }}. {{ student.full_name }}</label>
             </div>
-            <div style="width:90px;">
+            <div>
               {# step="any": đề thi có điểm rất lẻ (3.1, 7.35...). Nếu để
                  step cố định, trình duyệt chặn mọi giá trị không phải bội
                  số của bước đó. Giới hạn 0 <= điểm <= thang điểm vẫn được
                  kiểm tra ở server khi lưu. #}
               <input type="number" class="form-control form-control-sm text-center"
-                     name="score_{{ student.id }}" placeholder="Điểm"
-                     min="0" step="any"
+                     id="studentScore{{ student.id }}" name="score_{{ student.id }}" placeholder="0–10"
+                     min="0" max="10" step="any" inputmode="decimal" data-score-input
                      style="min-height:44px;font-size:1rem;font-weight:600;">
             </div>
-            <div style="width:130px;">
+            <div class="score-student-note">
+              <label class="visually-hidden" for="studentNote{{ student.id }}">Ghi chú cho {{ student.full_name }}</label>
               <input type="text" class="form-control form-control-sm"
-                     name="note_{{ student.id }}" placeholder="Ghi chú"
+                     id="studentNote{{ student.id }}" name="note_{{ student.id }}" placeholder="Ghi chú (không bắt buộc)"
                      style="min-height:44px;">
             </div>
           </div>
@@ -120,13 +126,18 @@
         {% else %}
           <div class="text-muted text-center py-3 small">Lớp chưa có học sinh</div>
         {% endif %}
+        <p class="text-muted text-center p-3 mb-0" data-student-empty hidden>Không có học sinh khớp bộ lọc. Xóa tên tìm kiếm hoặc bỏ chọn “Chỉ ô chưa nhập”.</p>
       </div>
     </div>
 
     <!-- Submit -->
-    <button type="submit" class="btn btn-primary btn-lg w-100 mb-4 shadow-sm" style="min-height:52px;font-size:1.1rem;">
-      <i class="bi bi-save me-2"></i>Nhập điểm
-    </button>
+    <div class="score-entry-actions d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+      <span id="scoreEntryCount" class="small" role="status">Đã nhập 0/{{ students | length }} học sinh</span>
+      <button type="submit" id="scoreSave" class="btn btn-primary" {% if not students %}disabled{% endif %}>
+        <i class="bi bi-save me-2"></i>Kiểm tra & lưu
+      </button>
+      <p id="scoreEntryMessage" class="text-danger small mb-0 w-100" role="alert" hidden></p>
+    </div>
   </form>
 
   <!-- ===== ĐIỂM ĐÃ NHẬP GẦN ĐÂY ===== -->
@@ -136,7 +147,22 @@
 
   {% if recent_scores %}
   <div class="card shadow-sm border-0">
-    <div class="table-responsive">
+    <div class="score-mobile-results">
+      {% for row in recent_scores %}
+      <article class="p-3 border-bottom">
+        <div class="d-flex justify-content-between align-items-start gap-2">
+          <h2 class="h6 score-student-name mb-1">{{ row.student.full_name }}</h2>
+          <strong class="flex-shrink-0">{{ row.score_value | score }}{% if row.max_score %}/{{ row.max_score | score }}{% endif %}</strong>
+        </div>
+        <div class="small text-muted">
+          {{ score_types.get(row.score_type, row.score_type) }}{% if row.exam_round %} · lần {{ row.exam_round }}{% endif %}
+          · {{ row.exam_date | date_vn }}
+        </div>
+        <div class="small text-muted">{{ score_sources.get(row.score_source, row.score_source) }}</div>
+      </article>
+      {% endfor %}
+    </div>
+    <div class="table-responsive score-desktop-results">
       <table class="table table-sm table-hover mb-0">
         <thead class="table-light">
           <tr>
@@ -162,7 +188,7 @@
               </span>
             </td>
             <td class="text-end fw-bold">
-              {{ row.score }}{% if row.max_score %}/{{ row.max_score }}{% endif %}
+              {{ row.score_value | score }}{% if row.max_score %}/{{ row.max_score | score }}{% endif %}
             </td>
             <td class="text-muted small">{{ row.exam_date | date_vn }}</td>
           </tr>
@@ -182,36 +208,5 @@
 
 {# Hàm toggleSchoolName() cũ đã bỏ cùng ô "Nguồn điểm"/"Tên trường". #}
 {% block extra_js %}
-<script>
-// Tự điền lần thi kế tiếp theo kỳ + loại điểm đang chọn. Số lần được tính
-// sẵn ở server cho mọi tổ hợp kỳ/loại điểm (theo lớp + năm) nên đổi kỳ hay
-// đổi loại điểm đều không cần gọi lại server. Giáo viên vẫn sửa tay được.
-(function () {
-  const semSelect = document.getElementById('semester');
-  const typeSelect = document.getElementById('score_type');
-  const roundInput = document.getElementById('exam_round');
-  if (!semSelect || !typeSelect || !roundInput) return;
-
-  let nextRounds = {};
-  try {
-    nextRounds = JSON.parse(typeSelect.dataset.nextRounds || '{}');
-  } catch (e) {
-    nextRounds = {};
-  }
-
-  // Chỉ ghi đè khi giáo viên chưa tự sửa, để không xoá số họ vừa nhập.
-  let touched = false;
-  roundInput.addEventListener('input', () => { touched = true; });
-
-  function fill() {
-    if (touched) return;
-    const bySemester = nextRounds[semSelect.value] || {};
-    roundInput.value = bySemester[typeSelect.value] || 1;
-  }
-
-  semSelect.addEventListener('change', fill);
-  typeSelect.addEventListener('change', fill);
-  fill();
-})();
-</script>
+<script src="{{ url_for('static', filename='js/teacher-scores.js') }}"></script>
 {% endblock %}

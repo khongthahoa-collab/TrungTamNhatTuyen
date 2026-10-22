@@ -1,34 +1,15 @@
 {% extends 'teacher/base.html' %}
 {% block title %}Từng lần thi {{ class_.name }} – Nhật Tuyền{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/teacher-scores.css') }}">
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid px-3 py-3">
+<div class="container-fluid px-3 py-3 score-workspace">
 
-  <!-- Header -->
-  <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
-    <div>
-      <h5 class="fw-bold mb-0">
-        <i class="bi bi-list-check text-primary me-1"></i>Chi tiết từng lần thi
-      </h5>
-      <div class="text-muted small">
-        {{ class_.name }} · {{ semesters.get(semester, semester) }} · năm {{ year }}
-      </div>
-    </div>
-    <div class="d-flex flex-wrap gap-2">
-      <a href="{{ url_for('teacher.scores', class_id=class_.id) }}"
-         class="btn btn-primary btn-sm">
-        <i class="bi bi-pencil-square me-1"></i>Nhập điểm
-      </a>
-      <a href="{{ url_for('teacher.scores_detail', class_id=class_.id, year=year, semester=semester) }}"
-         class="btn btn-outline-primary btn-sm">
-        <i class="bi bi-graph-up me-1"></i>Tiến bộ
-      </a>
-      <a href="{{ url_for('teacher.scores_list') }}"
-         class="btn btn-outline-secondary btn-sm" aria-label="Danh sách lớp">
-        <i class="bi bi-arrow-left"></i>
-      </a>
-    </div>
-  </div>
+  {% set score_page = 'rounds' %}
+  {% set score_page_title = 'Kết quả từng lần thi' %}
+  {% include 'teacher/_scores_nav.html' %}
 
   {% if saved_count %}
   <div class="alert alert-success d-flex align-items-start gap-2" role="status">
@@ -45,37 +26,29 @@
   </div>
   {% endif %}
 
-  <!-- Bộ lọc -->
-  <div class="card border-0 shadow-sm mb-3">
-    <div class="card-body py-2">
-      <form method="get" class="row g-2 align-items-end">
-        <input type="hidden" name="year" value="{{ year }}">
-        <div class="col-12">
-          <label class="form-label form-label-sm fw-semibold mb-1">Kỳ</label>
-          <div class="btn-group w-100" role="group">
-            {% for key, label in semesters.items() %}
-            <input type="radio" class="btn-check" name="semester" id="sem_{{ key }}"
-                   value="{{ key }}" {% if semester == key %}checked{% endif %}
-                   onchange="this.form.submit()">
-            <label class="btn btn-outline-primary btn-sm" for="sem_{{ key }}">{{ label }}</label>
-            {% endfor %}
-          </div>
-        </div>
-      </form>
-    </div>
+  {% include 'teacher/_scores_filters.html' %}
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+    <span class="small fw-semibold">{{ rounds | length }} lần kiểm tra</span>
+    <span class="small text-muted">Đạt từ {{ pass_threshold | score }}/10</span>
   </div>
+  <details class="small text-muted mb-2">
+    <summary>Cách xem kết quả và xuất ảnh</summary>
+    <p>Bấm tên bài để mở/đóng danh sách học sinh. Ảnh xuất luôn chứa toàn bộ kết quả của lần thi, không theo bộ lọc tìm kiếm.</p>
+  </details>
+  <div id="roundExportError" class="alert alert-danger" role="alert" hidden></div>
 
   {% for r in rounds %}
+  {% set round_open = (r.score_type == focus_type and r.round == focus_round) or (not focus_type and loop.first) %}
   <div class="card border-0 shadow-sm mb-2">
     <div class="card-body py-2">
       <!-- Dòng tóm tắt: bấm để mở danh sách học sinh -->
       <div class="d-flex align-items-start gap-2">
-        <a class="text-decoration-none text-body d-block flex-grow-1" data-bs-toggle="collapse"
-           href="#round{{ loop.index }}" role="button"
-           aria-expanded="{{ 'true' if r.score_type == focus_type and r.round == focus_round else 'false' }}"
+        <button type="button" class="score-round-toggle flex-grow-1" data-bs-toggle="collapse"
+           data-bs-target="#round{{ loop.index }}"
+           aria-expanded="{{ 'true' if round_open else 'false' }}"
            aria-controls="round{{ loop.index }}">
           <div class="d-flex align-items-center justify-content-between gap-2">
-            <div class="fw-semibold small">
+            <div class="fw-semibold score-student-name">
               {{ r.type_label }}{% if r.round %} · lần {{ r.round }}{% else %}
               <span class="text-muted fw-normal">· chưa đánh số lần</span>{% endif %}
               {% if r.exam_date %}
@@ -84,25 +57,49 @@
             </div>
             <i class="bi bi-chevron-down text-muted small"></i>
           </div>
-          <div class="d-flex flex-wrap gap-3 mt-1" style="font-size:0.78rem;">
-            <span>TB <strong class="{% if r.average >= pass_threshold %}text-success{% else %}text-danger{% endif %}">{{ r.average | score }}</strong></span>
+          <div class="d-flex flex-wrap gap-3 mt-2 small">
+            <span>Trung bình <strong class="{% if r.average >= pass_threshold %}text-success{% else %}text-danger{% endif %}">{{ r.average | score }}</strong></span>
             <span class="text-muted">Cao <strong class="text-body">{{ r.highest | score }}</strong></span>
             <span class="text-muted">Thấp <strong class="text-body">{{ r.lowest | score }}</strong></span>
             <span class="text-muted">Đạt
               <strong class="{% if r.failed %}text-danger{% else %}text-success{% endif %}">{{ r.passed }}/{{ r.count }}</strong>
             </span>
           </div>
-        </a>
+        </button>
         <button type="button" class="btn btn-outline-secondary btn-sm btn-export-round"
-                data-round="{{ loop.index }}" title="Xuất ảnh lần thi">
+                data-round="{{ loop.index }}" title="Xuất ảnh lần thi" aria-label="Xuất ảnh {{ r.type_label }} lần {{ r.round or 'chưa đánh số' }}">
           <i class="bi bi-image"></i><span class="d-none d-sm-inline ms-1">Xuất ảnh</span>
         </button>
       </div>
 
       <!-- Danh sách học sinh của đúng lần thi này -->
-      <div class="collapse mt-2{% if r.score_type == focus_type and r.round == focus_round %} show{% endif %}"
-           id="round{{ loop.index }}">
-        <div class="table-responsive">
+      <div class="collapse mt-2{% if round_open %} show{% endif %}"
+           id="round{{ loop.index }}" data-student-filter>
+        <div class="py-3">
+          <label for="roundSearch{{ loop.index }}" class="form-label small fw-semibold">Tìm học sinh trong lần thi này</label>
+          <div class="score-search-row">
+            <input type="search" id="roundSearch{{ loop.index }}" class="form-control" placeholder="Gõ tên, có thể không dấu" data-student-search>
+            <div class="form-check">
+              <input type="checkbox" class="form-check-input" id="roundFailed{{ loop.index }}" data-student-only>
+              <label for="roundFailed{{ loop.index }}" class="form-check-label small">Chỉ học sinh chưa đạt</label>
+            </div>
+          </div>
+        </div>
+        <div class="score-mobile-results">
+          {% for it in r.entries %}
+          <article class="border-top py-3" data-student-row data-student-name="{{ it.student.full_name if it.student else '' }}" data-failed="{{ 'false' if it.passed else 'true' }}">
+            <div class="d-flex justify-content-between align-items-start gap-2">
+              <h2 class="h6 mb-0 score-student-name">{{ it.student.full_name if it.student else '—' }}</h2>
+              <div class="text-end flex-shrink-0 {{ 'text-success' if it.passed else 'text-danger' }}">
+                <strong>{{ it.value | score }}/10</strong>
+                <div class="small">{{ 'Đạt' if it.passed else 'Chưa đạt' }}</div>
+              </div>
+            </div>
+            {% if it.note %}<p class="small text-muted score-student-name mb-0 mt-2">{{ it.note }}</p>{% endif %}
+          </article>
+          {% endfor %}
+        </div>
+        <div class="table-responsive score-desktop-results">
           <table class="table table-sm align-middle mb-0">
             <thead class="table-light">
               <tr>
@@ -114,7 +111,7 @@
             </thead>
             <tbody>
               {% for it in r.entries %}
-              <tr>
+              <tr data-student-row data-student-name="{{ it.student.full_name if it.student else '' }}" data-failed="{{ 'false' if it.passed else 'true' }}">
                 <td class="ps-2 small">{{ it.student.full_name if it.student else '—' }}</td>
                 <td class="text-end small fw-bold {% if it.passed %}text-success{% else %}text-danger{% endif %}">
                   {{ it.value | score }}
@@ -132,6 +129,7 @@
             </tbody>
           </table>
         </div>
+        <p class="small text-muted text-center p-3" data-student-empty hidden>Không có học sinh phù hợp. Xóa từ khóa hoặc bỏ chọn “Chỉ học sinh chưa đạt”.</p>
       </div>
     </div>
   </div>
@@ -168,6 +166,11 @@
             </td>
             <td>{{ it.note or '' }}</td>
           </tr>
+          {% else %}
+          <div class="card border-0 shadow-sm text-center p-4">
+            <h2 class="h6">Chưa có kết quả trong học kỳ và năm đã chọn</h2>
+            <p class="small text-muted">Thử đổi bộ lọc ở trên hoặc chọn “Nhập điểm” để thêm kết quả kiểm tra.</p>
+          </div>
           {% endfor %}
         </tbody>
       </table>
@@ -205,13 +208,21 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/teacher-scores.js') }}"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script>
 document.querySelectorAll('.btn-export-round').forEach(btn => {
   btn.addEventListener('click', () => {
     const roundId = btn.dataset.round;
     const capture = document.getElementById(`roundExportCapture-${roundId}`);
-    if (!capture || typeof html2canvas === 'undefined') return;
+    const errorMessage = document.getElementById('roundExportError');
+    errorMessage.hidden = true;
+    if (!capture || typeof html2canvas === 'undefined') {
+      errorMessage.textContent = 'Không tải được công cụ xuất ảnh. Kiểm tra kết nối và tải lại trang.';
+      errorMessage.hidden = false;
+      errorMessage.scrollIntoView({ block: 'center' });
+      return;
+    }
 
     const original = btn.innerHTML;
     btn.disabled = true;
@@ -221,11 +232,11 @@ document.querySelectorAll('.btn-export-round').forEach(btn => {
     html2canvas(capture, { scale: 2, backgroundColor: '#16a34a' })
       .then(canvas => new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9)))
       .then(blob => {
-        if (!blob) return;
+        if (!blob) throw new Error('Không tạo được ảnh kết quả.');
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
         const file = (isIOS && window.File) ? new File([blob], filename, { type: 'image/jpeg' }) : null;
         if (isIOS && file && navigator.canShare && navigator.canShare({ files: [file] })) {
-          return navigator.share({ files: [file], title: 'Kết quả điểm thi' }).catch(() => {});
+          return navigator.share({ files: [file], title: 'Kết quả điểm thi' });
         }
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -233,6 +244,13 @@ document.querySelectorAll('.btn-export-round').forEach(btn => {
         link.href = url;
         link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
+      })
+      .catch(error => {
+        if (error.name === 'AbortError') return;
+        console.error('Không thể xuất ảnh kết quả điểm thi.', error);
+        errorMessage.textContent = 'Không thể xuất ảnh. Vui lòng thử lại; nếu vẫn lỗi, tải lại trang và kiểm tra kết nối.';
+        errorMessage.hidden = false;
+        errorMessage.scrollIntoView({ block: 'center' });
       })
       .finally(() => {
         btn.disabled = false;

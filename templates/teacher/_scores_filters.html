@@ -1,0 +1,26 @@
+<form method="get" class="card border-0 shadow-sm mb-3">
+  <div class="card-body">
+    <div class="row g-2 align-items-end">
+      <div class="col-5 col-sm-3">
+        <label for="scoreYear" class="form-label small fw-semibold">Năm kiểm tra</label>
+        <select name="year" id="scoreYear" class="form-select">
+          {% for y in available_years %}
+          <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-7 col-sm-5">
+        <label for="scoreSemester" class="form-label small fw-semibold">Học kỳ</label>
+        <select name="semester" id="scoreSemester" class="form-select">
+          {% for key, label in semesters.items() %}
+          <option value="{{ key }}" {% if key == semester %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12 col-sm-4">
+        <button type="submit" class="btn btn-primary w-100">Xem kết quả</button>
+      </div>
+    </div>
+    <p class="small text-muted mt-2 mb-0">Đang xem {{ semesters.get(semester, semester) }} · năm {{ year }} · Điểm trung tâm, quy đổi thang 10.</p>
+  </div>
+</form>

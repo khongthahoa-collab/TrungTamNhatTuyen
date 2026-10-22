@@ -1,61 +1,16 @@
 {% extends 'teacher/base.html' %}
 {% block title %}Chi tiết điểm {{ class_.name }} – Nhật Tuyền{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/teacher-scores.css') }}">
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid px-3 py-3">
+<div class="container-fluid px-3 py-3 score-workspace">
 
-  <!-- Header -->
-  <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
-    <div>
-      <h5 class="fw-bold mb-0">
-        <i class="bi bi-graph-up text-primary me-1"></i>Chi tiết điểm
-      </h5>
-      <div class="text-muted small">{{ class_.name }} · Điểm Trung tâm Nhật Tuyến</div>
-    </div>
-    <div class="d-flex gap-2">
-      <a href="{{ url_for('teacher.scores_rounds', class_id=class_.id, year=year, semester=semester) }}"
-         class="btn btn-outline-primary btn-sm">
-        <i class="bi bi-list-check me-1"></i>Từng lần thi
-      </a>
-      <a href="{{ url_for('teacher.homework', class_id=class_.id) }}"
-         class="btn btn-outline-primary btn-sm">
-        <i class="bi bi-journal-check me-1"></i>Bài tập
-      </a>
-      <a href="{{ url_for('teacher.scores', class_id=class_.id) }}" class="btn btn-primary btn-sm">
-        <i class="bi bi-pencil-square me-1"></i>Nhập điểm
-      </a>
-      <a href="{{ url_for('teacher.scores_list') }}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left"></i>
-      </a>
-    </div>
-  </div>
-
-  <!-- Bộ lọc -->
-  <div class="card border-0 shadow-sm mb-3">
-    <div class="card-body py-2">
-      <form method="get" class="row g-2 align-items-end">
-        <div class="col-6 col-md-3">
-          <label class="form-label form-label-sm fw-semibold mb-1">Năm</label>
-          <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
-            {% for y in available_years %}
-            <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="col-12 col-md-7">
-          <label class="form-label form-label-sm fw-semibold mb-1">Kỳ</label>
-          <div class="btn-group w-100" role="group">
-            {% for key, label in semesters.items() %}
-            <input type="radio" class="btn-check" name="semester" id="sem_{{ key }}"
-                   value="{{ key }}" {% if semester == key %}checked{% endif %}
-                   onchange="this.form.submit()">
-            <label class="btn btn-outline-primary btn-sm" for="sem_{{ key }}">{{ label }}</label>
-            {% endfor %}
-          </div>
-        </div>
-      </form>
-    </div>
-  </div>
+  {% set score_page = 'detail' %}
+  {% set score_page_title = 'Kết quả theo học sinh' %}
+  {% include 'teacher/_scores_nav.html' %}
+  {% include 'teacher/_scores_filters.html' %}
 
   {% if undated_count %}
   <div class="alert alert-warning py-2 small">
@@ -87,7 +42,7 @@
     <div class="col-4">
       <div class="card border-0 shadow-sm text-center py-2 h-100">
         <div class="fw-bold text-primary" style="font-size:1.3rem;">{{ total_scores }}</div>
-        <div class="text-muted" style="font-size:0.72rem;">Lượt kiểm tra</div>
+        <div class="text-muted small">Điểm đã ghi</div>
       </div>
     </div>
     <div class="col-4">
@@ -103,14 +58,55 @@
       </div>
     </div>
   </div>
+  <details class="small text-muted mb-3">
+    <summary>Cách đọc điểm và phạm vi thống kê</summary>
+    <p class="mb-0">Đạt từ {{ pass_threshold | score }}/10. Thống kê trên tính tất cả loại điểm trong kỳ; bảng dưới chỉ hiển thị khảo sát (KS), giữa kỳ (GK) và cuối kỳ (CK). “Gần nhất” là điểm mới nhất trong ba nhóm này, không phải điểm trung bình.</p>
+  </details>
 
   <!-- Chi tiết tiến bộ -->
-  <div class="card border-0 shadow-sm mb-3">
+  <div class="card border-0 shadow-sm mb-3" data-student-filter>
     <div class="card-header bg-white fw-semibold small py-2">
-      <i class="bi bi-arrow-up-right-circle me-1 text-primary"></i>Chi tiết tiến bộ
+      <i class="bi bi-people me-1 text-primary"></i>Kết quả học sinh
     </div>
-    <div class="table-responsive">
-      <table class="table table-sm align-middle mb-0">
+    <div class="p-3 border-bottom">
+      <label for="detailStudentSearch" class="form-label small fw-semibold">Tìm học sinh</label>
+      <div class="score-search-row">
+        <input type="search" id="detailStudentSearch" class="form-control" placeholder="Gõ tên, có thể không dấu" data-student-search>
+        <div class="form-check">
+          <input type="checkbox" id="detailFailed" class="form-check-input" data-student-only>
+          <label for="detailFailed" class="form-check-label small">Điểm gần nhất chưa đạt</label>
+        </div>
+      </div>
+    </div>
+    <div class="score-mobile-results">
+      {% for r in matrix %}
+      <article class="p-3 border-bottom" data-student-row data-student-name="{{ r.student.full_name if r.student else '' }}"
+               data-failed="{{ 'true' if r.latest is not none and r.latest < pass_threshold else 'false' }}">
+        <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+          <h2 class="h6 score-student-name mb-0">{{ r.student.full_name if r.student else '—' }}</h2>
+          <span class="small flex-shrink-0 {{ 'text-danger' if r.latest is not none and r.latest < pass_threshold else 'text-success' }}">
+            Gần nhất: {{ r.latest | score if r.latest is not none else '—' }}
+          </span>
+        </div>
+        {% for key, label in matrix_columns %}
+        <div class="d-flex align-items-start gap-2 small mb-1">
+          <span class="text-muted pt-1 flex-shrink-0">{{ label }}:</span>
+          <div>
+            {% for item in r.cells[key] %}
+            <span class="score-value {{ 'text-success' if item.passed else 'text-danger' }}">
+              {% if item.round %}L{{ item.round }}: {% endif %}{{ item.value | score }}
+              <span class="visually-hidden">{{ 'Đạt' if item.passed else 'Không đạt' }}</span>
+            </span>
+            {% else %}<span class="text-muted">Chưa có điểm</span>{% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+        {% if r.note %}<p class="small text-muted score-student-name mt-2 mb-0">Ghi chú: {{ r.note }}</p>{% endif %}
+      </article>
+      {% endfor %}
+    </div>
+    <div class="table-responsive score-desktop-results" role="region" aria-label="Bảng điểm theo học sinh, có thể cuộn ngang" tabindex="0">
+      <table class="table table-sm align-middle mb-0 score-table">
         <thead class="table-light">
           <tr>
             <th class="ps-3">Tên</th>
@@ -123,7 +119,8 @@
         </thead>
         <tbody>
           {% for r in matrix %}
-          <tr>
+          <tr data-student-row data-student-name="{{ r.student.full_name if r.student else '' }}"
+              data-failed="{{ 'true' if r.latest is not none and r.latest < pass_threshold else 'false' }}">
             <td class="ps-3 small fw-semibold text-nowrap">{{ r.student.full_name if r.student else '—' }}</td>
             {% for key, label in matrix_columns %}
             <td class="text-center small text-nowrap">
@@ -143,15 +140,22 @@
           {% else %}
           <tr>
             <td colspan="{{ matrix_columns | length + 3 }}" class="text-center text-muted py-4 small">
-              Chưa có điểm Trung tâm nào trong {{ semesters.get(semester, semester) }} năm {{ year }}.
+              Chưa có điểm KS/GK/CK trong {{ semesters.get(semester, semester) }} năm {{ year }}. Chọn “Từng lần thi” để xem các loại điểm khác.
             </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+    <p class="text-muted p-3 text-center mb-0" data-student-empty hidden>Không có học sinh phù hợp. Thử xóa tên tìm kiếm hoặc bỏ bộ lọc điểm gần nhất.</p>
+    {% if not matrix %}
+    <div class="score-mobile-results p-3 text-center text-muted">Chưa có điểm KS/GK/CK trong kỳ đã chọn. Chọn “Từng lần thi” để xem các loại điểm khác hoặc đổi năm, học kỳ ở trên.</div>
+    {% endif %}
   </div>
 
 
 </div>
+{% endblock %}
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/teacher-scores.js') }}"></script>
 {% endblock %}

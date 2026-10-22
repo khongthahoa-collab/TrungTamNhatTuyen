@@ -1,0 +1,25 @@
+<header class="mb-3">
+  <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+    <a href="{{ url_for('teacher.scores_list') }}" class="small text-decoration-none d-inline-flex align-items-center score-back">
+      <i class="bi bi-arrow-left me-1" aria-hidden="true"></i>Danh sách lớp
+    </a>
+    <a href="{{ url_for('teacher.homework', class_id=class_.id) }}" class="btn btn-link btn-sm text-decoration-none px-0">Bài tập về nhà</a>
+  </div>
+  <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+    <div class="score-heading">
+      <h1 class="h4 fw-bold mb-1">{{ score_page_title }}</h1>
+      <p class="text-muted mb-0">{{ class_.name }}</p>
+    </div>
+  </div>
+  <nav class="score-tabs mt-3" aria-label="Quản lý điểm lớp">
+    <a href="{{ url_for('teacher.scores', class_id=class_.id, year=year if year is defined else today.year, semester=semester if semester is defined else selected_semester) }}"
+       class="btn {{ 'btn-primary' if score_page == 'entry' else 'btn-outline-primary' }}"
+       {% if score_page == 'entry' %}aria-current="page"{% endif %}>Nhập điểm</a>
+    <a href="{{ url_for('teacher.scores_detail', class_id=class_.id, year=year if year is defined else today.year, semester=semester if semester is defined else selected_semester) }}"
+       class="btn {{ 'btn-primary' if score_page == 'detail' else 'btn-outline-primary' }}"
+       {% if score_page == 'detail' %}aria-current="page"{% endif %}>Theo học sinh</a>
+    <a href="{{ url_for('teacher.scores_rounds', class_id=class_.id, year=year if year is defined else today.year, semester=semester if semester is defined else selected_semester) }}"
+       class="btn {{ 'btn-primary' if score_page == 'rounds' else 'btn-outline-primary' }}"
+       {% if score_page == 'rounds' %}aria-current="page"{% endif %}>Từng lần thi</a>
+  </nav>
+</header>
