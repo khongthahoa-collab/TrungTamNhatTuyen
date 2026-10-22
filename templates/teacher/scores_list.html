@@ -157,6 +157,7 @@
               <h3 class="h6 fw-bold mb-1 scores-class-name" id="scoreClass{{ cls.id }}">
                 <a href="{{ url_for('teacher.scores_detail', class_id=cls.id) }}" class="scores-class-link text-decoration-none">{{ cls.name }}</a>
               </h3>
+              <div class="small text-muted">Học sinh: {{ enrollment_counts.get(cls.id, 0) }}</div>
               <div class="small text-muted scores-class-name">{{ cls.course.name if cls.course else 'Chưa gắn khóa học' }}</div>
             </div>
           </div>
