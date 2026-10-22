@@ -26,7 +26,6 @@
         </button>
       </div>
     </div>
-    <div id="timeWarning" class="alert alert-warning small mx-3 mb-2 d-none" role="alert" aria-atomic="true"></div>
   </div>
 
   {% if track_screen_exits %}
@@ -147,6 +146,13 @@
   </div>
   </div>
   </form>
+  <dialog id="timeWarning" class="exam-time-warning" aria-labelledby="timeWarningTitle" aria-describedby="timeWarningMessage">
+    <h2 id="timeWarningTitle" class="h5 fw-bold text-warning">Sắp hết giờ làm bài</h2>
+    <p id="timeWarningMessage">Bài thi còn không quá 5 phút. Em hãy kiểm tra các câu chưa làm và chuẩn bị nộp bài.</p>
+    <form method="dialog" class="text-end">
+      <button class="btn btn-primary" autofocus>Đã hiểu, tiếp tục làm bài</button>
+    </form>
+  </dialog>
   <button type="button" id="examBackToTop" class="btn btn-primary exam-back-to-top d-none"
           aria-label="Lên đầu đề thi" title="Lên đầu đề thi">
     <i class="bi bi-arrow-up" aria-hidden="true"></i>
@@ -205,12 +211,13 @@ function autoSubmit(reason) {
 let remaining = {{ remaining_seconds }};
 const deadline = Date.now() + remaining * 1000;
 const timeWarning = document.getElementById('timeWarning');
+let timeWarningShown = false;
 function updateTimerDisplay() {
   timerDisplay.textContent = formatTime(Math.max(0, remaining));
   timerDisplay.classList.toggle('text-danger', remaining <= 300);
-  if (remaining > 0 && remaining <= 300 && timeWarning.classList.contains('d-none')) {
-    timeWarning.classList.remove('d-none');
-    timeWarning.textContent = 'Bài thi còn không quá 5 phút. Em hãy kiểm tra các câu chưa làm và chuẩn bị nộp bài.';
+  if (!submitted && remaining > 0 && remaining <= 300 && !timeWarningShown) {
+    timeWarningShown = true;
+    timeWarning.showModal();
   }
 }
 updateTimerDisplay();

@@ -6,7 +6,7 @@
   const guides = {
     create: [
       ['[data-guide="compose"]', '1. Bắt đầu soạn đề',
-        'Chọn “Bắt đầu soạn đề” để nhập câu hỏi trực quan hoặc soạn bằng văn bản. Hướng dẫn không tự chuyển trang; hãy đóng hướng dẫn rồi chọn cách tạo đề.'],
+        'Chọn “Bắt đầu soạn đề” để nhập nội dung bằng văn bản và xem trước đề. Hướng dẫn không tự chuyển trang; hãy đóng hướng dẫn rồi chọn cách tạo đề.'],
       ['[data-guide="reuse"]', 'Dùng lại đề có sẵn',
         'Bạn cũng có thể sao chép đề được phép dùng lại. Bản sao là đề nháp để kiểm tra, chỉnh sửa và chọn lớp giao mới.'],
       ['[data-guide="workflow"]', '2. Cấu hình và giao đề',
@@ -15,12 +15,12 @@
     compose: [
       ['#examTitle', '1. Đặt tên đề thi',
         'Nhập tên dễ nhận biết, ví dụ “Ôn tập giữa kỳ 1 – Toán 8”.'],
-      ['#groupsContainer', '2. Soạn câu hỏi và đáp án',
-        'Nhập nội dung câu hỏi, các lựa chọn và đánh dấu đáp án đúng. Có thể thêm câu hỏi trong mỗi phần. Với tự luận, giáo viên sẽ chấm tay.'],
-      ['[data-guide="add-group"]', '3. Thêm dạng câu hỏi',
-        'Chọn dạng câu hỏi rồi bấm “Thêm phần thi”. Một đề có thể kết hợp trắc nghiệm, đúng/sai, trả lời ngắn, tự luận và tìm lỗi sai.'],
-      ['#rawTextEditor', '4. Soạn bằng văn bản',
-        'Có thể sửa hoặc dán nội dung theo mẫu đang hiển thị. Văn bản và khung soạn trực quan đồng bộ hai chiều; hãy kiểm tra lại câu hỏi và đáp án sau khi dán.'],
+      ['#rawTextEditor', '2. Nhập nội dung bằng văn bản',
+        'Đây là nơi duy nhất để sửa câu hỏi, đáp án và lời giải. Mỗi câu bắt đầu bằng “Câu 1:”. Xem hướng dẫn nhập ngay dưới ô văn bản.'],
+      ['[data-guide="samples"]', '3. Sử dụng nội dung mẫu',
+        'Chọn mẫu do admin tạo rồi bấm “Sử dụng mẫu”. Mẫu sẽ thay thế nội dung đang nhập sau khi bạn xác nhận; tên đề không thay đổi.'],
+      ['#groupsContainer', '4. Kiểm tra bản xem trước',
+        'Khung xem trước chỉ đọc và tự cập nhật khi nhập. Chọn “Sửa trong văn bản” để đến nội dung gốc. Trên điện thoại, dùng hai nút “Nhập nội dung” và “Xem trước”.'],
       ['[data-guide="configure"]', '5. Chuyển sang cấu hình',
         'Khi đã nhập tên đề và câu hỏi, bấm “Cấu hình” để chọn môn, cách chia điểm và lớp cần giao. Bước này chưa đăng đề cho học sinh.'],
     ],
@@ -70,6 +70,9 @@
     if (highlighted) highlighted.classList.remove('exam-guide-target');
     const step = steps[index];
     highlighted = step.target;
+    const pane = highlighted.closest('.exam-compose-preview') ? 'preview'
+      : highlighted.closest('.exam-compose-source') ? 'source' : null;
+    if (pane) document.querySelector(`[data-editor-pane="${pane}"]`)?.click();
     highlighted.classList.add('exam-guide-target');
     highlighted.scrollIntoView({ block: 'center', behavior: 'instant' });
     title.textContent = step.title;

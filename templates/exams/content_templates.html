@@ -1,0 +1,42 @@
+{% extends 'admin/base.html' %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ url_for('admin.exams_list') }}">Đề thi online</a></li>
+<li class="breadcrumb-item active">Mẫu nội dung</li>
+{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h4 class="fw-bold mb-1">Mẫu nội dung đề thi</h4>
+    <p class="text-muted mb-0">Admin quản lý mẫu dùng chung. Admin và giáo viên có thể chèn mẫu khi soạn đề.</p>
+  </div>
+  {% if current_user.can_write('exams') %}
+  <a href="{{ url_for('admin.exam_content_template_new') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Thêm mẫu nội dung</a>
+  {% endif %}
+</div>
+<div class="card border-0 shadow-sm">
+  <div class="list-group list-group-flush">
+    {% for item in templates %}
+    <div class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <div>
+        <div class="fw-semibold">{{ item.name }}</div>
+        <div class="small text-muted">{{ item.content|length }} ký tự</div>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="{{ url_for('admin.exam_content_template_edit', template_id=item.id) }}" class="btn btn-sm btn-outline-primary">
+          {{ 'Sửa' if current_user.can_write('exams') else 'Xem' }}
+        </a>
+        {% if current_user.can_write('exams') %}
+        <form method="post" action="{{ url_for('admin.exam_content_template_delete', template_id=item.id) }}" onsubmit="return confirm('Xóa mẫu nội dung này? Các đề đã tạo sẽ không bị thay đổi.');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-sm btn-outline-danger" aria-label="Xóa mẫu {{ item.name }}">Xóa</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div class="p-4 text-center text-muted">Chưa có mẫu nội dung. Thêm mẫu để dùng lại khi soạn đề.</div>
+    {% endfor %}
+  </div>
+</div>
+<a href="{{ url_for('admin.exams_list') }}" class="btn btn-outline-secondary mt-3">Quay lại đề thi</a>
+{% endblock %}

@@ -129,6 +129,8 @@ ADMIN_ENDPOINT_MODULES = {
     'exams_new': 'exams', 'exams_edit': 'exams', 'exams_confirm': 'exams', 'exams_delete': 'exams',
     'exams_preview': 'exams', 'exams_export': 'exams',
     'exam_toggle_sharing': 'exams', 'exam_reset_attempts': 'exams',
+    'exam_content_templates': 'exams', 'exam_content_template_new': 'exams',
+    'exam_content_template_edit': 'exams', 'exam_content_template_delete': 'exams',
 
     # reports.py
     'reports': 'reports',

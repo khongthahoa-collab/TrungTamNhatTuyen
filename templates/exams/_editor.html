@@ -1,0 +1,48 @@
+<div id="examEditorError" class="alert alert-danger d-none" role="alert"></div>
+<div class="exam-editor-tabs d-lg-none mb-3" role="group" aria-label="Chế độ soạn đề">
+  <button type="button" class="btn btn-primary" data-editor-pane="source" aria-pressed="true">Nhập nội dung</button>
+  <button type="button" class="btn btn-outline-primary" data-editor-pane="preview" aria-pressed="false">Xem trước</button>
+</div>
+<div class="exam-compose-layout" id="examComposer" data-active-pane="source">
+  <section class="exam-compose-preview" aria-labelledby="examPreviewHeading">
+    <h2 class="h6 fw-bold" id="examPreviewHeading">Xem trước <span class="small text-muted fw-normal">· Chỉ đọc</span></h2>
+    <p class="small text-muted">Kiểm tra câu hỏi, đáp án và lời giải. Chọn “Sửa trong văn bản” để sửa nội dung gốc.</p>
+    <div id="groupsContainer"></div>
+  </section>
+  <section class="exam-compose-source" aria-labelledby="examSourceHeading">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white">
+        <h2 class="h6 fw-bold mb-0" id="examSourceHeading">Nhập nội dung đề</h2>
+      </div>
+      <div class="card-body p-2">
+        <label for="rawTextEditor" class="visually-hidden">Văn bản đề thi, nguồn nội dung duy nhất</label>
+        <textarea id="rawTextEditor" class="form-control exam-source-text" spellcheck="false" aria-describedby="examSyntaxHelp"></textarea>
+        <details class="small mt-2" id="examSyntaxHelp">
+          <summary>Hướng dẫn nhập nội dung</summary>
+          <p class="mt-2 mb-1">Mỗi phần bắt đầu bằng <code>## Tên phần {loại}</code>, mỗi câu bắt đầu bằng <code>Câu 1:</code>. Loại hỗ trợ: <code>mcq</code>, <code>true_false</code>, <code>short_answer</code>, <code>essay</code>, <code>error_id</code>.</p>
+          <p class="mb-1">Trắc nghiệm: nhập A., B., C., D. và <code>Đáp án: A</code>. Đúng/Sai: a), b)… và <code>Đáp án: a)Đ b)S</code>. Trả lời ngắn: <code>Đáp án: 2.1 | 2,1</code>.</p>
+          <p class="mb-0">Lời giải: <code>Giải thích:</code>. Tìm lỗi sai: <code>[A:nội dung]</code>, thêm * ở nhãn đúng: <code>[*B:lỗi sai]</code>. Công thức dùng \(…\) hoặc $…$.</p>
+        </details>
+      </div>
+      <div class="card-footer bg-white" data-guide="samples">
+        <label for="examSampleSelect" class="small fw-semibold mb-2">Nội dung mẫu</label>
+        <div class="d-flex flex-wrap gap-2">
+          <select id="examSampleSelect" class="form-select form-select-sm" aria-label="Chọn nội dung mẫu" disabled>
+            <option value="">Đang tải mẫu…</option>
+          </select>
+          <button type="button" id="applyExamSample" class="btn btn-outline-primary btn-sm" disabled>Sử dụng mẫu</button>
+          <button type="button" id="retryExamSamples" class="btn btn-outline-secondary btn-sm d-none">Tải lại</button>
+        </div>
+        <p id="examSampleStatus" class="small text-muted mt-2 mb-0" role="status"></p>
+        {% if current_user.is_admin %}
+        <a href="{{ url_for('admin.exam_content_templates') }}" class="small">Quản lý nội dung mẫu</a>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+</div>
+<script type="application/json" id="examEditorConfig">{{ {
+  'groups': prefill.groups | default([]),
+  'draftKey': ('admin' if current_user.is_admin else 'teacher') ~ '-exam-editor-draft:' ~ current_user.id ~ ':' ~ (exam.id if editing else 'new'),
+  'samplesUrl': url_for('exam_content_templates.list_templates')
+} | tojson }}</script>

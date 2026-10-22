@@ -233,6 +233,17 @@ class ExamFolder(db.Model):
         return f'<ExamFolder {self.name}>'
 
 
+class ExamContentTemplate(db.Model):
+    """Shared raw editor content managed by administrators."""
+    __tablename__ = 'exam_content_templates'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class Exam(db.Model):
     """Online exam / practice test definition."""
     __tablename__ = 'exams'

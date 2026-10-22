@@ -55,14 +55,8 @@
                           {% if option.correct %}bg-success-subtle{% elif option.selected %}bg-danger-subtle{% endif %}">
                 <span class="fw-semibold">{{ option.label }}.</span>
                 <span class="exam-math flex-grow-1">{{ option.text }}</span>
-                {% if option.selected %}
-                <span class="badge {% if option.correct %}text-bg-success{% else %}text-bg-danger{% endif %} flex-shrink-0">
-                  Em chọn
-                </span>
-                {% endif %}
-                {% if option.correct %}
-                <span class="badge text-bg-success flex-shrink-0">Đáp án đúng</span>
-                {% endif %}
+                {% if option.selected %}<span class="visually-hidden">Đáp án đã chọn.</span>{% endif %}
+                {% if option.correct %}<span class="visually-hidden">Đáp án chính xác.</span>{% endif %}
               </div>
               {% endfor %}
               {% if not question.options | selectattr('selected') | list %}
@@ -75,7 +69,7 @@
                           {% if statement.selected != '' and chosen == statement.correct %}bg-success-subtle{% elif statement.selected != '' %}bg-danger-subtle{% endif %}">
                 <span class="fw-semibold">{{ statement.label }})</span>
                 <span class="exam-math flex-grow-1">{{ statement.text }}</span>
-                <span class="text-muted">Em chọn: <strong>{{ 'Chưa trả lời' if statement.selected == '' else 'Đúng' if chosen else 'Sai' }}</strong></span>
+                <span class="text-muted" aria-label="Câu trả lời đã chọn"><strong>{{ 'Chưa trả lời' if statement.selected == '' else 'Đúng' if chosen else 'Sai' }}</strong></span>
                 <span class="text-success">Đáp án: <strong>{{ 'Đúng' if statement.correct else 'Sai' }}</strong></span>
               </div>
               {% endfor %}
@@ -83,7 +77,7 @@
               <div class="small mb-1">Em trả lời:
                 <span class="exam-math fw-semibold" style="white-space:pre-wrap;">{{ question.student_answer or 'Chưa trả lời' }}</span>
               </div>
-              <div class="small text-success">Đáp án đúng:
+              <div class="small text-success" aria-label="Đáp án chính xác">
                 <span class="exam-math fw-semibold">{{ question.correct_answers | join(' | ') }}</span>
               </div>
             {% elif group.type == 'essay' %}
@@ -92,16 +86,16 @@
               </div>
               <div class="small text-muted">Câu tự luận được giáo viên chấm thủ công.</div>
             {% elif group.type == 'error_id' %}
-              <div class="small mb-1">Em chọn:
+              <div class="small mb-1" aria-label="Câu trả lời đã chọn">
                 <span class="fw-semibold">{{ question.student_answer or 'Chưa trả lời' }}</span>
               </div>
-              <div class="small text-success">Đáp án đúng:
+              <div class="small text-success" aria-label="Đáp án chính xác">
                 <span class="fw-semibold">{{ question.correct_answer }}</span>
               </div>
             {% endif %}
             {% if question.explanation %}
             <div class="small exam-math mt-2">
-              <i class="bi bi-chat-square-text me-1 text-primary"></i>
+              <div class="fw-semibold mb-1"><i class="bi bi-chat-square-text me-1 text-primary"></i>Giải thích đáp án</div>
               <div class="exam-explanation-markdown">{{ question.explanation | markdown }}</div>
             </div>
             {% endif %}

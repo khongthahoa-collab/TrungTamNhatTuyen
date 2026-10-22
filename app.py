@@ -15,6 +15,8 @@ def _ensure_new_columns():
         ('exam_folders', 'parent_id', 'INTEGER REFERENCES exam_folders(id)'),
     ]
     try:
+        from models import ExamContentTemplate
+        ExamContentTemplate.__table__.create(bind=db.engine, checkfirst=True)
         inspector = inspect(db.engine)
         tables = set(inspector.get_table_names())
         with db.engine.begin() as conn:
@@ -89,6 +91,7 @@ def create_app(config_name=None):
     from blueprints.admin import admin_bp
     from blueprints.api import api_bp
     from blueprints.api.calendar import api_calendar_bp
+    from blueprints.exam_content_templates import exam_content_templates_bp
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(public_bp, url_prefix='/')
@@ -98,6 +101,7 @@ def create_app(config_name=None):
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(api_bp)
     app.register_blueprint(api_calendar_bp)
+    app.register_blueprint(exam_content_templates_bp)
     # Token-authenticated JSON API, not cookie/session-based — Flask-WTF's
     # CSRF protection doesn't apply the same way here.
     csrf.exempt(api_bp)

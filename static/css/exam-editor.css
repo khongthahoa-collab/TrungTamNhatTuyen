@@ -1,0 +1,18 @@
+.exam-compose-layout { display: grid; gap: 1rem; align-items: start; }
+.exam-compose-preview, .exam-compose-source { min-width: 0; }
+.exam-source-text { height: 75vh; min-height: 480px; overflow-y: auto; resize: vertical; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 1rem; line-height: 1.6; tab-size: 2; }
+.exam-preview-content { white-space: pre-wrap; overflow-wrap: anywhere; }
+.exam-preview-card { scroll-margin-top: calc(56px + var(--exam-editor-toolbar-height, 80px) + 1rem); }
+.exam-preview-options { display: grid; gap: .5rem; }
+.exam-preview-option { padding: .5rem .75rem; border: 1px solid var(--nt-border-light); border-radius: .5rem; }
+.exam-preview-option.is-correct { background: var(--nt-primary-100); color: var(--nt-primary-deeper); }
+.exam-editor-tabs { display: flex; gap: .5rem; }
+#examSampleSelect { flex: 1 1 180px; min-width: 0; }
+@media (min-width: 992px) {
+  .exam-compose-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .exam-source-text { font-size: .875rem; }
+}
+@media (max-width: 991.98px) {
+  [data-active-pane="source"] .exam-compose-preview,
+  [data-active-pane="preview"] .exam-compose-source { display: none; }
+}

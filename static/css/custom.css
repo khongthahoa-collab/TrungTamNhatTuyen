@@ -1127,6 +1127,15 @@ footer a:hover { color: #fff !important; }
 .acct-action-delete:hover  { background: #fdc9c9; }
 
 .exam-take-page { max-width: 720px; }
+.exam-time-warning {
+  box-sizing: border-box;
+  width: min(440px, calc(100% - 2rem));
+  padding: 1.25rem;
+  border: 0;
+  border-radius: var(--nt-radius-lg);
+  box-shadow: var(--nt-shadow);
+}
+.exam-time-warning::backdrop { background: rgb(0 0 0 / 40%); }
 .exam-back-to-top {
   position: fixed;
   right: 1rem;
