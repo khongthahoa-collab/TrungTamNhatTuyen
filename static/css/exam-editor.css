@@ -1,5 +1,12 @@
 .exam-compose-layout { display: grid; gap: 1rem; align-items: start; }
 .exam-compose-preview, .exam-compose-source { min-width: 0; }
+.exam-compose-preview {
+  height: max(480px, 75vh);
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+  padding: .25rem .5rem;
+}
 .exam-source-text { height: 75vh; min-height: 480px; overflow-y: auto; resize: vertical; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 1rem; line-height: 1.6; tab-size: 2; }
 .exam-preview-content { white-space: pre-wrap; overflow-wrap: anywhere; }
 .exam-preview-card { scroll-margin-top: calc(56px + var(--exam-editor-toolbar-height, 80px) + 1rem); }

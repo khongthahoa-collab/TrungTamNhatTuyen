@@ -157,7 +157,7 @@
     let answers = '';
     if (group.type === 'mcq') {
       answers = `<div class="exam-preview-options">${question.options.map((option, oi) =>
-        `<div class="exam-preview-option${oi === question.correct_index ? ' is-correct' : ''}">${letters[oi]}. ${text(option)}${oi === question.correct_index ? ' <span class="small">(Đáp án đúng)</span>' : ''}</div>`).join('')}</div>`;
+        `<div class="exam-preview-option${oi === question.correct_index ? ' is-correct' : ''}">${letters[oi]}. ${text(option)}</div>`).join('')}</div>`;
     } else if (group.type === 'true_false') {
       answers = question.statements.map((st, si) =>
         `<div class="exam-preview-option mb-1">${statementLetters[si]}) ${text(st.text)} <strong>— ${st.correct ? 'Đúng' : 'Sai'}</strong></div>`).join('');
@@ -236,7 +236,7 @@
       showError('Không tìm thấy vị trí câu hỏi trong văn bản. Hãy kiểm tra lại nội dung.');
       return;
     }
-    editor.focus();
+    editor.focus({ preventScroll: true });
     editor.setSelectionRange(offset, offset);
     editor.scrollTop = Math.max(0, editor.value.slice(0, offset).split('\n').length * parseFloat(getComputedStyle(editor).lineHeight) - editor.clientHeight / 3);
   });
