@@ -80,6 +80,14 @@
     };
 
     for (let i = 0; i < text.length;) {
+      const lineBreak = text.slice(i).match(/^\\(?:r\\n|n)(?=\s|$)/);
+      if (lineBreak) {
+        flushText();
+        fragment.appendChild(document.createElement('br'));
+        i += lineBreak[0].length;
+        continue;
+      }
+
       if (text.startsWith('\\frac', i)) {
         const numerator = readBracedGroup(text, i + 5);
         const denominator = numerator && readBracedGroup(text, numerator.end);
@@ -137,7 +145,7 @@
   function shouldRenderPlainText(parts) {
     return parts.some((part, i) => (
       i % 2 === 0
-        ? /(?:\\(?:frac|text|rightarrow|times|uparrow|downarrow)\b|[_^]\{)/.test(part)
+        ? /(?:\\(?:r\\n|n)(?=\s|$)|\\(?:frac|text|rightarrow|times|uparrow|downarrow)\b|[_^]\{)/.test(part)
         : /\\times\b/.test(part)
     ));
   }

@@ -45,10 +45,12 @@
     <div>Tiến độ được tự động lưu và khôi phục khi bạn quay lại. Đồng hồ vẫn tiếp tục chạy khi rời màn hình thi.</div>
   </div>
 
-  <section class="card border-0 shadow-sm mb-3" aria-labelledby="examProgressTitle">
-    <div class="card-body">
-      <h2 class="h6 fw-semibold" id="examProgressTitle">Tiến độ làm bài</h2>
-      <p class="small text-muted">Xanh: đã làm đủ · Xám: chưa làm hoặc chưa đủ ý. Bấm số câu để đến câu đó. Trạng thái không cho biết đáp án đúng hay sai.</p>
+  <div class="exam-take-layout">
+  <section class="card border-0 shadow-sm exam-progress-panel" aria-labelledby="examProgressTitle">
+    <div class="card-body p-2">
+      <h2 class="small fw-semibold mb-1" id="examProgressTitle">Tiến độ làm bài</h2>
+      <p class="exam-progress-legend text-muted mb-2">Xanh: đủ đáp án · Xám: chưa đủ<br>Bấm số để đến câu, không phải kết quả chấm.</p>
+      <div class="exam-progress-list" tabindex="0" role="region" aria-label="Tiến độ các phần, cuộn để xem thêm">
       {% for group in questions %}
       <div class="small fw-semibold mb-2">Phần {{ loop.index }}</div>
       <nav class="exam-question-grid mb-3" aria-label="Câu hỏi {{ group.title }}">
@@ -57,9 +59,11 @@
         {% endfor %}
       </nav>
       {% endfor %}
+      </div>
     </div>
   </section>
 
+  <div class="exam-take-questions">
     {% for group in questions %}
     <div class="mt-4 mb-2 exam-question-group-heading">
       <h6 class="fw-bold text-success mb-1">{{ group.title }}</h6>
@@ -69,7 +73,6 @@
     <div class="card border-0 shadow-sm mb-3" data-exam-question
          id="exam-g{{ group.index }}-q{{ q.position }}" tabindex="-1">
       <div class="card-body">
-        <div class="small text-muted mb-2" data-question-status></div>
         {% if group.type == 'mcq' %}
           {% set answer_key = 'g' ~ group.index ~ '_q' ~ q.position %}
           <div class="fw-semibold mb-2 exam-question-title">Câu {{ q.position }}. <span class="exam-math">{{ q.text }}</span></div>
@@ -141,6 +144,8 @@
         <i class="bi bi-arrow-left me-1"></i>Lưu tiến độ và về danh sách
       </button>
     </div>
+  </div>
+  </div>
   </form>
 </div>
 {% endblock %}
@@ -250,10 +255,6 @@ function updateExamProgress() {
     const progress = questionProgress(question);
     const status = progress.complete ? 'Đã làm'
       : progress.answered ? `Chưa xong (${progress.answered}/${progress.total} ý)` : 'Chưa làm';
-    const statusElement = question.querySelector('[data-question-status]');
-    statusElement.textContent = status;
-    statusElement.classList.toggle('text-success', progress.complete);
-    statusElement.classList.toggle('text-muted', !progress.complete);
     const link = questionLinks[index];
     link.classList.toggle('is-complete', progress.complete);
     link.title = status;
