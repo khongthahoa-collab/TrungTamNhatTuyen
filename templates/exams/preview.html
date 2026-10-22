@@ -46,7 +46,7 @@
       <div class="card-body">
         {% if exam.description %}<p class="text-muted">{{ exam.description }}</p>{% endif %}
         {% for group in exam.question_groups %}
-        {{ exam_macros.render_group(group) }}
+        {{ exam_macros.render_group(group, responsive_options=true) }}
         {% else %}
         <p class="text-muted">Đề thi chưa có câu hỏi nào.</p>
         {% endfor %}

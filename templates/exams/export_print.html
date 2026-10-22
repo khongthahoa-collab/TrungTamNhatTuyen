@@ -13,6 +13,11 @@
   .question .qtitle { font-weight: bold; }
   .options, .statements { margin-left: 18px; }
   .options div, .statements div { margin-bottom: 2px; }
+  .options-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 16px; }
+  .options-grid > div { min-width: 0; overflow-wrap: anywhere; }
+  @media screen and (max-width: 576px) {
+    .options-grid { grid-template-columns: minmax(0, 1fr); }
+  }
   .answer-key { margin-top: 36px; border-top: 1px solid #999; padding-top: 12px; }
   .answer-key .group-block { margin-bottom: 8px; }
   .print-bar { text-align: center; margin-bottom: 20px; }
@@ -65,7 +70,7 @@
   <div class="question exam-math">
     {% if group.type == 'mcq' %}
       <div class="qtitle">Câu {{ loop.index }}. {{ q.text }}</div>
-      <div class="options">
+      <div class="options{% if fmt == 'pdf' and q.options | length == 4 %} options-grid{% endif %}">
         {% for opt in q.options %}<div>{{ ['A','B','C','D','E','F'][loop.index0] }}. {{ opt }}</div>{% endfor %}
       </div>
     {% elif group.type == 'true_false' %}

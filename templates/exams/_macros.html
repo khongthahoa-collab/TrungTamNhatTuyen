@@ -1,7 +1,7 @@
-{% macro render_question(q, qtype, index) %}
+{% macro render_question(q, qtype, index, responsive_options=false) %}
   {% if qtype == 'mcq' %}
     <div class="fw-semibold">Câu {{ index }}. <span class="exam-math">{{ q.text | exam_newlines }}</span></div>
-    <div class="ms-3 mt-1">
+    <div class="ms-3 mt-1{% if responsive_options and q.options | length == 4 %} exam-review-options{% endif %}">
       {% for opt in q.options %}
       <div class="{% if loop.index0 == q.correct_index %}text-success fw-semibold{% endif %}">
         {{ ['A','B','C','D','E','F'][loop.index0] }}. <span class="exam-math">{{ opt | exam_newlines }}</span>
@@ -38,13 +38,13 @@
 
 {% macro group_type_label(gtype) %}{{ {'mcq': 'Trắc nghiệm', 'true_false': 'Đúng/Sai', 'short_answer': 'Trả lời ngắn', 'essay': 'Tự luận', 'error_id': 'Tìm lỗi sai'}.get(gtype, gtype) }}{% endmacro %}
 
-{% macro render_group(g) %}
+{% macro render_group(g, responsive_options=false) %}
 <div class="mb-4">
   <h6 class="fw-bold mb-1">{{ g.title }} <span class="badge bg-secondary-subtle text-secondary border ms-1">{{ group_type_label(g.type) }}</span></h6>
   {% if g.instruction %}<p class="text-muted small">{{ g.instruction | exam_newlines }}</p>{% endif %}
   <ol class="list-unstyled">
     {% for q in g.questions %}
-    <li class="mb-3">{{ render_question(q, g.type, loop.index) }}</li>
+    <li class="mb-3">{{ render_question(q, g.type, loop.index, responsive_options) }}</li>
     {% endfor %}
   </ol>
 </div>

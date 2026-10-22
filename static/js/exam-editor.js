@@ -156,7 +156,7 @@
   function renderQuestion(group, question, gi, qi) {
     let answers = '';
     if (group.type === 'mcq') {
-      answers = `<div class="exam-preview-options">${question.options.map((option, oi) =>
+      answers = `<div class="exam-preview-options${config.isAdmin && question.options.length === 4 ? ' exam-review-options' : ''}">${question.options.map((option, oi) =>
         `<div class="exam-preview-option${oi === question.correct_index ? ' is-correct' : ''}">${letters[oi]}. ${text(option)}</div>`).join('')}</div>`;
     } else if (group.type === 'true_false') {
       answers = question.statements.map((st, si) =>
