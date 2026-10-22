@@ -50,7 +50,7 @@
     <div class="card-body p-2">
       <h2 class="small fw-semibold mb-1" id="examProgressTitle">Tiến độ làm bài</h2>
       <p class="exam-progress-legend text-muted mb-2">Xanh: đủ đáp án · Xám: chưa đủ<br>Bấm số để đến câu, không phải kết quả chấm.</p>
-      <div class="exam-progress-list" tabindex="0" role="region" aria-label="Tiến độ các phần, cuộn để xem thêm">
+      <div class="exam-progress-list">
       {% for group in questions %}
       <div class="small fw-semibold mb-2">Phần {{ loop.index }}</div>
       <nav class="exam-question-grid mb-3" aria-label="Câu hỏi {{ group.title }}">
@@ -147,6 +147,10 @@
   </div>
   </div>
   </form>
+  <button type="button" id="examBackToTop" class="btn btn-primary exam-back-to-top d-none"
+          aria-label="Lên đầu đề thi" title="Lên đầu đề thi">
+    <i class="bi bi-arrow-up" aria-hidden="true"></i>
+  </button>
 </div>
 {% endblock %}
 
@@ -168,6 +172,16 @@ let draftDirty = false;
 const saveStatus = document.getElementById('saveStatus');
 const saveProgressUrl = document.getElementById('saveProgressUrl').value;
 const examsListUrl = document.getElementById('examsListUrl').value;
+const backToTopButton = document.getElementById('examBackToTop');
+function updateBackToTop() {
+  backToTopButton.classList.toggle('d-none', window.scrollY < 400);
+}
+window.addEventListener('scroll', updateBackToTop, { passive: true });
+updateBackToTop();
+backToTopButton.addEventListener('click', () => {
+  window.scrollTo({ top: 0, behavior: 'instant' });
+  document.getElementById('submitBtnTop').focus({ preventScroll: true });
+});
 
 function formatTime(totalSeconds) {
   const m = Math.floor(totalSeconds / 60);

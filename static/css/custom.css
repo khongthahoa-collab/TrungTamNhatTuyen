@@ -1127,12 +1127,23 @@ footer a:hover { color: #fff !important; }
 .acct-action-delete:hover  { background: #fdc9c9; }
 
 .exam-take-page { max-width: 720px; }
+.exam-back-to-top {
+  position: fixed;
+  right: 1rem;
+  bottom: calc(88px + env(safe-area-inset-bottom));
+  z-index: 140;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  box-shadow: var(--nt-shadow);
+}
 .exam-take-layout { display: grid; gap: 1rem; align-items: start; }
 .exam-take-questions { min-width: 0; }
 .exam-take-questions > .exam-question-group-heading:first-child { margin-top: 0 !important; }
 .exam-progress-legend { font-size: .75rem; line-height: 1.4; }
-.exam-progress-list { max-height: 160px; overflow-y: auto; scrollbar-gutter: stable; padding: 3px; }
-.exam-progress-list .exam-question-grid { gap: .25rem; margin-bottom: .5rem !important; }
+.exam-progress-panel { text-align: center; }
+.exam-progress-list { padding: 4px; }
+.exam-progress-list .exam-question-grid { gap: .375rem; margin-bottom: .75rem !important; }
 .exam-progress-list .exam-question-grid:last-child { margin-bottom: 0 !important; }
 @media (min-width: 992px) {
   .exam-take-page { max-width: 1040px; }
@@ -1140,11 +1151,8 @@ footer a:hover { color: #fff !important; }
   .exam-progress-panel {
     grid-column: 2;
     grid-row: 1;
-    position: sticky;
-    top: calc(56px + env(safe-area-inset-top) + var(--exam-toolbar-height, 80px) + 1rem);
   }
   .exam-take-questions { grid-column: 1; grid-row: 1; }
-  .exam-progress-list { max-height: max(160px, calc(100dvh - 56px - env(safe-area-inset-top) - var(--exam-toolbar-height, 80px) - 200px)); }
 }
 .exam-take-toolbar { top: calc(56px + env(safe-area-inset-top)); z-index: 90; }
 .exam-take-toolbar-title { min-width: 0; }
@@ -1165,7 +1173,7 @@ footer a:hover { color: #fff !important; }
   box-shadow: 0 0 0 3px var(--nt-primary-200);
 }
 .exam-bottom-actions button { min-height: 48px; }
-.exam-question-grid { display: grid; grid-template-columns: repeat(auto-fill, 32px); gap: .5rem; }
+.exam-question-grid { display: grid; grid-template-columns: repeat(auto-fill, 32px); justify-content: center; gap: .5rem; }
 .exam-question-link {
   width: 32px;
   height: 32px;
