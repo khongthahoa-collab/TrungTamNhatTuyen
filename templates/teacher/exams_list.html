@@ -62,7 +62,7 @@
           <option value="published" {% if status == 'published' %}selected{% endif %}>Đã đăng</option>
         </select>
       </div>
-      <div class="col-12 d-flex gap-2 justify-content-end align-items-center">
+      <div class="col-12 col-md-auto ms-md-auto d-flex gap-2 justify-content-end align-items-center">
         <button type="submit" class="btn btn-primary btn-sm">Lọc</button>
         <a href="{{ url_for('teacher.exams_list', folder_id=current_folder.id) if current_folder else url_for('teacher.exams_list') }}"
            class="btn btn-outline-secondary btn-sm" title="Xóa lọc"><i class="bi bi-x"></i></a>
