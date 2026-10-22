@@ -16,8 +16,8 @@
   .answer-key { margin-top: 36px; border-top: 1px solid #999; padding-top: 12px; }
   .answer-key .group-block { margin-bottom: 8px; }
   .print-bar { text-align: center; margin-bottom: 20px; }
-  .print-watermark { position: fixed; inset: 0; display: grid; place-items: center; overflow: hidden; pointer-events: none; z-index: 0; }
-  .print-watermark img { width: 240mm; height: auto; max-width: none; object-fit: contain; opacity: 0.06; }
+  .print-watermark { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+  .print-watermark img { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 240mm; height: auto; max-width: none; object-fit: contain; opacity: 0.06; }
   .print-content { position: relative; z-index: 1; }
   u { text-decoration: underline; }
   @media print { .print-bar { display: none; } }
