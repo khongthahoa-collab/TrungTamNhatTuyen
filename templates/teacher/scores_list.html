@@ -45,9 +45,20 @@
     padding-block: 0.5rem;
     font-size: 0.9rem;
   }
-  .scores-class-meta {
-    background: var(--nt-primary-50);
-    border-radius: var(--nt-radius);
+  .scores-class-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+  .scores-class-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 0.7fr);
+    gap: 0.375rem;
+  }
+  .scores-hub .scores-class-actions .btn {
+    padding: 0.5rem 0.25rem;
+    font-size: 0.8125rem;
+    white-space: nowrap;
   }
   .scores-hub .btn {
     min-height: 44px;
@@ -75,9 +86,6 @@
       width: 100%;
       padding-top: 0.75rem;
       border-top: 1px solid var(--nt-border-light);
-    }
-    .scores-class-card .btn {
-      font-size: 0.875rem;
     }
   }
 </style>
@@ -136,7 +144,6 @@
   {% if classes %}
   <div class="row g-3">
     {% for cls in classes %}
-    {% set score_stat = score_stats.get(cls.id) %}
     <div class="col-12 col-md-6 col-xl-4">
       <article class="card scores-class-card h-100 shadow-sm" aria-labelledby="scoreClass{{ cls.id }}">
         <div class="card-body p-3 p-lg-4 d-flex flex-column">
@@ -145,48 +152,25 @@
               <i class="bi bi-mortarboard fs-5"></i>
             </span>
             <div class="scores-class-heading">
-              <h3 class="h6 fw-bold mb-1 scores-class-name" id="scoreClass{{ cls.id }}">{{ cls.name }}</h3>
+              <h3 class="h6 fw-bold mb-1 scores-class-name" id="scoreClass{{ cls.id }}">
+                <a href="{{ url_for('teacher.scores_detail', class_id=cls.id) }}" class="scores-class-link text-decoration-none">{{ cls.name }}</a>
+              </h3>
               <div class="small text-muted scores-class-name">{{ cls.course.name if cls.course else 'Chưa gắn khóa học' }}</div>
             </div>
           </div>
 
-          <div class="scores-class-meta p-3 mb-3">
-            <div class="d-flex flex-wrap justify-content-between gap-2 small">
-              <span><i class="bi bi-people me-1" aria-hidden="true"></i><strong>{{ enrollment_counts.get(cls.id, 0) }}</strong> học sinh</span>
-              <span class="{{ 'text-success' if score_stat else 'text-muted' }}">
-                <i class="bi {{ 'bi-check-circle' if score_stat else 'bi-inbox' }} me-1" aria-hidden="true"></i>
-                {% if score_stat %}{{ score_stat.count }} điểm đã nhập{% else %}Chưa có điểm{% endif %}
-              </span>
-            </div>
-            <div class="small text-muted mt-2">
-              {% if score_stat and score_stat.latest_date %}
-              Ngày kiểm tra gần nhất: {{ score_stat.latest_date | date_vn }}
-              {% elif score_stat %}
-              Đã có kết quả điểm trung tâm.
-              {% else %}
-              Bắt đầu bằng lần nhập điểm đầu tiên cho lớp.
-              {% endif %}
-            </div>
-          </div>
-
-          <div class="row g-2 mt-auto">
-            <div class="col-6">
+          <div class="scores-class-actions mt-auto">
               <a href="{{ url_for('teacher.scores', class_id=cls.id) }}"
                  class="btn btn-primary btn-sm w-100" aria-label="Nhập điểm lớp {{ cls.name }}">
-                <i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Nhập điểm
+                Nhập điểm
               </a>
-            </div>
-            <div class="col-6">
               <a href="{{ url_for('teacher.scores_detail', class_id=cls.id) }}"
-                 class="btn btn-outline-primary btn-sm w-100" aria-label="Xem kết quả lớp {{ cls.name }}">
-                <i class="bi bi-graph-up me-1" aria-hidden="true"></i>Xem kết quả
+                 class="btn btn-outline-primary btn-sm w-100" aria-label="Thống kê điểm lớp {{ cls.name }}">
+                Thống kê
               </a>
-            </div>
-          </div>
-          <div class="border-top mt-3 pt-2">
             <a href="{{ url_for('teacher.homework', class_id=cls.id) }}"
-               class="btn btn-link btn-sm text-secondary text-decoration-none px-0" aria-label="Bài tập về nhà lớp {{ cls.name }}">
-              <i class="bi bi-journal-check me-2" aria-hidden="true"></i>Bài tập về nhà<i class="bi bi-arrow-right ms-2" aria-hidden="true"></i>
+               class="btn btn-outline-secondary btn-sm w-100" aria-label="Bài tập về nhà lớp {{ cls.name }}" title="Bài tập về nhà">
+              BTVN
             </a>
           </div>
         </div>
