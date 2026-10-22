@@ -213,11 +213,7 @@
     </div>
 
     <div class="col-lg-5">
-      {% set total_questions = payload.groups | map(attribute='questions') | map('length') | sum %}
       <div class="card border-0 shadow-sm" style="position:sticky; top:8px;">
-        <div class="card-header bg-white fw-semibold small text-uppercase text-muted">
-          <i class="bi bi-card-checklist me-1"></i>Xem lại nội dung ({{ total_questions }} câu, {{ payload.groups | length }} phần)
-        </div>
         <div class="card-body" style="max-height:60vh; overflow-y:auto;">
           {% for group in payload.groups %}
           {{ exam_macros.render_group(group) }}

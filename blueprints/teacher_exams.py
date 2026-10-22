@@ -81,8 +81,8 @@ def exams_list():
             query = query.filter(db.or_(Exam.title.ilike(f'%{search}%'),
                                         Exam.subject.ilike(f'%{search}%'),
                                         Exam.creator.has(User.full_name.ilike(f'%{search}%'))))
-    if not reuse_mode:
-        query = query.filter_by(folder_id=folder_id) if folder_id else query.filter(Exam.folder_id.is_(None))
+    if not reuse_mode and current_folder:
+        query = query.filter_by(folder_id=current_folder.id)
     if subject:
         query = query.filter_by(subject=subject)
     if exam_type:
@@ -92,9 +92,12 @@ def exams_list():
     elif status == 'published':
         query = query.filter_by(is_draft=False)
 
-    exams = query.order_by(Exam.created_at.desc()).all()
+    query = query.order_by(Exam.created_at.desc(), Exam.id.desc())
+    exams = query.all() if reuse_mode or class_id else query.limit(10).all()
     if class_id:
         exams = [e for e in exams if class_id in e.class_list]
+        if not reuse_mode:
+            exams = exams[:10]
 
     folders = ExamFolder.query.filter_by(created_by=current_user.id).order_by(ExamFolder.name).all()
     child_folders = [

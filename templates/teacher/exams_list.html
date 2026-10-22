@@ -308,7 +308,6 @@
               data-exam-has-attempts="{{ 'true' if row.has_attempts else 'false' }}">
             <td class="fw-semibold">
               <div>{{ exam.title }}</div>
-              <div class="small text-muted">{{ exam.subject }} · {{ exam.type_label }} · {{ exam.total_question_count }} câu</div>
             </td>
             <td class="text-center">
               <span class="fw-semibold">{{ row.submission_count }}</span>
@@ -342,7 +341,7 @@
           </tr>
           {% else %}
           <tr><td colspan="5" class="text-center text-muted py-4">
-            {% if child_folders %}Chưa có đề trực tiếp trong thư mục này.{% elif current_folder %}Thư mục này chưa có đề hoặc thư mục con.{% else %}Chưa có đề ngoài thư mục. Bấm "Tạo đề thi" để bắt đầu.{% endif %}
+            {% if current_folder %}Không có đề phù hợp trong thư mục này.{% else %}Chưa có đề phù hợp. Thử đổi bộ lọc hoặc bấm "Tạo đề thi" để bắt đầu.{% endif %}
           </td></tr>
           {% endfor %}
         </tbody>
