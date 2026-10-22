@@ -13,6 +13,7 @@
 .exam-preview-options { display: grid; gap: .5rem; }
 .exam-preview-option { padding: .5rem .75rem; border: 1px solid var(--nt-border-light); border-radius: .5rem; }
 .exam-preview-option.is-correct { background: var(--nt-primary-100); color: var(--nt-primary-deeper); }
+.exam-preview-option.is-incorrect { background: var(--bs-danger-bg-subtle); color: var(--bs-danger-text-emphasis); }
 .exam-editor-tabs { display: flex; gap: .5rem; }
 #examSampleSelect { flex: 1 1 180px; min-width: 0; }
 @media (min-width: 992px) {

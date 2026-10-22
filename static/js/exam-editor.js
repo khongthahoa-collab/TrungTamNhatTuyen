@@ -160,7 +160,7 @@
         `<div class="exam-preview-option${oi === question.correct_index ? ' is-correct' : ''}">${letters[oi]}. ${text(option)}</div>`).join('')}</div>`;
     } else if (group.type === 'true_false') {
       answers = question.statements.map((st, si) =>
-        `<div class="exam-preview-option mb-1">${statementLetters[si]}) ${text(st.text)} <strong>— ${st.correct ? 'Đúng' : 'Sai'}</strong></div>`).join('');
+        `<div class="exam-preview-option mb-1 ${st.correct ? 'is-correct' : 'is-incorrect'}">${statementLetters[si]}) ${text(st.text)}<span class="visually-hidden"> (${st.correct ? 'Đúng' : 'Sai'})</span></div>`).join('');
     } else if (group.type === 'short_answer') {
       answers = `<div class="small text-success">Đáp án: ${text(question.accepted_answers.join(' | '))}</div>`;
     } else if (group.type === 'essay') answers = '<div class="small text-muted">Tự luận · Chấm tay</div>';
