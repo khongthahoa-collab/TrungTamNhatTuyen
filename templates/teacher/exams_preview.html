@@ -1,13 +1,11 @@
 {% extends 'teacher/base.html' %}
+{% from 'teacher/_navigation.html' import back_button %}
 {% import 'exams/_macros.html' as exam_macros %}
 {% block title %}Xem trước đề thi – Giáo viên – Nhật Tuyền{% endblock %}
 {% block extra_head %}{% include 'exams/_mathjax.html' %}{% endblock %}
 {% block content %}
 <div class="container-fluid px-3 pt-3">
-<a href="{{ url_for('teacher.exams_list') }}" class="small text-decoration-none text-muted d-block mb-1">
-  <i class="bi bi-arrow-left me-1"></i>Đề thi online
-</a>
-<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+<div class="teacher-page-header mb-3">
   <div>
     <h5 class="fw-bold mb-1">{{ exam.title }}</h5>
     <div class="text-muted small">
@@ -16,7 +14,8 @@
       · {{ exam.availability_label }}
     </div>
   </div>
-  <div class="d-flex gap-2 flex-wrap">
+  {{ back_button(url_for('teacher.exams_list'), 'danh sách đề thi') }}
+  <div class="teacher-header-actions">
     {% if can_edit_exam %}
     <a href="{{ url_for('teacher.exams_edit', exam_id=exam.id) }}" class="btn btn-primary btn-sm">
       <i class="bi bi-pencil me-1"></i>Chỉnh sửa

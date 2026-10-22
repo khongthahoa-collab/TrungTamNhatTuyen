@@ -9,8 +9,7 @@ html {
 }
 .score-workspace .btn,
 .score-workspace .form-control,
-.score-workspace .form-select,
-.score-back {
+.score-workspace .form-select {
   min-height: 44px;
 }
 .score-workspace .form-control,

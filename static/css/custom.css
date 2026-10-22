@@ -42,6 +42,31 @@
 }
 
 /* ── Base ── */
+.teacher-page-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.75rem;
+}
+.teacher-page-header > :first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.teacher-page-header .teacher-header-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.teacher-back-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  white-space: nowrap;
+  align-self: start;
+}
+
 html { scroll-behavior: smooth; }
 
 body {

@@ -1,14 +1,13 @@
 {% extends 'teacher/base.html' %}
+{% from 'teacher/_navigation.html' import back_button %}
 {% block title %}Điểm danh: {{ schedule.class_.name }} – Nhật Tuyền{% endblock %}
 
 {% block content %}
 <div class="container-fluid px-3 py-3">
 
   <!-- Header -->
-  <div class="mb-3">
-    <a href="{{ url_for('teacher.schedule') }}" class="btn btn-sm btn-outline-secondary mb-2">
-      <i class="bi bi-arrow-left me-1"></i>Quay lại
-    </a>
+  <div class="teacher-page-header mb-3">
+    <div>
     <h5 class="fw-bold mb-0">
       <i class="bi bi-person-check text-primary me-1"></i>Điểm danh
     </h5>
@@ -17,6 +16,8 @@
       &nbsp;–&nbsp;{{ schedule.date | date_vn }}
       &nbsp;·&nbsp;{{ schedule.start_time.strftime('%H:%M') }}–{{ schedule.end_time.strftime('%H:%M') }}
     </div>
+    </div>
+    {{ back_button(url_for('teacher.schedule'), 'lịch dạy') }}
   </div>
 
   <!-- Tất cả có mặt button -->

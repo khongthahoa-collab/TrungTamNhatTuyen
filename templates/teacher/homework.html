@@ -1,20 +1,19 @@
 {% extends 'teacher/base.html' %}
+{% from 'teacher/_navigation.html' import back_button %}
 {% block title %}Bài tập về nhà {{ class_.name }} – Nhật Tuyền{% endblock %}
 
 {% block content %}
 <div class="container-fluid px-3 py-3">
 
   <!-- Header -->
-  <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+  <div class="teacher-page-header mb-3">
     <div>
       <h5 class="fw-bold mb-0">
         <i class="bi bi-journal-check text-primary me-1"></i>Bài tập về nhà
       </h5>
       <div class="text-muted small">{{ class_.name }} · {{ student_count }} học sinh</div>
     </div>
-    <a href="{{ url_for('teacher.scores_list') }}" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-arrow-left"></i>
-    </a>
+    {{ back_button(url_for('teacher.scores_list'), 'danh sách lớp') }}
   </div>
 
   <!-- Bộ lọc -->

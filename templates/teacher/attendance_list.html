@@ -1,16 +1,20 @@
 {% extends "teacher/base.html" %}
+{% from 'teacher/_navigation.html' import back_button %}
 
 {% block title %}Điểm Danh{% endblock %}
 
 {% block content %}
 <div class="container-fluid px-3 py-3">
 
-  <div class="d-flex align-items-center justify-content-between mb-3">
+  <div class="teacher-page-header mb-3">
+    <div>
     <h5 class="fw-bold mb-0">
       <i class="bi bi-check-circle text-primary me-1"></i>Điểm Danh
     </h5>
+    </div>
+    {{ back_button(url_for('teacher.dashboard'), 'tổng quan') }}
     {% if pending_count > 0 %}
-    <span class="badge bg-warning text-dark">{{ pending_count }} chưa điểm danh</span>
+    <div class="teacher-header-actions"><span class="badge bg-warning text-dark">{{ pending_count }} chưa điểm danh</span></div>
     {% endif %}
   </div>
 

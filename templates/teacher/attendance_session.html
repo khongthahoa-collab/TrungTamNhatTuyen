@@ -1,4 +1,5 @@
 {% extends "teacher/base.html" %}
+{% from 'teacher/_navigation.html' import back_button %}
 
 {% block title %}Điểm Danh – {{ schedule.class_.name }}{% endblock %}
 
@@ -6,10 +7,8 @@
 <div class="container-fluid px-3 py-3">
 
   <!-- Header -->
-  <div class="mb-3">
-    <a href="{{ url_for('teacher.attendance_list') }}" class="btn btn-sm btn-outline-secondary mb-2">
-      <i class="bi bi-arrow-left me-1"></i>Quay lại
-    </a>
+  <div class="teacher-page-header mb-3">
+    <div>
     <h5 class="fw-bold mb-0">
       <i class="bi bi-person-check text-primary me-1"></i>Điểm Danh
     </h5>
@@ -21,6 +20,8 @@
       &nbsp;·&nbsp;<i class="bi bi-door-open"></i> {{ schedule.room }}
       {% endif %}
     </div>
+    </div>
+    {{ back_button(url_for('teacher.attendance_list'), 'danh sách điểm danh') }}
   </div>
 
   {% if is_future %}

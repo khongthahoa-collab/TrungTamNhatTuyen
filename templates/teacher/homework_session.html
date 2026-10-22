@@ -1,15 +1,13 @@
 {% extends 'teacher/base.html' %}
+{% from 'teacher/_navigation.html' import back_button %}
 {% block title %}Bài tập {{ class_.name }} – Nhật Tuyền{% endblock %}
 
 {% block content %}
 <div class="container-fluid px-3 py-3">
 
   <!-- Header -->
-  <div class="mb-3">
-    <a href="{{ url_for('teacher.homework', class_id=class_.id, year=homework.assigned_date.year, semester=homework.semester) }}"
-       class="btn btn-sm btn-outline-secondary mb-2">
-      <i class="bi bi-arrow-left me-1"></i>Quay lại
-    </a>
+  <div class="teacher-page-header mb-3">
+    <div>
     <h5 class="fw-bold mb-0">
       <i class="bi bi-journal-check text-primary me-1"></i>Bài tập về nhà
     </h5>
@@ -17,6 +15,8 @@
       {{ class_.name }} · {{ homework.assigned_date | date_vn }} · {{ homework.display_title }}
     </div>
     <div class="text-muted small">Chỉ ghi nhận có làm / không làm — không chấm điểm.</div>
+    </div>
+    {{ back_button(url_for('teacher.homework', class_id=class_.id, year=homework.assigned_date.year, semester=homework.semester), 'bài tập về nhà') }}
   </div>
 
   <form method="post"

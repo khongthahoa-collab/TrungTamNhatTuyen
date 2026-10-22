@@ -1,21 +1,21 @@
 {% extends 'teacher/base.html' %}
+{% from 'teacher/_navigation.html' import back_button %}
 {% block title %}{{ 'Bảng xếp hạng' if leaderboard else 'Thống kê đề thi' }} – Giáo viên – Nhật Tuyền{% endblock %}
 {% block content %}
 <div class="container-fluid px-3 pt-3">
-  <a href="{{ url_for('teacher.exams_list', folder_id=exam.folder_id) }}"
-     class="small text-decoration-none text-muted d-block mb-1">
-    <i class="bi bi-arrow-left me-1"></i>Quay lại danh sách đề
-  </a>
-  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+  <div class="teacher-page-header mb-3">
     <div>
       <h5 class="fw-bold mb-1">{{ exam.title }}</h5>
       <div class="text-muted small">{{ exam.subject }} · {{ exam.type_label }}</div>
     </div>
+    {{ back_button(url_for('teacher.exams_list', folder_id=exam.folder_id), 'danh sách đề thi') }}
+    <div class="teacher-header-actions">
     <div class="btn-group btn-group-sm" role="group" aria-label="Chế độ xem">
       <a class="btn {% if not leaderboard %}btn-primary{% else %}btn-outline-primary{% endif %}"
          href="{{ url_for('teacher.exams_statistics', exam_id=exam.id) }}">Thống kê</a>
       <a class="btn {% if leaderboard %}btn-primary{% else %}btn-outline-primary{% endif %}"
          href="{{ url_for('teacher.exams_leaderboard', exam_id=exam.id) }}">Bảng xếp hạng</a>
+    </div>
     </div>
   </div>
 

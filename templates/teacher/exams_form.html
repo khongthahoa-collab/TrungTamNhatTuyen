@@ -1,4 +1,5 @@
 {% extends 'teacher/base.html' %}
+{% from 'teacher/_navigation.html' import back_button %}
 {% block title %}{% if editing %}Sửa đề thi{% else %}Tạo đề thi{% endif %} – Giáo viên – Nhật Tuyền{% endblock %}
 {% block extra_head %}
 {% include 'exams/_mathjax.html' %}
@@ -13,17 +14,9 @@
     border-bottom: 1px solid var(--bs-border-color);
     box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.06);
   }
-  .exam-editor-toolbar-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    margin-bottom: 0.5rem;
-  }
   .exam-editor-raw-card {
     position: sticky;
-    top: calc(56px + env(safe-area-inset-top) + 132px);
+    top: calc(56px + env(safe-area-inset-top) + var(--exam-editor-toolbar-height, 190px) + 1rem);
   }
   @media (max-width: 575.98px) {
     .exam-editor-toolbar {
@@ -48,16 +41,15 @@
   <input type="hidden" name="groups_json" id="groupsField">
 
   <div class="exam-editor-toolbar">
-    <div class="exam-editor-toolbar-top">
+    <div class="teacher-page-header mb-2">
       <div class="d-flex align-items-center gap-2">
         <span class="badge rounded-pill bg-success">Bước 1/2</span>
         <h6 class="fw-bold mb-0">{% if editing %}Chỉnh sửa nội dung đề thi{% else %}Soạn nội dung đề thi{% endif %}</h6>
       </div>
-      <div class="d-flex flex-wrap align-items-center gap-2">
+      {{ back_button(url_for('teacher.exams_list'), 'danh sách đề thi', editor_exit=true) }}
+      <div class="teacher-header-actions align-items-center">
         {% set exam_guide_page = 'compose' %}
         {% include 'teacher/_exam_guide.html' %}
-        <a href="{{ url_for('teacher.exams_list') }}" class="btn btn-outline-secondary btn-sm"
-           data-exam-editor-exit>Hủy</a>
         <button type="submit" class="btn btn-primary btn-sm" data-guide="configure">
           Cấu hình <i class="bi bi-arrow-right ms-1"></i>
         </button>
@@ -123,6 +115,11 @@
 
 {% block extra_js %}
 <script>
+const editorToolbar = document.querySelector('.exam-editor-toolbar');
+new ResizeObserver(() => {
+  document.documentElement.style.setProperty('--exam-editor-toolbar-height', `${editorToolbar.offsetHeight}px`);
+}).observe(editorToolbar);
+
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 const SL = ['a', 'b', 'c', 'd', 'e', 'f'];
 const GROUP_TYPE_LABELS = {
