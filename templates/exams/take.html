@@ -18,18 +18,15 @@
         <div class="small text-muted exam-take-subtitle">{{ exam.subject }} · {{ student.full_name }}</div>
       </div>
       <div class="d-flex align-items-center gap-2 flex-shrink-0">
-        <div class="text-end">
+        <div class="text-end" role="timer" aria-label="Thời gian làm bài còn lại">
           <div class="fs-5 fw-bold" id="timerDisplay">--:--</div>
-          <div class="small text-muted exam-take-toolbar-caption">Thời gian còn lại</div>
         </div>
         <button type="submit" class="btn btn-primary btn-sm fw-semibold" id="submitBtnTop">
           <i class="bi bi-check-circle me-1"></i>Nộp bài
         </button>
       </div>
     </div>
-    <div class="px-3 pb-2 d-flex flex-wrap align-items-center justify-content-between gap-2 small">
-      <button type="button" class="btn btn-outline-secondary btn-sm" id="nextUnansweredBtn">Đến câu chưa làm</button>
-    </div>
+    <div id="timeWarning" class="alert alert-warning small mx-3 mb-2 d-none" role="alert" aria-atomic="true"></div>
   </div>
 
   {% if track_screen_exits %}
@@ -51,15 +48,12 @@
   <section class="card border-0 shadow-sm mb-3" aria-labelledby="examProgressTitle">
     <div class="card-body">
       <h2 class="h6 fw-semibold" id="examProgressTitle">Tiến độ làm bài</h2>
-      <p class="small text-muted">○ Chưa làm · ◐ Chưa xong · ● Đã làm. Bấm số câu để đến câu đó. Trạng thái không cho biết đáp án đúng hay sai.</p>
+      <p class="small text-muted">Xanh: đã làm đủ · Xám: chưa làm hoặc chưa đủ ý. Bấm số câu để đến câu đó. Trạng thái không cho biết đáp án đúng hay sai.</p>
       {% for group in questions %}
       <div class="small fw-semibold mb-2">Phần {{ loop.index }}</div>
       <nav class="exam-question-grid mb-3" aria-label="Câu hỏi {{ group.title }}">
         {% for q in group.questions %}
-        <a class="btn btn-outline-secondary exam-question-link" href="#exam-g{{ group.index }}-q{{ q.position }}">
-          <span data-question-indicator aria-hidden="true">○</span>
-          <span>{{ q.position }}</span>
-        </a>
+        <a class="exam-question-link" href="#exam-g{{ group.index }}-q{{ q.position }}">{{ q.position }}</a>
         {% endfor %}
       </nav>
       {% endfor %}
@@ -82,7 +76,7 @@
           <div class="exam-mcq-options{% if q.options | length == 4 %} exam-mcq-options-grid{% endif %}">
           {% for opt in q.options %}
           <label class="list-group-item list-group-item-action d-flex align-items-center gap-2 rounded border exam-answer-option">
-            <input class="form-check-input m-0 exam-answer-radio" type="radio" name="{{ answer_key }}" value="{{ loop.index }}"
+            <input class="visually-hidden exam-answer-radio" type="radio" name="{{ answer_key }}" value="{{ loop.index }}"
                    {% if draft_answers.get(answer_key, '')|string == loop.index|string %}checked{% endif %}>
             <span>{{ ['A','B','C','D','E','F'][loop.index0] }}. <span class="exam-math">{{ opt }}</span></span>
           </label>
@@ -191,7 +185,16 @@ function autoSubmit(reason) {
 // ── Countdown timer ──
 let remaining = {{ remaining_seconds }};
 const deadline = Date.now() + remaining * 1000;
-timerDisplay.textContent = formatTime(remaining);
+const timeWarning = document.getElementById('timeWarning');
+function updateTimerDisplay() {
+  timerDisplay.textContent = formatTime(Math.max(0, remaining));
+  timerDisplay.classList.toggle('text-danger', remaining <= 300);
+  if (remaining > 0 && remaining <= 300 && timeWarning.classList.contains('d-none')) {
+    timeWarning.classList.remove('d-none');
+    timeWarning.textContent = 'Bài thi còn không quá 5 phút. Em hãy kiểm tra các câu chưa làm và chuẩn bị nộp bài.';
+  }
+}
+updateTimerDisplay();
 const timerInterval = setInterval(() => {
   remaining = Math.ceil((deadline - Date.now()) / 1000);
   if (remaining <= 0) {
@@ -200,8 +203,7 @@ const timerInterval = setInterval(() => {
     autoSubmit('timeout');
     return;
   }
-  timerDisplay.textContent = formatTime(remaining);
-  if (remaining <= 60) timerDisplay.classList.add('text-danger');
+  updateTimerDisplay();
 }, 1000);
 
 // ── Anti-cheat: detect tab switch / window blur (treated as "leaving the exam screen") ──
@@ -226,7 +228,6 @@ if (trackScreenExits) {
 
 const examQuestions = Array.from(form.querySelectorAll('[data-exam-question]'));
 const questionLinks = Array.from(form.querySelectorAll('.exam-question-link'));
-const nextUnansweredBtn = document.getElementById('nextUnansweredBtn');
 function questionProgress(question) {
   const radioGroups = new Map();
   question.querySelectorAll('input[type="radio"]').forEach(input => {
@@ -245,10 +246,8 @@ function countUnansweredQuestions() {
 }
 
 function updateExamProgress() {
-  let completed = 0;
   examQuestions.forEach((question, index) => {
     const progress = questionProgress(question);
-    if (progress.complete) completed += 1;
     const status = progress.complete ? 'Đã làm'
       : progress.answered ? `Chưa xong (${progress.answered}/${progress.total} ý)` : 'Chưa làm';
     const statusElement = question.querySelector('[data-question-status]');
@@ -256,22 +255,12 @@ function updateExamProgress() {
     statusElement.classList.toggle('text-success', progress.complete);
     statusElement.classList.toggle('text-muted', !progress.complete);
     const link = questionLinks[index];
-    link.classList.toggle('btn-success', progress.complete);
-    link.classList.toggle('btn-outline-secondary', !progress.complete);
-    link.querySelector('[data-question-indicator]').textContent = progress.complete ? '●' : progress.answered ? '◐' : '○';
+    link.classList.toggle('is-complete', progress.complete);
     link.title = status;
     link.setAttribute('aria-label', `${link.closest('nav').getAttribute('aria-label')}, Câu ${question.id.split('-q')[1]}: ${status}`);
   });
-  nextUnansweredBtn.disabled = completed === examQuestions.length;
 }
 
-nextUnansweredBtn.addEventListener('click', () => {
-  const question = examQuestions.find(question => !questionProgress(question).complete);
-  if (question) {
-    question.scrollIntoView({ block: 'start', behavior: 'instant' });
-    question.focus({ preventScroll: true });
-  }
-});
 const examToolbar = document.querySelector('.exam-take-toolbar');
 new ResizeObserver(() => {
   document.querySelector('.exam-take-page').style.setProperty('--exam-toolbar-height', `${examToolbar.offsetHeight}px`);
