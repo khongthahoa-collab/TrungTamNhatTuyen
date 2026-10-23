@@ -198,7 +198,7 @@
   function refreshJumpGroups() {
     const previous = jumpGroup.value;
     jumpGroup.innerHTML = groups.map((group, gi) =>
-      `<option value="${gi}">${gi + 1}. ${escapeHtml(group.title || 'Phần thi')}</option>`).join('');
+      `<option value="${gi}" title="${escapeHtml(group.title || 'Phần thi')}">${gi + 1}</option>`).join('');
     if (previous && Number(previous) < groups.length) jumpGroup.value = previous;
     updateJumpMax();
   }
