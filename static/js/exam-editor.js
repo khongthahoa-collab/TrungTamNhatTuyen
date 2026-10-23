@@ -5,6 +5,7 @@
   const preview = document.getElementById('groupsContainer');
   const title = document.getElementById('examTitle');
   const draftStatus = document.getElementById('localDraftStatus');
+  if (!config.localDraft) draftStatus.classList.add('d-none');
   const errorBox = document.getElementById('examEditorError');
   const composer = document.getElementById('examComposer');
   const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
@@ -192,6 +193,7 @@
 
   function saveDraft() {
     refreshState();
+    if (!config.localDraft) return true;
     try {
       localStorage.setItem(config.draftKey, JSON.stringify({ title: title.value, groups, rawText: editor.value, savedAt: Date.now() }));
       draftStatus.textContent = 'Đã tự động lưu bản nháp trên thiết bị này.';
@@ -210,6 +212,7 @@
     sourceOffsets = parsed.offsets;
   }
   function scheduleDraft() {
+    if (!config.localDraft) return;
     draftStatus.textContent = 'Đang lưu bản nháp trên thiết bị…';
     clearTimeout(draftTimer);
     draftTimer = setTimeout(saveDraft, 350);
@@ -253,6 +256,7 @@
   });
   window.addEventListener('pagehide', saveDraft);
   document.querySelectorAll('[data-exam-editor-exit]').forEach(link => link.addEventListener('click', event => {
+    if (!config.localDraft) return;
     if (!confirm('Thoát và lưu đề? Nội dung sẽ được lưu nháp trên thiết bị để khôi phục khi quay lại.') || !saveDraft()) event.preventDefault();
   }));
   form.addEventListener('submit', event => {
@@ -267,7 +271,8 @@
   });
   editor.value = serialize(groups);
   try {
-    const draft = JSON.parse(localStorage.getItem(config.draftKey) || 'null');
+    if (!config.localDraft) localStorage.removeItem(config.draftKey);
+    const draft = config.localDraft ? JSON.parse(localStorage.getItem(config.draftKey) || 'null') : null;
     if (draft && Array.isArray(draft.groups) && Date.now() - draft.savedAt < 7 * 86400000) {
       if (confirm('Tìm thấy bản nháp trên thiết bị. Bạn có muốn khôi phục không?')) {
         title.value = draft.title || '';

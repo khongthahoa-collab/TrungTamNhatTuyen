@@ -43,5 +43,6 @@
   'groups': prefill.groups | default([]),
   'isAdmin': current_user.is_admin,
   'draftKey': ('admin' if current_user.is_admin else 'teacher') ~ '-exam-editor-draft:' ~ current_user.id ~ ':' ~ (exam.id if editing else 'new'),
+  'localDraft': not (editing and not exam.is_draft),
   'samplesUrl': url_for('exam_content_templates.list_templates')
 } | tojson }}</script>
