@@ -1324,3 +1324,10 @@ footer a:hover { color: #fff !important; }
   .exam-list-table td { padding: .55rem .45rem; font-size: .82rem; }
   .exam-context-menu { min-width: 230px; }
 }
+
+.exam-share-chip {
+  padding: 0.3rem 0.8rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  border-radius: 8px;
+}
