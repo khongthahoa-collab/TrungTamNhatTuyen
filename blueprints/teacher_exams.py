@@ -517,13 +517,20 @@ def exams_attempt_detail(exam_id, attempt_id):
         if attempt.submitted_at and attempt.started_at else None
     )
     total = result.get('total') or 0
+    scoring_labels = {
+        'question': 'Mỗi câu 1 điểm',
+        'section': 'Điểm chia đều theo phần',
+        'question_custom': 'Điểm tùy chỉnh theo từng câu',
+        'section_custom': 'Điểm tùy chỉnh theo từng phần',
+    }
     sections = [
-        {**part, 'score_10': round(part.get('earned', 0) / total * 10, 1) if total else 0,
-         'max_10': round(part.get('total', 0) / total * 10, 1) if total else 0}
+        {**part, 'scaled_earned': round(part.get('earned', 0) / total * 10, 2) if total else 0,
+         'scaled_max': round(part.get('total', 0) / total * 10, 2) if total else 0}
         for part in result.get('breakdown', [])
     ]
     return render_template('teacher/exam_attempt_detail.html', exam=exam, attempt=attempt,
-                           result=result, groups=groups, sections=sections, duration=duration)
+                           result=result, groups=groups, sections=sections, duration=duration,
+                           scoring_label=scoring_labels.get(exam.scoring_mode or 'question'))
 
 
 @teacher_bp.route('/exams/<int:exam_id>/attempts/<int:attempt_id>/essay-scores', methods=['POST'])

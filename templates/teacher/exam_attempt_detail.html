@@ -86,15 +86,18 @@
           </dl>
 
           {% if sections %}
-          <div class="text-uppercase small fw-semibold text-muted mb-2">Chi tiết theo phần</div>
+          <div class="text-uppercase small fw-semibold text-muted mb-1">Chi tiết theo phần</div>
+          {% if scoring_label %}<div class="small text-muted mb-2">Cách tính điểm: {{ scoring_label }}</div>{% endif %}
           <div class="d-grid gap-2">
             {% for part in sections %}
             <div class="attempt-section p-2 px-3">
               <div class="d-flex justify-content-between gap-2 align-items-baseline">
                 <span class="fw-semibold small">{{ part.title }}</span>
-                <span class="small text-nowrap"><strong class="text-primary">{{ part.score_10 }}</strong> <span class="text-muted">/ {{ part.max_10 }}</span></span>
+                <span class="small text-nowrap"><strong class="text-primary">{{ '%g'|format(part.earned) }}</strong> <span class="text-muted">/ {{ '%g'|format(part.total) }} điểm</span></span>
               </div>
-              <div class="small text-muted">{{ part.earned }}/{{ part.total }} điểm thành phần</div>
+              {% if result.total and result.total != 10 %}
+              <div class="small text-muted">Quy đổi: {{ '%g'|format(part.scaled_earned) }}/{{ '%g'|format(part.scaled_max) }} trên thang 10</div>
+              {% endif %}
             </div>
             {% endfor %}
           </div>
