@@ -1,4 +1,5 @@
 {% extends 'student/base.html' if current_user.is_student else 'parent/base.html' %}
+{% from 'exams/_macros.html' import render_true_false_review %}
 {% block extra_head %}{% include 'exams/_mathjax.html' %}{% endblock %}
 {% block content %}
 <div class="container py-3" style="max-width:840px;">
@@ -69,16 +70,7 @@
               <div class="small text-muted">Em chưa chọn đáp án.</div>
               {% endif %}
             {% elif group.type == 'true_false' %}
-              {% for statement in question.statements %}
-              {% set chosen = statement.selected == '1' %}
-              <div class="d-flex flex-wrap align-items-center gap-2 small rounded p-2 mb-1
-                          {% if statement.selected != '' and chosen == statement.correct %}bg-success-subtle{% elif statement.selected != '' %}bg-danger-subtle{% endif %}">
-                <span class="fw-semibold">{{ statement.label }})</span>
-                <span class="exam-math flex-grow-1">{{ statement.text }}</span>
-                <span class="text-muted" aria-label="Câu trả lời đã chọn"><strong>{{ 'Chưa trả lời' if statement.selected == '' else 'Đúng' if chosen else 'Sai' }}</strong></span>
-                <span class="text-success">Đáp án: <strong>{{ 'Đúng' if statement.correct else 'Sai' }}</strong></span>
-              </div>
-              {% endfor %}
+              {{ render_true_false_review(question.statements, 'Em chọn') }}
             {% elif group.type == 'short_answer' %}
               <div class="small mb-1">Em trả lời:
                 <span class="exam-math fw-semibold" style="white-space:pre-wrap;">{{ question.student_answer or 'Chưa trả lời' }}</span>

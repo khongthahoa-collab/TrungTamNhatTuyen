@@ -38,6 +38,35 @@
 
 {% macro group_type_label(gtype) %}{{ {'mcq': 'Trắc nghiệm', 'true_false': 'Đúng/Sai', 'short_answer': 'Trả lời ngắn', 'essay': 'Tự luận', 'error_id': 'Tìm lỗi sai'}.get(gtype, gtype) }}{% endmacro %}
 
+{% macro render_true_false_review(statements, answer_label) %}
+  <div class="exam-tf-review">
+    {% for statement in statements %}
+    {% set chosen = statement.selected == '1' %}
+    {% set answered = statement.selected != '' %}
+    {% set correct = answered and chosen == statement.correct %}
+    <div class="exam-tf-review-item {% if not answered %}is-unanswered{% elif correct %}is-correct{% else %}is-wrong{% endif %}">
+      <div class="exam-tf-review-statement">
+        <span class="fw-semibold">{{ statement.label }})</span>
+        <span class="exam-math">{{ statement.text }}</span>
+      </div>
+      <div class="exam-tf-review-details">
+        <div class="exam-tf-review-answer">
+          <span class="exam-tf-review-label">{{ answer_label }}</span>
+          <strong>{{ 'Chưa trả lời' if not answered else 'Đúng' if chosen else 'Sai' }}</strong>
+        </div>
+        <div class="exam-tf-review-answer">
+          <span class="exam-tf-review-label">Đáp án đúng</span>
+          <strong>{{ 'Đúng' if statement.correct else 'Sai' }}</strong>
+        </div>
+        <span class="badge {% if not answered %}bg-warning-subtle text-warning-emphasis{% elif correct %}bg-success-subtle text-success-emphasis{% else %}bg-danger-subtle text-danger-emphasis{% endif %}">
+          {% if not answered %}Chưa làm{% elif correct %}Chính xác{% else %}Chưa chính xác{% endif %}
+        </span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+{% endmacro %}
+
 {% macro render_group(g, responsive_options=false) %}
 <div class="mb-4">
   <h6 class="fw-bold mb-1">{{ g.title }} <span class="badge bg-secondary-subtle text-secondary border ms-1">{{ group_type_label(g.type) }}</span></h6>

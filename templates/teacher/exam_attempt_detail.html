@@ -1,5 +1,6 @@
 {% extends 'teacher/base.html' %}
 {% from 'teacher/_navigation.html' import page_header %}
+{% from 'exams/_macros.html' import render_true_false_review %}
 {% block title %}Chi tiết bài làm – Giáo viên – Nhật Tuyền{% endblock %}
 {% block extra_head %}
 {% include 'exams/_mathjax.html' %}
@@ -23,6 +24,7 @@
   .attempt-question.is-blank { border-left: 4px solid var(--bs-warning); }
   .attempt-option { overflow-wrap: anywhere; }
   .attempt-answer-box { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .exam-tf-review { margin-top: .25rem; }
   @media (min-width: 992px) {
     .attempt-side { position: sticky; top: 1rem; }
   }
@@ -170,16 +172,7 @@
                     {% endfor %}
                   </div>
                 {% elif group.type == 'true_false' %}
-                  {% for statement in question.statements %}
-                  {% set chosen = statement.selected == '1' %}
-                  <div class="attempt-option d-flex flex-wrap align-items-center gap-2 small rounded p-2 mb-1
-                              {% if statement.selected == '' %}bg-light{% elif chosen == statement.correct %}bg-success-subtle{% else %}bg-danger-subtle{% endif %}">
-                    <span class="fw-semibold">{{ statement.label }})</span>
-                    <span class="exam-math flex-grow-1">{{ statement.text }}</span>
-                    <span class="text-muted">Học sinh chọn: <strong>{{ 'Chưa trả lời' if statement.selected == '' else 'Đúng' if chosen else 'Sai' }}</strong></span>
-                    <span class="text-success">Đáp án: <strong>{{ 'Đúng' if statement.correct else 'Sai' }}</strong></span>
-                  </div>
-                  {% endfor %}
+                  {{ render_true_false_review(question.statements, 'Học sinh chọn') }}
                 {% elif group.type == 'short_answer' %}
                   <div class="small mb-1">Học sinh trả lời:
                     <span class="exam-math fw-semibold attempt-answer-box">{{ question.student_answer or 'Chưa trả lời' }}</span></div>
