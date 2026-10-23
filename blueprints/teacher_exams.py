@@ -17,6 +17,7 @@ from blueprints.exams_shared import (
     publish_exam, reset_student_exam_attempts,
     session_draft, parse_confirm_settings, posted_exam_draft, review_attempt_answers,
     apply_manual_essay_scores, regrade_submitted_attempts, has_stale_scoring,
+    regrade_attempt_if_stale,
 )
 from blueprints.pagination_utils import paginate_list
 
@@ -502,6 +503,16 @@ def exams_attempt_detail(exam_id, attempt_id):
     attempt = ExamAttempt.query.options(joinedload(ExamAttempt.student)).filter_by(
         id=attempt_id, exam_id=exam.id, status='submitted'
     ).first_or_404()
+    if regrade_attempt_if_stale(exam, attempt):
+        db.session.add(ExamLog(
+            user_id=current_user.id,
+            action='regrade_attempt',
+            target_type='exam',
+            target_id=exam.id,
+            detail=f'Tính lại điểm lượt làm #{attempt.id} theo đáp án hiện tại',
+        ))
+        db.session.commit()
+        flash('Điểm bài làm đã được cập nhật theo đáp án hiện tại.', 'info')
     result = attempt.result
     essay_scores = result.get('essay_scores', {})
     essay_max = {item['key']: item['weight'] for item in result.get('essay_questions', [])}

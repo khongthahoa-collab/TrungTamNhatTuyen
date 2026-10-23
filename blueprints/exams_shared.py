@@ -479,11 +479,80 @@ def review_attempt_answers(exam, attempt):
 
 
 def has_stale_scoring(exam, scoring_mode):
-    """True if any submitted attempt was scored under a different scoring mode."""
+    """True if submitted attempts do not match the current answer key or scoring setup."""
     return any(
         attempt.result.get('scoring_mode', 'question') != scoring_mode
+        or attempt_result_is_stale(exam, attempt)
         for attempt in exam.attempts.filter_by(status='submitted').all()
     )
+
+
+def _attempt_matches_exam_structure(exam, attempt):
+    groups = exam.question_groups
+    order = attempt.order_data.get('groups') or []
+    return len(order) == len(groups) and all(
+        len(order[gi].get('q_order') or []) == len(group.get('questions', []))
+        for gi, group in enumerate(groups)
+    )
+
+
+def _graded_result_for_attempt(exam, attempt):
+    from blueprints.parent import _grade_attempt
+
+    form = {}
+    for key, value in attempt.answers.items():
+        if isinstance(value, dict):
+            for sub_key, sub_value in value.items():
+                form[f'{key}_{sub_key}'] = sub_value
+        else:
+            form[key] = value
+    _normalized, result = _grade_attempt(exam, attempt, form)
+
+    old_result = attempt.result
+    old_weights = {item['key']: item['weight'] for item in old_result.get('essay_questions', [])}
+    old_scores = old_result.get('essay_scores', {})
+    carried = {}
+    for item in result.get('essay_questions', []):
+        key = item['key']
+        if key in old_scores and old_weights.get(key):
+            carried[key] = round(old_scores[key] / old_weights[key] * item['weight'], 4)
+    if carried:
+        result = apply_manual_essay_scores(result, carried)
+    return result
+
+
+def _attempt_result_matches_current_exam(attempt, result):
+    old_result = attempt.result
+    score_fields = (
+        'earned', 'total', 'percent', 'score_10', 'scoring_mode', 'breakdown',
+        'auto_earned', 'auto_breakdown', 'essay_questions', 'essay_scores',
+        'pending_essay_count',
+    )
+    stored_score = result['percent'] if result.get('pending_essay_count', 0) == 0 else 0
+    return (
+        attempt.score == stored_score
+        and all(old_result.get(field) == result.get(field) for field in score_fields)
+    )
+
+
+def attempt_result_is_stale(exam, attempt):
+    """Check whether a submitted attempt's stored grade differs from its current answer key."""
+    if not _attempt_matches_exam_structure(exam, attempt):
+        return False
+    result = _graded_result_for_attempt(exam, attempt)
+    return not _attempt_result_matches_current_exam(attempt, result)
+
+
+def regrade_attempt_if_stale(exam, attempt):
+    """Refresh one attempt when its stored grade no longer matches the current exam."""
+    if not _attempt_matches_exam_structure(exam, attempt):
+        return False
+    result = _graded_result_for_attempt(exam, attempt)
+    if _attempt_result_matches_current_exam(attempt, result):
+        return False
+    attempt.result_json = json.dumps(result)
+    attempt.score = result['percent'] if result.get('pending_essay_count', 0) == 0 else 0
+    return True
 
 
 def regrade_submitted_attempts(exam):
@@ -493,39 +562,12 @@ def regrade_submitted_attempts(exam):
     Manual essay scores are carried over proportionally to the new essay weights.
     Returns (regraded_count, skipped_count).
     """
-    from blueprints.parent import _grade_attempt
-
-    groups = exam.question_groups
     regraded = skipped = 0
     for attempt in exam.attempts.filter_by(status='submitted').all():
-        order = attempt.order_data.get('groups') or []
-        if len(order) != len(groups) or any(
-            len(order[gi].get('q_order') or []) != len(group.get('questions', []))
-            for gi, group in enumerate(groups)
-        ):
+        if not _attempt_matches_exam_structure(exam, attempt):
             skipped += 1
             continue
-
-        form = {}
-        for key, value in attempt.answers.items():
-            if isinstance(value, dict):
-                for sub_key, sub_value in value.items():
-                    form[f'{key}_{sub_key}'] = sub_value
-            else:
-                form[key] = value
-        _normalized, result = _grade_attempt(exam, attempt, form)
-
-        old_result = attempt.result
-        old_weights = {item['key']: item['weight'] for item in old_result.get('essay_questions', [])}
-        old_scores = old_result.get('essay_scores', {})
-        carried = {}
-        for item in result.get('essay_questions', []):
-            key = item['key']
-            if key in old_scores and old_weights.get(key):
-                carried[key] = round(old_scores[key] / old_weights[key] * item['weight'], 4)
-        if carried:
-            result = apply_manual_essay_scores(result, carried)
-
+        result = _graded_result_for_attempt(exam, attempt)
         attempt.result_json = json.dumps(result)
         attempt.score = result['percent'] if result.get('pending_essay_count', 0) == 0 else 0
         regraded += 1
