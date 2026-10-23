@@ -1202,7 +1202,7 @@ footer a:hover { color: #fff !important; }
   }
   .exam-take-questions { grid-column: 1; grid-row: 1; }
 }
-.exam-take-toolbar { top: calc(56px + env(safe-area-inset-top)); z-index: 90; }
+.exam-take-toolbar { top: calc(64px + env(safe-area-inset-top)); z-index: 90; }
 .exam-take-toolbar-title { min-width: 0; }
 .exam-take-title,
 .exam-take-subtitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1241,7 +1241,7 @@ footer a:hover { color: #fff !important; }
 .exam-question-link.is-complete:hover { background: var(--nt-primary-deeper); }
 .exam-question-link:focus-visible { outline: 3px solid var(--nt-primary-deeper); outline-offset: 3px; }
 .exam-take-page [data-exam-question] {
-  scroll-margin-top: calc(56px + env(safe-area-inset-top) + var(--exam-toolbar-height, 150px) + 1rem);
+  scroll-margin-top: calc(64px + env(safe-area-inset-top) + var(--exam-toolbar-height, 150px) + 1rem);
 }
 
 @media (max-width: 576px) {
@@ -1330,4 +1330,17 @@ footer a:hover { color: #fff !important; }
   font-size: 0.82rem;
   line-height: 1.5;
   border-radius: 8px;
+}
+
+/* PWA: thanh trên cùng không bị thanh trạng thái/tai thỏ che.
+   Navbar các vai trò đặt padding-top inline = safe-area; ghi đè để luôn có thêm đệm. */
+.navbar.sticky-top {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 0.5rem) !important;
+}
+@media (display-mode: standalone) {
+  @supports (-webkit-touch-callout: none) {
+    .navbar.sticky-top {
+      padding-top: calc(max(env(safe-area-inset-top, 0px), 20px) + 0.5rem) !important;
+    }
+  }
 }
