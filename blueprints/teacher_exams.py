@@ -666,6 +666,21 @@ def exams_edit(exam_id):
             return render_template('teacher/exams_form.html', prefill={'title': title, 'groups': groups},
                                    editing=True, exam=exam)
 
+        def shape(group_list):
+            return [len(g.get('questions', [])) for g in group_list]
+
+        if request.form.get('quick_save'):
+            if shape(groups) == shape(exam.question_groups):
+                exam.title = title
+                exam.questions_json = json.dumps({'groups': groups})
+                db.session.add(ExamLog(user_id=current_user.id, action='update_exam', target_type='exam',
+                                       target_id=exam.id, detail=f'Cập nhật nội dung đề "{exam.title}"'))
+                db.session.commit()
+                session.pop(SESSION_KEY, None)
+                flash('Đã lưu thông tin đề thi.', 'success')
+                return redirect(url_for('teacher.exams_list'))
+            flash('Số phần hoặc số câu đã thay đổi, hãy kiểm tra lại cách chia điểm rồi lưu.', 'info')
+
         return _render_exam_confirm(
             {'title': title, 'groups': groups, 'edit_exam_id': exam.id}, existing=exam,
         )
