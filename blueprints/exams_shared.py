@@ -100,6 +100,50 @@ QUESTION_PARSERS = {
 }
 
 
+def edited_question_from_form(group_type, question, form):
+    """Validate question content submitted by the per-question teacher editor."""
+    if group_type not in QUESTION_PARSERS:
+        return None, 'Loại câu hỏi này không được hỗ trợ chỉnh sửa.'
+
+    edited = dict(question)
+    edited['text'] = form.get('text', '').strip()
+    edited['explanation'] = form.get('explanation', '').strip()
+    if group_type == 'mcq':
+        old_options = question.get('options', [])
+        edited['options'] = [
+            form.get(f'option_{index}', '').strip()
+            for index in range(len(old_options))
+        ]
+        try:
+            edited['correct_index'] = int(form.get('correct_index', '-1'))
+        except (TypeError, ValueError):
+            edited['correct_index'] = -1
+    elif group_type == 'true_false':
+        edited['statements'] = [
+            {
+                'text': form.get(f'statement_{index}', '').strip(),
+                'correct': form.get(f'statement_correct_{index}') == '1',
+            }
+            for index, _ in enumerate(question.get('statements', []))
+        ]
+    elif group_type == 'short_answer':
+        raw_answers = form.get('accepted_answers', '')
+        edited['accepted_answers'] = [
+            answer.strip()
+            for answer in raw_answers.replace('\n', '|').split('|')
+            if answer.strip()
+        ]
+
+    parsed = QUESTION_PARSERS[group_type](edited)
+    if not parsed:
+        return None, 'Nội dung hoặc đáp án chưa hợp lệ. Vui lòng kiểm tra lại câu hỏi.'
+    if group_type == 'mcq' and len(parsed['options']) != len(question.get('options', [])):
+        return None, 'Không thể thêm hoặc xóa lựa chọn khi sửa riêng một câu.'
+    if group_type == 'true_false' and len(parsed['statements']) != len(question.get('statements', [])):
+        return None, 'Không thể thêm hoặc xóa ý Đúng/Sai khi sửa riêng một câu.'
+    return parsed, None
+
+
 def parse_groups_payload(raw):
     """Validate/normalize the grouped, multi-type question builder payload sent from step 1."""
     try:
@@ -415,11 +459,14 @@ def review_attempt_answers(exam, attempt):
             field = f'g{gi}_q{position}'
             reviewed = {
                 'position': position,
+                'source_index': orig_qi,
                 'text': question.get('text', ''),
                 'explanation': (question.get('explanation') or '').strip(),
             }
             if group_type == 'mcq':
                 options = question.get('options', [])
+                reviewed['edit_options'] = options
+                reviewed['correct_index'] = question.get('correct_index', 0)
                 option_order = opt_orders.get(str(orig_qi)) or list(range(len(options)))
                 raw_choice = submitted_answers.get(field, '')
                 try:
@@ -444,6 +491,7 @@ def review_attempt_answers(exam, attempt):
                 ]
             elif group_type == 'true_false':
                 statements = question.get('statements', [])
+                reviewed['edit_statements'] = statements
                 option_order = opt_orders.get(str(orig_qi)) or list(range(len(statements)))
                 submitted = submitted_answers.get(field, {})
                 if not isinstance(submitted, dict):
@@ -471,6 +519,7 @@ def review_attempt_answers(exam, attempt):
 
         if reviewed_questions:
             answer_groups.append({
+                'group_index': gi,
                 'title': group.get('title', ''),
                 'type': group_type,
                 'questions': reviewed_questions,

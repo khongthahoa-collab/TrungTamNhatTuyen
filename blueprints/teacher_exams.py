@@ -13,7 +13,8 @@ from models import Exam, ExamLog, ExamAttempt, ExamFolder, Class, Course, Enroll
 from blueprints.teacher import _teacher_score_class_ids, teacher_bp, require_teacher
 from blueprints.exams_shared import (
     EXAM_TYPES, DURATION_OPTIONS, SESSION_KEY,
-    parse_folder_fields, parse_groups_payload, require_owns_or_admin, require_teacher_exam_access,
+    edited_question_from_form, parse_folder_fields, parse_groups_payload,
+    require_owns_or_admin, require_teacher_exam_access,
     publish_exam, reset_student_exam_attempts,
     session_draft, parse_confirm_settings, posted_exam_draft, review_attempt_answers,
     apply_manual_essay_scores, regrade_submitted_attempts, has_stale_scoring,
@@ -542,6 +543,70 @@ def exams_attempt_detail(exam_id, attempt_id):
     return render_template('teacher/exam_attempt_detail.html', exam=exam, attempt=attempt,
                            result=result, groups=groups, sections=sections, duration=duration,
                            scoring_label=scoring_labels.get(exam.scoring_mode or 'question'))
+
+
+@teacher_bp.route(
+    '/exams/<int:exam_id>/attempts/<int:attempt_id>/questions/<int:group_index>/<int:question_index>',
+    methods=['POST'],
+)
+@login_required
+@require_teacher
+def exams_attempt_question_edit(exam_id, attempt_id, group_index, question_index):
+    exam = Exam.query.get_or_404(exam_id)
+    require_owns_or_admin(exam)
+    attempt = ExamAttempt.query.filter_by(
+        id=attempt_id, exam_id=exam.id, status='submitted'
+    ).first_or_404()
+    groups = exam.question_groups
+    if group_index >= len(groups) or question_index >= len(groups[group_index].get('questions', [])):
+        abort(404)
+
+    group = groups[group_index]
+    group_type = group.get('type')
+    question = group.get('questions', [])[question_index]
+    parsed, error = edited_question_from_form(group_type, question, request.form)
+    order_groups = attempt.order_data.get('groups') or []
+    question_order = order_groups[group_index].get('q_order', []) if group_index < len(order_groups) else []
+    display_position = question_order.index(question_index) + 1 if question_index in question_order else question_index + 1
+    question_anchor = f'#attempt-question-g{group_index}-q{display_position}'
+    if error:
+        flash(error, 'danger')
+        return redirect(url_for(
+            'teacher.exams_attempt_detail', exam_id=exam.id,
+            attempt_id=attempt.id,
+        ) + question_anchor)
+
+    if parsed == question:
+        flash('Câu hỏi chưa có thay đổi nào.', 'info')
+    else:
+        groups[group_index]['questions'][question_index] = parsed
+        exam.questions_json = json.dumps({'groups': groups}, ensure_ascii=False)
+        regraded, skipped = regrade_submitted_attempts(exam)
+        detail = (
+            f'Cập nhật câu {display_position} của đề "{exam.title}" '
+            f'(đã tính lại điểm {regraded} bài đã nộp'
+        )
+        if skipped:
+            detail += f', bỏ qua {skipped} bài do cấu trúc đề đã thay đổi'
+        detail += ')'
+        db.session.add(ExamLog(
+            user_id=current_user.id,
+            action='update_exam_question',
+            target_type='exam',
+            target_id=exam.id,
+            detail=detail,
+        ))
+        db.session.commit()
+        flash(
+            f'Đã lưu câu hỏi và tính lại điểm {regraded} bài phù hợp'
+            f'{f"; bỏ qua {skipped} bài do cấu trúc đề đã thay đổi" if skipped else ""}.',
+            'success',
+        )
+
+    return redirect(url_for(
+        'teacher.exams_attempt_detail', exam_id=exam.id,
+        attempt_id=attempt.id,
+    ) + question_anchor)
 
 
 @teacher_bp.route('/exams/<int:exam_id>/attempts/<int:attempt_id>/essay-scores', methods=['POST'])

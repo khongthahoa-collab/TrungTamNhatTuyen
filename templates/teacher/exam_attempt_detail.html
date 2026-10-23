@@ -22,6 +22,8 @@
   .attempt-option { overflow-wrap: anywhere; }
   .attempt-answer-box { white-space: pre-wrap; overflow-wrap: anywhere; }
   .exam-tf-review { margin-top: .25rem; }
+  .attempt-question-editor > summary { display: inline-flex; align-items: center; cursor: pointer; list-style: none; }
+  .attempt-question-editor > summary::-webkit-details-marker { display: none; }
   @media (min-width: 992px) {
     .attempt-side { position: sticky; top: 1rem; }
   }
@@ -48,6 +50,84 @@
   {% endif %}
 {%- endmacro %}
 
+{% macro question_editor(exam, attempt, group, question) -%}
+  <details class="attempt-question-editor mt-3">
+    <summary class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Sửa nội dung câu
+    </summary>
+    <form class="border rounded p-3 mt-2 bg-light" method="post"
+          action="{{ url_for('teacher.exams_attempt_question_edit', exam_id=exam.id, attempt_id=attempt.id, group_index=group.group_index, question_index=question.source_index) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="alert alert-warning small mb-3">
+        Chỉ sửa nội dung câu này. Lưu thay đổi sẽ cập nhật đề chung và tính lại điểm các bài đã nộp có cấu trúc phù hợp.
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-semibold small" for="edit-text-g{{ group.group_index }}-q{{ question.position }}">Nội dung câu hỏi</label>
+        <textarea class="form-control" id="edit-text-g{{ group.group_index }}-q{{ question.position }}" name="text" rows="3" required>{{ question.text }}</textarea>
+      </div>
+
+      {% if group.type == 'mcq' %}
+      <fieldset class="mb-3">
+        <legend class="form-label fw-semibold small">Các lựa chọn <span class="text-muted fw-normal">(chọn đáp án đúng)</span></legend>
+        {% for option in question.edit_options %}
+        <div class="input-group mb-2">
+          <span class="input-group-text">
+            <input class="form-check-input mt-0" type="radio" name="correct_index" value="{{ loop.index0 }}"
+                   aria-label="Chọn {{ ['A','B','C','D','E','F'][loop.index0] }} làm đáp án đúng"
+                   {% if loop.index0 == question.correct_index %}checked{% endif %} required>
+            <span class="ms-2">{{ ['A','B','C','D','E','F'][loop.index0] }}.</span>
+          </span>
+          <input class="form-control" type="text" name="option_{{ loop.index0 }}" value="{{ option }}" required
+                 aria-label="Nội dung lựa chọn {{ ['A','B','C','D','E','F'][loop.index0] }}">
+        </div>
+        {% endfor %}
+        <div class="form-text">Sửa nội dung và đáp án đúng; không thể thêm hoặc xóa lựa chọn ở chế độ sửa riêng câu.</div>
+      </fieldset>
+      {% elif group.type == 'true_false' %}
+      <fieldset class="mb-3">
+        <legend class="form-label fw-semibold small">Các ý Đúng/Sai</legend>
+        {% for statement in question.edit_statements %}
+        <div class="border rounded p-2 mb-2 bg-white">
+          <label class="form-label small fw-semibold" for="edit-statement-g{{ group.group_index }}-q{{ question.position }}-{{ loop.index0 }}">Ý {{ loop.index }}</label>
+          <textarea class="form-control mb-2" id="edit-statement-g{{ group.group_index }}-q{{ question.position }}-{{ loop.index0 }}"
+                    name="statement_{{ loop.index0 }}" rows="2" required>{{ statement.text }}</textarea>
+          <div class="d-flex gap-3 small">
+            <label><input class="form-check-input me-1" type="radio" name="statement_correct_{{ loop.index0 }}" value="1" {% if statement.correct %}checked{% endif %} required>Đúng</label>
+            <label><input class="form-check-input me-1" type="radio" name="statement_correct_{{ loop.index0 }}" value="0" {% if not statement.correct %}checked{% endif %} required>Sai</label>
+          </div>
+        </div>
+        {% endfor %}
+        <div class="form-text">Sửa nội dung và đáp án từng ý; không thể thêm hoặc xóa ý ở chế độ sửa riêng câu.</div>
+      </fieldset>
+      {% elif group.type == 'short_answer' %}
+      <div class="mb-3">
+        <label class="form-label fw-semibold small" for="edit-answers-g{{ group.group_index }}-q{{ question.position }}">Các đáp án được chấp nhận</label>
+        <textarea class="form-control" id="edit-answers-g{{ group.group_index }}-q{{ question.position }}"
+                  name="accepted_answers" rows="3" required>{{ question.correct_answers | join('\n') }}</textarea>
+        <div class="form-text">Mỗi đáp án trên một dòng. Có thể nhập nhiều cách viết tương đương.</div>
+      </div>
+      {% elif group.type == 'error_id' %}
+      <div class="alert alert-info small">
+        Dùng dấu <code>[*A:... ]</code> để đánh dấu lỗi cần tìm; các lựa chọn còn lại dùng dạng <code>[B:... ]</code>.
+      </div>
+      {% endif %}
+
+      <div class="mb-3">
+        <label class="form-label fw-semibold small" for="edit-explanation-g{{ group.group_index }}-q{{ question.position }}">Giải thích đáp án <span class="text-muted fw-normal">(không bắt buộc)</span></label>
+        <textarea class="form-control" id="edit-explanation-g{{ group.group_index }}-q{{ question.position }}"
+                  name="explanation" rows="3">{{ question.explanation }}</textarea>
+      </div>
+      <div class="d-flex justify-content-end gap-2">
+        <button class="btn btn-outline-secondary btn-sm" type="button"
+                onclick="this.closest('details').open = false">Hủy</button>
+        <button class="btn btn-primary btn-sm" type="submit">
+          <i class="bi bi-check2 me-1" aria-hidden="true"></i>Lưu câu hỏi
+        </button>
+      </div>
+    </form>
+  </details>
+{%- endmacro %}
+
 {% block content %}
 {% set student = attempt.student %}
 {% set pending = result.get('pending_essay_count', 0) %}
@@ -58,11 +138,8 @@
      subtitle=exam.title ~ ' · ' ~ exam.subject,
      back_href=url_for('teacher.exams_leaderboard', exam_id=exam.id), back_label='bảng xếp hạng', extra_class='mb-3') }}
 
-  <div class="d-flex justify-content-end mb-2">
-    <a class="btn btn-outline-primary btn-sm"
-       href="{{ url_for('teacher.exams_edit', exam_id=exam.id, return_attempt_id=attempt.id) }}">
-      <i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Sửa đề
-    </a>
+  <div class="alert alert-info small mb-3">
+    Có thể sửa riêng nội dung hoặc đáp án của từng câu bên dưới. Thay đổi sẽ áp dụng cho đề chung và chấm lại các lượt làm có cấu trúc phù hợp; thông tin giao đề và cách chia điểm không bị thay đổi.
   </div>
 
   <div class="row g-3">
@@ -129,9 +206,7 @@
           {% if pane_groups %}
           <div class="tab-pane fade {% if loop.first or not show_tabs %}show active{% endif %}" id="pane-{{ pane_id }}" role="tabpanel">
             {% if pane_id == 'essay' %}
-            <form method="post" action="{{ url_for('teacher.exams_attempt_essay_scores', exam_id=exam.id, attempt_id=attempt.id) }}">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <p class="small text-muted">Nhập điểm từng câu theo thang điểm tối đa. Có thể lưu một phần; câu chưa nhập sẽ tiếp tục chờ chấm.</p>
+            <p class="small text-muted">Nhập điểm từng câu theo thang điểm tối đa. Có thể lưu từng câu; câu chưa nhập sẽ tiếp tục chờ chấm.</p>
             {% endif %}
             {% for group in pane_groups %}
             <h2 class="h6 fw-bold text-uppercase mb-3 {% if not loop.first %}mt-4{% endif %}">{{ group.title or 'Phần ' ~ loop.index }}</h2>
@@ -152,7 +227,8 @@
               {% elif group.type == 'essay' %}
                 {% set state = 'graded' if question.essay_score is not none else 'pending' %}
               {% endif %}
-              <article class="attempt-question p-3 mb-3 {{ {'correct': 'is-correct', 'wrong': 'is-wrong', 'blank': 'is-blank', 'partial': 'is-wrong'}.get(state, '') }}">
+              <article id="attempt-question-g{{ group.group_index }}-q{{ question.position }}"
+                       class="attempt-question p-3 mb-3 {{ {'correct': 'is-correct', 'wrong': 'is-wrong', 'blank': 'is-blank', 'partial': 'is-wrong'}.get(state, '') }}">
                 <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
                   <div class="fw-semibold">Câu {{ question.position }}. <span class="exam-math">{{ question.text | error_id_render }}</span></div>
                   <span class="flex-shrink-0">{{ verdict(state) }}</span>
@@ -189,26 +265,24 @@
                     {% else %}<span class="text-muted">Chưa chấm</span>{% endif %}
                   </div>
                   {% if question.key %}
-                  <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+                  <form class="d-flex flex-wrap align-items-center gap-2 mt-3"
+                        method="post" action="{{ url_for('teacher.exams_attempt_essay_scores', exam_id=exam.id, attempt_id=attempt.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <label class="fw-semibold small mb-0" for="score_{{ question.key }}">
                       Nhập điểm câu {{ question.position }}{% if question.essay_max is not none %} <span class="text-muted fw-normal">(tối đa {{ question.essay_max | round(2) }})</span>{% endif %}
                     </label>
                     <input class="form-control" style="width:8rem;" type="number" id="score_{{ question.key }}" name="score_{{ question.key }}"
                            min="0" {% if question.essay_max is not none %}max="{{ question.essay_max | round(4) }}"{% endif %} step="any" inputmode="decimal"
                            value="{{ ('%g'|format(question.essay_score | round(4))) if question.essay_score is not none else '' }}">
-                  </div>
+                    <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-check2-circle me-1" aria-hidden="true"></i>Lưu điểm</button>
+                  </form>
                   {% endif %}
                 {% endif %}
+                {{ question_editor(exam, attempt, group, question) }}
                 {{ explanation(question) }}
               </article>
             {% endfor %}
             {% endfor %}
-            {% if pane_id == 'essay' %}
-              <div class="d-flex justify-content-end mt-2">
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check2-circle me-1" aria-hidden="true"></i>Lưu điểm</button>
-              </div>
-            </form>
-            {% endif %}
           </div>
           {% endif %}
           {% endfor %}
