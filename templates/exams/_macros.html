@@ -52,11 +52,15 @@
       <div class="exam-tf-review-details">
         <div class="exam-tf-review-answer">
           <span class="exam-tf-review-label">{{ answer_label }}</span>
-          <strong>{{ 'Chưa trả lời' if not answered else 'Đúng' if chosen else 'Sai' }}</strong>
+          <span class="exam-tf-review-value {% if not answered %}is-muted{% elif correct %}is-correct{% else %}is-wrong{% endif %}">
+            {{ 'Chưa trả lời' if not answered else 'Đúng' if chosen else 'Sai' }}
+          </span>
         </div>
         <div class="exam-tf-review-answer">
           <span class="exam-tf-review-label">Đáp án đúng</span>
-          <strong>{{ 'Đúng' if statement.correct else 'Sai' }}</strong>
+          <span class="exam-tf-review-value {% if statement.correct %}is-correct{% else %}is-wrong{% endif %}">
+            {{ 'Đúng' if statement.correct else 'Sai' }}
+          </span>
         </div>
         <span class="badge {% if not answered %}bg-warning-subtle text-warning-emphasis{% elif correct %}bg-success-subtle text-success-emphasis{% else %}bg-danger-subtle text-danger-emphasis{% endif %}">
           {% if not answered %}Chưa làm{% elif correct %}Chính xác{% else %}Chưa chính xác{% endif %}

@@ -1184,6 +1184,10 @@ footer a:hover { color: #fff !important; }
 }
 .exam-tf-review-answer { display: flex; flex-wrap: wrap; gap: .25rem .4rem; }
 .exam-tf-review-label { color: var(--nt-text-muted); }
+.exam-tf-review-value { font-weight: 500; }
+.exam-tf-review-value.is-correct { color: var(--bs-success-text-emphasis); }
+.exam-tf-review-value.is-wrong { color: var(--bs-danger-text-emphasis); }
+.exam-tf-review-value.is-muted { color: var(--nt-text-muted); }
 .exam-tf-review-details .badge { justify-self: end; white-space: normal; }
 @media (max-width: 576px) {
   .exam-tf-review-details { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding-left: 0; }
