@@ -58,6 +58,13 @@
      subtitle=exam.title ~ ' · ' ~ exam.subject,
      back_href=url_for('teacher.exams_leaderboard', exam_id=exam.id), back_label='bảng xếp hạng', extra_class='mb-3') }}
 
+  <div class="d-flex justify-content-end mb-2">
+    <a class="btn btn-outline-primary btn-sm"
+       href="{{ url_for('teacher.exams_edit', exam_id=exam.id, return_attempt_id=attempt.id) }}">
+      <i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Sửa đề
+    </a>
+  </div>
+
   <div class="row g-3">
     <aside class="col-12 col-lg-4 col-xl-3">
       <div class="card border-0 shadow-sm attempt-side">
@@ -162,7 +169,7 @@
                                   {% if option.correct %}bg-success-subtle{% elif option.selected %}bg-danger-subtle{% else %}bg-light{% endif %}">
                         <span class="fw-semibold">{{ option.label }}.</span>
                         <span class="exam-math flex-grow-1">{{ option.text }}</span>
-                        {% if option.selected %}<span class="badge bg-secondary">Đã chọn</span>{% endif %}
+                        {% if option.selected %}<i class="bi bi-record-circle-fill text-primary" aria-label="Học sinh đã chọn đáp án này"></i>{% endif %}
                         {% if option.correct %}<i class="bi bi-check-circle-fill text-success" aria-label="Đáp án đúng"></i>{% endif %}
                       </div>
                     </div>

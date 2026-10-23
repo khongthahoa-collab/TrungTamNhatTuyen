@@ -13,17 +13,17 @@
 {% set course_names = courses | map(attribute='name') | list %}
 {% set subject_matches_course = existing and existing.subject in course_names %}
 {% call page_header('Cập nhật cấu hình đề thi' if editing else 'Cấu hình & xác nhận đề thi', 'sliders', badge='Bước 2/2',
-   back_href=url_for('teacher.exams_edit', exam_id=existing.id) if editing else url_for('teacher.exams_new', mode='compose'),
+   back_href=url_for('teacher.exams_edit', exam_id=existing.id, return_attempt_id=return_attempt_id) if editing else url_for('teacher.exams_new', mode='compose'),
    back_label='chỉnh sửa nội dung đề thi') %}
   {% set exam_guide_page = 'confirm' %}
   {% include 'teacher/_exam_guide.html' %}
 {% endcall %}
 
 {% if editing and existing.attempts.count() > 0 %}
-<div class="alert alert-info small">
-  <i class="bi bi-info-circle me-1"></i>
-  Đề này đã có <strong>{{ existing.attempts.count() }}</strong> lượt làm bài. Chỉnh sửa và lưu sẽ không thay đổi kết quả đã ghi nhận trước đó —
-  thay đổi chỉ áp dụng cho các lượt làm bài mới.
+<div class="alert alert-warning small">
+  <i class="bi bi-exclamation-triangle me-1"></i>
+  Đề này đã có lượt làm bài. Khi lưu thay đổi câu hỏi hoặc đáp án, hệ thống sẽ chấm lại các lượt làm có cấu trúc phù hợp;
+  lượt không còn khớp cấu trúc đề sẽ được giữ nguyên điểm cũ.
 </div>
 {% endif %}
 
@@ -32,6 +32,9 @@
   <input type="hidden" name="title" value="{{ payload.title }}">
   <input type="hidden" name="groups_json" value="{{ {'groups': payload.groups} | tojson | forceescape }}">
   <input type="hidden" name="edit_exam_id" value="{{ payload.get('edit_exam_id', '') }}">
+  {% if return_attempt_id %}
+  <input type="hidden" name="return_attempt_id" value="{{ return_attempt_id }}">
+  {% endif %}
   <div class="row g-3">
     <div class="col-lg-7">
       <div class="card border-0 shadow-sm mb-3">

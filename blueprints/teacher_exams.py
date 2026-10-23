@@ -671,45 +671,70 @@ def exams_edit(exam_id):
     if request.method == 'POST':
         title = request.form.get('title', '').strip()
         groups = parse_groups_payload(request.form.get('groups_json', '{}'))
+        return_attempt_id = request.args.get('return_attempt_id', type=int)
 
         if not title or not groups:
             flash('Vui lòng nhập tên đề thi và ít nhất 1 câu hỏi hợp lệ trong các phần thi.', 'danger')
             return render_template('teacher/exams_form.html', prefill={'title': title, 'groups': groups},
-                                   editing=True, exam=exam)
+                                   editing=True, exam=exam, return_attempt_id=return_attempt_id)
 
         def shape(group_list):
             return [len(g.get('questions', [])) for g in group_list]
 
         if request.form.get('quick_save'):
             if shape(groups) == shape(exam.question_groups):
+                questions_changed = exam.question_groups != groups
                 exam.title = title
                 exam.questions_json = json.dumps({'groups': groups})
+                regraded = skipped = 0
+                if questions_changed and exam.attempts.filter_by(status='submitted').count():
+                    regraded, skipped = regrade_submitted_attempts(exam)
+                detail = f'Cập nhật nội dung đề "{exam.title}"'
+                if questions_changed and (regraded or skipped):
+                    detail += f' (đã tính lại điểm {regraded} bài đã nộp'
+                    detail += f', bỏ qua {skipped} bài do cấu trúc đề đã thay đổi)' if skipped else ')'
                 db.session.add(ExamLog(user_id=current_user.id, action='update_exam', target_type='exam',
-                                       target_id=exam.id, detail=f'Cập nhật nội dung đề "{exam.title}"'))
+                                       target_id=exam.id, detail=detail))
                 db.session.commit()
                 session.pop(SESSION_KEY, None)
-                flash('Đã lưu thông tin đề thi.', 'success')
+                if questions_changed and (regraded or skipped):
+                    flash(
+                        f'Đã lưu đề và tính lại điểm {regraded} lượt làm phù hợp'
+                        f'{f"; bỏ qua {skipped} lượt do cấu trúc đề đã thay đổi" if skipped else ""}.',
+                        'success',
+                    )
+                else:
+                    flash('Đã lưu thông tin đề thi.', 'success')
+                if return_attempt_id:
+                    return redirect(url_for(
+                        'teacher.exams_attempt_detail', exam_id=exam.id,
+                        attempt_id=return_attempt_id,
+                    ))
                 return redirect(url_for('teacher.exams_list'))
             flash('Số phần hoặc số câu đã thay đổi, hãy kiểm tra lại cách chia điểm rồi lưu.', 'info')
 
         return _render_exam_confirm(
             {'title': title, 'groups': groups, 'edit_exam_id': exam.id}, existing=exam,
+            return_attempt_id=return_attempt_id,
         )
 
     draft = session_draft()
     if not draft or draft.get('edit_exam_id') != exam.id:
         draft = {'title': exam.title, 'groups': exam.question_groups}
-    return render_template('teacher/exams_form.html', prefill=draft, editing=True, exam=exam)
+    return render_template(
+        'teacher/exams_form.html', prefill=draft, editing=True, exam=exam,
+        return_attempt_id=request.args.get('return_attempt_id', type=int),
+    )
 
 
-def _render_exam_confirm(draft, existing=None, form=None):
+def _render_exam_confirm(draft, existing=None, form=None, return_attempt_id=None):
     classes = _teacher_accessible_classes()
     courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
     folders = ExamFolder.query.filter_by(created_by=current_user.id).order_by(ExamFolder.name).all()
     return render_template(
         'teacher/exams_confirm.html', payload=draft, classes=classes, courses=courses,
         folders=folders, exam_types=EXAM_TYPES, durations=DURATION_OPTIONS, form=form,
-        editing=bool(existing), existing=existing,
+        editing=bool(existing), existing=existing, return_attempt_id=return_attempt_id,
     )
 
 
@@ -731,10 +756,14 @@ def exams_confirm():
         require_owns_or_admin(existing)
 
     if request.method == 'POST':
+        return_attempt_id = request.form.get('return_attempt_id', type=int)
         settings, error = parse_confirm_settings(request.form, draft['groups'])
         if error:
             flash(error, 'danger')
-            return _render_exam_confirm(draft, existing=existing, form=request.form)
+            return _render_exam_confirm(
+                draft, existing=existing, form=request.form,
+                return_attempt_id=return_attempt_id,
+            )
         _validate_teacher_class_ids(settings['class_ids'])
         if settings['folder_id']:
             folder = ExamFolder.query.get(settings['folder_id'])
@@ -744,7 +773,10 @@ def exams_confirm():
                 folder, settings['subject'], [int(class_id) for class_id in settings['class_ids']]
             ):
                 flash('Thư mục phải cùng môn học hoặc thuộc một trong các lớp được giao.', 'warning')
-                return _render_exam_confirm(draft, existing=existing, form=request.form)
+                return _render_exam_confirm(
+                    draft, existing=existing, form=request.form,
+                    return_attempt_id=return_attempt_id,
+                )
 
         if existing:
             had_attempts = existing.attempts.count() > 0
@@ -811,6 +843,11 @@ def exams_confirm():
             session.pop(SESSION_KEY, None)
             flash('Đã tạo đề thi thành công.', 'success')
 
+        if existing and return_attempt_id:
+            return redirect(url_for(
+                'teacher.exams_attempt_detail', exam_id=existing.id,
+                attempt_id=return_attempt_id,
+            ))
         return redirect(url_for('teacher.exams_list'))
 
     return _render_exam_confirm(draft, existing=existing)

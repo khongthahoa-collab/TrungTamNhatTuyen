@@ -46,8 +46,15 @@
       </div>
       <div id="localDraftStatus" class="form-text small mt-1" aria-live="polite">Bản nháp được tự động lưu trên thiết bị này.</div>
     </div>
-    {% if editing and exam.attempts.count() > 0 %}
-    <div class="alert alert-info small">Đề này đã có <strong>{{ exam.attempts.count() }}</strong> lượt làm bài. Sửa câu hỏi/đáp án chỉ áp dụng cho lượt làm bài mới, không thay đổi kết quả đã có.</div>
+    {% if editing and exam.attempts.filter_by(status='submitted').count() > 0 %}
+    <div class="alert alert-warning small">
+      <i class="bi bi-exclamation-triangle me-1"></i>
+      Đề này đã có bài nộp. Khi lưu thay đổi câu hỏi hoặc đáp án, hệ thống sẽ chấm lại các lượt làm có cấu trúc phù hợp;
+      lượt không còn khớp cấu trúc đề sẽ được giữ nguyên điểm cũ.
+    </div>
+    {% endif %}
+    {% if return_attempt_id %}
+    <input type="hidden" name="return_attempt_id" value="{{ return_attempt_id }}">
     {% endif %}
     {% include 'exams/_editor.html' %}
   </form>
