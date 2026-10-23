@@ -15,7 +15,8 @@ from blueprints.exams_shared import (
     EXAM_TYPES, DURATION_OPTIONS, SESSION_KEY,
     parse_folder_fields, parse_groups_payload, require_owns_or_admin, require_teacher_exam_access,
     publish_exam, reset_student_exam_attempts,
-    session_draft, parse_confirm_settings, posted_exam_draft,
+    session_draft, parse_confirm_settings, posted_exam_draft, review_attempt_answers,
+    apply_manual_essay_scores,
 )
 from blueprints.pagination_utils import paginate_list
 
@@ -469,6 +470,7 @@ def exams_leaderboard(exam_id):
         )
         candidate = {
             'student': attempt.student,
+            'attempt': attempt,
             'score': result.get('score_10', 0),
             'duration': duration if duration != float('inf') else None,
         }
@@ -489,6 +491,81 @@ def exams_leaderboard(exam_id):
     )
     return render_template('teacher/exam_insights.html', exam=exam, metrics=None, rows=rows,
                            leaderboard=True)
+
+
+@teacher_bp.route('/exams/<int:exam_id>/attempts/<int:attempt_id>')
+@login_required
+@require_teacher
+def exams_attempt_detail(exam_id, attempt_id):
+    exam = Exam.query.get_or_404(exam_id)
+    require_owns_or_admin(exam)
+    attempt = ExamAttempt.query.options(joinedload(ExamAttempt.student)).filter_by(
+        id=attempt_id, exam_id=exam.id, status='submitted'
+    ).first_or_404()
+    result = attempt.result
+    essay_scores = result.get('essay_scores', {})
+    essay_max = {item['key']: item['weight'] for item in result.get('essay_questions', [])}
+    groups = review_attempt_answers(exam, attempt)
+    for group in groups:
+        for question in group['questions']:
+            key = question.get('key')
+            if key:
+                question['essay_score'] = essay_scores.get(key)
+                question['essay_max'] = essay_max.get(key)
+    duration = (
+        int((attempt.submitted_at - attempt.started_at).total_seconds())
+        if attempt.submitted_at and attempt.started_at else None
+    )
+    total = result.get('total') or 0
+    sections = [
+        {**part, 'score_10': round(part.get('earned', 0) / total * 10, 1) if total else 0,
+         'max_10': round(part.get('total', 0) / total * 10, 1) if total else 0}
+        for part in result.get('breakdown', [])
+    ]
+    return render_template('teacher/exam_attempt_detail.html', exam=exam, attempt=attempt,
+                           result=result, groups=groups, sections=sections, duration=duration)
+
+
+@teacher_bp.route('/exams/<int:exam_id>/attempts/<int:attempt_id>/essay-scores', methods=['POST'])
+@login_required
+@require_teacher
+def exams_attempt_essay_scores(exam_id, attempt_id):
+    exam = Exam.query.get_or_404(exam_id)
+    require_owns_or_admin(exam)
+    attempt = ExamAttempt.query.filter_by(
+        id=attempt_id, exam_id=exam.id, status='submitted'
+    ).first_or_404()
+    result = attempt.result
+    updated_scores = dict(result.get('essay_scores', {}))
+    errors = []
+    for item in result.get('essay_questions', []):
+        raw_score = request.form.get(f"score_{item['key']}", '').strip().replace(',', '.')
+        if not raw_score:
+            continue
+        try:
+            score = float(raw_score)
+        except ValueError:
+            errors.append(f"Câu {item['position']}: điểm phải là một số.")
+            continue
+        if not 0 <= score <= item['weight']:
+            errors.append(f"Câu {item['position']}: điểm phải từ 0 đến {item['weight']:g}.")
+            continue
+        updated_scores[item['key']] = score
+    if errors:
+        for error in errors:
+            flash(error, 'danger')
+    else:
+        result = apply_manual_essay_scores(result, updated_scores)
+        attempt.result_json = json.dumps(result)
+        attempt.score = result['percent'] if result['pending_essay_count'] == 0 else 0
+        db.session.add(ExamLog(
+            user_id=current_user.id, action='grade_essay', target_type='exam_attempt',
+            target_id=attempt.id, detail=f'Chấm tự luận bài #{attempt.id} của đề "{exam.title}"',
+        ))
+        db.session.commit()
+        flash('Đã lưu điểm tự luận.' if result['pending_essay_count'] == 0
+              else 'Đã lưu phần đã chấm; bài vẫn còn câu tự luận chờ chấm.', 'success')
+    return redirect(url_for('teacher.exams_attempt_detail', exam_id=exam.id, attempt_id=attempt.id) + '#pane-essay')
 
 
 @teacher_bp.route('/exams/<int:exam_id>/results')

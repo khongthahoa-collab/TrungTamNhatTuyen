@@ -1,0 +1,235 @@
+{% extends 'teacher/base.html' %}
+{% from 'teacher/_navigation.html' import page_header %}
+{% block title %}Chi tiết bài làm – Giáo viên – Nhật Tuyền{% endblock %}
+{% block extra_head %}
+{% include 'exams/_mathjax.html' %}
+<style>
+  .attempt-detail { max-width: 1440px; margin-inline: auto; }
+  .attempt-side-title {
+    background: var(--nt-primary-50);
+    border-bottom: 1px solid var(--nt-border-light);
+  }
+  .attempt-score { font-size: 2rem; line-height: 1.1; }
+  .attempt-section {
+    background: var(--nt-light);
+    border: 1px solid var(--nt-border-light);
+    border-radius: var(--nt-radius-lg);
+  }
+  .attempt-tabs .nav-link { min-height: 44px; color: var(--nt-text); }
+  .attempt-tabs .nav-link.active { color: var(--nt-primary-deeper); font-weight: 600; }
+  .attempt-question { border: 1px solid var(--nt-border-light); border-radius: var(--nt-radius-lg); }
+  .attempt-question.is-correct { border-left: 4px solid var(--bs-success); }
+  .attempt-question.is-wrong { border-left: 4px solid var(--bs-danger); }
+  .attempt-question.is-blank { border-left: 4px solid var(--bs-warning); }
+  .attempt-option { overflow-wrap: anywhere; }
+  .attempt-answer-box { white-space: pre-wrap; overflow-wrap: anywhere; }
+  @media (min-width: 992px) {
+    .attempt-side { position: sticky; top: 1rem; }
+  }
+</style>
+{% endblock %}
+
+{% macro verdict(state) -%}
+  {% if state == 'correct' %}<span class="badge bg-success-subtle text-success-emphasis"><i class="bi bi-check-circle me-1" aria-hidden="true"></i>Đúng</span>
+  {% elif state == 'wrong' %}<span class="badge bg-danger-subtle text-danger-emphasis"><i class="bi bi-x-circle me-1" aria-hidden="true"></i>Sai</span>
+  {% elif state == 'blank' %}<span class="badge bg-warning-subtle text-warning-emphasis">Chưa trả lời</span>
+  {% elif state == 'partial' %}<span class="badge bg-info-subtle text-info-emphasis">Đúng một phần</span>
+  {% elif state == 'pending' %}<span class="badge bg-warning text-dark">Chờ chấm</span>
+  {% elif state == 'graded' %}<span class="badge bg-success-subtle text-success-emphasis">Đã chấm</span>{% endif %}
+{%- endmacro %}
+
+{% macro explanation(question) -%}
+  {% if question.explanation %}
+  <details class="mt-3 small">
+    <summary class="fw-semibold text-primary" style="cursor:pointer;min-height:44px;display:flex;align-items:center;">
+      <i class="bi bi-lightbulb me-1" aria-hidden="true"></i>Giải thích đáp án
+    </summary>
+    <div class="exam-math exam-explanation-markdown pt-1">{{ question.explanation | markdown }}</div>
+  </details>
+  {% endif %}
+{%- endmacro %}
+
+{% block content %}
+{% set student = attempt.student %}
+{% set pending = result.get('pending_essay_count', 0) %}
+{% set objective_groups = groups | rejectattr('type', 'equalto', 'essay') | list %}
+{% set essay_groups = groups | selectattr('type', 'equalto', 'essay') | list %}
+<div class="container-fluid px-3 py-3 attempt-detail">
+  {{ page_header(student.full_name if student else 'Học sinh đã xóa', 'person-lines-fill',
+     subtitle=exam.title ~ ' · ' ~ exam.subject,
+     back_href=url_for('teacher.exams_leaderboard', exam_id=exam.id), back_label='bảng xếp hạng', extra_class='mb-3') }}
+
+  <div class="row g-3">
+    <aside class="col-12 col-lg-4 col-xl-3">
+      <div class="card border-0 shadow-sm attempt-side">
+        <div class="attempt-side-title px-3 py-2 fw-semibold">Thông tin chi tiết</div>
+        <div class="card-body">
+          <div class="d-flex align-items-baseline justify-content-between gap-2 mb-3">
+            <span class="text-muted">Điểm</span>
+            {% if pending %}
+              <span class="text-end"><span class="badge bg-warning text-dark">Còn {{ pending }} câu chờ chấm</span></span>
+            {% else %}
+              <span><strong class="attempt-score text-primary">{{ result.get('score_10', 0) }}</strong><span class="text-muted">/10</span></span>
+            {% endif %}
+          </div>
+          <dl class="row small mb-3 g-1">
+            <dt class="col-6 fw-normal text-muted">Thời gian làm bài</dt>
+            <dd class="col-6 text-end fw-semibold mb-0">
+              {% if duration is not none %}{{ duration // 60 }} phút {{ '%02d' % (duration % 60) }} giây{% else %}—{% endif %}
+            </dd>
+            <dt class="col-6 fw-normal text-muted">Thời gian nộp bài</dt>
+            <dd class="col-6 text-end fw-semibold mb-0">{{ attempt.submitted_at.strftime('%d/%m/%Y %H:%M') if attempt.submitted_at else '—' }}</dd>
+            <dt class="col-6 fw-normal text-muted">Số lần thoát màn hình</dt>
+            <dd class="col-6 text-end fw-semibold mb-0">
+              {{ attempt.cheat_count or 0 }}{% if attempt.was_flagged %} <span class="badge bg-warning text-dark">Cảnh báo</span>{% endif %}
+            </dd>
+          </dl>
+
+          {% if sections %}
+          <div class="text-uppercase small fw-semibold text-muted mb-2">Chi tiết theo phần</div>
+          <div class="d-grid gap-2">
+            {% for part in sections %}
+            <div class="attempt-section p-2 px-3">
+              <div class="d-flex justify-content-between gap-2 align-items-baseline">
+                <span class="fw-semibold small">{{ part.title }}</span>
+                <span class="small text-nowrap"><strong class="text-primary">{{ part.score_10 }}</strong> <span class="text-muted">/ {{ part.max_10 }}</span></span>
+              </div>
+              <div class="small text-muted">{{ part.earned }}/{{ part.total }} điểm thành phần</div>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </aside>
+
+    <section class="col-12 col-lg-8 col-xl-9">
+      <div class="card border-0 shadow-sm">
+        {% set show_tabs = objective_groups and essay_groups %}
+        {% if show_tabs %}
+        <ul class="nav nav-tabs attempt-tabs px-3 pt-2" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab-objective" data-bs-toggle="tab" data-bs-target="#pane-objective" type="button" role="tab" aria-controls="pane-objective" aria-selected="true">Trắc nghiệm</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-essay" data-bs-toggle="tab" data-bs-target="#pane-essay" type="button" role="tab" aria-controls="pane-essay" aria-selected="false">
+              Tự luận{% if pending %} <span class="badge bg-warning text-dark">{{ pending }}</span>{% endif %}
+            </button>
+          </li>
+        </ul>
+        {% endif %}
+        <div class="card-body tab-content">
+          {% for pane_id, pane_groups in (('objective', objective_groups), ('essay', essay_groups)) %}
+          {% if pane_groups %}
+          <div class="tab-pane fade {% if loop.first or not show_tabs %}show active{% endif %}" id="pane-{{ pane_id }}" role="tabpanel">
+            {% if pane_id == 'essay' %}
+            <form method="post" action="{{ url_for('teacher.exams_attempt_essay_scores', exam_id=exam.id, attempt_id=attempt.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <p class="small text-muted">Nhập điểm từng câu theo thang điểm tối đa. Có thể lưu một phần; câu chưa nhập sẽ tiếp tục chờ chấm.</p>
+            {% endif %}
+            {% for group in pane_groups %}
+            <h2 class="h6 fw-bold text-uppercase mb-3 {% if not loop.first %}mt-4{% endif %}">{{ group.title or 'Phần ' ~ loop.index }}</h2>
+            {% for question in group.questions %}
+              {% set state = 'blank' %}
+              {% if group.type == 'mcq' %}
+                {% set sel = question.options | selectattr('selected') | list %}
+                {% set state = 'blank' if not sel else ('correct' if sel[0].correct else 'wrong') %}
+              {% elif group.type == 'true_false' %}
+                {% set answered = question.statements | rejectattr('selected', 'equalto', '') | list %}
+                {% set right = namespace(n=0) %}
+                {% for st in answered %}{% if (st.selected == '1') == st.correct %}{% set right.n = right.n + 1 %}{% endif %}{% endfor %}
+                {% set state = 'blank' if not answered else ('correct' if right.n == question.statements | length else ('partial' if right.n else 'wrong')) %}
+              {% elif group.type == 'short_answer' %}
+                {% set state = 'blank' if not question.student_answer else ('correct' if question.student_answer in question.correct_answers else 'wrong') %}
+              {% elif group.type == 'error_id' %}
+                {% set state = 'blank' if not question.student_answer else ('correct' if question.student_answer | upper == question.correct_answer else 'wrong') %}
+              {% elif group.type == 'essay' %}
+                {% set state = 'graded' if question.essay_score is not none else 'pending' %}
+              {% endif %}
+              <article class="attempt-question p-3 mb-3 {{ {'correct': 'is-correct', 'wrong': 'is-wrong', 'blank': 'is-blank', 'partial': 'is-wrong'}.get(state, '') }}">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                  <div class="fw-semibold">Câu {{ question.position }}. <span class="exam-math">{{ question.text | error_id_render }}</span></div>
+                  <span class="flex-shrink-0">{{ verdict(state) }}</span>
+                </div>
+
+                {% if group.type == 'mcq' %}
+                  <div class="row g-2">
+                    {% for option in question.options %}
+                    <div class="col-12 col-md-6">
+                      <div class="attempt-option d-flex align-items-start gap-2 small rounded p-2 h-100
+                                  {% if option.correct %}bg-success-subtle{% elif option.selected %}bg-danger-subtle{% else %}bg-light{% endif %}">
+                        <span class="fw-semibold">{{ option.label }}.</span>
+                        <span class="exam-math flex-grow-1">{{ option.text }}</span>
+                        {% if option.selected %}<span class="badge bg-secondary">Đã chọn</span>{% endif %}
+                        {% if option.correct %}<i class="bi bi-check-circle-fill text-success" aria-label="Đáp án đúng"></i>{% endif %}
+                      </div>
+                    </div>
+                    {% endfor %}
+                  </div>
+                {% elif group.type == 'true_false' %}
+                  {% for statement in question.statements %}
+                  {% set chosen = statement.selected == '1' %}
+                  <div class="attempt-option d-flex flex-wrap align-items-center gap-2 small rounded p-2 mb-1
+                              {% if statement.selected == '' %}bg-light{% elif chosen == statement.correct %}bg-success-subtle{% else %}bg-danger-subtle{% endif %}">
+                    <span class="fw-semibold">{{ statement.label }})</span>
+                    <span class="exam-math flex-grow-1">{{ statement.text }}</span>
+                    <span class="text-muted">Học sinh chọn: <strong>{{ 'Chưa trả lời' if statement.selected == '' else 'Đúng' if chosen else 'Sai' }}</strong></span>
+                    <span class="text-success">Đáp án: <strong>{{ 'Đúng' if statement.correct else 'Sai' }}</strong></span>
+                  </div>
+                  {% endfor %}
+                {% elif group.type == 'short_answer' %}
+                  <div class="small mb-1">Học sinh trả lời:
+                    <span class="exam-math fw-semibold attempt-answer-box">{{ question.student_answer or 'Chưa trả lời' }}</span></div>
+                  <div class="small text-success">Đáp án đúng: <span class="exam-math fw-semibold">{{ question.correct_answers | join(' | ') }}</span></div>
+                {% elif group.type == 'error_id' %}
+                  <div class="small mb-1">Học sinh chọn: <strong>{{ question.student_answer or 'Chưa trả lời' }}</strong></div>
+                  <div class="small text-success">Đáp án đúng: <strong>{{ question.correct_answer }}</strong></div>
+                {% elif group.type == 'essay' %}
+                  <div class="small text-muted mb-1">Học sinh trả lời</div>
+                  <div class="border rounded bg-light p-3 exam-math attempt-answer-box">{{ question.student_answer or 'Học sinh không nhập câu trả lời.' }}</div>
+                  <div class="small mt-2">Điểm:
+                    {% if question.essay_score is not none %}
+                      <strong class="text-primary">{{ question.essay_score | round(2) }}</strong>{% if question.essay_max is not none %} <span class="text-muted">/ {{ question.essay_max | round(2) }}</span>{% endif %}
+                    {% else %}<span class="text-muted">Chưa chấm</span>{% endif %}
+                  </div>
+                  {% if question.key %}
+                  <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+                    <label class="fw-semibold small mb-0" for="score_{{ question.key }}">
+                      Nhập điểm câu {{ question.position }}{% if question.essay_max is not none %} <span class="text-muted fw-normal">(tối đa {{ question.essay_max | round(2) }})</span>{% endif %}
+                    </label>
+                    <input class="form-control" style="width:8rem;" type="number" id="score_{{ question.key }}" name="score_{{ question.key }}"
+                           min="0" {% if question.essay_max is not none %}max="{{ question.essay_max }}"{% endif %} step="any" inputmode="decimal"
+                           value="{{ question.essay_score if question.essay_score is not none else '' }}">
+                  </div>
+                  {% endif %}
+                {% endif %}
+                {{ explanation(question) }}
+              </article>
+            {% endfor %}
+            {% endfor %}
+            {% if pane_id == 'essay' %}
+              <div class="d-flex justify-content-end mt-2">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check2-circle me-1" aria-hidden="true"></i>Lưu điểm</button>
+              </div>
+            </form>
+            {% endif %}
+          </div>
+          {% endif %}
+          {% endfor %}
+          {% if not groups %}
+          <p class="text-muted text-center py-4 mb-0">Bài làm này chưa có dữ liệu câu hỏi để hiển thị.</p>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+  if (location.hash === '#pane-essay') {
+    const tab = document.getElementById('tab-essay');
+    if (tab && window.bootstrap) bootstrap.Tab.getOrCreateInstance(tab).show();
+  }
+</script>
+{% endblock %}

@@ -108,3 +108,6 @@ __pycache__/
 
 # Danh sách tài khoản học sinh do create_student_accounts.py xuất ra (chứa mật khẩu)
 student_accounts_*.csv
+
+# Ảnh tham khảo UI (không commit)
+exem_online/

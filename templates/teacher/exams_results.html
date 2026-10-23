@@ -25,7 +25,13 @@
           {% for row in rows %}
           <tr {% if row.flagged %}class="table-warning"{% endif %}>
             <td class="ps-3 fw-semibold">
-              {{ row.student.full_name if row.student else 'Học sinh đã xóa' }}
+              {% if row.attempt %}
+              <a href="{{ url_for('teacher.exams_attempt_detail', exam_id=exam.id, attempt_id=row.attempt.id) }}"
+                 class="d-inline-flex align-items-center text-decoration-none" style="min-height:44px;"
+                 aria-label="Xem chi tiết bài làm của {{ row.student.full_name if row.student else 'học sinh đã xóa' }}">
+                {{ row.student.full_name if row.student else 'Học sinh đã xóa' }}
+              </a>
+              {% else %}{{ row.student.full_name if row.student else 'Học sinh đã xóa' }}{% endif %}
               {% if row.flagged %}<i class="bi bi-exclamation-triangle-fill text-warning ms-1" title="Có dấu hiệu gian lận"></i>{% endif %}
             </td>
             <td class="text-center">
