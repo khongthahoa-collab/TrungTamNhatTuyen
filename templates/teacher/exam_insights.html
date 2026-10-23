@@ -76,7 +76,7 @@
     <div class="col-6 col-xl-3">
       <div class="card border-0 shadow-sm h-100"><div class="card-body">
         <div class="small text-muted">Điểm trung bình</div>
-        <div class="fs-4 fw-bold">{{ metrics.average_score if metrics.average_score is not none else '—' }}</div>
+        <div class="fs-4 fw-bold">{{ '%g'|format(metrics.average_score) if metrics.average_score is not none else '—' }}</div>
         <div class="small text-muted">trên 10 · bài đã chấm</div>
       </div></div>
     </div>

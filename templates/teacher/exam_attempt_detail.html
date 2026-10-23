@@ -202,7 +202,7 @@
                     </label>
                     <input class="form-control" style="width:8rem;" type="number" id="score_{{ question.key }}" name="score_{{ question.key }}"
                            min="0" {% if question.essay_max is not none %}max="{{ question.essay_max | round(4) }}"{% endif %} step="any" inputmode="decimal"
-                           value="{{ question.essay_score if question.essay_score is not none else '' }}">
+                           value="{{ ('%g'|format(question.essay_score | round(4))) if question.essay_score is not none else '' }}">
                   </div>
                   {% endif %}
                 {% endif %}

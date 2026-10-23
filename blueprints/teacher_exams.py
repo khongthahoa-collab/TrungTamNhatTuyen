@@ -558,7 +558,7 @@ def exams_attempt_essay_scores(exam_id, attempt_id):
         if not 0 <= score <= max_score + 1e-6:
             errors.append(f"Câu {item['position']}: điểm phải từ 0 đến {max_score:g}.")
             continue
-        updated_scores[item['key']] = min(score, item['weight'])
+        updated_scores[item['key']] = round(min(score, max_score), 4)
     if errors:
         for error in errors:
             flash(error, 'danger')
