@@ -37,7 +37,7 @@
                   {{ row.student.full_name }}
                 </a>
               </td>
-              <td class="text-center"><span class="badge bg-primary">{{ row.score }}/10</span></td>
+              <td class="text-center"><span class="badge bg-primary">{{ '%g'|format(row.score) }}/10</span></td>
               <td class="text-end pe-3 small">
                 {% if row.duration is not none %}
                   {{ (row.duration // 60)|int }} phút {{ '%02d' % (row.duration % 60) }} giây

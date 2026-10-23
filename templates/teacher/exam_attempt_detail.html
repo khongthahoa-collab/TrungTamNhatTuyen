@@ -69,7 +69,7 @@
             {% if pending %}
               <span class="text-end"><span class="badge bg-warning text-dark">Còn {{ pending }} câu chờ chấm</span></span>
             {% else %}
-              <span><strong class="attempt-score text-primary">{{ result.get('score_10', 0) }}</strong><span class="text-muted">/10</span></span>
+              <span><strong class="attempt-score text-primary">{{ '%g'|format(result.get('score_10', 0)) }}</strong><span class="text-muted">/10</span></span>
             {% endif %}
           </div>
           <dl class="row small mb-3 g-1">

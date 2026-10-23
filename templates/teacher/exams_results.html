@@ -42,7 +42,7 @@
               </a>
               {% elif row.result %}
               <span class="badge {% if row.result.score_10 >= 8 %}bg-success{% elif row.result.score_10 >= 5 %}bg-primary{% else %}bg-danger{% endif %}">
-                {{ row.result.get('score_10', 0) }}/10
+                {{ '%g'|format(row.result.get('score_10', 0)) }}/10
               </span>
               {% else %}<span class="text-muted">—</span>{% endif %}
             </td>
