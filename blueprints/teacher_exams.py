@@ -16,7 +16,7 @@ from blueprints.exams_shared import (
     parse_folder_fields, parse_groups_payload, require_owns_or_admin, require_teacher_exam_access,
     publish_exam, reset_student_exam_attempts,
     session_draft, parse_confirm_settings, posted_exam_draft, review_attempt_answers,
-    apply_manual_essay_scores,
+    apply_manual_essay_scores, regrade_submitted_attempts, has_stale_scoring,
 )
 from blueprints.pagination_utils import paginate_list
 
@@ -721,6 +721,9 @@ def exams_confirm():
 
         if existing:
             had_attempts = existing.attempts.count() > 0
+            scoring_changed = (existing.scoring_mode, existing.scoring_config_json) != (
+                settings['scoring_mode'], json.dumps(settings['scoring_config'])
+            ) or (had_attempts and has_stale_scoring(existing, settings['scoring_mode']))
             existing.title = draft['title']
             existing.subject = settings['subject']
             existing.exam_type = settings['exam_type']
@@ -739,7 +742,12 @@ def exams_confirm():
 
             detail = f'Cập nhật đề "{existing.title}"'
             if had_attempts:
-                detail += ' (đề đã có học sinh làm bài — các kết quả cũ vẫn được giữ nguyên, chỉ áp dụng cho lượt làm mới)'
+                regraded, skipped = regrade_submitted_attempts(existing) if scoring_changed else (0, 0)
+                if scoring_changed:
+                    detail += f' (đã tính lại điểm {regraded} bài đã nộp theo cách chia điểm mới'
+                    detail += f', bỏ qua {skipped} bài do cấu trúc đề đã thay đổi)' if skipped else ')'
+                else:
+                    detail += ' (đề đã có học sinh làm bài — kết quả cũ được giữ nguyên)'
             db.session.add(ExamLog(user_id=current_user.id, action='update_exam', target_type='exam',
                                    target_id=existing.id, detail=detail))
             db.session.commit()

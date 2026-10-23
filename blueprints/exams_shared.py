@@ -476,3 +476,57 @@ def review_attempt_answers(exam, attempt):
                 'questions': reviewed_questions,
             })
     return answer_groups
+
+
+def has_stale_scoring(exam, scoring_mode):
+    """True if any submitted attempt was scored under a different scoring mode."""
+    return any(
+        attempt.result.get('scoring_mode', 'question') != scoring_mode
+        for attempt in exam.attempts.filter_by(status='submitted').all()
+    )
+
+
+def regrade_submitted_attempts(exam):
+    """Re-score submitted attempts after the exam's point settings change.
+
+    Attempts whose group/question structure no longer matches the exam are skipped.
+    Manual essay scores are carried over proportionally to the new essay weights.
+    Returns (regraded_count, skipped_count).
+    """
+    from blueprints.parent import _grade_attempt
+
+    groups = exam.question_groups
+    regraded = skipped = 0
+    for attempt in exam.attempts.filter_by(status='submitted').all():
+        order = attempt.order_data.get('groups') or []
+        if len(order) != len(groups) or any(
+            len(order[gi].get('q_order') or []) != len(group.get('questions', []))
+            for gi, group in enumerate(groups)
+        ):
+            skipped += 1
+            continue
+
+        form = {}
+        for key, value in attempt.answers.items():
+            if isinstance(value, dict):
+                for sub_key, sub_value in value.items():
+                    form[f'{key}_{sub_key}'] = sub_value
+            else:
+                form[key] = value
+        _normalized, result = _grade_attempt(exam, attempt, form)
+
+        old_result = attempt.result
+        old_weights = {item['key']: item['weight'] for item in old_result.get('essay_questions', [])}
+        old_scores = old_result.get('essay_scores', {})
+        carried = {}
+        for item in result.get('essay_questions', []):
+            key = item['key']
+            if key in old_scores and old_weights.get(key):
+                carried[key] = round(old_scores[key] / old_weights[key] * item['weight'], 4)
+        if carried:
+            result = apply_manual_essay_scores(result, carried)
+
+        attempt.result_json = json.dumps(result)
+        attempt.score = result['percent'] if result.get('pending_essay_count', 0) == 0 else 0
+        regraded += 1
+    return regraded, skipped
