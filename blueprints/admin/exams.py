@@ -295,7 +295,7 @@ def exams_grade_attempt(exam_id, attempt_id):
             'position': item.get('position', 1),
             'text': item.get('question_text', ''),
             'answer': answers.get(item.get('answer_field', ''), ''),
-            'max_score': item['weight'],
+            'max_score': round(item['weight'], 4),
             'score': result.get('essay_scores', {}).get(key, ''),
         })
 
@@ -312,7 +312,7 @@ def exams_grade_attempt(exam_id, attempt_id):
             except ValueError:
                 errors.append(f"Câu {item['position']}: điểm phải là một số.")
                 continue
-            if not 0 <= score <= item['max_score']:
+            if not 0 <= score <= item['max_score'] + 1e-6:
                 errors.append(
                     f"Câu {item['position']}: điểm phải từ 0 đến {item['max_score']:g}."
                 )

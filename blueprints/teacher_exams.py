@@ -554,10 +554,11 @@ def exams_attempt_essay_scores(exam_id, attempt_id):
         except ValueError:
             errors.append(f"Câu {item['position']}: điểm phải là một số.")
             continue
-        if not 0 <= score <= item['weight']:
-            errors.append(f"Câu {item['position']}: điểm phải từ 0 đến {item['weight']:g}.")
+        max_score = round(item['weight'], 4)
+        if not 0 <= score <= max_score + 1e-6:
+            errors.append(f"Câu {item['position']}: điểm phải từ 0 đến {max_score:g}.")
             continue
-        updated_scores[item['key']] = score
+        updated_scores[item['key']] = min(score, item['weight'])
     if errors:
         for error in errors:
             flash(error, 'danger')

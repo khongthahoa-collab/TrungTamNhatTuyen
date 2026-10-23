@@ -626,7 +626,7 @@ def _grade_attempt(exam, attempt, form):
             q = questions[orig_qi]
             field = f'g{gi}_q{position}'
             if exam.scoring_mode in ('section', 'section_custom'):
-                question_weight = section_points / len(questions) if questions else 0
+                question_weight = round(section_points / len(questions), 6) if questions else 0
             elif custom_question_points and orig_qi < len(question_points):
                 question_weight = question_points[orig_qi]
             else:
