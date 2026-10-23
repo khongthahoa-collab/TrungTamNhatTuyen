@@ -1,4 +1,16 @@
 <div id="examEditorError" class="alert alert-danger d-none" role="alert"></div>
+<div class="exam-jump-bar mb-3" id="examJumpBar" role="search" aria-label="Điều hướng đến câu hỏi">
+  <div class="exam-jump-field">
+    <label for="examJumpQuestion" class="exam-jump-label">Đi đến câu</label>
+    <input type="number" id="examJumpQuestion" class="exam-jump-input" min="1" value="1" inputmode="numeric">
+  </div>
+  <div class="exam-jump-field exam-jump-group">
+    <label for="examJumpGroup" class="exam-jump-label">Nhóm</label>
+    <select id="examJumpGroup" class="exam-jump-select" aria-label="Chọn nhóm câu hỏi"></select>
+  </div>
+  <button type="button" id="examJumpGo" class="exam-jump-go">Đến <i class="bi bi-arrow-right" aria-hidden="true"></i></button>
+  <span id="examJumpHint" class="exam-jump-hint" role="status"></span>
+</div>
 <div class="exam-editor-tabs d-lg-none mb-3" role="group" aria-label="Chế độ soạn đề">
   <button type="button" class="btn btn-primary" data-editor-pane="source" aria-pressed="true">Nhập nội dung</button>
   <button type="button" class="btn btn-outline-primary" data-editor-pane="preview" aria-pressed="false">Xem trước</button>

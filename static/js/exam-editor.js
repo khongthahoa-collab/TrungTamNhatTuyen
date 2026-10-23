@@ -167,7 +167,7 @@
     } else if (group.type === 'essay') answers = '<div class="small text-muted">Tự luận · Chấm tay</div>';
     const body = group.type === 'error_id'
       ? `<span class="exam-math exam-preview-content">${errorIdText(question.text)}</span>` : text(question.text);
-    return `<article class="card border-0 shadow-sm mb-3 exam-preview-card">
+    return `<article class="card border-0 shadow-sm mb-3 exam-preview-card" data-anchor="${gi}-${qi}">
       <div class="card-body">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
           <h3 class="h6 fw-bold mb-0">Câu ${qi + 1}</h3>
@@ -189,7 +189,61 @@
       ${group.questions.length ? '' : '<p class="small text-muted">Chưa nhận diện được câu hỏi. Bắt đầu bằng “Câu 1:”.</p>'}</section>`).join('')
       : '<p class="text-muted">Nhập hoặc dán nội dung ở vùng văn bản để xem trước đề thi.</p>';
     window.scheduleExamMathTypeset(preview);
+    refreshJumpGroups();
   }
+
+  const jumpGroup = document.getElementById('examJumpGroup');
+  const jumpQuestion = document.getElementById('examJumpQuestion');
+  const jumpHint = document.getElementById('examJumpHint');
+  function refreshJumpGroups() {
+    const previous = jumpGroup.value;
+    jumpGroup.innerHTML = groups.map((group, gi) =>
+      `<option value="${gi}">${gi + 1}. ${escapeHtml(group.title || 'Phần thi')}</option>`).join('');
+    if (previous && Number(previous) < groups.length) jumpGroup.value = previous;
+    updateJumpMax();
+  }
+  function updateJumpMax() {
+    const count = groups[Number(jumpGroup.value)]?.questions.length || 1;
+    jumpQuestion.max = String(count);
+  }
+  function jumpToQuestion() {
+    jumpHint.textContent = '';
+    const gi = Number(jumpGroup.value);
+    const group = groups[gi];
+    const qi = parseInt(jumpQuestion.value, 10) - 1;
+    if (!group || !group.questions.length) {
+      jumpHint.textContent = 'Chưa có nhóm câu hỏi nào để di chuyển đến.';
+      return;
+    }
+    if (!Number.isInteger(qi) || qi < 0 || qi >= group.questions.length) {
+      jumpHint.textContent = `Nhóm này chỉ có ${group.questions.length} câu. Hãy nhập số từ 1 đến ${group.questions.length}.`;
+      return;
+    }
+    const card = preview.querySelector(`[data-anchor="${gi}-${qi}"]`);
+    if (card) {
+      const scroller = preview.closest('.exam-compose-preview') || preview;
+      const box = scroller.getBoundingClientRect();
+      scroller.scrollTo({ top: scroller.scrollTop + card.getBoundingClientRect().top - box.top - 8, behavior: 'smooth' });
+      preview.querySelectorAll('.is-jump-target').forEach(el => el.classList.remove('is-jump-target'));
+      card.classList.add('is-jump-target');
+      setTimeout(() => card.classList.remove('is-jump-target'), 1800);
+    }
+    const offset = sourceOffsets[gi]?.[qi];
+    if (Number.isInteger(offset)) {
+      const lineHeight = parseFloat(getComputedStyle(editor).lineHeight) || 20;
+      editor.setSelectionRange(offset, offset);
+      editor.scrollTop = Math.max(0, editor.value.slice(0, offset).split('\n').length * lineHeight - editor.clientHeight / 3);
+      if (editor.offsetParent !== null && composer.dataset.activePane === 'source') editor.focus({ preventScroll: true });
+    }
+  }
+  jumpGroup.addEventListener('change', updateJumpMax);
+  document.getElementById('examJumpGo').addEventListener('click', jumpToQuestion);
+  jumpQuestion.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      jumpToQuestion();
+    }
+  });
 
   function saveDraft() {
     refreshState();
