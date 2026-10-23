@@ -737,6 +737,7 @@ def exams_confirm():
 
         if existing:
             had_attempts = existing.attempts.count() > 0
+            questions_changed = existing.question_groups != draft['groups']
             scoring_changed = (existing.scoring_mode, existing.scoring_config_json) != (
                 settings['scoring_mode'], json.dumps(settings['scoring_config'])
             ) or (had_attempts and has_stale_scoring(existing, settings['scoring_mode']))
@@ -758,9 +759,10 @@ def exams_confirm():
 
             detail = f'Cập nhật đề "{existing.title}"'
             if had_attempts:
-                regraded, skipped = regrade_submitted_attempts(existing) if scoring_changed else (0, 0)
-                if scoring_changed:
-                    detail += f' (đã tính lại điểm {regraded} bài đã nộp theo cách chia điểm mới'
+                should_regrade = scoring_changed or questions_changed
+                regraded, skipped = regrade_submitted_attempts(existing) if should_regrade else (0, 0)
+                if should_regrade:
+                    detail += f' (đã tính lại điểm {regraded} bài đã nộp sau khi cập nhật đề'
                     detail += f', bỏ qua {skipped} bài do cấu trúc đề đã thay đổi)' if skipped else ')'
                 else:
                     detail += ' (đề đã có học sinh làm bài — kết quả cũ được giữ nguyên)'
