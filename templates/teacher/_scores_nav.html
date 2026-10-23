@@ -1,15 +1,9 @@
-{% from 'teacher/_navigation.html' import back_button %}
+{% from 'teacher/_navigation.html' import page_header %}
 <header class="mb-3">
-  <div class="teacher-page-header">
-    <div class="score-heading">
-      <h1 class="h4 fw-bold mb-1">{{ score_page_title }}</h1>
-      <p class="text-muted mb-0">{{ class_.name }}</p>
-    </div>
-    {{ back_button(url_for('teacher.scores_list'), 'danh sách lớp') }}
-    <div class="teacher-header-actions">
-      <a href="{{ url_for('teacher.homework', class_id=class_.id) }}" class="btn btn-link btn-sm text-decoration-none px-0">Bài tập về nhà</a>
-    </div>
-  </div>
+  {% call page_header(score_page_title, 'bar-chart-line', subtitle=class_.name,
+     back_href=url_for('teacher.scores_list'), back_label='danh sách lớp', extra_class='mb-0') %}
+    <a href="{{ url_for('teacher.homework', class_id=class_.id) }}" class="btn btn-outline-secondary btn-sm">Bài tập về nhà</a>
+  {% endcall %}
   <nav class="score-tabs mt-3" aria-label="Quản lý điểm lớp">
     <a href="{{ url_for('teacher.scores', class_id=class_.id, year=year if year is defined else today.year, semester=semester if semester is defined else selected_semester) }}"
        class="btn {{ 'btn-primary' if score_page == 'entry' else 'btn-outline-primary' }}"

@@ -1,5 +1,5 @@
 {% extends "teacher/base.html" %}
-{% from 'teacher/_navigation.html' import back_button %}
+{% from 'teacher/_navigation.html' import back_button, page_header %}
 
 {% block title %}Điểm Danh – {{ schedule.class_.name }}{% endblock %}
 
@@ -7,22 +7,9 @@
 <div class="container-fluid px-3 py-3">
 
   <!-- Header -->
-  <div class="teacher-page-header mb-3">
-    <div>
-    <h5 class="fw-bold mb-0">
-      <i class="bi bi-person-check text-primary me-1"></i>Điểm Danh
-    </h5>
-    <div class="text-muted small">
-      <span class="fw-semibold text-dark">{{ schedule.class_.name }}</span>
-      &nbsp;–&nbsp;{{ schedule.date.strftime('%d/%m/%Y') }}
-      &nbsp;·&nbsp;{{ schedule.start_time.strftime('%H:%M') }}–{{ schedule.end_time.strftime('%H:%M') }}
-      {% if schedule.room %}
-      &nbsp;·&nbsp;<i class="bi bi-door-open"></i> {{ schedule.room }}
-      {% endif %}
-    </div>
-    </div>
-    {{ back_button(url_for('teacher.attendance_list'), 'danh sách điểm danh') }}
-  </div>
+  {{ page_header('Điểm danh', 'person-check',
+     subtitle=schedule.class_.name ~ ' – ' ~ schedule.date.strftime('%d/%m/%Y') ~ ' · ' ~ schedule.start_time.strftime('%H:%M') ~ '–' ~ schedule.end_time.strftime('%H:%M') ~ ((' · Phòng ' ~ schedule.room) if schedule.room else ''),
+     back_href=url_for('teacher.attendance_list'), back_label='danh sách điểm danh') }}
 
   {% if is_future %}
   <div class="alert alert-info small py-2">

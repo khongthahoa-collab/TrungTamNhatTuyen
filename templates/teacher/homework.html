@@ -1,20 +1,13 @@
 {% extends 'teacher/base.html' %}
-{% from 'teacher/_navigation.html' import back_button %}
+{% from 'teacher/_navigation.html' import back_button, page_header %}
 {% block title %}Bài tập về nhà {{ class_.name }} – Nhật Tuyền{% endblock %}
 
 {% block content %}
 <div class="container-fluid px-3 py-3">
 
   <!-- Header -->
-  <div class="teacher-page-header mb-3">
-    <div>
-      <h5 class="fw-bold mb-0">
-        <i class="bi bi-journal-check text-primary me-1"></i>Bài tập về nhà
-      </h5>
-      <div class="text-muted small">{{ class_.name }} · {{ student_count }} học sinh</div>
-    </div>
-    {{ back_button(url_for('teacher.scores_list'), 'danh sách lớp') }}
-  </div>
+  {{ page_header('Bài tập về nhà', 'journal-check', subtitle=class_.name ~ ' · ' ~ student_count ~ ' học sinh',
+     back_href=url_for('teacher.scores_list'), back_label='danh sách lớp') }}
 
   <!-- Bộ lọc -->
   <div class="card border-0 shadow-sm mb-3">

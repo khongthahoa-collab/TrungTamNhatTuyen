@@ -1,15 +1,10 @@
 {% extends 'teacher/base.html' %}
-{% from 'teacher/_navigation.html' import back_button %}
+{% from 'teacher/_navigation.html' import back_button, page_header %}
 {% block title %}Kết quả làm bài – Giáo viên – Nhật Tuyền{% endblock %}
 {% block content %}
 <div class="container-fluid px-3 pt-3">
-<div class="teacher-page-header mb-3">
-  <div>
-    <h5 class="fw-bold mb-1">{{ exam.title }}</h5>
-    <div class="text-muted small">{{ exam.subject }} · {{ exam.type_label }} · {{ pagination.total }} học sinh đã làm bài</div>
-  </div>
-  {{ back_button(url_for('teacher.exams_list', folder_id=exam.folder_id), 'danh sách đề thi') }}
-</div>
+{{ page_header(exam.title, 'list-check', subtitle=exam.subject ~ ' · ' ~ exam.type_label ~ ' · ' ~ pagination.total ~ ' học sinh đã làm bài',
+   back_href=url_for('teacher.exams_list', folder_id=exam.folder_id), back_label='danh sách đề thi') }}
 
 <div class="card border-0 shadow-sm">
   <div class="card-body p-0">

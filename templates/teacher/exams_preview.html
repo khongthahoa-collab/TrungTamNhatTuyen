@@ -1,41 +1,32 @@
 {% extends 'teacher/base.html' %}
-{% from 'teacher/_navigation.html' import back_button %}
+{% from 'teacher/_navigation.html' import back_button, page_header %}
 {% import 'exams/_macros.html' as exam_macros %}
 {% block title %}Xem trước đề thi – Giáo viên – Nhật Tuyền{% endblock %}
 {% block extra_head %}{% include 'exams/_mathjax.html' %}{% endblock %}
 {% block content %}
 <div class="container-fluid px-3 pt-3">
-<div class="teacher-page-header mb-3">
-  <div>
-    <h5 class="fw-bold mb-1">{{ exam.title }}</h5>
-    <div class="text-muted small">
-      {{ exam.subject }} · {{ exam.type_label }} · {{ exam.duration_minutes }} phút ·
-      {% if exam.is_unlimited_attempts %}Không giới hạn lượt làm{% else %}{{ exam.allow_attempts }} lượt làm{% endif %}
-      · {{ exam.availability_label }}
-    </div>
-  </div>
-  {{ back_button(url_for('teacher.exams_list'), 'danh sách đề thi') }}
-  <div class="teacher-header-actions">
-    {% if can_edit_exam %}
-    <a href="{{ url_for('teacher.exams_edit', exam_id=exam.id) }}" class="btn btn-primary btn-sm">
-      <i class="bi bi-pencil me-1"></i>Chỉnh sửa
-    </a>
-    {% elif exam.is_shared_with_teachers %}
-    <form method="post" action="{{ url_for('teacher.exam_duplicate', exam_id=exam.id) }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="btn btn-primary btn-sm">
-        <i class="bi bi-copy me-1"></i>Sao chép để chỉnh sửa
-      </button>
-    </form>
-    {% endif %}
-    <a href="{{ url_for('teacher.exams_export', exam_id=exam.id, fmt='pdf') }}" target="_blank" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-file-earmark-pdf me-1"></i>Xuất PDF
-    </a>
-    <a href="{{ url_for('teacher.exams_export', exam_id=exam.id, fmt='doc') }}" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-file-earmark-word me-1"></i>Xuất Word
-    </a>
-  </div>
-</div>
+{% call page_header(exam.title, 'eye',
+   subtitle=exam.subject ~ ' · ' ~ exam.type_label ~ ' · ' ~ exam.duration_minutes ~ ' phút · ' ~ ('Không giới hạn lượt làm' if exam.is_unlimited_attempts else exam.allow_attempts ~ ' lượt làm') ~ ' · ' ~ exam.availability_label,
+   back_href=url_for('teacher.exams_list'), back_label='danh sách đề thi') %}
+  {% if can_edit_exam %}
+  <a href="{{ url_for('teacher.exams_edit', exam_id=exam.id) }}" class="btn btn-primary btn-sm">
+    <i class="bi bi-pencil me-1"></i>Chỉnh sửa
+  </a>
+  {% elif exam.is_shared_with_teachers %}
+  <form method="post" action="{{ url_for('teacher.exam_duplicate', exam_id=exam.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn btn-primary btn-sm">
+      <i class="bi bi-copy me-1"></i>Sao chép để chỉnh sửa
+    </button>
+  </form>
+  {% endif %}
+  <a href="{{ url_for('teacher.exams_export', exam_id=exam.id, fmt='pdf') }}" target="_blank" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-file-earmark-pdf me-1"></i>Xuất PDF
+  </a>
+  <a href="{{ url_for('teacher.exams_export', exam_id=exam.id, fmt='doc') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-file-earmark-word me-1"></i>Xuất Word
+  </a>
+{% endcall %}
 
 <div class="row g-3">
   <div class="col-lg-8">

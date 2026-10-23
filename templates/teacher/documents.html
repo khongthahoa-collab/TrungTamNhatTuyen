@@ -1,20 +1,13 @@
 {% extends 'teacher/base.html' %}
-{% from 'teacher/_navigation.html' import back_button %}
+{% from 'teacher/_navigation.html' import back_button, page_header %}
 {% block title %}Tài liệu: {{ class_.name }} – Nhật Tuyền{% endblock %}
 
 {% block content %}
 <div class="container-fluid px-3 py-3">
 
   <!-- Header -->
-  <div class="teacher-page-header mb-3">
-    <div>
-    <h5 class="fw-bold mb-0">
-      <i class="bi bi-folder2-open text-primary me-1"></i>Tài liệu
-    </h5>
-    <div class="text-muted fw-semibold">{{ class_.name }}</div>
-    </div>
-    {{ back_button(url_for('teacher.dashboard'), 'tổng quan') }}
-  </div>
+  {{ page_header('Tài liệu', 'folder2-open', subtitle=class_.name,
+     back_href=url_for('teacher.dashboard'), back_label='tổng quan') }}
 
   <!-- ===== UPLOAD FORM ===== -->
   <div class="card shadow-sm border-0 mb-4">

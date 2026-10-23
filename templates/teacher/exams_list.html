@@ -1,25 +1,19 @@
 {% extends 'teacher/base.html' %}
-{% from 'teacher/_navigation.html' import back_button %}
+{% from 'teacher/_navigation.html' import back_button, page_header %}
 {% block title %}Đề thi online – Giáo viên – Nhật Tuyền{% endblock %}
 {% block content %}
 <div class="container-fluid px-3 pt-3">
-<div class="teacher-page-header mb-3">
-  <div>
-    <h5 class="fw-bold mb-1"><i class="bi bi-pc-display text-primary me-2" aria-hidden="true"></i>Quản lý đề thi online</h5>
-    <p class="text-muted small mb-0">Tạo đề, giao bài cho lớp và theo dõi kết quả</p>
-  </div>
-  {{ back_button(url_for('teacher.dashboard'), 'tổng quan') }}
-  <div class="teacher-header-actions">
-    {% if not reuse_mode %}
-    <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#newExamFolderModal">
-      <i class="bi bi-folder-plus me-1"></i>{{ 'Tạo thư mục con' if current_folder else 'Tạo thư mục' }}
-    </button>
-    {% endif %}
-    <a href="{{ url_for('teacher.exams_new') }}" class="btn btn-primary">
-      <i class="bi bi-plus-lg me-1"></i>Tạo đề thi
-    </a>
-  </div>
-</div>
+{% call page_header('Quản lý đề thi online', 'pc-display', subtitle='Tạo đề, giao bài cho lớp và theo dõi kết quả',
+   back_href=url_for('teacher.dashboard'), back_label='tổng quan') %}
+  {% if not reuse_mode %}
+  <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#newExamFolderModal">
+    <i class="bi bi-folder-plus me-1"></i>{{ 'Tạo thư mục con' if current_folder else 'Tạo thư mục' }}
+  </button>
+  {% endif %}
+  <a href="{{ url_for('teacher.exams_new') }}" class="btn btn-primary">
+    <i class="bi bi-plus-lg me-1"></i>Tạo đề thi
+  </a>
+{% endcall %}
 
 {% if not reuse_mode %}
 <div class="card border-0 shadow-sm mb-3">

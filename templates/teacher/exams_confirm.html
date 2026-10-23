@@ -1,5 +1,5 @@
 {% extends 'teacher/base.html' %}
-{% from 'teacher/_navigation.html' import back_button %}
+{% from 'teacher/_navigation.html' import back_button, page_header %}
 {% import 'exams/_macros.html' as exam_macros %}
 {% block title %}Cấu hình đề thi – Giáo viên – Nhật Tuyền{% endblock %}
 {% block extra_head %}
@@ -12,19 +12,12 @@
 {% set existing_class_ids = existing.class_list if existing else [] %}
 {% set course_names = courses | map(attribute='name') | list %}
 {% set subject_matches_course = existing and existing.subject in course_names %}
-<div class="teacher-page-header mb-3">
-  <div>
-    <div class="d-flex align-items-center gap-2">
-      <span class="badge rounded-pill bg-success">Bước 2/2</span>
-      <h6 class="fw-bold mb-0">{% if editing %}Cập nhật cấu hình đề thi{% else %}Cấu hình & xác nhận đề thi{% endif %}</h6>
-    </div>
-  </div>
-  {{ back_button(url_for('teacher.exams_edit', exam_id=existing.id) if editing else url_for('teacher.exams_new', mode='compose'), 'chỉnh sửa nội dung đề thi') }}
-  <div class="teacher-header-actions">
-    {% set exam_guide_page = 'confirm' %}
-    {% include 'teacher/_exam_guide.html' %}
-  </div>
-</div>
+{% call page_header('Cập nhật cấu hình đề thi' if editing else 'Cấu hình & xác nhận đề thi', 'sliders', badge='Bước 2/2',
+   back_href=url_for('teacher.exams_edit', exam_id=existing.id) if editing else url_for('teacher.exams_new', mode='compose'),
+   back_label='chỉnh sửa nội dung đề thi') %}
+  {% set exam_guide_page = 'confirm' %}
+  {% include 'teacher/_exam_guide.html' %}
+{% endcall %}
 
 {% if editing and existing.attempts.count() > 0 %}
 <div class="alert alert-info small">

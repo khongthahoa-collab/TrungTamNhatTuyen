@@ -5,3 +5,23 @@
   <i class="bi bi-arrow-left me-1" aria-hidden="true"></i>Quay lại
 </a>
 {%- endmacro %}
+
+
+{% macro page_header(title, icon, subtitle=None, back_href=None, back_label=None, badge=None, editor_exit=false, compact=false, extra_class='mb-3') -%}
+<header class="teacher-hero {% if compact %}teacher-hero-compact{% else %}p-3 p-lg-4{% endif %} {{ extra_class }}">
+  <div class="teacher-page-header">
+    <div class="d-flex align-items-center gap-3">
+      <span class="teacher-hero-icon rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" aria-hidden="true">
+        <i class="bi bi-{{ icon }} fs-4"></i>
+      </span>
+      <div class="teacher-hero-title">
+        {% if badge %}<span class="badge rounded-pill bg-success mb-1">{{ badge }}</span>{% endif %}
+        <h1 class="h4 fw-bold mb-1">{{ title }}</h1>
+        {% if subtitle %}<p class="text-muted small mb-0">{{ subtitle }}</p>{% endif %}
+      </div>
+    </div>
+    {% if back_href %}{{ back_button(back_href, back_label, editor_exit) }}{% endif %}
+    {% if caller is defined %}<div class="teacher-header-actions">{{ caller() }}</div>{% endif %}
+  </div>
+</header>
+{%- endmacro %}

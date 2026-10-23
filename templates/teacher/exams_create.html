@@ -1,19 +1,14 @@
 {% extends 'teacher/base.html' %}
-{% from 'teacher/_navigation.html' import back_button %}
+{% from 'teacher/_navigation.html' import back_button, page_header %}
 {% block title %}Tạo đề thi – Giáo viên – Nhật Tuyền{% endblock %}
 {% block content %}
 <div class="container-fluid px-3 pt-3 pb-4">
-  <div class="teacher-page-header mb-4">
-    <div>
-    <h4 class="fw-bold mb-1">Bạn muốn bắt đầu như thế nào?</h4>
-    <p class="text-muted mb-0">Chọn cách tạo đề phù hợp. Bạn sẽ xem lại cài đặt và chọn lưu nháp hoặc giao cho lớp ở bước tiếp theo.</p>
-    </div>
-    {{ back_button(url_for('teacher.exams_list'), 'danh sách đề thi') }}
-    <div class="teacher-header-actions">
-      {% set exam_guide_page = 'create' %}
-      {% include 'teacher/_exam_guide.html' %}
-    </div>
-  </div>
+  {% call page_header('Bạn muốn bắt đầu như thế nào?', 'file-earmark-plus',
+     subtitle='Chọn cách tạo đề phù hợp. Bạn sẽ xem lại cài đặt và chọn lưu nháp hoặc giao cho lớp ở bước tiếp theo.',
+     back_href=url_for('teacher.exams_list'), back_label='danh sách đề thi', extra_class='mb-4') %}
+    {% set exam_guide_page = 'create' %}
+    {% include 'teacher/_exam_guide.html' %}
+  {% endcall %}
 
   <div class="row g-3 align-items-stretch">
     <div class="col-12 {% if has_existing_exams %}col-lg-6{% else %}col-lg-8 col-xl-7{% endif %}">

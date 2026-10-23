@@ -1,24 +1,14 @@
 {% extends 'teacher/base.html' %}
-{% from 'teacher/_navigation.html' import back_button %}
+{% from 'teacher/_navigation.html' import back_button, page_header %}
 {% block title %}Điểm danh: {{ schedule.class_.name }} – Nhật Tuyền{% endblock %}
 
 {% block content %}
 <div class="container-fluid px-3 py-3">
 
   <!-- Header -->
-  <div class="teacher-page-header mb-3">
-    <div>
-    <h5 class="fw-bold mb-0">
-      <i class="bi bi-person-check text-primary me-1"></i>Điểm danh
-    </h5>
-    <div class="text-muted">
-      <span class="fw-semibold text-dark">{{ schedule.class_.name }}</span>
-      &nbsp;–&nbsp;{{ schedule.date | date_vn }}
-      &nbsp;·&nbsp;{{ schedule.start_time.strftime('%H:%M') }}–{{ schedule.end_time.strftime('%H:%M') }}
-    </div>
-    </div>
-    {{ back_button(url_for('teacher.schedule'), 'lịch dạy') }}
-  </div>
+  {{ page_header('Điểm danh', 'person-check',
+     subtitle=schedule.class_.name ~ ' – ' ~ (schedule.date | date_vn) ~ ' · ' ~ schedule.start_time.strftime('%H:%M') ~ '–' ~ schedule.end_time.strftime('%H:%M'),
+     back_href=url_for('teacher.schedule'), back_label='lịch dạy') }}
 
   <!-- Tất cả có mặt button -->
   <button type="button" class="btn btn-success btn-lg w-100 mb-4 shadow-sm" id="btnAllPresent"

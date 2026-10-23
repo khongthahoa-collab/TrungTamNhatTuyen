@@ -1,5 +1,5 @@
 {% extends 'teacher/base.html' %}
-{% from 'teacher/_navigation.html' import back_button %}
+{% from 'teacher/_navigation.html' import back_button, page_header %}
 {% import 'teacher/_schedule_day_block.html' as db %}
 {% block title %}Lịch dạy – Nhật Tuyền{% endblock %}
 
@@ -7,20 +7,15 @@
 <div class="container-fluid px-3 py-3">
 
   <!-- Header & Week navigation -->
-  <div class="teacher-page-header mb-3">
-    <h5 class="mb-0 fw-bold">
-      <i class="bi bi-calendar-week me-1 text-primary"></i>Lịch dạy
-    </h5>
-    {{ back_button(url_for('teacher.dashboard'), 'tổng quan') }}
-    <div class="teacher-header-actions">
-    <div class="btn-group btn-group-sm" role="group">
+  {% call page_header('Lịch dạy', 'calendar-week', subtitle='Xem lịch dạy theo tuần',
+     back_href=url_for('teacher.dashboard'), back_label='tổng quan') %}
+    <div class="btn-group btn-group-sm" role="group" aria-label="Lọc lịch dạy">
       <a href="{{ url_for('teacher.schedule', date=ref_date.isoformat(), filter='all') }}"
          class="btn {% if filter_mode == 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}">Tất cả</a>
       <a href="{{ url_for('teacher.schedule', date=ref_date.isoformat(), filter='mine') }}"
          class="btn {% if filter_mode == 'mine' %}btn-primary{% else %}btn-outline-primary{% endif %}">Buổi dạy của tôi</a>
     </div>
-    </div>
-  </div>
+  {% endcall %}
 
   <!-- Week navigation bar -->
   <div class="card border-0 shadow-sm mb-3">

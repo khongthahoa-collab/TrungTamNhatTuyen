@@ -58,6 +58,20 @@
   flex-wrap: wrap;
   gap: 0.5rem;
 }
+.teacher-hero {
+  background: var(--nt-primary-50);
+  border: 1px solid var(--nt-border-light);
+  border-radius: var(--nt-radius-lg);
+}
+.teacher-hero-compact { padding: 0.75rem 1rem !important; }
+.teacher-hero-icon {
+  width: 48px;
+  height: 48px;
+  background: var(--nt-primary-100);
+  color: var(--nt-primary-deeper);
+}
+.teacher-hero-compact .teacher-hero-icon { width: 40px; height: 40px; }
+.teacher-hero-title { min-width: 0; overflow-wrap: anywhere; }
 .teacher-back-button {
   display: inline-flex;
   align-items: center;
