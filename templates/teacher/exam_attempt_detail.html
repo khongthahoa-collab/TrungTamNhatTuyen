@@ -101,9 +101,6 @@
                 <span class="fw-semibold small">{{ part.title }}</span>
                 <span class="small text-nowrap"><strong class="text-primary">{{ '%g'|format(part.earned) }}</strong> <span class="text-muted">/ {{ '%g'|format(part.total) }} điểm</span></span>
               </div>
-              {% if result.total and result.total != 10 %}
-              <div class="small text-muted">Quy đổi: {{ '%g'|format(part.scaled_earned) }}/{{ '%g'|format(part.scaled_max) }} trên thang 10</div>
-              {% endif %}
             </div>
             {% endfor %}
           </div>
@@ -169,7 +166,6 @@
                                   {% if option.correct %}bg-success-subtle{% elif option.selected %}bg-danger-subtle{% else %}bg-light{% endif %}">
                         <span class="fw-semibold">{{ option.label }}.</span>
                         <span class="exam-math flex-grow-1">{{ option.text }}</span>
-                        {% if option.selected %}<i class="bi bi-record-circle-fill text-primary" aria-label="Học sinh đã chọn đáp án này"></i>{% endif %}
                         {% if option.correct %}<i class="bi bi-check-circle-fill text-success" aria-label="Đáp án đúng"></i>{% endif %}
                       </div>
                     </div>
