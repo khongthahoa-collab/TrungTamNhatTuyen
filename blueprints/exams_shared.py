@@ -320,10 +320,10 @@ def parse_confirm_settings(form, groups=None):
         return None, 'Vui lòng chọn cách chia điểm hợp lệ.'
     description = form.get('description', '').strip()
     try:
-        class_ids = list(dict.fromkeys(str(int(value)) for value in form.getlist('class_ids')))
+        class_ids = list(dict.fromkeys(int(value) for value in form.getlist('class_ids')))
     except (TypeError, ValueError):
         return None, 'Vui lòng chọn lớp học hợp lệ.'
-    if any(int(identifier) <= 0 for identifier in class_ids):
+    if any(identifier <= 0 for identifier in class_ids):
         return None, 'Vui lòng chọn lớp học hợp lệ.'
     if class_ids and Class.query.filter(
         Class.id.in_(class_ids), Class.is_active.is_(True)
@@ -454,7 +454,8 @@ def parse_confirm_settings(form, groups=None):
     return {
         'subject': subject or 'Chung', 'exam_type': exam_type, 'description': description,
         'scoring_mode': scoring_mode, 'scoring_config': scoring_config,
-        'class_ids': class_ids, 'school_ids': school_ids, 'student_ids': student_ids,
+        'class_ids': [str(identifier) for identifier in class_ids],
+        'school_ids': school_ids, 'student_ids': student_ids,
         'is_draft': is_draft, 'duration_minutes': duration_minutes,
         'availability_mode': availability_mode, 'available_from': available_from, 'available_to': available_to,
         'allow_attempts': allow_attempts, 'folder_id': folder_id,

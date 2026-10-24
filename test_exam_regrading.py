@@ -2,16 +2,20 @@
 import json
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+
+from sqlalchemy.dialects.postgresql.psycopg import PGDialect_psycopg
 
 from blueprints.exams_shared import (
     attempt_result_is_stale,
     edited_question_from_form,
     exam_is_assigned_to_student,
     has_stale_scoring,
+    parse_confirm_settings,
     regrade_attempt_if_stale,
 )
 from blueprints.teacher_exams import _validate_teacher_assignment_targets
+from models import Class
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import Forbidden
 
@@ -47,6 +51,34 @@ class AttemptCollection:
 
 
 class SubmittedAttemptRegradingTests(unittest.TestCase):
+    def test_confirm_class_ids_use_integer_query_parameters_for_all_scoring_modes(self):
+        groups = [{'title': 'Section 1', 'type': 'mcq', 'questions': [{}]}]
+        for mode in ('question', 'section', 'question_custom', 'section_custom'):
+            with self.subTest(mode=mode):
+                form = MultiDict([
+                    ('class_ids', '014'), ('class_ids', '14'), ('class_ids', '15'),
+                    ('scoring_mode', mode), ('section_points_0', '10'),
+                    ('question_points_0_0', '1'), ('is_draft', 'published'),
+                ])
+                query = Mock()
+                query.filter.return_value.count.return_value = 2
+                with patch('blueprints.exams_shared.Class', SimpleNamespace(
+                    id=Class.id, is_active=Class.is_active, query=query,
+                )):
+                    settings, error = parse_confirm_settings(form, groups)
+
+                self.assertIsNone(error)
+                self.assertEqual(settings['class_ids'], ['14', '15'])
+                self.assertEqual(settings['scoring_mode'], mode)
+                self.assertEqual(settings['scoring_config']['section_points'], [10.0])
+                class_filter = query.filter.call_args.args[0]
+                compiled = class_filter.compile(
+                    dialect=PGDialect_psycopg(),
+                    compile_kwargs={'render_postcompile': True},
+                )
+                self.assertEqual(list(compiled.params.values()), [14, 15])
+                self.assertNotIn('VARCHAR', str(compiled))
+
     def test_teacher_assignment_validation_uses_visible_accessible_class_roster(self):
         school = SimpleNamespace(id=4)
         student = SimpleNamespace(id=12)
