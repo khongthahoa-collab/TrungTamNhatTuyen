@@ -1,6 +1,7 @@
 """Private essay uploads: access control, limits, submission and lifecycle."""
 import io
 import json
+import os
 from pathlib import Path
 import re
 import tempfile
@@ -151,6 +152,42 @@ class EssayImageTests(unittest.TestCase):
             session.clear()
         g.pop('_login_user', None)
         self.assertEqual(self.client.get(payload['url']).status_code, 302)
+
+    def test_exam_routes_share_upload_validation_and_private_reads(self):
+        self.upload_url = f'/exam/attempt/{self.attempt.id}/upload-essay-image'
+        self.assertEqual(self.upload(csrf=False).status_code, 400)
+        self.login(self.other_student)
+        self.assertEqual(self.upload().status_code, 403)
+        self.login(self.student_user)
+        payload = self.upload().get_json()
+        self.assertIsNotNone(payload)
+        self.assertIn('id', payload)
+        url = f'/exam/essay-image/{payload["id"]}'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('private', response.headers['Cache-Control'])
+        self.assertIn('no-store', response.headers['Cache-Control'])
+        self.assertEqual(response.headers['X-Content-Type-Options'], 'nosniff')
+        response.close()
+        self.login(self.other_student)
+        self.assertEqual(self.client.get(url).status_code, 403)
+        self.login(self.teacher)
+        self.assertEqual(self.client.get(url).status_code, 403)
+        self.attempt.status = 'submitted'
+        db.session.commit()
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        response.close()
+        self.login(self.student_user)
+        self.assertEqual(self.upload().status_code, 409)
+        self.attempt.status = 'in_progress'
+        self.attempt.started_at = datetime.utcnow() - timedelta(hours=2)
+        db.session.commit()
+        self.assertEqual(self.upload().status_code, 409)
+        with self.client.session_transaction() as session:
+            session.clear()
+        g.pop('_login_user', None)
+        self.assertEqual(self.client.get(url).status_code, 302)
 
     def test_invalid_files_fields_and_csrf_are_rejected(self):
         self.assertEqual(self.upload(csrf=False).status_code, 400)
@@ -346,6 +383,60 @@ class EssayImageTests(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual(EssayImage.query.count(), 1)
         self.assertTrue(image_path(submitted['id']).exists())
+
+    def test_cleanup_keeps_recent_deletions_and_only_removes_old_orphan_images(self):
+        payload = self.upload().get_json()
+        image = EssayImage.query.one()
+        now = datetime.utcnow()
+        image.created_at = now - timedelta(days=8)
+        image.deleted_at = now - timedelta(minutes=30)
+        self.attempt.status = 'submitted'
+        db.session.commit()
+        root = Path(self.app.config['ESSAY_IMAGE_FOLDER'])
+        old_files = [root / ('a' * 32 + suffix) for suffix in ('.jpg', '-thumb.jpg')]
+        recent_orphan = root / ('b' * 32 + '.jpg')
+        unrelated = root / 'keep.txt'
+        for path in old_files + [recent_orphan, unrelated]:
+            path.write_bytes(b'orphan')
+        for path in old_files + [unrelated, image_path(image.id)]:
+            os.utime(path, (now.timestamp() - 2 * 86400,) * 2)
+        result = self.app.test_cli_runner().invoke(args=['cleanup-essay-images'])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(EssayImage.query.count(), 1)
+        self.assertTrue(image_path(payload['id']).exists(), 'known old files must not be orphans')
+        self.assertTrue(recent_orphan.exists())
+        self.assertTrue(unrelated.exists())
+        self.assertTrue(all(not path.exists() for path in old_files))
+        self.assertIn('2 orphan files', result.output)
+        result = self.app.test_cli_runner().invoke(args=['cleanup-essay-images'])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn('0 orphan files', result.output)
+
+    def test_cleanup_failure_is_not_reported_as_success(self):
+        payload = self.upload().get_json()
+        EssayImage.query.one().deleted_at = datetime.utcnow() - timedelta(hours=2)
+        db.session.commit()
+        with patch('pathlib.Path.unlink', side_effect=OSError('permission denied')):
+            result = self.app.test_cli_runner().invoke(args=['cleanup-essay-images'])
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertEqual(EssayImage.query.count(), 1)
+        self.assertTrue(image_path(payload['id']).exists())
+
+    def test_static_gif_heic_and_jpeg_size_boundary_are_rejected(self):
+        gif = io.BytesIO()
+        Image.new('RGB', (20, 20), 'white').save(gif, format='GIF')
+        self.assertEqual(self.upload(content=gif.getvalue(), filename='photo.jpg').status_code, 400)
+        self.assertEqual(self.upload(content=b'\x00\x00\x00\x18ftypheic', filename='photo.heic').status_code, 400)
+        jpeg_size = len(process_image(self._source_image())[0])
+        with patch('services.essay_images.MAX_IMAGE_BYTES', jpeg_size):
+            self.assertEqual(self.upload().status_code, 400, 'stored JPEG must be strictly under its limit')
+
+    def _source_image(self):
+        from werkzeug.datastructures import FileStorage
+        source = io.BytesIO()
+        Image.new('RGB', (2400, 1600), 'white').save(source, format='PNG')
+        source.seek(0)
+        return FileStorage(stream=source)
 
     def test_decoder_rejects_animation_and_strips_metadata(self):
         from werkzeug.datastructures import FileStorage

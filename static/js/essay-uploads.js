@@ -3,6 +3,8 @@
   let pending = 0;
   let frozen = false;
   let choosingUntil = 0;
+  let choosingTimer;
+  const reservedUploads = new Map();
   let queue = Promise.resolve();
   const csrf = form.querySelector('[name="csrf_token"]').value;
   const preview = document.getElementById('essayImagePreview');
@@ -31,9 +33,21 @@
     },
   };
 
-  window.addEventListener('focus', () => {
-    setTimeout(() => { choosingUntil = 0; }, 500);
-  });
+  function finishChoosing() {
+    choosingUntil = 0;
+    clearTimeout(choosingTimer);
+  }
+
+  function startChoosing() {
+    finishChoosing();
+    choosingUntil = Date.now() + 120000;
+    choosingTimer = setTimeout(() => {
+      finishChoosing();
+      if (document.hidden || !document.hasFocus()) {
+        window.dispatchEvent(new Event('essay-picker-expired'));
+      }
+    }, 120000);
+  }
 
   async function request(url, options) {
     const response = await fetch(url, {
@@ -75,7 +89,7 @@
     bitmap.close();
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85));
     canvas.width = canvas.height = 1;
-    if (!blob || blob.size > 1024 * 1024) {
+    if (!blob || blob.size >= 1024 * 1024) {
       throw new Error('Ảnh sau nén vượt 1 MB. Hãy chụp riêng từng trang, tránh ảnh toàn cảnh.');
     }
     return blob;
@@ -91,7 +105,7 @@
     return element;
   }
 
-  function schedule(panel, action, description) {
+  function schedule(panel, action, description, discard = () => {}) {
     if (frozen) return;
     pending += 1;
     const status = panel.querySelector('.essay-upload-status');
@@ -114,10 +128,11 @@
         problem.append(message);
         problem.append(button('Thử lại', 'Thử lại thao tác ảnh', () => {
           problem.remove();
-          schedule(panel, action, description);
+          schedule(panel, action, description, discard);
         }));
         problem.append(button('Bỏ qua thao tác lỗi', 'Bỏ thao tác chưa thực hiện', () => {
           problem.remove();
+          discard();
           status.textContent = 'Đã bỏ thao tác lỗi. Chỉ ảnh đang hiển thị mới được lưu.';
           status.classList.remove('text-danger');
         }));
@@ -174,18 +189,24 @@
   form.querySelectorAll('.essay-upload').forEach(panel => {
     refreshActions(panel);
     panel.querySelectorAll('.essay-image-input').forEach(input => {
-      input.addEventListener('click', () => { choosingUntil = Date.now() + 120000; });
-      input.addEventListener('cancel', () => { choosingUntil = 0; });
+      input.addEventListener('click', startChoosing);
+      input.addEventListener('cancel', finishChoosing);
       input.addEventListener('change', () => {
-        choosingUntil = 0;
+        finishChoosing();
+        if (frozen) return;
         const files = Array.from(input.files || []);
         input.value = '';
-        if (cards(panel).length + files.length > 3
-            || form.querySelectorAll('[data-image-id]').length + files.length > 10) {
+        const reserved = reservedUploads.get(panel) || new Set();
+        const totalReserved = Array.from(reservedUploads.values()).reduce((sum, items) => sum + items.size, 0);
+        if (cards(panel).length + reserved.size + files.length > 3
+            || form.querySelectorAll('[data-image-id]').length + totalReserved + files.length > 10) {
           alert('Tối đa 3 ảnh/câu và 10 ảnh/bài. Hãy chọn ít ảnh hơn hoặc xóa ảnh đã tải.');
           return;
         }
+        reservedUploads.set(panel, reserved);
         files.forEach(file => {
+          const reservation = {};
+          reserved.add(reservation);
           let uploaded = false;
           schedule(panel, async () => {
             if (uploaded) return;
@@ -212,8 +233,9 @@
             card.append(link, actions);
             panel.querySelector('.essay-image-list').append(card);
             uploaded = true;
+            reserved.delete(reservation);
             refreshActions(panel);
-          }, `Tải ảnh ${file.name}`);
+          }, `Tải ảnh ${file.name}`, () => reserved.delete(reservation));
         });
       });
     });

@@ -53,7 +53,7 @@ def process_image(upload):
                 image.thumbnail((2000, 2000), Image.Resampling.LANCZOS)
                 output = io.BytesIO()
                 image.save(output, format='JPEG', quality=85, optimize=True)
-                if output.tell() > MAX_IMAGE_BYTES:
+                if output.tell() >= MAX_IMAGE_BYTES:
                     raise ValueError('Ảnh sau nén vẫn vượt 1 MB. Hãy chụp riêng từng trang rõ nét.')
                 image.thumbnail((360, 360), Image.Resampling.LANCZOS)
                 thumbnail = io.BytesIO()

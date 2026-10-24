@@ -3,7 +3,7 @@ name: Auto Deploy to VPS
 on:
   push:
     branches:
-      - main  # Hoặc 'master' tùy tên nhánh chính của bạn
+      - main
 
 jobs:
   deploy:
@@ -27,6 +27,6 @@ jobs:
               --network app-network \
               --restart always \
               -p 8000:3000 \
-              -e DATABASE_URL="postgresql://myuser:Linhlinh998@local-postgres:5432/trungtam_db" \
-              -e PORT=3000 \
+              -v /data/exam-images:/data/exam-images \
+              --env-file .env \
               trungtam-app

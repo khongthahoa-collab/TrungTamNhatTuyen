@@ -96,7 +96,7 @@ def create_app(config_name=None):
     from blueprints.api import api_bp
     from blueprints.api.calendar import api_calendar_bp
     from blueprints.exam_content_templates import exam_content_templates_bp
-    from blueprints.exam_images import exam_images_bp, cleanup_essay_images
+    from blueprints.exam_images import exam_images_bp, exam_essay_images_bp, cleanup_essay_images
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(public_bp, url_prefix='/')
@@ -108,6 +108,7 @@ def create_app(config_name=None):
     app.register_blueprint(api_calendar_bp)
     app.register_blueprint(exam_content_templates_bp)
     app.register_blueprint(exam_images_bp)
+    app.register_blueprint(exam_essay_images_bp)
     app.cli.add_command(cleanup_essay_images)
     # Token-authenticated JSON API, not cookie/session-based — Flask-WTF's
     # CSRF protection doesn't apply the same way here.

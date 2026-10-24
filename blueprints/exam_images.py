@@ -19,6 +19,7 @@ from services.essay_images import (
 )
 
 exam_images_bp = Blueprint('exam_images', __name__, url_prefix='/exam-images')
+exam_essay_images_bp = Blueprint('exam_essay_images', __name__, url_prefix='/exam')
 
 
 def _require_access(attempt, write=False):
@@ -65,6 +66,8 @@ def _locked_attempt(attempt_id):
 
 @exam_images_bp.errorhandler(409)
 @exam_images_bp.errorhandler(413)
+@exam_essay_images_bp.errorhandler(409)
+@exam_essay_images_bp.errorhandler(413)
 def image_request_error(error):
     message = (
         'Ảnh gửi lên vượt giới hạn 10 MB.'
@@ -74,6 +77,7 @@ def image_request_error(error):
 
 
 @exam_images_bp.post('/attempts/<int:attempt_id>')
+@exam_essay_images_bp.post('/attempt/<int:attempt_id>/upload-essay-image')
 @login_required
 def upload_image(attempt_id):
     if request.content_length and request.content_length > 11 * 1024 * 1024:
@@ -141,6 +145,7 @@ def upload_image(attempt_id):
 
 
 @exam_images_bp.get('/<image_id>')
+@exam_essay_images_bp.get('/essay-image/<image_id>')
 @login_required
 def read_image(image_id):
     image = EssayImage.query.filter_by(id=image_id, deleted_at=None).first_or_404()
@@ -205,7 +210,8 @@ def cleanup_essay_images():
     deleted = EssayImage.query.filter(
         EssayImage.deleted_at < now - timedelta(hours=1),
     ).all()
-    for image in {image.id: image for image in abandoned + deleted}.values():
+    expired = {image.id: image for image in abandoned + deleted}
+    for image in expired.values():
         for thumbnail in (False, True):
             image_path(image.id, thumbnail).unlink(missing_ok=True)
         db.session.delete(image)
@@ -222,4 +228,4 @@ def cleanup_essay_images():
             ):
                 path.unlink()
                 removed += 1
-    click.echo(f'Removed abandoned/deleted images and {removed} orphan files.')
+    click.echo(f'Removed {len(expired)} abandoned/deleted images and {removed} orphan files.')

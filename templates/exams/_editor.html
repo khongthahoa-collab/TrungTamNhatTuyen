@@ -53,6 +53,13 @@
         {% if current_user.is_admin %}
         <a href="{{ url_for('admin.exam_content_templates') }}" class="small">Quản lý nội dung mẫu</a>
         {% endif %}
+        {% if editor_quick_save %}
+        <div class="d-flex justify-content-end mt-3">
+          <button type="submit" name="quick_save" value="1" class="btn btn-primary btn-sm">
+            <i class="bi bi-check-lg me-1"></i>Lưu thông tin
+          </button>
+        </div>
+        {% endif %}
       </div>
     </div>
   </section>

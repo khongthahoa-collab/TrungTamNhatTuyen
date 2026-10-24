@@ -94,9 +94,11 @@ class ExamFolderCreationTests(unittest.TestCase):
             response = client.get(url)
             self.assertEqual(response.status_code, 200)
             html = response.get_data(as_text=True)
-            self.assertEqual(html.count('name="quick_save"'), 1)
+            self.assertEqual(html.count('name="quick_save"'), 2)
             self.assertLess(html.index('id="examJumpBar"'), html.index('name="quick_save"'))
             self.assertLess(html.index('name="quick_save"'), html.index('id="examJumpHint"'))
+            self.assertLess(html.index('id="examSampleStatus"'), html.rindex('name="quick_save"'))
+            self.assertLess(html.rindex('name="quick_save"'), html.index('id="examEditorConfig"'))
             response = client.post(url, data={
                 'title': 'Updated title', 'groups_json': json.dumps({'groups': groups}),
                 'quick_save': '1',

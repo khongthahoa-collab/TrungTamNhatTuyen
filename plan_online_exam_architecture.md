@@ -9,7 +9,9 @@
 ### Anh bai lam tu luan (cap nhat 24/10/2026)
 
 - Hoc sinh/phu huynh co the nhap chu, tai anh, hoac ket hop ca hai.
-  Moi cau toi da 3 anh, moi luot lam toi da 10 anh.
+  Moi cau toi da 3 anh, moi luot lam toi da 10 anh. Client tinh ca anh
+  dang cho tai va anh tai loi cho xu ly vao gioi han; bo thao tac loi se
+  giai phong cho trong.
 - Trinh duyet thu nho canh dai ve 2000 px va nen JPEG truoc khi gui.
   Server chi nhan JPEG/PNG/WebP tinh, giai ma va ma hoa lai thanh JPEG,
   loai metadata; anh goc toi da 10 MB/20 trieu pixel, anh luu toi da 1 MB
@@ -26,16 +28,38 @@
   Anh chi duoc doc qua route dang nhap, kiem tra quyen tren dung bai lam.
   Anh khong duoc sua/xoa sau khi nop hoac het gio. CSRF ap dung cho cac
   thao tac thay doi; anh phuc vu voi `private, no-store` va `nosniff`.
+- API upload: `POST /exam/attempt/<attempt_id>/upload-essay-image`,
+  multipart gom `answer_field` (vi du `g0_q1`) va `image`, kem CSRF token.
+  API doc: `GET /exam/essay-image/<image_id>`; `?thumbnail=1` de doc anh nho.
+  ID anh la UUID hex 32 ky tu (khong phai so nguyen). Cac route cu
+  `/exam-images/attempts/<attempt_id>` va `/exam-images/<image_id>` van hoat dong
+  va dung chung kiem tra quyen/quota, khong can chuyen doi du lieu.
+  Hoc sinh va phu huynh chi doc bai duoc phep truy cap; giao vien chi doc
+  bai da nop cua de minh tao; admin can quyen module de thi.
 - Dat lich chay hang ngay trong moi truong ung dung:
   `flask --app wsgi:app cleanup-essay-images`.
   Lenh don anh da xoa tren 1 gio, anh cua luot dang do tren 7 ngay, file mo coi tren
   24 gio (vi du sau khi reset luot lam). Khong tu dong xoa anh bai da nop.
   Theo doi dung luong dia, backup va log loi; can chinh sach luu tru rieng
   neu muon xoa anh bai da nop sau mot hoc ky.
+- Vi du cron tren VPS chay Docker (chay `crontab -e` tren host, thay
+  `TEN_CONTAINER` bang ten container ung dung dang chay):
+
+  ```cron
+  15 3 * * * /usr/bin/docker exec TEN_CONTAINER flask --app wsgi:app cleanup-essay-images >> /var/log/essay-image-cleanup.log 2>&1
+  ```
+
+  Kiem tra duong dan Docker bang `command -v docker` va chay thu lenh
+  `docker exec TEN_CONTAINER flask --app wsgi:app cleanup-essay-images`
+  truoc khi them cron. Container phai co bien moi truong database/storage
+  dung va volume anh ben vung. Cron su dung mui gio cua host. Log can duoc
+  xoay vong va giam sat exit code; loi xoa file/DB khong duoc coi la thanh cong.
 - Anh tai loi co nut thu lai/bo thao tac; chan nop thu cong khi dang tai
   hoac con loi. Khi het gio, server chi giu anh da luu truoc han/nop bai.
   Chon/chup anh khong bi tinh la roi man hinh trong cua so chon anh
-  (toi da 120 giay); dong ho lam bai van chay.
+  (toi da 120 giay); dong ho lam bai van chay. Dong cua so chon anh bang
+  chon file/huy se ket thuc mien tru. Neu van o ngoai trang sau 120 giay,
+  luong chong gian lan se ghi nhan roi man hinh nhu binh thuong.
 
 Tai lieu nay gia dinh:
 
