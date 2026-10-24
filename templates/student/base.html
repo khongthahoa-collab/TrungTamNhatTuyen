@@ -13,7 +13,7 @@
       <span class="text-light small text-truncate" style="max-width:160px;">
         <i class="bi bi-person-circle me-1"></i>{{ current_user.student_profile.full_name }}
       </span>
-      <button id="studentPushEnable" class="btn btn-sm btn-outline-light d-none"
+      <button id="pwaPushEnable" class="btn btn-sm btn-outline-light d-none"
               type="button" aria-label="Bật thông báo đề thi">
         <i class="bi bi-bell"></i>
       </button>
@@ -28,14 +28,17 @@
 </nav>
 
 <main style="padding-bottom:calc(72px + env(safe-area-inset-bottom));min-height:100vh;min-height:100dvh;">
-  <div id="studentPushMessage" class="alert alert-info mx-3 mt-3 mb-0 d-none"
+  <div id="pwaPushMessage" class="alert alert-info mx-3 mt-3 mb-0 d-none"
        role="status"
        data-key-url="{{ url_for('student.push_public_key') }}"
        data-subscription-url="{{ url_for('student.push_subscription') }}"
-       data-csrf-token="{{ csrf_token() }}">
+       data-csrf-token="{{ csrf_token() }}"
+       data-enable-message="Bật thông báo để biết ngay khi có đề thi mới."
+       data-enabled-message="Đã bật thông báo đề thi."
+       data-disabled-message="Đã tắt thông báo trên thiết bị này.">
     <div class="d-flex align-items-center justify-content-between gap-3">
-      <span id="studentPushMessageText">Bật thông báo để biết ngay khi có đề thi mới.</span>
-      <button id="studentPushMessageButton" class="btn btn-sm btn-primary flex-shrink-0" type="button">
+      <span id="pwaPushMessageText">Bật thông báo để biết ngay khi có đề thi mới.</span>
+      <button id="pwaPushMessageButton" class="btn btn-sm btn-primary flex-shrink-0" type="button">
         Bật thông báo
       </button>
     </div>

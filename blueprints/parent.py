@@ -914,6 +914,11 @@ def exam_submit(student_id, exam_id):
                            target_id=exam.id, detail=log_detail))
     db.session.commit()
 
+    if result.get('pending_essay_count', 0):
+        from services.exam_push_notifications import notify_teacher_essay_to_grade
+
+        notify_teacher_essay_to_grade(exam, attempt)
+
     return redirect(_exam_url('exam_result', student_id=student.id, exam_id=exam.id))
 
 

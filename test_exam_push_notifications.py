@@ -4,16 +4,21 @@ import unittest
 from unittest.mock import patch
 from types import SimpleNamespace
 
-from flask import Flask
+from flask import Flask, render_template
+from flask_login import login_user
 
 from blueprints.student import student_bp
+from blueprints.teacher import teacher_bp
 from blueprints.exams_shared import publish_exam
+from blueprints.auth import auth_bp
+from blueprints.public import public_bp
 from extensions import db, login_manager
 from models import (
-    Class, Course, Enrollment, Exam, PushSubscription, School, Student, User, UserRole,
+    Class, Course, Enrollment, Exam, ExamAttempt, Notification, PushSubscription,
+    School, Student, User, UserRole,
 )
 from services.exam_push_notifications import (
-    exam_assignment_user_ids, notify_exam_assignment,
+    exam_assignment_user_ids, notify_exam_assignment, notify_teacher_essay_to_grade,
 )
 
 
@@ -33,6 +38,10 @@ class ExamPushNotificationTests(unittest.TestCase):
         db.init_app(cls.app)
         login_manager.init_app(cls.app)
         cls.app.register_blueprint(student_bp, url_prefix='/student')
+        cls.app.register_blueprint(teacher_bp, url_prefix='/teacher')
+        cls.app.register_blueprint(public_bp)
+        cls.app.register_blueprint(auth_bp, url_prefix='/auth')
+        cls.app.jinja_env.globals['csrf_token'] = lambda: 'test-token'
 
         @login_manager.user_loader
         def load_user(user_id):
@@ -192,6 +201,79 @@ class ExamPushNotificationTests(unittest.TestCase):
 
         self.assertTrue(published)
         notify.assert_called_once_with(exam)
+
+    def test_teacher_can_register_push_and_get_pending_essay_alert(self):
+        teacher = self._user('teacher', UserRole.TEACHER)
+        student_user = self._user('student')
+        student = Student(
+            full_name=student_user.full_name,
+            level='primary',
+            user_id=student_user.id,
+        )
+        exam = Exam(
+            title='Essay exam',
+            created_by=teacher.id,
+            is_draft=False,
+        )
+        db.session.add_all([student, exam])
+        db.session.flush()
+        attempt = ExamAttempt(
+            exam_id=exam.id,
+            user_id=student_user.id,
+            student_id=student.id,
+            status='submitted',
+            result_json='{"pending_essay_count": 2}',
+        )
+        endpoint = 'https://fcm.googleapis.com/fcm/send/teacher-device'
+        db.session.add_all([
+            attempt,
+            PushSubscription(
+                user_id=teacher.id,
+                endpoint=endpoint,
+                endpoint_hash=hashlib.sha256(endpoint.encode()).hexdigest(),
+                p256dh_key='public-key',
+                auth_key='auth-key',
+            ),
+        ])
+        db.session.commit()
+        with self.client.session_transaction() as session:
+            session['_user_id'] = str(teacher.id)
+            session['_fresh'] = True
+
+        response = self.client.post('/teacher/push/subscriptions', json={
+            'endpoint': endpoint,
+            'keys': {'p256dh': 'public-key', 'auth': 'auth-key'},
+        })
+        self.assertEqual(response.status_code, 200)
+
+        with patch(
+            'services.exam_push_notifications.webpush',
+            return_value=SimpleNamespace(status_code=201),
+        ) as send:
+            with self.app.test_request_context('/student/exams'):
+                notified = notify_teacher_essay_to_grade(exam, attempt)
+
+        self.assertTrue(notified)
+        alert = Notification.query.filter_by(user_id=teacher.id).one()
+        self.assertEqual(alert.title, 'Bài thi cần chấm tự luận')
+        self.assertIn('còn 2 câu tự luận cần chấm', alert.body)
+        self.assertIn(f'/teacher/exams/{exam.id}/attempts/{attempt.id}', alert.link)
+        self.assertEqual(send.call_args.kwargs['subscription_info']['endpoint'], endpoint)
+
+    def test_teacher_pwa_template_includes_push_opt_in(self):
+        teacher = self._user('teacher', UserRole.TEACHER)
+        db.session.commit()
+
+        with self.app.test_request_context('/teacher/'):
+            login_user(teacher)
+            html = render_template('teacher/base.html')
+
+        self.assertIn('/teacher/push/public-key', html)
+        self.assertIn(
+            'Bật thông báo để biết khi có học sinh nộp bài cần chấm tự luận.',
+            html,
+        )
+        self.assertIn('/static/js/student-push.js', html)
 
     def test_student_cannot_register_arbitrary_push_endpoint(self):
         user = self._user('student')

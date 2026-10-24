@@ -7,8 +7,9 @@ from requests.exceptions import RequestException
 
 from extensions import db
 from models import (
-    Class, Enrollment, PushSubscription, Student, User, UserRole,
+    Class, Enrollment, Notification, PushSubscription, Student, User, UserRole,
 )
+from services.push_subscription_service import push_configuration
 
 
 def exam_assignment_user_ids(exam):
@@ -91,10 +92,7 @@ def _send_push(subscription, payload):
 
 def notify_exam_assignment(exam, exclude_user_ids=None):
     """Notify students currently targeted by a published exam, optionally excluding existing assignees."""
-    if not (
-        current_app.config.get('WEB_PUSH_VAPID_PUBLIC_KEY')
-        and current_app.config.get('WEB_PUSH_VAPID_PRIVATE_KEY')
-    ):
+    if not push_configuration()['available']:
         current_app.logger.warning(
             'Exam Web Push was skipped because VAPID keys are not configured.'
         )
@@ -120,3 +118,58 @@ def notify_exam_assignment(exam, exclude_user_ids=None):
     if removed_subscriptions:
         db.session.commit()
     return len(recipient_ids)
+
+
+def notify_teacher_essay_to_grade(exam, attempt):
+    """Alert the teacher who can grade an essay-bearing submission for their own exam."""
+    teacher_user = exam.creator
+    if (
+        not teacher_user
+        or (
+            teacher_user.role != UserRole.TEACHER
+            and not teacher_user.is_teacher_linked
+        )
+        or not teacher_user.is_active
+        or teacher_user.is_deleted
+        or not attempt.result.get('pending_essay_count', 0)
+    ):
+        return False
+
+    link = url_for(
+        'teacher.exams_attempt_detail',
+        exam_id=exam.id,
+        attempt_id=attempt.id,
+    )
+    body = (
+        f'{attempt.student.full_name if attempt.student else "Học sinh"} '
+        f'đã nộp đề "{exam.title}", còn '
+        f'{attempt.result["pending_essay_count"]} câu tự luận cần chấm.'
+    )
+    db.session.add(Notification(
+        user_id=teacher_user.id,
+        title='Bài thi cần chấm tự luận',
+        body=body,
+        notif_type='info',
+        link=link,
+    ))
+    db.session.commit()
+
+    if not push_configuration()['available']:
+        current_app.logger.warning(
+            'Essay grading notification was saved in-app, but Web Push was skipped because VAPID keys are not configured.'
+        )
+        return True
+
+    payload = {
+        'title': 'Bài thi cần chấm tự luận',
+        'body': body,
+        'url': link,
+        'tag': f'essay-grading-{exam.id}-{attempt.id}',
+    }
+    subscriptions = PushSubscription.query.filter_by(user_id=teacher_user.id).all()
+    removed_subscriptions = False
+    for subscription in subscriptions:
+        removed_subscriptions = _send_push(subscription, payload) or removed_subscriptions
+    if removed_subscriptions:
+        db.session.commit()
+    return True

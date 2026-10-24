@@ -1,13 +1,16 @@
 (() => {
-  const message = document.getElementById('studentPushMessage');
-  const messageText = document.getElementById('studentPushMessageText');
-  const messageButton = document.getElementById('studentPushMessageButton');
-  const navbarButton = document.getElementById('studentPushEnable');
+  const message = document.getElementById('pwaPushMessage');
+  const messageText = document.getElementById('pwaPushMessageText');
+  const messageButton = document.getElementById('pwaPushMessageButton');
+  const navbarButton = document.getElementById('pwaPushEnable');
   if (!message || !messageText || !messageButton || !navbarButton) return;
 
   const keyUrl = message.dataset.keyUrl;
   const subscriptionUrl = message.dataset.subscriptionUrl;
   const csrfToken = message.dataset.csrfToken;
+  const enableMessage = message.dataset.enableMessage;
+  const enabledMessage = message.dataset.enabledMessage;
+  const disabledMessage = message.dataset.disabledMessage;
 
   function setMessage(text, isError = false) {
     messageText.textContent = text;
@@ -80,7 +83,7 @@
 
     if (Notification.permission === 'denied') {
       navbarButton.classList.add('d-none');
-      setMessage('Thông báo đang bị chặn trong cài đặt trình duyệt. Hãy cho phép thông báo để nhận đề thi mới.');
+      setMessage('Thông báo đang bị chặn trong cài đặt trình duyệt. Hãy cho phép thông báo để nhận cập nhật mới.');
       messageButton.classList.add('d-none');
       return;
     }
@@ -88,12 +91,12 @@
     if (subscription && Notification.permission === 'granted') {
       await saveSubscription(subscription);
       message.classList.add('d-none');
-      navbarButton.title = 'Tắt thông báo đề thi trên thiết bị này';
+      navbarButton.title = 'Tắt thông báo trên thiết bị này';
       navbarButton.setAttribute('aria-label', navbarButton.title);
     } else {
-      navbarButton.title = 'Bật thông báo đề thi';
+      navbarButton.title = 'Bật thông báo';
       navbarButton.setAttribute('aria-label', navbarButton.title);
-      setMessage('Bật thông báo để biết ngay khi có đề thi mới.');
+      setMessage(enableMessage);
     }
 
     async function toggleSubscription() {
@@ -104,8 +107,8 @@
           await removeSubscription(subscription);
           await subscription.unsubscribe();
           subscription = null;
-          setMessage('Đã tắt thông báo đề thi trên thiết bị này.');
-          navbarButton.title = 'Bật thông báo đề thi';
+          setMessage(disabledMessage);
+          navbarButton.title = 'Bật thông báo';
           navbarButton.setAttribute('aria-label', navbarButton.title);
         } else {
           const permission = Notification.permission === 'granted'
@@ -120,12 +123,13 @@
             applicationServerKey: decodeApplicationServerKey(config.public_key),
           });
           await saveSubscription(subscription);
+          setMessage(enabledMessage);
           message.classList.add('d-none');
-          navbarButton.title = 'Tắt thông báo đề thi trên thiết bị này';
+          navbarButton.title = 'Tắt thông báo trên thiết bị này';
           navbarButton.setAttribute('aria-label', navbarButton.title);
         }
       } catch (error) {
-        console.error('Student push notification setup failed:', error);
+        console.error('PWA push notification setup failed:', error);
         setMessage(error.message || 'Không thể cập nhật thiết lập thông báo.', true);
       } finally {
         messageButton.disabled = false;
@@ -138,6 +142,6 @@
   }
 
   initialize().catch((error) => {
-    console.error('Student push notification initialization failed:', error);
+    console.error('PWA push notification initialization failed:', error);
   });
 })();

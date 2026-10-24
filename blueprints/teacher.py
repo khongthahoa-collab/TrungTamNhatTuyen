@@ -1259,6 +1259,37 @@ def notifications_read_all():
     return redirect(url_for('teacher.notifications'))
 
 
+@teacher_bp.route('/push/public-key')
+@login_required
+@require_teacher
+def push_public_key():
+    from services.push_subscription_service import push_configuration
+
+    return jsonify(push_configuration())
+
+
+@teacher_bp.route('/push/subscriptions', methods=['POST', 'DELETE'])
+@login_required
+@require_teacher
+def push_subscription():
+    from services.push_subscription_service import (
+        remove_push_subscription, save_push_subscription,
+    )
+
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({'error': 'Dữ liệu đăng ký thông báo không hợp lệ.'}), 400
+
+    try:
+        if request.method == 'DELETE':
+            remove_push_subscription(current_user.id, body)
+        else:
+            save_push_subscription(current_user.id, body)
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify({'ok': True})
+
+
 # ============================================================
 # Attendance Management Routes
 # ============================================================

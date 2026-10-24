@@ -1,12 +1,11 @@
-import hashlib
-from urllib.parse import urlsplit
-
-from flask import Blueprint, abort, current_app, jsonify, request
+from flask import Blueprint, abort, jsonify, request
 from flask_login import current_user, login_required
-from extensions import db
 
-from models import Exam, PushSubscription
+from models import Exam
 from blueprints import parent
+from services.push_subscription_service import (
+    push_configuration, remove_push_subscription, save_push_subscription,
+)
 
 student_bp = Blueprint('student', __name__)
 
@@ -68,11 +67,7 @@ def exam_result(exam_id):
 @login_required
 def push_public_key():
     _current_student()
-    public_key = current_app.config.get('WEB_PUSH_VAPID_PUBLIC_KEY', '')
-    available = bool(
-        public_key and current_app.config.get('WEB_PUSH_VAPID_PRIVATE_KEY')
-    )
-    return jsonify({'available': available, 'public_key': public_key if available else ''})
+    return jsonify(push_configuration())
 
 
 @student_bp.route('/push/subscriptions', methods=['POST', 'DELETE'])
@@ -83,64 +78,15 @@ def push_subscription():
     if not isinstance(body, dict):
         return jsonify({'error': 'Dữ liệu đăng ký thông báo không hợp lệ.'}), 400
 
-    endpoint = body.get('endpoint')
-    if not isinstance(endpoint, str) or len(endpoint) > 4096:
-        return jsonify({'error': 'Địa chỉ đăng ký thông báo không hợp lệ.'}), 400
-    try:
-        parsed_endpoint = urlsplit(endpoint)
-        endpoint_port = parsed_endpoint.port
-    except ValueError:
-        return jsonify({'error': 'Địa chỉ đăng ký thông báo không hợp lệ.'}), 400
-    allowed_push_hosts = {
-        'fcm.googleapis.com',
-        'updates.push.services.mozilla.com',
-        'push.services.mozilla.com',
-        'web.push.apple.com',
-    }
-    if (
-        parsed_endpoint.scheme != 'https'
-        or not parsed_endpoint.hostname
-        or parsed_endpoint.hostname.lower() not in allowed_push_hosts
-        or endpoint_port not in (None, 443)
-        or parsed_endpoint.username
-        or parsed_endpoint.password
-    ):
-        return jsonify({'error': 'Địa chỉ đăng ký thông báo không hợp lệ.'}), 400
-    endpoint_hash = hashlib.sha256(endpoint.encode('utf-8')).hexdigest()
-
     if request.method == 'DELETE':
-        PushSubscription.query.filter_by(
-            user_id=current_user.id, endpoint_hash=endpoint_hash
-        ).delete(synchronize_session=False)
-        db.session.commit()
+        try:
+            remove_push_subscription(current_user.id, body)
+        except ValueError as exc:
+            return jsonify({'error': str(exc)}), 400
         return jsonify({'ok': True})
 
-    if not (
-        current_app.config.get('WEB_PUSH_VAPID_PUBLIC_KEY')
-        and current_app.config.get('WEB_PUSH_VAPID_PRIVATE_KEY')
-    ):
-        return jsonify({'error': 'Thông báo đẩy chưa được cấu hình.'}), 503
-
-    keys = body.get('keys')
-    if not isinstance(keys, dict):
-        return jsonify({'error': 'Thiếu khóa mã hóa của trình duyệt.'}), 400
-    p256dh_key, auth_key = keys.get('p256dh'), keys.get('auth')
-    if not (
-        isinstance(p256dh_key, str) and 0 < len(p256dh_key) <= 256
-        and isinstance(auth_key, str) and 0 < len(auth_key) <= 128
-    ):
-        return jsonify({'error': 'Khóa mã hóa của trình duyệt không hợp lệ.'}), 400
-
-    subscription = PushSubscription.query.filter_by(endpoint_hash=endpoint_hash).first()
-    if subscription is None:
-        subscription = PushSubscription(
-            endpoint=endpoint,
-            endpoint_hash=endpoint_hash,
-        )
-        db.session.add(subscription)
-    subscription.user_id = current_user.id
-    subscription.endpoint = endpoint
-    subscription.p256dh_key = p256dh_key
-    subscription.auth_key = auth_key
-    db.session.commit()
+    try:
+        save_push_subscription(current_user.id, body)
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
     return jsonify({'ok': True})

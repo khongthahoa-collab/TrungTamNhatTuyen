@@ -15,6 +15,10 @@
         <i class="bi bi-person-circle"></i>
         {{ current_user.full_name }}
       </span>
+      <button id="pwaPushEnable" class="btn btn-sm btn-outline-light d-none"
+              type="button" aria-label="Bật thông báo chấm tự luận">
+        <i class="bi bi-bell"></i>
+      </button>
 
       {% if current_user.role == 'admin' and current_user.is_teacher_linked %}
       <form method="post" action="{{ url_for('auth.switch_role', target_role='admin') }}" class="d-inline">
@@ -40,6 +44,21 @@
      iOS Safari standalone can otherwise render an extra blank strip under
      the fixed bottom nav when content is shorter than the screen. -->
 <div style="padding-bottom: calc(72px + env(safe-area-inset-bottom)); min-height: 100vh; min-height: 100dvh;">
+  <div id="pwaPushMessage" class="alert alert-info mx-3 mt-3 mb-0 d-none"
+       role="status"
+       data-key-url="{{ url_for('teacher.push_public_key') }}"
+       data-subscription-url="{{ url_for('teacher.push_subscription') }}"
+       data-csrf-token="{{ csrf_token() }}"
+       data-enable-message="Bật thông báo để biết khi có học sinh nộp bài cần chấm tự luận."
+       data-enabled-message="Đã bật thông báo khi có bài cần chấm tự luận."
+       data-disabled-message="Đã tắt thông báo trên thiết bị này.">
+    <div class="d-flex align-items-center justify-content-between gap-3">
+      <span id="pwaPushMessageText">Bật thông báo để biết khi có học sinh nộp bài cần chấm tự luận.</span>
+      <button id="pwaPushMessageButton" class="btn btn-sm btn-primary flex-shrink-0" type="button">
+        Bật thông báo
+      </button>
+    </div>
+  </div>
   {% block content %}{% endblock %}
 </div>
 
@@ -127,5 +146,6 @@
     </div>
   </div>
 </nav>
+<script src="{{ url_for('static', filename='js/student-push.js') }}"></script>
 
 {% endblock %}

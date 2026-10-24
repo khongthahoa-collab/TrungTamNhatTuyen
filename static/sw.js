@@ -1,7 +1,4 @@
-// Minimal service worker: exists so Chrome/Android treats the site as an
-// installable PWA. Intentionally does NOT cache pages/API responses —
-// this app is session/auth-heavy, and caching HTML risks serving stale
-// or wrong-user content across roles (admin/teacher/parent).
+// Keep authenticated pages uncached; handle Web Push for student and teacher PWAs.
 self.addEventListener('install', () => {
   self.skipWaiting();
 });
