@@ -29,6 +29,9 @@ class Config:
     WTF_CSRF_ENABLED = True
     UPLOAD_FOLDER = os.path.join(BASE_DIR, os.environ.get('UPLOAD_FOLDER', 'uploads/documents'))
     MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 20 * 1024 * 1024))  # 20MB
+    ESSAY_IMAGE_FOLDER = os.environ.get(
+        'ESSAY_IMAGE_FOLDER', os.path.join(BASE_DIR, 'instance', 'exam-images')
+    )
     ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'zip', 'rar', 'mp4'}
 
     # Remember-me cookie for teacher accounts (see blueprints/auth.py login_post).

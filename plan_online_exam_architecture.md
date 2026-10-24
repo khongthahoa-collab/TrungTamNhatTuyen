@@ -6,6 +6,37 @@
 
 ## 0. Gia dinh ve chi phi va gioi han
 
+### Anh bai lam tu luan (cap nhat 24/10/2026)
+
+- Hoc sinh/phu huynh co the nhap chu, tai anh, hoac ket hop ca hai.
+  Moi cau toi da 3 anh, moi luot lam toi da 10 anh.
+- Trinh duyet thu nho canh dai ve 2000 px va nen JPEG truoc khi gui.
+  Server chi nhan JPEG/PNG/WebP tinh, giai ma va ma hoa lai thanh JPEG,
+  loai metadata; anh goc toi da 10 MB/20 trieu pixel, anh luu toi da 1 MB
+  (chua tinh thumbnail). HEIC/SVG/GIF va anh dong khong duoc chap nhan.
+- Gioi han moi hoc sinh: 50 lan tai/60 phut, 100 MB anh dang luu
+  (bao gom thumbnail va anh da xoa nhung chua don). Gioi han ap dung ca
+  cac luot lam lai khong gioi han.
+- Dat `ESSAY_IMAGE_FOLDER` thanh duong dan tuyet doi tren volume ben vung,
+  vi du `/data/exam-images`, va mount volume nay vao container. Mac dinh:
+  `instance/exam-images` trong thu muc du an. Khong de Nginx/public route
+  phuc vu thu muc nay. Backup ca database va thu muc anh; moi worker/instance
+  phai dung chung storage. Khong luu tren writable layer tam cua container.
+- Bang `essay_images` duoc tao khi khoi dong theo co che schema hien co.
+  Anh chi duoc doc qua route dang nhap, kiem tra quyen tren dung bai lam.
+  Anh khong duoc sua/xoa sau khi nop hoac het gio. CSRF ap dung cho cac
+  thao tac thay doi; anh phuc vu voi `private, no-store` va `nosniff`.
+- Dat lich chay hang ngay trong moi truong ung dung:
+  `flask --app wsgi:app cleanup-essay-images`.
+  Lenh don anh da xoa tren 1 gio, anh cua luot dang do tren 7 ngay, file mo coi tren
+  24 gio (vi du sau khi reset luot lam). Khong tu dong xoa anh bai da nop.
+  Theo doi dung luong dia, backup va log loi; can chinh sach luu tru rieng
+  neu muon xoa anh bai da nop sau mot hoc ky.
+- Anh tai loi co nut thu lai/bo thao tac; chan nop thu cong khi dang tai
+  hoac con loi. Khi het gio, server chi giu anh da luu truoc han/nop bai.
+  Chon/chup anh khong bi tinh la roi man hinh trong cua so chon anh
+  (toi da 120 giay); dong ho lam bai van chay.
+
 Tai lieu nay gia dinh:
 
 - Ung dung chay tren mot Railway service trong quota/credit mien phi hien co.

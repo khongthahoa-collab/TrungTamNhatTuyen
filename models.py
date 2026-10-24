@@ -444,6 +444,24 @@ class ExamAttempt(db.Model):
         return f'<ExamAttempt exam={self.exam_id} user={self.user_id}>'
 
 
+class EssayImage(db.Model):
+    """Private, server-processed attachment belonging to one attempt and answer."""
+    __tablename__ = 'essay_images'
+
+    id = db.Column(db.String(32), primary_key=True)
+    attempt_id = db.Column(db.Integer, db.ForeignKey('exam_attempts.id', ondelete='CASCADE'),
+                           nullable=False, index=True)
+    student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False, index=True)
+    answer_field = db.Column(db.String(40), nullable=False)
+    position = db.Column(db.Integer, nullable=False, default=0)
+    size_bytes = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    deleted_at = db.Column(db.DateTime)
+    attempt = db.relationship('ExamAttempt', backref=db.backref(
+        'essay_images', cascade='all, delete-orphan', passive_deletes=True,
+    ))
+
+
 class ExamLog(db.Model):
     """Audit log for exam actions."""
     __tablename__ = 'exam_logs'

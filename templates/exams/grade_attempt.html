@@ -1,4 +1,5 @@
 {% extends base_template %}
+{% from 'exams/_essay_images.html' import render_essay_images %}
 {% block title %}Chấm tự luận · {{ exam.title }}{% endblock %}
 {% block extra_head %}{% include 'exams/_mathjax.html' %}{% endblock %}
 {% block breadcrumb %}
@@ -35,7 +36,8 @@
             {{ 'Đã chấm' if item.score != '' else 'Chờ chấm' }}
           </span>
         </div>
-        <div class="border rounded bg-light p-3 mb-3 exam-math" style="white-space:pre-wrap; overflow-wrap:anywhere;">{{ item.answer or 'Học sinh không nhập câu trả lời.' }}</div>
+        <div class="border rounded bg-light p-3 mb-3 exam-math" style="white-space:pre-wrap; overflow-wrap:anywhere;">{{ item.answer or ('Bài làm đính kèm bên dưới.' if item.images else 'Học sinh không nhập câu trả lời.') }}</div>
+        {{ render_essay_images(item.images) }}
         <label class="form-label" for="score_{{ item.key }}">Điểm câu này (tối đa {{ item.max_score | round(4) }})</label>
         <input class="form-control" type="number" id="score_{{ item.key }}" name="score_{{ item.key }}"
                min="0" max="{{ item.max_score }}" step="any" value="{{ item.score }}" inputmode="decimal">

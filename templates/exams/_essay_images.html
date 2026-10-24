@@ -1,0 +1,14 @@
+{% macro render_essay_images(images) %}
+{% if images %}
+<div class="d-flex flex-wrap gap-2 my-2" aria-label="Ảnh bài làm tự luận">
+  {% for image in images %}
+  <a href="{{ image.url }}" target="_blank" rel="noopener" class="text-decoration-none">
+    <img src="{{ image.thumbnail_url }}" loading="lazy" width="150" height="150"
+         style="object-fit:contain;" class="border rounded bg-white"
+         alt="Ảnh bài làm {{ loop.index }} — bấm để xem ảnh lớn">
+    <span class="d-block small text-center">Trang {{ loop.index }} · Xem ảnh lớn</span>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endmacro %}

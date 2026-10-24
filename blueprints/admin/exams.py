@@ -288,6 +288,8 @@ def exams_grade_attempt(exam_id, attempt_id):
         abort(404)
 
     answers = attempt.answers
+    from services.essay_images import images_by_answer
+    essay_images = images_by_answer(attempt.id)
     items = []
     for item in essay_questions:
         key = item['key']
@@ -297,6 +299,7 @@ def exams_grade_attempt(exam_id, attempt_id):
             'position': item.get('position', 1),
             'text': item.get('question_text', ''),
             'answer': answers.get(item.get('answer_field', ''), ''),
+            'images': essay_images.get(item.get('answer_field', ''), []),
             'max_score': round(item['weight'], 4),
             'score': result.get('essay_scores', {}).get(key, ''),
         })

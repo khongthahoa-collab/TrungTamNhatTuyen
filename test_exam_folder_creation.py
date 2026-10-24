@@ -74,3 +74,36 @@ class ExamFolderCreationTests(unittest.TestCase):
             saved = Exam.query.filter_by(title='Folder exam').one()
             self.assertEqual(saved.folder_id, folder_id)
             self.assertEqual(saved.allow_attempts, 0)
+
+    def test_teacher_edit_save_button_is_in_jump_bar_and_still_saves(self):
+        with self.app.app_context():
+            teacher = User(username='editor-teacher', full_name='Editor',
+                           role='teacher', password_hash='test')
+            db.session.add(teacher)
+            db.session.flush()
+            groups = [{'title': 'Essay', 'type': 'essay', 'questions': [{'text': 'Explain'}]}]
+            exam = Exam(title='Edit exam', created_by=teacher.id,
+                        questions_json=json.dumps({'groups': groups}))
+            db.session.add(exam)
+            db.session.commit()
+            client = self.app.test_client()
+            with client.session_transaction() as session:
+                session['_user_id'] = str(teacher.id)
+                session['_fresh'] = True
+            url = f'/teacher/exams/edit/{exam.id}'
+            response = client.get(url)
+            self.assertEqual(response.status_code, 200)
+            html = response.get_data(as_text=True)
+            self.assertEqual(html.count('name="quick_save"'), 1)
+            self.assertLess(html.index('id="examJumpBar"'), html.index('name="quick_save"'))
+            self.assertLess(html.index('name="quick_save"'), html.index('id="examJumpHint"'))
+            response = client.post(url, data={
+                'title': 'Updated title', 'groups_json': json.dumps({'groups': groups}),
+                'quick_save': '1',
+            })
+            self.assertEqual(response.status_code, 302)
+            db.session.refresh(exam)
+            self.assertEqual(exam.title, 'Updated title')
+            new_html = client.get('/teacher/exams/create?mode=compose').get_data(as_text=True)
+            self.assertNotIn('name="quick_save"', new_html)
+            self.assertIn('Cấu hình', new_html)

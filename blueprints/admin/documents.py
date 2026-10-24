@@ -6,6 +6,7 @@ from sqlalchemy import func
 from extensions import db
 from models import ClassDocument, Class, Course, ExamFolder, Exam
 from blueprints.admin import admin_bp, require_admin
+from services.document_access import require_document_access
 
 
 @admin_bp.route('/documents')
@@ -93,10 +94,10 @@ def document_delete(doc_id):
 @login_required
 def document_download(doc_id):
     doc = ClassDocument.query.get_or_404(doc_id)
-    if not doc.is_active:
-        flash('Tài liệu không còn tồn tại.', 'danger')
-        return redirect(url_for('admin.documents'))
+    require_document_access(doc)
     upload_dir = current_app.config['UPLOAD_FOLDER']
-    return send_from_directory(upload_dir, doc.stored_filename,
-                               as_attachment=True,
-                               download_name=doc.original_filename)
+    response = send_from_directory(upload_dir, doc.stored_filename,
+                                   as_attachment=True,
+                                   download_name=doc.original_filename)
+    response.headers['Cache-Control'] = 'private, no-store'
+    return response

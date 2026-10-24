@@ -6,6 +6,7 @@
   <form id="examForm" method="post" novalidate
         action="{{ url_for('student.exam_submit', exam_id=exam.id) if current_user.is_student else url_for('parent.exam_submit', student_id=student.id, exam_id=exam.id) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="attempt_id" value="{{ attempt.id }}">
     <input type="hidden" id="saveProgressUrl" value="{{ save_progress_url }}">
     <input type="hidden" id="examsListUrl" value="{{ exams_list_url }}">
     <input type="hidden" name="cheat_count" id="cheatCountField" value="0">
@@ -117,6 +118,33 @@
                     placeholder="Nhập câu trả lời của bạn...">{{ draft_answers.get(answer_key, '') }}</textarea>
           <div class="form-text">Công thức toán: <code>\(x^2\)</code> · hóa: <code>\(\ce{H2O}\)</code></div>
           <div class="small mt-1 exam-math math-answer-preview" aria-live="polite"></div>
+          <div class="essay-upload mt-3" data-answer-field="{{ answer_key }}"
+               data-upload-url="{{ url_for('exam_images.upload_image', attempt_id=attempt.id) }}"
+               data-order-url="{{ url_for('exam_images.reorder_images', attempt_id=attempt.id) }}">
+            <p class="small text-muted mb-2">Có thể nhập chữ hoặc chụp bài làm trên giấy. Tối đa 3 ảnh/câu, 10 ảnh/bài. Ảnh JPEG/PNG/WebP được nén tối đa 1 MB/ảnh; hãy kiểm tra chữ rõ nét. Đồng hồ vẫn chạy khi chụp/chọn ảnh.</p>
+            <div class="d-flex flex-wrap gap-2 mb-2">
+              <label class="btn btn-outline-primary btn-sm mb-0">
+                <i class="bi bi-camera me-1"></i>Chụp ảnh
+                <input type="file" class="visually-hidden essay-image-input" accept="image/jpeg,image/png,image/webp" capture="environment">
+              </label>
+              <label class="btn btn-outline-secondary btn-sm mb-0">
+                <i class="bi bi-image me-1"></i>Chọn ảnh
+                <input type="file" class="visually-hidden essay-image-input" accept="image/jpeg,image/png,image/webp" multiple>
+              </label>
+            </div>
+            <div class="essay-image-list d-flex flex-wrap gap-2">
+              {% for image in essay_images.get(answer_key, []) %}
+              <div class="essay-image-card border rounded p-2" data-image-id="{{ image.id }}">
+                <a href="{{ image.url }}" target="_blank" rel="noopener">
+                  <img src="{{ image.thumbnail_url }}" alt="Ảnh bài làm" loading="lazy" width="120" height="120" style="object-fit:contain;">
+                </a>
+                <div class="essay-image-actions d-flex gap-1 mt-1"></div>
+              </div>
+              {% endfor %}
+            </div>
+            <div class="essay-upload-status small mt-2" role="status" aria-live="polite"></div>
+            <div class="essay-upload-errors"></div>
+          </div>
         {% elif group.type == 'error_id' %}
           {% set answer_key = 'g' ~ group.index ~ '_q' ~ q.position %}
           <div class="fw-semibold mb-2 exam-question-title">Câu {{ q.position }}. {{ q.text | error_id_render(false) }}</div>
@@ -146,6 +174,11 @@
   </div>
   </div>
   </form>
+  <dialog id="essayImagePreview" class="border-0 rounded shadow p-3" style="max-width:95vw;" aria-label="Xem ảnh bài làm">
+    <div class="text-end mb-2"><button type="button" class="btn btn-outline-secondary btn-sm" data-close-image>Đóng ảnh</button></div>
+    <div class="small text-danger d-none" data-image-error>Không tải được ảnh. Hãy đóng và thử lại; không xóa ảnh nếu chưa kiểm tra kết nối.</div>
+    <img alt="Ảnh bài làm đầy đủ" style="max-width:100%; max-height:75vh; object-fit:contain;">
+  </dialog>
   <dialog id="timeWarning" class="exam-time-warning" aria-labelledby="timeWarningTitle" aria-describedby="timeWarningMessage">
     <h2 id="timeWarningTitle" class="h5 fw-bold text-warning">Sắp hết giờ làm bài</h2>
     <p id="timeWarningMessage">Bài thi còn không quá 5 phút. Em hãy kiểm tra các câu chưa làm và chuẩn bị nộp bài.</p>
@@ -161,6 +194,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/essay-uploads.js') }}"></script>
 <script>
 const form = document.getElementById('examForm');
 const trackScreenExits = {{ 'true' if track_screen_exits else 'false' }};
@@ -197,12 +231,17 @@ function formatTime(totalSeconds) {
 
 function autoSubmit(reason) {
   if (submitted) return;
+  const incompleteImages = window.examEssayUploads.isBusy() || window.examEssayUploads.hasErrors();
+  window.examEssayUploads.freeze();
   submitted = true;
   cheatField.value = cheatCount;
   if (reason === 'cheat') {
     alert('Bài làm của bạn đã được tự động nộp do vi phạm quy định chống gian lận quá ' + CHEAT_LIMIT + ' lần.');
   } else if (reason === 'timeout') {
     alert('Đã hết thời gian làm bài. Bài làm được tự động nộp.');
+  }
+  if (incompleteImages) {
+    alert('Ảnh đang tải hoặc tải lỗi không được bảo đảm có trong bài nộp. Chỉ ảnh đã lưu trên hệ thống trước khi nộp mới được giữ lại.');
   }
   form.submit();
 }
@@ -234,7 +273,7 @@ const timerInterval = setInterval(() => {
 
 // ── Anti-cheat: detect tab switch / window blur (treated as "leaving the exam screen") ──
 function flagViolation() {
-  if (!trackScreenExits || submitted) return;
+  if (!trackScreenExits || submitted || window.examEssayUploads.isChoosing()) return;
   cheatCount += 1;
   cheatField.value = cheatCount;
   cheatDisplay.textContent = cheatCount;
@@ -263,6 +302,9 @@ function questionProgress(question) {
     ...radioGroups.values(),
     ...Array.from(question.querySelectorAll('input[type="text"], textarea'), input => Boolean(input.value.trim())),
   ];
+  if (question.querySelector('.essay-upload') && question.querySelector('[data-image-id]')) {
+    return { answered: 1, total: 1, complete: true };
+  }
   const answered = fields.filter(Boolean).length;
   return { answered, total: fields.length, complete: fields.length > 0 && answered === fields.length };
 }
@@ -294,6 +336,11 @@ updateExamProgress();
 // autoSubmit() bypasses this listener so only manual submissions ask for confirmation.
 form.addEventListener('submit', e => {
   if (submitted) return;
+  if (window.examEssayUploads.isBusy() || window.examEssayUploads.hasErrors()) {
+    e.preventDefault();
+    alert('Ảnh đang được xử lý hoặc còn lỗi tải ảnh. Hãy đợi tải xong, thử lại hoặc bỏ ảnh lỗi trước khi nộp.');
+    return;
+  }
   cheatField.value = cheatCount;
   const unansweredCount = countUnansweredQuestions();
   const confirmation = unansweredCount
@@ -304,6 +351,7 @@ form.addEventListener('submit', e => {
     return;
   }
   submitted = true;
+  window.examEssayUploads.freeze();
 });
 
 form.addEventListener('input', event => {

@@ -128,6 +128,7 @@
   </details>
 {%- endmacro %}
 
+{% from 'exams/_essay_images.html' import render_essay_images %}
 {% block content %}
 {% set student = attempt.student %}
 {% set pending = result.get('pending_essay_count', 0) %}
@@ -258,7 +259,8 @@
                   <div class="small text-success">Đáp án đúng: <strong>{{ question.correct_answer }}</strong></div>
                 {% elif group.type == 'essay' %}
                   <div class="small text-muted mb-1">Học sinh trả lời</div>
-                  <div class="border rounded bg-light p-3 exam-math attempt-answer-box">{{ question.student_answer or 'Học sinh không nhập câu trả lời.' }}</div>
+                  <div class="border rounded bg-light p-3 exam-math attempt-answer-box">{{ question.student_answer or ('Bài làm đính kèm bên dưới.' if question.images else 'Học sinh không nhập câu trả lời.') }}</div>
+                  {{ render_essay_images(question.images) }}
                   <div class="small mt-2">Điểm:
                     {% if question.essay_score is not none %}
                       <strong class="text-primary">{{ question.essay_score | round(2) }}</strong>{% if question.essay_max is not none %} <span class="text-muted">/ {{ question.essay_max | round(2) }}</span>{% endif %}

@@ -1,4 +1,5 @@
 {% extends 'student/base.html' if current_user.is_student else 'parent/base.html' %}
+{% from 'exams/_essay_images.html' import render_essay_images %}
 {% from 'exams/_macros.html' import render_true_false_review %}
 {% block extra_head %}{% include 'exams/_mathjax.html' %}{% endblock %}
 {% block content %}
@@ -80,8 +81,9 @@
               </div>
             {% elif group.type == 'essay' %}
               <div class="small mb-1">Em trả lời:
-                <div class="border rounded bg-light p-2 mt-1 exam-math" style="white-space:pre-wrap;">{{ question.student_answer or 'Chưa trả lời' }}</div>
+                <div class="border rounded bg-light p-2 mt-1 exam-math" style="white-space:pre-wrap;">{{ question.student_answer or ('Bài làm đính kèm bên dưới.' if question.images else 'Chưa trả lời') }}</div>
               </div>
+              {{ render_essay_images(question.images) }}
               <div class="small text-muted">Câu tự luận được giáo viên chấm thủ công.</div>
             {% elif group.type == 'error_id' %}
               <div class="small mb-1" aria-label="Câu trả lời đã chọn">

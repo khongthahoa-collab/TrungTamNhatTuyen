@@ -31,9 +31,7 @@
          back_href=url_for('teacher.exams_list', folder_id=exam.folder_id if editing else request.args.get('folder_id')), back_label='danh sách đề thi', editor_exit=true, compact=true, extra_class='mb-2') %}
         {% set exam_guide_page = 'compose' %}
         {% include 'teacher/_exam_guide.html' %}
-        {% if editing %}
-        <button type="submit" name="quick_save" value="1" class="btn btn-primary btn-sm ms-auto" data-guide="configure"><i class="bi bi-check-lg me-1"></i>Lưu thông tin</button>
-        {% else %}
+        {% if not editing %}
         <button type="submit" class="btn btn-primary btn-sm ms-auto" data-guide="configure">Cấu hình <i class="bi bi-arrow-right ms-1"></i></button>
         {% endif %}
       {% endcall %}
@@ -56,6 +54,7 @@
     {% if return_attempt_id %}
     <input type="hidden" name="return_attempt_id" value="{{ return_attempt_id }}">
     {% endif %}
+    {% set editor_quick_save = editing %}
     {% include 'exams/_editor.html' %}
   </form>
 </div>

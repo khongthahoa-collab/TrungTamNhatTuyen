@@ -207,12 +207,18 @@ def require_teacher_exam_access(exam, allow_shared=True):
 
 def reset_student_exam_attempts(exam, student_id, actor_id):
     """Delete all attempts for one student/exam while preserving an audit log."""
-    attempts = ExamAttempt.query.filter_by(exam_id=exam.id, student_id=student_id).all()
+    attempts = ExamAttempt.query.filter_by(
+        exam_id=exam.id, student_id=student_id,
+    ).with_for_update().all()
     if not attempts:
         return 0, None
 
     student_name = attempts[0].student.full_name if attempts[0].student else 'Học sinh đã xóa'
     attempt_count = len(attempts)
+    from models import EssayImage
+    EssayImage.query.filter(EssayImage.attempt_id.in_([attempt.id for attempt in attempts])).delete(
+        synchronize_session=False,
+    )
     ExamAttempt.query.filter_by(exam_id=exam.id, student_id=student_id).delete(
         synchronize_session=False
     )
@@ -519,6 +525,8 @@ def parse_folder_fields(form):
 
 def review_attempt_answers(exam, attempt):
     """Build submitted answers and correct answers in the order the student saw them."""
+    from services.essay_images import images_by_answer
+    essay_images = images_by_answer(attempt.id)
     order_data = attempt.order_data
     submitted_answers = attempt.answers
     groups_order = order_data.get('groups') or []
@@ -589,6 +597,7 @@ def review_attempt_answers(exam, attempt):
                 reviewed['correct_answers'] = question.get('accepted_answers', [])
             elif group_type == 'essay':
                 reviewed['student_answer'] = submitted_answers.get(field, '')
+                reviewed['images'] = essay_images.get(field, [])
                 reviewed['key'] = f'g{gi}_q{orig_qi}'
             elif group_type == 'error_id':
                 reviewed['student_answer'] = submitted_answers.get(field, '')

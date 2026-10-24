@@ -9,6 +9,11 @@
     <select id="examJumpGroup" class="exam-jump-select" aria-label="Chọn nhóm câu hỏi"></select>
   </div>
   <button type="button" id="examJumpGo" class="exam-jump-go">Đến <i class="bi bi-arrow-right" aria-hidden="true"></i></button>
+  {% if editor_quick_save %}
+  <button type="submit" name="quick_save" value="1" class="btn btn-primary btn-sm ms-auto flex-shrink-0 exam-jump-save" data-guide="configure">
+    <i class="bi bi-check-lg me-1"></i>Lưu thông tin
+  </button>
+  {% endif %}
   <span id="examJumpHint" class="exam-jump-hint" role="status"></span>
 </div>
 <div class="exam-editor-tabs d-lg-none mb-3" role="group" aria-label="Chế độ soạn đề">

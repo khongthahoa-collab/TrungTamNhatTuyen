@@ -46,6 +46,7 @@ nhat_tuyen_db.sql
 # Uploads (user-generated files)
 uploads/
 downloads/
+instance/exam-images/
 
 # Logs
 *.log

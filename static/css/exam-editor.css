@@ -35,6 +35,7 @@
 .exam-jump-input:focus, .exam-jump-select:focus { outline: 2px solid var(--nt-primary); outline-offset: 2px; border-radius: .5rem; }
 .exam-jump-go { min-height: 44px; padding: 0 1rem; border: 0; border-radius: .5rem; background: var(--nt-primary-100); color: var(--nt-primary-deeper); font-weight: 700; }
 .exam-jump-go:hover { background: var(--nt-primary-50); }
+.exam-jump-save { min-height: 44px; }
 .exam-jump-hint { flex-basis: 100%; padding: 0 .75rem; font-size: .8125rem; color: var(--bs-danger-text-emphasis); }
 .exam-jump-hint:empty { display: none; }
 .exam-preview-card.is-jump-target { outline: 2px solid var(--nt-primary); outline-offset: 2px; transition: outline-color .3s; }

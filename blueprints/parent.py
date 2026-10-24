@@ -492,25 +492,14 @@ def documents(student_id):
 @login_required
 def download_document(doc_id):
     doc = ClassDocument.query.get_or_404(doc_id)
-    if not doc.is_active:
-        abort(404)
-
-    if current_user.is_admin or current_user.is_teacher:
-        pass
-    elif current_user.is_parent:
-        enrolled = any(
-            doc.class_.is_student_enrolled(child.id)
-            for child in current_user.children.all()
-        )
-        if not enrolled:
-            abort(403)
-    else:
-        abort(403)
-
-    return send_from_directory(current_app.config['UPLOAD_FOLDER'],
-                               doc.stored_filename,
-                               as_attachment=True,
-                               download_name=doc.original_filename)
+    from services.document_access import require_document_access
+    require_document_access(doc)
+    response = send_from_directory(current_app.config['UPLOAD_FOLDER'],
+                                   doc.stored_filename,
+                                   as_attachment=True,
+                                   download_name=doc.original_filename)
+    response.headers['Cache-Control'] = 'private, no-store'
+    return response
 
 
 # ============================================================
@@ -759,7 +748,7 @@ def exam_take(student_id, exam_id):
         abort(404)
 
     last_attempt = ExamAttempt.query.filter_by(exam_id=exam.id, student_id=student.id).order_by(
-        ExamAttempt.started_at.desc()).first()
+        ExamAttempt.started_at.desc()).with_for_update().first()
 
     if last_attempt and last_attempt.status == 'in_progress':
         order_data = last_attempt.order_data
@@ -804,11 +793,14 @@ def exam_take(student_id, exam_id):
         db.session.commit()
 
     questions = _ordered_questions(exam, attempt.order_data)
+    from services.essay_images import images_by_answer
+    essay_images = images_by_answer(attempt.id)
     remaining_seconds = max(0, int(exam.duration_minutes * 60 - (datetime.utcnow() - attempt.started_at).total_seconds()))
 
     return render_template('exams/take.html', exam=exam, attempt=attempt, student=student, children=children,
                            questions=questions, remaining_seconds=remaining_seconds, cheat_limit=CHEAT_LIMIT,
                            track_screen_exits=exam.exam_type != 'practice',
+                           essay_images=essay_images,
                            draft_answers=draft_answers,
                            save_progress_url=_exam_url('exam_save_progress', student_id=student.id, exam_id=exam.id),
                            exams_list_url=_exam_url('exams', student_id=student.id))
@@ -824,9 +816,7 @@ def exam_save_progress(student_id, exam_id):
     if exam.is_draft or exam not in _exams_for_student(student):
         abort(404)
 
-    attempt = ExamAttempt.query.filter_by(
-        exam_id=exam.id, student_id=student.id, status='in_progress'
-    ).order_by(ExamAttempt.started_at.desc()).first()
+    attempt = _active_attempt_for_form(exam.id, student.id)
     if not attempt:
         return jsonify({'error': 'Lượt làm bài không còn hoạt động.'}), 409
     if (datetime.utcnow() - attempt.started_at).total_seconds() >= exam.duration_minutes * 60:
@@ -862,6 +852,18 @@ def _notify_cheat_flag(exam, student, attempt):
         db.session.add(Notification(user_id=uid, title=title, body=body, notif_type='warning', link=link))
 
 
+def _active_attempt_for_form(exam_id, student_id):
+    query = ExamAttempt.query.filter_by(
+        exam_id=exam_id, student_id=student_id, status='in_progress',
+    )
+    if 'attempt_id' in request.form:
+        attempt_id = request.form.get('attempt_id', type=int)
+        if not attempt_id:
+            abort(400, description='Lượt làm bài không hợp lệ.')
+        query = query.filter_by(id=attempt_id)
+    return query.order_by(ExamAttempt.started_at.desc()).with_for_update().first()
+
+
 @parent_bp.route('/students/<int:student_id>/exams/<int:exam_id>/submit', methods=['POST'])
 @login_required
 def exam_submit(student_id, exam_id):
@@ -872,8 +874,7 @@ def exam_submit(student_id, exam_id):
     if exam.is_draft or exam not in _exams_for_student(student):
         abort(404)
 
-    attempt = ExamAttempt.query.filter_by(exam_id=exam.id, student_id=student.id, status='in_progress').order_by(
-        ExamAttempt.started_at.desc()).first()
+    attempt = _active_attempt_for_form(exam.id, student.id)
     if not attempt:
         return redirect(_exam_url('exam_result', student_id=student.id, exam_id=exam.id))
 
