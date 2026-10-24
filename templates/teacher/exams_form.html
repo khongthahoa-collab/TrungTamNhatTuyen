@@ -28,7 +28,7 @@
     <input type="hidden" name="groups_json" id="groupsField">
     <div class="exam-editor-toolbar">
       {% call page_header('Chỉnh sửa nội dung đề thi' if editing else 'Soạn nội dung đề thi', 'pencil-square', badge='Bước 1/2',
-         back_href=url_for('teacher.exams_list'), back_label='danh sách đề thi', editor_exit=true, compact=true, extra_class='mb-2') %}
+         back_href=url_for('teacher.exams_list', folder_id=exam.folder_id if editing else request.args.get('folder_id')), back_label='danh sách đề thi', editor_exit=true, compact=true, extra_class='mb-2') %}
         {% set exam_guide_page = 'compose' %}
         {% include 'teacher/_exam_guide.html' %}
         {% if editing %}

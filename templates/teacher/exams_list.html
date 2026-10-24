@@ -10,7 +10,7 @@
     <i class="bi bi-folder-plus me-1"></i>{{ 'Tạo thư mục con' if current_folder else 'Tạo thư mục' }}
   </button>
   {% endif %}
-  <a href="{{ url_for('teacher.exams_new') }}" class="btn btn-primary">
+  <a href="{{ url_for('teacher.exams_new', folder_id=current_folder.id if current_folder else None) }}" class="btn btn-primary">
     <i class="bi bi-plus-lg me-1"></i>Tạo đề thi
   </a>
 {% endcall %}

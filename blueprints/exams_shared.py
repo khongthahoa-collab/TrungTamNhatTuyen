@@ -440,7 +440,7 @@ def parse_confirm_settings(form, groups=None):
             return None, 'Thời gian "đến ngày" phải sau thời gian "từ ngày".'
 
     try:
-        allow_attempts = int(form.get('allow_attempts', 1))
+        allow_attempts = int(form.get('allow_attempts', 0))
     except (ValueError, TypeError):
         allow_attempts = 1
 

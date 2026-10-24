@@ -5,7 +5,7 @@
 <div class="container-fluid px-3 pt-3 pb-4">
   {% call page_header('Bạn muốn bắt đầu như thế nào?', 'file-earmark-plus',
      subtitle='Chọn cách tạo đề phù hợp. Bạn sẽ xem lại cài đặt và chọn lưu nháp hoặc giao cho lớp ở bước tiếp theo.',
-     back_href=url_for('teacher.exams_list'), back_label='danh sách đề thi', extra_class='mb-4') %}
+     back_href=url_for('teacher.exams_list', folder_id=folder_id), back_label='danh sách đề thi', extra_class='mb-4') %}
     {% set exam_guide_page = 'create' %}
     {% include 'teacher/_exam_guide.html' %}
   {% endcall %}
@@ -32,7 +32,7 @@
             <span class="badge rounded-pill text-bg-light border">Tìm lỗi sai</span>
           </div>
           <div class="mt-auto">
-            <a href="{{ url_for('teacher.exams_new', mode='compose') }}" class="btn btn-success" data-guide="compose">
+            <a href="{{ url_for('teacher.exams_new', mode='compose', folder_id=folder_id) }}" class="btn btn-success" data-guide="compose">
               <i class="bi bi-plus-lg me-1"></i>Bắt đầu soạn đề
             </a>
           </div>

@@ -742,6 +742,9 @@ def exams_results(exam_id):
 @login_required
 @require_teacher
 def exams_new():
+    folder_id = request.args.get('folder_id', type=int)
+    if folder_id:
+        ExamFolder.query.filter_by(id=folder_id, created_by=current_user.id).first_or_404()
     if request.method == 'POST':
         title = request.form.get('title', '').strip()
         groups = parse_groups_payload(request.form.get('groups_json', '{}'))
@@ -750,14 +753,17 @@ def exams_new():
             flash('Vui lòng nhập tên đề thi và ít nhất 1 câu hỏi hợp lệ trong các phần thi.', 'danger')
             return render_template('teacher/exams_form.html', prefill={'title': title, 'groups': groups})
 
-        return _render_exam_confirm({'title': title, 'groups': groups})
+        return _render_exam_confirm({'title': title, 'groups': groups, 'folder_id': folder_id})
 
     if request.args.get('mode') != 'compose':
         has_reusable_exams = Exam.query.filter(db.or_(
             Exam.created_by == current_user.id,
             db.and_(Exam.is_shared_with_teachers.is_(True), Exam.is_draft.is_(False)),
         )).first() is not None
-        return render_template('teacher/exams_create.html', has_existing_exams=has_reusable_exams)
+        return render_template(
+            'teacher/exams_create.html', has_existing_exams=has_reusable_exams,
+            folder_id=folder_id,
+        )
 
     draft = session_draft()
     return render_template('teacher/exams_form.html', prefill=draft)
@@ -971,7 +977,9 @@ def exams_confirm():
                 'teacher.exams_attempt_detail', exam_id=existing.id,
                 attempt_id=return_attempt_id,
             ))
-        return redirect(url_for('teacher.exams_list'))
+        return redirect(url_for(
+            'teacher.exams_list', folder_id=existing.folder_id if existing else exam.folder_id,
+        ))
 
     return _render_exam_confirm(draft, existing=existing)
 

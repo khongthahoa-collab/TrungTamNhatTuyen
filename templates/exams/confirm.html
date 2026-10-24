@@ -221,12 +221,12 @@
           <h6 class="fw-semibold mb-3"><i class="bi bi-arrow-repeat me-1 text-success"></i>Số lần làm lại</h6>
           <div class="form-check mb-2">
             <input class="form-check-input" type="radio" name="allow_attempts" value="1" id="attempt_1"
-                   {% if (form and form.get('allow_attempts')=='1') or (not form and existing and existing.allow_attempts==1) or (not form and not existing) %}checked{% endif %}>
+                   {% if (form and form.get('allow_attempts')=='1') or (not form and existing and existing.allow_attempts==1) %}checked{% endif %}>
             <label class="form-check-label" for="attempt_1">1 lần <span class="text-muted small">(dùng cho bài kiểm tra)</span></label>
           </div>
           <div class="form-check">
             <input class="form-check-input" type="radio" name="allow_attempts" value="0" id="attempt_0"
-                   {% if (form and form.get('allow_attempts')=='0') or (not form and existing and existing.is_unlimited_attempts) %}checked{% endif %}>
+                   {% if (form and form.get('allow_attempts', '0')=='0') or (not form and existing and existing.is_unlimited_attempts) or (not form and not existing) %}checked{% endif %}>
             <label class="form-check-label" for="attempt_0">Không giới hạn <span class="text-muted small">(dùng cho bài ôn tập)</span></label>
           </div>
           <div class="form-text mt-2"><i class="bi bi-info-circle me-1"></i>Mỗi lần làm bài, vị trí câu hỏi và đáp án sẽ được xáo trộn ngẫu nhiên.</div>
@@ -307,15 +307,6 @@ function syncCustomDuration() {
 }
 durationChoices.forEach(input => input.addEventListener('change', syncCustomDuration));
 syncCustomDuration();
-
-// Suggest attempt setting based on exam type (admin can still override)
-const examTypeSelect = document.getElementById('examTypeSelect');
-examTypeSelect.addEventListener('change', () => {
-  const unlimited = document.getElementById('attempt_0');
-  const once = document.getElementById('attempt_1');
-  if (examTypeSelect.value === 'practice') unlimited.checked = true;
-  else once.checked = true;
-});
 
 {% if request.method == 'GET' %}
 try {

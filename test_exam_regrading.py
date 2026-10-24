@@ -51,6 +51,16 @@ class AttemptCollection:
 
 
 class SubmittedAttemptRegradingTests(unittest.TestCase):
+    def test_confirm_attempt_limit_defaults_to_unlimited_and_preserves_explicit_choice(self):
+        for value, expected in ((None, 0), ('0', 0), ('1', 1)):
+            with self.subTest(value=value):
+                form = MultiDict({'is_draft': 'draft'})
+                if value is not None:
+                    form['allow_attempts'] = value
+                settings, error = parse_confirm_settings(form)
+                self.assertIsNone(error)
+                self.assertEqual(settings['allow_attempts'], expected)
+
     def test_confirm_class_ids_use_integer_query_parameters_for_all_scoring_modes(self):
         groups = [{'title': 'Section 1', 'type': 'mcq', 'questions': [{}]}]
         for mode in ('question', 'section', 'question_custom', 'section_custom'):

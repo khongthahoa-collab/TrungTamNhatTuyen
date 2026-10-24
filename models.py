@@ -261,7 +261,7 @@ class Exam(db.Model):
     availability_mode = db.Column(db.String(30), default='always')
     available_from = db.Column(db.DateTime)
     available_to = db.Column(db.DateTime)
-    allow_attempts = db.Column(db.Integer, default=1)
+    allow_attempts = db.Column(db.Integer, default=0)
     scoring_mode = db.Column(db.String(20), nullable=False, default='question', server_default='question')
     scoring_config_json = db.Column(db.Text, nullable=False, default='{}', server_default='{}')
     shuffle_questions = db.Column(db.Boolean, default=True)
