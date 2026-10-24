@@ -326,15 +326,10 @@
               {% endif %}
             </td>
             <td class="text-end">
-              <div class="d-inline-flex gap-1 align-items-center">
-                <a href="{{ url_for('teacher.exams_preview', exam_id=exam.id) }}" class="btn btn-outline-secondary btn-sm" title="Xem nội dung">
-                  <i class="bi bi-eye"></i>
-                </a>
-                <button type="button" class="btn btn-outline-primary btn-sm exam-context-trigger"
-                        aria-label="Thao tác với {{ exam.title }}" aria-haspopup="menu" aria-expanded="false">
-                  <i class="bi bi-three-dots"></i>
-                </button>
-              </div>
+              <button type="button" class="btn btn-outline-primary btn-sm exam-context-trigger"
+                      aria-label="Thao tác với {{ exam.title }}" aria-haspopup="menu" aria-expanded="false">
+                <i class="bi bi-three-dots"></i>
+              </button>
             </td>
           </tr>
           {% else %}
