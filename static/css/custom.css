@@ -1310,7 +1310,7 @@ footer a:hover { color: #fff !important; }
   transform: translateY(-2px);
   box-shadow: var(--nt-shadow) !important;
 }
-.exam-list-row { cursor: context-menu; }
+.exam-list-row { cursor: pointer; }
 .exam-list-row .exam-context-trigger { cursor: pointer; }
 .exam-context-menu {
   position: fixed;

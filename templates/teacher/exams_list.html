@@ -301,7 +301,8 @@
               data-exam-active-attempts="{{ 'true' if row.active_attempts else 'false' }}"
               data-exam-has-attempts="{{ 'true' if row.has_attempts else 'false' }}">
             <td class="fw-semibold">
-              <div>{{ exam.title }}</div>
+              <a href="{{ url_for('teacher.exams_results', exam_id=exam.id) }}"
+                 class="text-body text-decoration-none">{{ exam.title }}</a>
             </td>
             <td class="text-center" data-label="Bài đã nộp">
               <span class="fw-semibold">{{ row.submission_count }}</span>
@@ -554,6 +555,11 @@
   }
 
   document.querySelectorAll('.exam-list-row').forEach(row => {
+    row.addEventListener('click', event => {
+      if (event.target.closest('a, button, input, select, textarea, label')) return;
+      if (window.getSelection()?.toString()) return;
+      window.location.assign(row.dataset.examResults);
+    });
     const trigger = row.querySelector('.exam-context-trigger');
     trigger.addEventListener('click', event => {
       event.stopPropagation();
