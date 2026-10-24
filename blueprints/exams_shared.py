@@ -10,7 +10,7 @@ import re
 from datetime import datetime
 from flask_login import current_user
 from flask import abort, session
-from models import ExamAttempt, ExamFolder, ExamLog
+from models import Class, Enrollment, ExamAttempt, ExamFolder, ExamLog, School, Student
 from extensions import db
 
 EXAM_TYPES = [
@@ -232,8 +232,8 @@ def reset_student_exam_attempts(exam, student_id, actor_id):
 
 def publish_exam(exam, actor_id):
     """Publish a draft exam after verifying it is assigned to at least one class."""
-    if not exam.class_list:
-        return False, 'Hãy chọn ít nhất một lớp trước khi đăng đề.'
+    if not (exam.class_list or exam.school_list or exam.student_list):
+        return False, 'Hãy chọn ít nhất một lớp, trường hoặc học sinh để giao đề.'
     if not exam.is_draft:
         return False, 'Đề thi này đã được đăng.'
 
@@ -247,6 +247,52 @@ def publish_exam(exam, actor_id):
     ))
     db.session.commit()
     return True, f'Đã đăng đề "{exam.title}".'
+
+
+def exam_assignment_options(class_ids=None):
+    """Return active students and schools, optionally limited to selected class ids."""
+    students_query = Student.query.filter(
+        Student.is_active.is_(True), Student.is_deleted.is_(False)
+    )
+    if class_ids is not None:
+        if not class_ids:
+            return [], []
+        students_query = students_query.join(
+            Enrollment, Enrollment.student_id == Student.id
+        ).join(Class, Class.id == Enrollment.class_id).filter(
+            Enrollment.class_id.in_(class_ids),
+            Enrollment.is_active.is_(True),
+            Class.is_active.is_(True),
+        ).distinct()
+    students = students_query.order_by(Student.full_name).all()
+    if class_ids is None:
+        schools = School.query.filter_by(is_active=True).order_by(School.name).all()
+        return schools, students
+    school_ids = {student.school_id for student in students if student.school_id}
+    schools = School.query.filter(
+        School.is_active.is_(True), School.id.in_(school_ids)
+    ).order_by(School.name).all() if school_ids else []
+    return schools, students
+
+
+def exam_is_assigned_to_student(exam, student, active_class_ids=None, teacher_class_ids=None):
+    """Check whether a student matches any configured exam target."""
+    student_class_ids = set(active_class_ids or ())
+    if exam.class_list and student_class_ids.intersection(exam.class_list):
+        return True
+    if student.id in exam.student_list:
+        return True
+    if not student.school_id or student.school_id not in exam.school_list:
+        return False
+    if teacher_class_ids is not None:
+        return bool(student_class_ids.intersection(teacher_class_ids))
+    if exam.creator and exam.creator.role == 'teacher':
+        teacher = exam.creator.teacher_profile
+        assigned_class_ids = {
+            cls.id for cls in teacher.classes.filter_by(is_active=True).all()
+        } if teacher else set()
+        return bool(student_class_ids.intersection(assigned_class_ids))
+    return True
 
 
 def session_draft():
@@ -270,7 +316,32 @@ def parse_confirm_settings(form, groups=None):
     if scoring_mode not in ('question', 'section', 'question_custom', 'section_custom'):
         return None, 'Vui lòng chọn cách chia điểm hợp lệ.'
     description = form.get('description', '').strip()
-    class_ids = form.getlist('class_ids')
+    try:
+        class_ids = list(dict.fromkeys(str(int(value)) for value in form.getlist('class_ids')))
+    except (TypeError, ValueError):
+        return None, 'Vui lòng chọn lớp học hợp lệ.'
+    if any(int(identifier) <= 0 for identifier in class_ids):
+        return None, 'Vui lòng chọn lớp học hợp lệ.'
+    if class_ids and Class.query.filter(
+        Class.id.in_(class_ids), Class.is_active.is_(True)
+    ).count() != len(class_ids):
+        return None, 'Một hoặc nhiều lớp đã chọn không còn hoạt động.'
+    try:
+        school_ids = list(dict.fromkeys(int(value) for value in form.getlist('school_ids')))
+        student_ids = list(dict.fromkeys(int(value) for value in form.getlist('student_ids')))
+    except (TypeError, ValueError):
+        return None, 'Vui lòng chọn trường và học sinh hợp lệ.'
+    if any(identifier <= 0 for identifier in school_ids + student_ids):
+        return None, 'Vui lòng chọn trường và học sinh hợp lệ.'
+    if school_ids and School.query.filter(
+        School.id.in_(school_ids), School.is_active.is_(True)
+    ).count() != len(school_ids):
+        return None, 'Một hoặc nhiều trường đã chọn không còn hoạt động.'
+    if student_ids and Student.query.filter(
+        Student.id.in_(student_ids), Student.is_active.is_(True),
+        Student.is_deleted.is_(False),
+    ).count() != len(student_ids):
+        return None, 'Một hoặc nhiều học sinh đã chọn không còn hoạt động.'
     draft_value = form.get('is_draft', 'draft')
     if draft_value in ('draft', 'published'):
         is_draft = draft_value == 'draft'
@@ -351,6 +422,8 @@ def parse_confirm_settings(form, groups=None):
     availability_mode = form.get('availability_mode', 'always')
     if availability_mode not in ('always', 'range', 'class_schedule'):
         availability_mode = 'always'
+    if availability_mode == 'class_schedule' and not class_ids:
+        return None, 'Chế độ theo lịch học yêu cầu chọn ít nhất một lớp.'
     available_from = available_to = None
     if availability_mode == 'range':
         raw_from = form.get('available_from', '').strip()
@@ -372,13 +445,14 @@ def parse_confirm_settings(form, groups=None):
     if folder_id and not ExamFolder.query.get(folder_id):
         folder_id = None
 
-    if not is_draft and not class_ids:
-        return None, 'Vui lòng chọn ít nhất 1 lớp để giao đề, hoặc lưu dưới dạng nháp.'
+    if not is_draft and not (class_ids or school_ids or student_ids):
+        return None, 'Vui lòng chọn ít nhất một lớp, trường hoặc học sinh để giao đề, hoặc lưu dưới dạng nháp.'
 
     return {
         'subject': subject or 'Chung', 'exam_type': exam_type, 'description': description,
         'scoring_mode': scoring_mode, 'scoring_config': scoring_config,
-        'class_ids': class_ids, 'is_draft': is_draft, 'duration_minutes': duration_minutes,
+        'class_ids': class_ids, 'school_ids': school_ids, 'student_ids': student_ids,
+        'is_draft': is_draft, 'duration_minutes': duration_minutes,
         'availability_mode': availability_mode, 'available_from': available_from, 'available_to': available_to,
         'allow_attempts': allow_attempts, 'folder_id': folder_id,
     }, None

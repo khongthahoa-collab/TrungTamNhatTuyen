@@ -254,6 +254,8 @@ class Exam(db.Model):
     exam_type = db.Column(db.String(40), nullable=False, default='practice')
     description = db.Column(db.Text)
     class_ids = db.Column(db.Text, default='')
+    school_ids = db.Column(db.Text, nullable=False, default='', server_default='')
+    student_ids = db.Column(db.Text, nullable=False, default='', server_default='')
     folder_id = db.Column(db.Integer, db.ForeignKey('exam_folders.id'), nullable=True)
     duration_minutes = db.Column(db.Integer, default=40)
     availability_mode = db.Column(db.String(30), default='always')
@@ -317,6 +319,14 @@ class Exam(db.Model):
     @property
     def class_list(self):
         return [int(item) for item in (self.class_ids or '').split(',') if item.strip().isdigit()]
+
+    @property
+    def school_list(self):
+        return [int(item) for item in (self.school_ids or '').split(',') if item.strip().isdigit()]
+
+    @property
+    def student_list(self):
+        return [int(item) for item in (self.student_ids or '').split(',') if item.strip().isdigit()]
 
     @property
     def type_label(self):

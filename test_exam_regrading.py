@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from blueprints.exams_shared import (
     attempt_result_is_stale,
     edited_question_from_form,
+    exam_is_assigned_to_student,
     has_stale_scoring,
     regrade_attempt_if_stale,
 )
@@ -43,6 +44,39 @@ class AttemptCollection:
 
 
 class SubmittedAttemptRegradingTests(unittest.TestCase):
+    def test_exam_targets_match_selected_class_school_or_student(self):
+        student = SimpleNamespace(id=12, school_id=4)
+        exam = SimpleNamespace(class_list=[7], school_list=[4], student_list=[12], creator=None)
+
+        self.assertTrue(exam_is_assigned_to_student(exam, student, active_class_ids={7}))
+        self.assertTrue(exam_is_assigned_to_student(exam, student, active_class_ids={9}))
+        self.assertTrue(exam_is_assigned_to_student(
+            SimpleNamespace(class_list=[], school_list=[], student_list=[12], creator=None),
+            student,
+            active_class_ids=set(),
+        ))
+        self.assertFalse(exam_is_assigned_to_student(
+            SimpleNamespace(class_list=[], school_list=[5], student_list=[], creator=None),
+            student,
+            active_class_ids={9},
+        ))
+        self.assertFalse(exam_is_assigned_to_student(
+            SimpleNamespace(class_list=[7], school_list=[], student_list=[], creator=None),
+            student,
+            active_class_ids={9},
+        ))
+
+    def test_teacher_school_target_is_limited_to_assigned_classes(self):
+        student = SimpleNamespace(id=12, school_id=4)
+        exam = SimpleNamespace(class_list=[], school_list=[4], student_list=[], creator=None)
+
+        self.assertTrue(exam_is_assigned_to_student(
+            exam, student, active_class_ids={7}, teacher_class_ids={7, 9},
+        ))
+        self.assertFalse(exam_is_assigned_to_student(
+            exam, student, active_class_ids={12}, teacher_class_ids={7, 9},
+        ))
+
     def test_stale_grade_is_refreshed_from_current_answer_key(self):
         attempt = Attempt()
         exam = SimpleNamespace(

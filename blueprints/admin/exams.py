@@ -8,7 +8,7 @@ from extensions import db
 from models import Exam, ExamLog, ExamAttempt, ExamFolder, Class, Course, User, UserRole
 from blueprints.admin import admin_bp, require_admin, require_admin_or_teacher
 from blueprints.exams_shared import (
-    EXAM_TYPES, DURATION_OPTIONS, SESSION_KEY,
+    EXAM_TYPES, DURATION_OPTIONS, SESSION_KEY, exam_assignment_options,
     apply_manual_essay_scores, parse_groups_payload, require_owns_or_admin,
     require_teacher_exam_access, reset_student_exam_attempts, session_draft,
     parse_confirm_settings, parse_folder_fields, posted_exam_draft, regrade_submitted_attempts, has_stale_scoring,
@@ -183,6 +183,8 @@ def exam_duplicate(exam_id):
         description=original.description,
         scoring_mode=original.scoring_mode,
         class_ids='',
+        school_ids='',
+        student_ids='',
         folder_id=original.folder_id if original.created_by == current_user.id else None,
         duration_minutes=original.duration_minutes,
         availability_mode='always',
@@ -395,14 +397,42 @@ def exams_edit(exam_id):
 
 
 def _render_admin_exam_confirm(draft, existing=None, form=None):
-    classes = Class.query.filter_by(is_active=True).order_by(Class.name).all()
+    if get_active_role(current_user) == 'teacher':
+        teacher = current_user.teacher_profile
+        classes = teacher.classes.filter_by(is_active=True).order_by(Class.name).all() if teacher else []
+        teacher_class_ids = [cls.id for cls in classes]
+        schools, students = exam_assignment_options(teacher_class_ids)
+    else:
+        classes = Class.query.filter_by(is_active=True).order_by(Class.name).all()
+        schools, students = exam_assignment_options()
     courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
     folders = ExamFolder.query.order_by(ExamFolder.name).all()
     return render_template(
         'exams/confirm.html', payload=draft, classes=classes, courses=courses,
+        schools=schools, students=students,
         folders=folders, exam_types=EXAM_TYPES, durations=DURATION_OPTIONS, form=form,
         editing=bool(existing), existing=existing,
     )
+
+
+def _validate_admin_exam_assignment_targets(class_ids, school_ids, student_ids):
+    selected_class_ids = {int(class_id) for class_id in class_ids}
+    if get_active_role(current_user) == 'teacher':
+        teacher = current_user.teacher_profile
+        allowed_class_ids = {
+            cls.id for cls in teacher.classes.filter_by(is_active=True).all()
+        } if teacher else set()
+        if not selected_class_ids.issubset(allowed_class_ids):
+            abort(403)
+        schools, students = exam_assignment_options(list(allowed_class_ids))
+        if not set(school_ids).issubset({school.id for school in schools}):
+            abort(403)
+        if not set(student_ids).issubset({student.id for student in students}):
+            abort(403)
+    elif selected_class_ids and Class.query.filter(
+        Class.id.in_(selected_class_ids), Class.is_active.is_(True)
+    ).count() != len(selected_class_ids):
+        abort(403)
 
 
 @admin_bp.route('/exam/confirm', methods=['GET', 'POST'])
@@ -427,6 +457,9 @@ def exams_confirm():
         if error:
             flash(error, 'danger')
             return _render_admin_exam_confirm(draft, existing=existing, form=request.form)
+        _validate_admin_exam_assignment_targets(
+            settings['class_ids'], settings['school_ids'], settings['student_ids']
+        )
 
         if existing:
             had_attempts = existing.attempts.count() > 0
@@ -441,6 +474,8 @@ def exams_confirm():
             existing.scoring_config_json = json.dumps(settings['scoring_config'])
             existing.description = settings['description']
             existing.class_ids = ','.join(settings['class_ids'])
+            existing.school_ids = ','.join(map(str, settings['school_ids']))
+            existing.student_ids = ','.join(map(str, settings['student_ids']))
             existing.folder_id = settings['folder_id']
             existing.duration_minutes = settings['duration_minutes']
             existing.availability_mode = settings['availability_mode']
@@ -473,6 +508,8 @@ def exams_confirm():
                 scoring_config_json=json.dumps(settings['scoring_config']),
                 description=settings['description'],
                 class_ids=','.join(settings['class_ids']),
+                school_ids=','.join(map(str, settings['school_ids'])),
+                student_ids=','.join(map(str, settings['student_ids'])),
                 folder_id=settings['folder_id'],
                 duration_minutes=settings['duration_minutes'],
                 availability_mode=settings['availability_mode'],

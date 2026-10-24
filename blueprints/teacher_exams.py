@@ -13,6 +13,7 @@ from models import Exam, ExamLog, ExamAttempt, ExamFolder, Class, Course, Enroll
 from blueprints.teacher import _teacher_score_class_ids, teacher_bp, require_teacher
 from blueprints.exams_shared import (
     EXAM_TYPES, DURATION_OPTIONS, SESSION_KEY,
+    exam_assignment_options, exam_is_assigned_to_student,
     edited_question_from_form, parse_folder_fields, parse_groups_payload,
     require_owns_or_admin, require_teacher_exam_access,
     publish_exam, reset_student_exam_attempts,
@@ -41,6 +42,18 @@ def _validate_teacher_class_ids(class_ids):
     except (TypeError, ValueError):
         abort(403)
     if not selected_ids.issubset(allowed_ids):
+        abort(403)
+
+
+def _validate_teacher_assignment_targets(school_ids, student_ids):
+    teacher = current_user.teacher_profile
+    class_ids = [
+        cls.id for cls in teacher.classes.filter_by(is_active=True).all()
+    ] if teacher else []
+    allowed_schools, allowed_students = exam_assignment_options(class_ids)
+    if not set(school_ids).issubset({school.id for school in allowed_schools}):
+        abort(403)
+    if not set(student_ids).issubset({student.id for student in allowed_students}):
         abort(403)
 
 
@@ -147,30 +160,47 @@ def exams_list():
     classes_by_id = {
         cls.id: cls.name for cls in Class.query.filter(Class.id.in_(class_ids)).all()
     } if class_ids else {}
-    enrolled_students_by_class = {}
-    if class_ids:
+
+    accessible_class_ids = [cls.id for cls in classes]
+    _schools, target_students = exam_assignment_options(accessible_class_ids)
+    student_class_ids = {}
+    if target_students and accessible_class_ids:
         for enrolled_class_id, student_id in db.session.query(
             Enrollment.class_id, Enrollment.student_id
-        ).join(Student, Student.id == Enrollment.student_id).filter(
-            Enrollment.class_id.in_(class_ids),
+        ).filter(
+            Enrollment.class_id.in_(accessible_class_ids),
+            Enrollment.student_id.in_([student.id for student in target_students]),
             Enrollment.is_active.is_(True),
-            Student.is_active.is_(True),
-            Student.is_deleted.is_(False),
-        ).distinct().all():
-            enrolled_students_by_class.setdefault(enrolled_class_id, set()).add(student_id)
+        ).all():
+            student_class_ids.setdefault(student_id, set()).add(enrolled_class_id)
+    students_by_id = {student.id: student for student in target_students}
 
     exam_rows = []
     for exam in exams:
         submitted = submission_counts.get(exam.id, {'attempts': 0, 'students': 0})
-        assigned_students = set()
-        for assigned_class_id in exam.class_list:
-            assigned_students.update(enrolled_students_by_class.get(assigned_class_id, set()))
+        assigned_students = {
+            student_id for student_id, student in students_by_id.items()
+            if exam_is_assigned_to_student(
+                exam, student, active_class_ids=student_class_ids.get(student_id, set()),
+                teacher_class_ids=accessible_class_ids,
+            )
+        }
+        class_names = [
+            classes_by_id[class_id] for class_id in exam.class_list if class_id in classes_by_id
+        ]
+        school_names = {
+            school.id: school.name for school in _schools
+        }
         exam_rows.append({
             'exam': exam,
             'submission_count': submitted['attempts'],
             'submitted_students': submitted['students'],
             'assigned_students': len(assigned_students),
-            'class_names': [classes_by_id[class_id] for class_id in exam.class_list if class_id in classes_by_id],
+            'class_names': class_names,
+            'school_names': [school_names[id_] for id_ in exam.school_list if id_ in school_names],
+            'student_names': [
+                students_by_id[id_].full_name for id_ in exam.student_list if id_ in students_by_id
+            ],
             'active_attempts': exam.id in active_exam_ids,
             'has_attempts': exam.id in exams_with_attempts,
         })
@@ -243,6 +273,8 @@ def exam_duplicate(exam_id):
         description=original.description,
         scoring_mode=original.scoring_mode,
         class_ids='',
+        school_ids='',
+        student_ids='',
         folder_id=original.folder_id if original.created_by == current_user.id else None,
         duration_minutes=original.duration_minutes,
         availability_mode='always',
@@ -322,6 +354,8 @@ def exam_toggle_sharing(exam_id):
 def exam_publish(exam_id):
     exam = Exam.query.get_or_404(exam_id)
     require_owns_or_admin(exam)
+    _validate_teacher_class_ids(exam.class_list)
+    _validate_teacher_assignment_targets(exam.school_list, exam.student_list)
     published, message = publish_exam(exam, current_user.id)
     flash(message, 'success' if published else 'warning')
     return redirect(url_for('teacher.exams_list', folder_id=exam.folder_id))
@@ -423,19 +457,25 @@ def exams_statistics(exam_id):
     require_owns_or_admin(exam)
     attempts = _exam_submitted_attempts(exam)
     submitted_student_ids = {attempt.student_id for attempt in attempts}
-    assigned_class_ids = exam.class_list
-    assigned_student_ids = set()
-    if assigned_class_ids:
-        assigned_student_ids = {
-            student_id for student_id, in db.session.query(Enrollment.student_id).join(
-                Student, Student.id == Enrollment.student_id
-            ).filter(
-                Enrollment.class_id.in_(assigned_class_ids),
-                Enrollment.is_active.is_(True),
-                Student.is_active.is_(True),
-                Student.is_deleted.is_(False),
-            ).distinct().all()
-        }
+    accessible_class_ids = [cls.id for cls in _teacher_accessible_classes()]
+    _schools, target_students = exam_assignment_options(accessible_class_ids)
+    student_class_ids = {}
+    if target_students and accessible_class_ids:
+        for class_id, student_id in db.session.query(
+            Enrollment.class_id, Enrollment.student_id
+        ).filter(
+            Enrollment.class_id.in_(accessible_class_ids),
+            Enrollment.student_id.in_([student.id for student in target_students]),
+            Enrollment.is_active.is_(True),
+        ).all():
+            student_class_ids.setdefault(student_id, set()).add(class_id)
+    assigned_student_ids = {
+        student.id for student in target_students
+        if exam_is_assigned_to_student(
+            exam, student, active_class_ids=student_class_ids.get(student.id, set()),
+            teacher_class_ids=accessible_class_ids,
+        )
+    }
     graded_scores = [
         attempt.result.get('score_10', 0)
         for attempt in attempts if not attempt.result.get('pending_essay_count', 0)
@@ -795,9 +835,11 @@ def exams_edit(exam_id):
 def _render_exam_confirm(draft, existing=None, form=None, return_attempt_id=None):
     classes = _teacher_accessible_classes()
     courses = Course.query.filter_by(is_active=True).order_by(Course.name).all()
+    schools, students = exam_assignment_options([cls.id for cls in classes])
     folders = ExamFolder.query.filter_by(created_by=current_user.id).order_by(ExamFolder.name).all()
     return render_template(
         'teacher/exams_confirm.html', payload=draft, classes=classes, courses=courses,
+        schools=schools, students=students,
         folders=folders, exam_types=EXAM_TYPES, durations=DURATION_OPTIONS, form=form,
         editing=bool(existing), existing=existing, return_attempt_id=return_attempt_id,
     )
@@ -830,6 +872,7 @@ def exams_confirm():
                 return_attempt_id=return_attempt_id,
             )
         _validate_teacher_class_ids(settings['class_ids'])
+        _validate_teacher_assignment_targets(settings['school_ids'], settings['student_ids'])
         if settings['folder_id']:
             folder = ExamFolder.query.get(settings['folder_id'])
             if not folder or folder.created_by != current_user.id:
@@ -856,6 +899,8 @@ def exams_confirm():
             existing.scoring_config_json = json.dumps(settings['scoring_config'])
             existing.description = settings['description']
             existing.class_ids = ','.join(settings['class_ids'])
+            existing.school_ids = ','.join(map(str, settings['school_ids']))
+            existing.student_ids = ','.join(map(str, settings['student_ids']))
             existing.folder_id = settings['folder_id']
             existing.duration_minutes = settings['duration_minutes']
             existing.availability_mode = settings['availability_mode']
@@ -888,6 +933,8 @@ def exams_confirm():
                 scoring_config_json=json.dumps(settings['scoring_config']),
                 description=settings['description'],
                 class_ids=','.join(settings['class_ids']),
+                school_ids=','.join(map(str, settings['school_ids'])),
+                student_ids=','.join(map(str, settings['student_ids'])),
                 folder_id=settings['folder_id'],
                 duration_minutes=settings['duration_minutes'],
                 availability_mode=settings['availability_mode'],

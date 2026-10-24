@@ -271,7 +271,7 @@
             <th>Tên đề</th>
             <th class="text-center">Số bài đã nộp</th>
             <th>Trạng thái</th>
-            <th>Lớp đã giao</th>
+            <th>Đối tượng giao</th>
             <th class="text-end">Thao tác</th>
           </tr>
         </thead>
@@ -311,9 +311,18 @@
               {% if exam.is_draft %}<span class="badge bg-secondary">Nháp</span>{% else %}<span class="badge bg-success">Đã đăng</span>{% endif %}
             </td>
             <td>
-              {% for class_name in row.class_names %}
-              <span class="badge bg-light text-dark border me-1 mb-1">{{ class_name }}</span>
-              {% else %}<span class="text-muted small">Chưa giao lớp</span>{% endfor %}
+              {% for target_name in row.class_names %}
+              <span class="badge bg-light text-dark border me-1 mb-1">Lớp: {{ target_name }}</span>
+              {% endfor %}
+              {% for target_name in row.school_names %}
+              <span class="badge bg-info-subtle text-info-emphasis border me-1 mb-1">Trường: {{ target_name }}</span>
+              {% endfor %}
+              {% for target_name in row.student_names %}
+              <span class="badge bg-primary-subtle text-primary-emphasis border me-1 mb-1">{{ target_name }}</span>
+              {% endfor %}
+              {% if not (row.class_names or row.school_names or row.student_names) %}
+              <span class="text-muted small">Chưa chọn đối tượng</span>
+              {% endif %}
             </td>
             <td class="text-end">
               <div class="d-inline-flex gap-1 align-items-center">

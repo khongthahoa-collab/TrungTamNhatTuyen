@@ -14,7 +14,10 @@ from extensions import db
 from models import (Student, Attendance, Score, Reward, TuitionPayment, Schedule, Enrollment,
                     ClassDocument, ScoreType, ScoreSource, ContactInquiry, Exam, ExamAttempt, ExamLog,
                     Class, User, UserRole, Notification)
-from blueprints.exams_shared import apply_manual_essay_scores, review_attempt_answers as _review_attempt_answers
+from blueprints.exams_shared import (
+    apply_manual_essay_scores, exam_is_assigned_to_student,
+    review_attempt_answers as _review_attempt_answers,
+)
 
 parent_bp = Blueprint('parent', __name__)
 CHEAT_LIMIT = 3
@@ -528,8 +531,15 @@ def _exams_for_student(student):
         }
     all_exams = Exam.query.filter_by(is_draft=False).order_by(Exam.created_at.desc()).all()
     if current_user.is_student:
-        return [exam for exam in all_exams if exam.class_list and class_ids & set(exam.class_list)]
-    return [exam for exam in all_exams if not exam.class_list or class_ids & set(exam.class_list)]
+        return [
+            exam for exam in all_exams
+            if exam_is_assigned_to_student(exam, student, active_class_ids=class_ids)
+        ]
+    return [
+        exam for exam in all_exams
+        if not (exam.class_list or exam.school_list or exam.student_list)
+        or exam_is_assigned_to_student(exam, student, active_class_ids=class_ids)
+    ]
 
 
 def _build_attempt_order(exam):

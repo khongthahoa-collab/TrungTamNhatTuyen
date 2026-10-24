@@ -12,6 +12,8 @@ def _ensure_new_columns():
         ('exams', 'scoring_mode', "VARCHAR(20) NOT NULL DEFAULT 'question'"),
         ('exams', 'scoring_config_json', "TEXT NOT NULL DEFAULT '{}'"),
         ('exams', 'is_shared_with_teachers', 'BOOLEAN NOT NULL DEFAULT FALSE'),
+        ('exams', 'school_ids', "TEXT NOT NULL DEFAULT ''"),
+        ('exams', 'student_ids', "TEXT NOT NULL DEFAULT ''"),
         ('exam_folders', 'parent_id', 'INTEGER REFERENCES exam_folders(id)'),
     ]
     try:

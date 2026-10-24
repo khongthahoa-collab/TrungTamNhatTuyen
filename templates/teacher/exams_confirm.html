@@ -10,6 +10,8 @@
 {% block content %}
 <div class="container-fluid px-3 pt-3">
 {% set existing_class_ids = existing.class_list if existing else [] %}
+{% set existing_school_ids = existing.school_list if existing else [] %}
+{% set existing_student_ids = existing.student_list if existing else [] %}
 {% set course_names = courses | map(attribute='name') | list %}
 {% set subject_matches_course = existing and existing.subject in course_names %}
 {% call page_header('Cập nhật cấu hình đề thi' if editing else 'Cấu hình & xác nhận đề thi', 'sliders', badge='Bước 2/2',
@@ -97,7 +99,8 @@
 
       <div class="card border-0 shadow-sm mb-3">
         <div class="card-body">
-          <h6 class="fw-semibold mb-3" data-guide="assignment"><i class="bi bi-people me-1 text-success"></i>Chọn lớp cần giao</h6>
+          <h6 class="fw-semibold mb-2" data-guide="assignment"><i class="bi bi-people me-1 text-success"></i>Đối tượng nhận đề</h6>
+          <p class="small text-muted">Có thể chọn lớp, trường và học sinh cùng lúc. Học sinh thuộc bất kỳ mục nào được chọn đều nhận đề.</p>
           <label class="form-label small text-muted" for="classIdsSelect">Tìm và chọn một hoặc nhiều lớp</label>
           <select class="form-select" id="classIdsSelect" name="class_ids" multiple
                   data-placeholder="Gõ tên lớp để tìm...">
@@ -110,7 +113,29 @@
             <option disabled>Chưa có lớp nào được phân công cho tài khoản này.</option>
             {% endfor %}
           </select>
-          <div class="form-text">Bạn có thể gõ tên lớp để lọc nhanh, rồi chọn nhiều lớp cùng lúc.</div>
+          <div class="form-text mb-3">Học sinh đang theo học ở lớp được chọn sẽ nhận đề.</div>
+          <label class="form-label small text-muted" for="schoolIdsSelect">Giao thêm theo trường</label>
+          <select class="form-select" id="schoolIdsSelect" name="school_ids" multiple
+                  data-placeholder="Tìm trường trong danh sách học sinh các lớp được phân công...">
+            {% for school in schools %}
+            <option value="{{ school.id }}"
+                    {% if (form and school.id|string in form.getlist('school_ids')) or (not form and school.id in existing_school_ids) %}selected{% endif %}>
+              {{ school.name }}
+            </option>
+            {% endfor %}
+          </select>
+          <div class="form-text mb-3">Chỉ áp dụng cho học sinh có trường liên kết và thuộc lớp giáo viên được phân công.</div>
+          <label class="form-label small text-muted" for="studentIdsSelect">Giao thêm cho học sinh cụ thể</label>
+          <select class="form-select" id="studentIdsSelect" name="student_ids" multiple
+                  data-placeholder="Tìm học sinh trong các lớp được phân công...">
+            {% for student in students %}
+            <option value="{{ student.id }}"
+                    {% if (form and student.id|string in form.getlist('student_ids')) or (not form and student.id in existing_student_ids) %}selected{% endif %}>
+              {{ student.full_name }}{% if student.current_grade %} · {{ student.current_grade }}{% endif %}{% if student.school_obj %} · {{ student.school_obj.name }}{% endif %}
+            </option>
+            {% endfor %}
+          </select>
+          <div class="form-text mb-3">Các đối tượng được chọn được kết hợp theo phép OR, không giới hạn học sinh đã chọn ở lớp chỉ định.</div>
           <div class="mt-3">
             <label class="form-label fw-semibold" for="statusDraft">Trạng thái đề</label>
             <div class="d-flex flex-wrap gap-2">
@@ -234,6 +259,11 @@
 $('#classIdsSelect').select2({
   theme: 'bootstrap-5',
   placeholder: $('#classIdsSelect').data('placeholder'),
+  width: '100%',
+  closeOnSelect: false,
+});
+$('#schoolIdsSelect, #studentIdsSelect').select2({
+  theme: 'bootstrap-5',
   width: '100%',
   closeOnSelect: false,
 });
