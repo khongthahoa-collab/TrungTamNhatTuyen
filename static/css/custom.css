@@ -1310,6 +1310,11 @@ footer a:hover { color: #fff !important; }
   transform: translateY(-2px);
   box-shadow: var(--nt-shadow) !important;
 }
+.exam-table-wrap { display: block; max-width: 100%; overflow-x: auto; margin: .75rem 0; }
+.exam-content-table { width: 100%; border-collapse: collapse; font-weight: 400; font-size: .95em; white-space: normal; }
+.exam-content-table th,
+.exam-content-table td { border: 1px solid var(--nt-border-light); padding: .6rem .75rem; min-width: 6rem; vertical-align: middle; }
+.exam-content-table th { background: var(--nt-primary-50); font-weight: 600; }
 .exam-list-row { cursor: pointer; }
 .exam-list-row .exam-context-trigger { cursor: pointer; }
 .exam-context-menu {

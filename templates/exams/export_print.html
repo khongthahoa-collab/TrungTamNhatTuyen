@@ -11,6 +11,10 @@
   .group-instruction { font-style: italic; color: #333; margin-bottom: 10px; }
   .question { margin-bottom: 12px; }
   .question .qtitle { font-weight: bold; }
+  .exam-table-wrap { display: block; max-width: 100%; overflow-x: auto; margin: 10px 0; }
+  .exam-content-table { width: 100%; border-collapse: collapse; font-weight: normal; }
+  .exam-content-table th, .exam-content-table td { border: 1px solid #777; padding: 7px 10px; }
+  .exam-content-table th { background: #f2f2f2; font-weight: bold; }
   .options, .statements { margin-left: 18px; }
   .options div, .statements div { margin-bottom: 2px; }
   .options-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 16px; }
@@ -25,7 +29,11 @@
   .print-watermark img { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 240mm; height: auto; max-width: none; object-fit: contain; opacity: 0.06; }
   .print-content { position: relative; z-index: 1; }
   u { text-decoration: underline; }
-  @media print { .print-bar { display: none; } }
+  @media print {
+    .print-bar { display: none; }
+    .exam-table-wrap { overflow: visible; }
+    .exam-content-table tr { break-inside: avoid; }
+  }
   {% if fmt == 'pdf' %}
   @page {
     size: A4 portrait;

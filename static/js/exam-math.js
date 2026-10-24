@@ -180,6 +180,7 @@
 
   window.typesetExamMath = function (root) {
     const target = root || document.body;
+    window.renderExamTables(target);
     renderPlainScripts(target);
     typesetQueue = typesetQueue.then(async () => {
       await mathJaxReady;
