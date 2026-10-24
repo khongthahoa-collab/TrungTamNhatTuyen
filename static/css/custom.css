@@ -1356,6 +1356,102 @@ footer a:hover { color: #fff !important; }
   .exam-list-table td { padding: .55rem .45rem; font-size: .82rem; }
   .exam-context-menu { min-width: 230px; }
 }
+@media (max-width: 767.98px) {
+  .exam-list-table-wrap { overflow: visible; }
+  .exam-list-table {
+    display: block;
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .exam-list-table thead { display: none; }
+  .exam-list-table tbody {
+    display: grid;
+    width: 100%;
+    gap: .75rem;
+    padding: .75rem;
+  }
+  .exam-list-table tbody tr.exam-list-row {
+    display: grid;
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "title actions"
+      "status count"
+      "targets targets";
+    align-items: center;
+    gap: .55rem .75rem;
+    padding: .75rem;
+    border: 1px solid var(--nt-border-light);
+    border-radius: 14px;
+    background: var(--nt-white);
+    box-shadow: 0 2px 8px rgba(24, 39, 75, .06);
+  }
+  .exam-list-table tbody tr.exam-list-row td {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    font-size: .84rem;
+  }
+  .exam-list-table tbody tr.exam-list-row td:nth-child(1) {
+    grid-area: title;
+    align-self: start;
+    font-size: .96rem;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+  .exam-list-table tbody tr.exam-list-row td:nth-child(2) {
+    grid-area: count;
+    text-align: right !important;
+    white-space: nowrap;
+  }
+  .exam-list-table tbody tr.exam-list-row td:nth-child(2)::before,
+  .exam-list-table tbody tr.exam-list-row td:nth-child(3)::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: .15rem;
+    color: var(--nt-text-muted);
+    font-size: .72rem;
+    font-weight: 600;
+  }
+  .exam-list-table tbody tr.exam-list-row td:nth-child(3) {
+    grid-area: status;
+  }
+  .exam-list-table tbody tr.exam-list-row td:nth-child(4) {
+    grid-area: targets;
+    padding-top: .55rem;
+    border-top: 1px solid var(--nt-border-light);
+    line-height: 1.8;
+  }
+  .exam-list-table tbody tr.exam-list-row td:nth-child(4)::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: .15rem;
+    color: var(--nt-text-muted);
+    font-size: .72rem;
+    font-weight: 600;
+  }
+  .exam-list-table tbody tr.exam-list-row td:nth-child(5) {
+    grid-area: actions;
+    align-self: start;
+    white-space: nowrap;
+  }
+  .exam-list-table tbody tr.exam-list-row td:nth-child(5) .btn {
+    min-width: 38px;
+    min-height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .exam-list-table tbody tr.exam-list-empty {
+    display: block;
+  }
+  .exam-list-table tbody tr.exam-list-empty td {
+    display: block;
+    width: 100%;
+    padding: 1.25rem .5rem !important;
+  }
+}
 
 .exam-share-chip {
   padding: 0.3rem 0.8rem;

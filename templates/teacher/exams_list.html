@@ -264,7 +264,7 @@
 
 <div class="card border-0 shadow-sm">
   <div class="card-body p-0">
-    <div class="table-responsive">
+    <div class="table-responsive exam-list-table-wrap">
       <table class="table table-hover align-middle mb-0 exam-list-table">
         <thead class="table-light">
           <tr>
@@ -303,14 +303,14 @@
             <td class="fw-semibold">
               <div>{{ exam.title }}</div>
             </td>
-            <td class="text-center">
+            <td class="text-center" data-label="Bài đã nộp">
               <span class="fw-semibold">{{ row.submission_count }}</span>
               <div class="small text-muted">{{ row.submitted_students }}/{{ row.assigned_students }} học sinh</div>
             </td>
-            <td>
+            <td data-label="Trạng thái">
               {% if exam.is_draft %}<span class="badge bg-secondary">Nháp</span>{% else %}<span class="badge bg-success">Đã đăng</span>{% endif %}
             </td>
-            <td>
+            <td data-label="Đối tượng giao">
               {% for target_name in row.class_names %}
               <span class="badge bg-light text-dark border me-1 mb-1">Lớp: {{ target_name }}</span>
               {% endfor %}
@@ -337,7 +337,7 @@
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="5" class="text-center text-muted py-4">
+          <tr class="exam-list-empty"><td colspan="5" class="text-center text-muted py-4">
             {% if current_folder %}Không có đề phù hợp trong thư mục này.{% else %}Chưa có đề phù hợp. Thử đổi bộ lọc hoặc bấm "Tạo đề thi" để bắt đầu.{% endif %}
           </td></tr>
           {% endfor %}
