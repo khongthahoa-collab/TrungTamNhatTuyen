@@ -2,6 +2,7 @@
 import json
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from blueprints.exams_shared import (
     attempt_result_is_stale,
@@ -10,7 +11,9 @@ from blueprints.exams_shared import (
     has_stale_scoring,
     regrade_attempt_if_stale,
 )
+from blueprints.teacher_exams import _validate_teacher_assignment_targets
 from werkzeug.datastructures import MultiDict
+from werkzeug.exceptions import Forbidden
 
 
 class Attempt:
@@ -44,6 +47,31 @@ class AttemptCollection:
 
 
 class SubmittedAttemptRegradingTests(unittest.TestCase):
+    def test_teacher_assignment_validation_uses_visible_accessible_class_roster(self):
+        school = SimpleNamespace(id=4)
+        student = SimpleNamespace(id=12)
+        accessible_class = SimpleNamespace(id=7)
+
+        with patch(
+            'blueprints.teacher_exams._teacher_accessible_classes',
+            return_value=[accessible_class],
+        ), patch(
+            'blueprints.teacher_exams.exam_assignment_options',
+            return_value=([school], [student]),
+        ) as options:
+            _validate_teacher_assignment_targets([4], [12])
+            options.assert_called_once_with([7])
+
+        with patch(
+            'blueprints.teacher_exams._teacher_accessible_classes',
+            return_value=[accessible_class],
+        ), patch(
+            'blueprints.teacher_exams.exam_assignment_options',
+            return_value=([school], [student]),
+        ):
+            with self.assertRaises(Forbidden):
+                _validate_teacher_assignment_targets([], [13])
+
     def test_exam_targets_match_selected_class_school_or_student(self):
         student = SimpleNamespace(id=12, school_id=4)
         exam = SimpleNamespace(class_list=[7], school_list=[4], student_list=[12], creator=None)

@@ -46,10 +46,7 @@ def _validate_teacher_class_ids(class_ids):
 
 
 def _validate_teacher_assignment_targets(school_ids, student_ids):
-    teacher = current_user.teacher_profile
-    class_ids = [
-        cls.id for cls in teacher.classes.filter_by(is_active=True).all()
-    ] if teacher else []
+    class_ids = [cls.id for cls in _teacher_accessible_classes()]
     allowed_schools, allowed_students = exam_assignment_options(class_ids)
     if not set(school_ids).issubset({school.id for school in allowed_schools}):
         abort(403)

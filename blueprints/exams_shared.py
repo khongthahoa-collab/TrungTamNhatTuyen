@@ -288,9 +288,10 @@ def exam_is_assigned_to_student(exam, student, active_class_ids=None, teacher_cl
         return bool(student_class_ids.intersection(teacher_class_ids))
     if exam.creator and exam.creator.role == 'teacher':
         teacher = exam.creator.teacher_profile
-        assigned_class_ids = {
-            cls.id for cls in teacher.classes.filter_by(is_active=True).all()
-        } if teacher else set()
+        if not teacher:
+            return False
+        from blueprints.teacher import _teacher_score_class_ids
+        assigned_class_ids = _teacher_score_class_ids(teacher)
         return bool(student_class_ids.intersection(assigned_class_ids))
     return True
 
