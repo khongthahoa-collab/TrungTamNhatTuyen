@@ -13,6 +13,10 @@
       <span class="text-light small text-truncate" style="max-width:160px;">
         <i class="bi bi-person-circle me-1"></i>{{ current_user.student_profile.full_name }}
       </span>
+      <button id="studentPushEnable" class="btn btn-sm btn-outline-light d-none"
+              type="button" aria-label="Bật thông báo đề thi">
+        <i class="bi bi-bell"></i>
+      </button>
       <a href="{{ url_for('auth.change_password') }}" class="btn btn-sm btn-outline-light" title="Đổi mật khẩu">
         <i class="bi bi-key"></i>
       </a>
@@ -24,6 +28,18 @@
 </nav>
 
 <main style="padding-bottom:calc(72px + env(safe-area-inset-bottom));min-height:100vh;min-height:100dvh;">
+  <div id="studentPushMessage" class="alert alert-info mx-3 mt-3 mb-0 d-none"
+       role="status"
+       data-key-url="{{ url_for('student.push_public_key') }}"
+       data-subscription-url="{{ url_for('student.push_subscription') }}"
+       data-csrf-token="{{ csrf_token() }}">
+    <div class="d-flex align-items-center justify-content-between gap-3">
+      <span id="studentPushMessageText">Bật thông báo để biết ngay khi có đề thi mới.</span>
+      <button id="studentPushMessageButton" class="btn btn-sm btn-primary flex-shrink-0" type="button">
+        Bật thông báo
+      </button>
+    </div>
+  </div>
   {% block content %}{% endblock %}
 </main>
 
@@ -39,4 +55,5 @@
     </a>
   </div>
 </nav>
+<script src="{{ url_for('static', filename='js/student-push.js') }}"></script>
 {% endblock %}

@@ -1776,6 +1776,24 @@ class Notification(db.Model):
         return f'<Notification user={self.user_id} title={self.title}>'
 
 
+class PushSubscription(db.Model):
+    """A browser/device endpoint authorized to receive Web Push messages."""
+    __tablename__ = 'push_subscriptions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    endpoint = db.Column(db.Text, nullable=False)
+    endpoint_hash = db.Column(db.String(64), nullable=False, unique=True)
+    p256dh_key = db.Column(db.Text, nullable=False)
+    auth_key = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+    user = db.relationship('User', backref=db.backref('push_subscriptions', lazy='dynamic'))
+
+
 class ContactInquiry(db.Model):
     """Public contact/enrollment request from prospective parents"""
     __tablename__ = 'contact_inquiries'

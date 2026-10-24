@@ -17,8 +17,9 @@ def _ensure_new_columns():
         ('exam_folders', 'parent_id', 'INTEGER REFERENCES exam_folders(id)'),
     ]
     try:
-        from models import ExamContentTemplate
+        from models import ExamContentTemplate, PushSubscription
         ExamContentTemplate.__table__.create(bind=db.engine, checkfirst=True)
+        PushSubscription.__table__.create(bind=db.engine, checkfirst=True)
         inspector = inspect(db.engine)
         tables = set(inspector.get_table_names())
         with db.engine.begin() as conn:
@@ -111,12 +112,11 @@ def create_app(config_name=None):
     # iOS standalone PWA (Add to Home Screen) caches HTML far more aggressively
     # than a normal Safari tab, and has no reload button/URL bar to bypass it —
     # so business pages can get stuck showing stale data indefinitely. Force
-    # no-store on the dynamic sections; static assets are untouched.
+    # no-store on dynamic, authenticated sections; static assets are untouched.
     @app.after_request
     def disable_dynamic_routes_cache(response):
         path = request.path
-        if (path.startswith('/admin') or path.startswith('/teacher') or
-                path.startswith('/parent') or path.startswith('/api') or path == '/'):
+        if path.startswith(('/admin', '/teacher', '/parent', '/api', '/student')) or path == '/':
             response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
             response.headers['Pragma'] = 'no-cache'
             response.headers['Expires'] = '0'

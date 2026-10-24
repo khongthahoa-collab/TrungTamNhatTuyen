@@ -15,3 +15,5 @@ gunicorn==21.2.0
 openpyxl==3.1.5
 Markdown==3.7
 bleach==6.2.0
+pywebpush==2.3.0
+requests>=2.21.0,<3

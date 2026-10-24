@@ -884,6 +884,11 @@ def exams_confirm():
                 )
 
         if existing:
+            was_published = not existing.is_draft
+            from services.exam_push_notifications import (
+                exam_assignment_user_ids, notify_exam_assignment,
+            )
+            previous_recipients = exam_assignment_user_ids(existing) if was_published else set()
             had_attempts = existing.attempts.count() > 0
             questions_changed = existing.question_groups != draft['groups']
             scoring_changed = (existing.scoring_mode, existing.scoring_config_json) != (
@@ -919,6 +924,11 @@ def exams_confirm():
             db.session.add(ExamLog(user_id=current_user.id, action='update_exam', target_type='exam',
                                    target_id=existing.id, detail=detail))
             db.session.commit()
+            if not existing.is_draft:
+                notify_exam_assignment(
+                    existing,
+                    exclude_user_ids=previous_recipients if was_published else None,
+                )
             session.pop(SESSION_KEY, None)
             flash('Đã lưu thay đổi đề thi.', 'success')
         else:
@@ -949,6 +959,10 @@ def exams_confirm():
             db.session.add(ExamLog(user_id=current_user.id, action='create_exam', target_type='exam', target_id=exam.id,
                                    detail=f'Tạo đề "{exam.title}" ({"nháp" if settings["is_draft"] else "đã đăng"})'))
             db.session.commit()
+            if not exam.is_draft:
+                from services.exam_push_notifications import notify_exam_assignment
+
+                notify_exam_assignment(exam)
             session.pop(SESSION_KEY, None)
             flash('Đã tạo đề thi thành công.', 'success')
 

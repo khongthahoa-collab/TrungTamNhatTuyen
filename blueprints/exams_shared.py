@@ -246,6 +246,8 @@ def publish_exam(exam, actor_id):
         detail=f'Đăng đề "{exam.title}" từ danh sách đề thi',
     ))
     db.session.commit()
+    from services.exam_push_notifications import notify_exam_assignment
+    notify_exam_assignment(exam)
     return True, f'Đã đăng đề "{exam.title}".'
 
 

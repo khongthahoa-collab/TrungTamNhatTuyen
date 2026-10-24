@@ -40,6 +40,13 @@ class Config:
     ZALO_ACCESS_TOKEN = os.environ.get('ZALO_ACCESS_TOKEN', '')
     ZALO_SECRET_KEY = os.environ.get('ZALO_SECRET_KEY', '')
 
+    # Web Push (PWA); keep the private key only in deployment secrets.
+    WEB_PUSH_VAPID_PUBLIC_KEY = os.environ.get('WEB_PUSH_VAPID_PUBLIC_KEY', '')
+    WEB_PUSH_VAPID_PRIVATE_KEY = os.environ.get('WEB_PUSH_VAPID_PRIVATE_KEY', '')
+    WEB_PUSH_VAPID_CLAIMS_EMAIL = os.environ.get(
+        'WEB_PUSH_VAPID_CLAIMS_EMAIL', 'mailto:admin@example.com'
+    )
+
 
 class DevelopmentConfig(Config):
     DEBUG = True
