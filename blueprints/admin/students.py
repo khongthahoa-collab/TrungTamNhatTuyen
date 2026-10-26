@@ -103,13 +103,10 @@ def students():
         teacher_class_ids = (
             db.session.query(Schedule.class_id)
             .filter(Schedule.teacher_id == teacher_id)
-            .distinct()
-            .subquery()
         )
-        query = query.join(Student.enrollments).filter(
-            Enrollment.class_id.in_(teacher_class_ids),
-            Enrollment.is_active == True
-        ).distinct()
+        query = query.filter(Student.enrollments.any(
+            Enrollment.class_id.in_(teacher_class_ids) & (Enrollment.is_active == True)
+        ))
 
     page         = request.args.get('page', 1, type=int)
     per_page_raw = request.args.get('per_page', '10')
