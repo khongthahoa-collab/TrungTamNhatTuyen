@@ -508,6 +508,18 @@ h1, h2, h3, h4, h5, h6 {
   border-bottom-color: var(--nt-primary-dark) !important;
 }
 
+.dashboard-kpi-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: .75rem;
+}
+.dashboard-kpi-body > div:last-child {
+  width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 /* ── Hall of Fame ── */
 #thanh-tich { background: #fff; }
 
