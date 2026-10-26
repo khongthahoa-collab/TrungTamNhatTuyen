@@ -78,7 +78,9 @@
       </div>
       <div class="card-body pt-2 px-0">
         {% if today_schedules %}
-        <ul class="list-group list-group-flush">
+        <div id="today-schedules-scroll" style="overflow-y: auto;" tabindex="0"
+             role="region" aria-label="Lịch học hôm nay">
+        <ul class="list-group list-group-flush mb-0">
           {% for s in today_schedules %}
           <li class="list-group-item px-3 py-2 d-flex justify-content-between align-items-center">
             <div class="small">
@@ -96,6 +98,22 @@
           </li>
           {% endfor %}
         </ul>
+        </div>
+        <script>
+          (() => {
+            const container = document.getElementById('today-schedules-scroll');
+            const list = container.querySelector('ul');
+            const updateHeight = () => {
+              const rows = list.children;
+              if (rows.length <= 5) return;
+              const first = rows[0].getBoundingClientRect();
+              const fifth = rows[4].getBoundingClientRect();
+              container.style.maxHeight = `${fifth.bottom - first.top}px`;
+            };
+            updateHeight();
+            new ResizeObserver(updateHeight).observe(list);
+          })();
+        </script>
         {% else %}
         <p class="text-muted text-center py-3 mb-0 small">Không có buổi học nào hôm nay.</p>
         {% endif %}
