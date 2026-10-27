@@ -8,7 +8,7 @@
 <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
 {% endblock %}
 {% block content %}
-<div class="container-fluid px-3 pt-3">
+<div{% if not unified_edit %} class="container-fluid px-3 pt-3"{% endif %}>
 {% set existing_class_ids = existing.class_list if existing else [] %}
 {% set existing_school_ids = existing.school_list if existing else [] %}
 {% set existing_student_ids = existing.student_list if existing else [] %}
@@ -40,7 +40,7 @@
   <input type="hidden" name="return_attempt_id" value="{{ return_attempt_id }}">
   {% endif %}
   <div class="row g-3">
-    <div class="col-lg-7">
+    <div class="{{ 'col-lg-6' if unified_edit else 'col-lg-7' }}">
       <div class="card border-0 shadow-sm mb-3">
         <div class="card-body">
           <h6 class="fw-semibold mb-3"><i class="bi bi-info-circle me-1 text-success"></i>Thông tin đề thi</h6>
@@ -158,6 +158,10 @@
         </div>
       </div>
 
+      {% if unified_edit %}
+    </div>
+    <div class="col-lg-6">
+      {% endif %}
       <div class="card border-0 shadow-sm mb-3">
         <div class="card-body">
           <h6 class="fw-semibold mb-2" data-guide="scoring"><i class="bi bi-calculator me-1 text-success"></i>Cách chia điểm</h6>
@@ -236,16 +240,22 @@
       </div>
     </div>
 
+    {% if unified_edit %}
+    <div class="col-12">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 border-top pt-3 pb-3">
+        <p class="text-muted small mb-0">Lưu cả nội dung và cài đặt hiện tại.</p>
+        <button type="submit" class="btn btn-primary" data-guide="save">
+          <i class="bi bi-check-circle me-1"></i>Lưu thay đổi
+        </button>
+      </div>
+    </div>
+    {% else %}
     <div class="col-lg-5">
       <div class="card border-0 shadow-sm" style="position:sticky; top:8px;">
         <div class="card-body" style="max-height:60vh; overflow-y:auto;">
-          {% if unified_edit %}
-          <p class="mb-0">Lưu thay đổi sẽ lưu cả nội dung và cài đặt hiện tại. Chọn tab “Nội dung đề” để xem trước nội dung.</p>
-          {% else %}
           {% for group in payload.groups %}
           {{ exam_macros.render_group(group) }}
           {% endfor %}
-          {% endif %}
         </div>
         <div class="card-footer bg-white">
           <button type="submit" class="btn btn-primary w-100" data-guide="save">
@@ -253,6 +263,7 @@
           </button>
         </div>
       </div>
+      {% endif %}
     </div>
   </div>
 </form>

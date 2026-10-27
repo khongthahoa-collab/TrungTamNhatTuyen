@@ -68,7 +68,23 @@ const select2 = fetchAsset('https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist
     });
     for (const width of [320, 375, 768, 1440]) {
       await page.setViewportSize({ width, height: 900 });
+      await page.locator('#examSettingsTab').click();
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
+      const layout = await page.evaluate(() => {
+        const columns = [...document.querySelectorAll('#exam-settings-form > .row > .col-lg-6')];
+        const [left, right] = columns.map(el => el.getBoundingClientRect());
+        const save = document.querySelector('#exam-settings-form [data-guide="save"]').getBoundingClientRect();
+        return {
+          columns: columns.length,
+          sideBySide: Math.abs(left.top - right.top) < 1,
+          footerBelow: save.top >= Math.max(left.bottom, right.bottom),
+          cards: columns.map(el => el.querySelectorAll('.card').length),
+        };
+      });
+      assert.equal(layout.columns, 2);
+      assert.equal(layout.sideBySide, width >= 992);
+      assert.equal(layout.footerBelow, true);
+      assert.deepEqual(layout.cards, [2, 3]);
     }
     await page.locator('#examSettingsTab').click();
     await page.locator('#exam-settings-form button[type="submit"]').click();
