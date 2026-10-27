@@ -4,7 +4,7 @@
 {% block content %}
 <div class="container-fluid px-3 py-3">
   {{ page_header(student.name, 'person', subtitle=student.grade or 'Theo dõi học tập',
-     back_href=url_for('teacher.students_list'), back_label='học sinh') }}
+     back_href=url_for('teacher.class_students', class_id=back_class_id), back_label='học sinh trong lớp') }}
   <div class="d-flex gap-2 flex-wrap mb-3">{% for member in memberships %}<span class="badge bg-secondary text-wrap">{{ member.class_name }}</span>{% endfor %}</div>
   {% if can_attendance %}
     {% set absence_warnings = absence_warnings | selectattr('student_id', 'equalto', student.id) | list %}

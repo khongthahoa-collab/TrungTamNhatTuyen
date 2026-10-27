@@ -12,7 +12,8 @@ test = TeacherStudentsTests()
 test.setUp()
 try:
     test.populate()
-    paths = ['/teacher/students?q=Synthetic', f'/teacher/students/{test.student.id}']
+    paths = ['/teacher/students', f'/teacher/students/class/{test.class_.id}?q=Synthetic',
+             f'/teacher/students/{test.student.id}']
     print(json.dumps({path: test.client.get(path).get_data(as_text=True) for path in paths}))
 finally:
     test.tearDown()
@@ -54,12 +55,31 @@ const bootstrap = execFileSync('curl', [
       if (path.includes('?')) {
         assert.equal(await page.locator('[name="q"]').inputValue(), 'Synthetic');
         assert.ok(await page.getByRole('link', { name: 'Xem học tập Synthetic student', exact: true }).getAttribute('href'));
-      } else {
+      } else if (path !== '/teacher/students') {
         assert.equal(await page.locator('form[method="post"]').count(), 0);
         assert.ok((await page.locator('body').textContent()).includes('0.0/10.0'));
+      } else {
+        assert.ok(await page.getByRole('link', { name: /Synthetic class/ }).getAttribute('href'));
       }
     }
-    console.log('PASS: real teacher student list/detail; six-item bottom nav fits 320–1440px, active Students link, no page overflow or private data, zero score preserved, read-only detail.');
+    const pages = JSON.parse(rendered.stdout);
+    await page.unroute('**/*');
+    await page.route('https://teacher.test/**', route => {
+      const url = new URL(route.request().url());
+      const key = Object.keys(pages).find(path => path.split('?')[0] === url.pathname);
+      return route.fulfill({ contentType: 'text/html', body: key
+        ? pages[key].replace(/<link\b[^>]*>/g, '').replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, '')
+        : 'Not found' });
+    });
+    await page.goto('https://teacher.test/teacher/students');
+    await page.getByRole('link', { name: /Synthetic class/ }).click();
+    assert.ok(new URL(page.url()).pathname.includes('/students/class/'));
+    await page.getByRole('link', { name: 'Synthetic student', exact: true }).click();
+    assert.ok(/\/students\/\d+$/.test(new URL(page.url()).pathname));
+    assert.ok((await page.locator('body').textContent()).includes('0.0/10.0'));
+    await page.getByRole('link', { name: /học sinh trong lớp/ }).click();
+    assert.ok(new URL(page.url()).pathname.includes('/students/class/'));
+    console.log('PASS: class → roster → learning detail and back navigation; six-item bottom nav fits 320–1440px, active Students link, no overflow/private data, zero score preserved, read-only detail.');
   } finally {
     await browser.close();
   }

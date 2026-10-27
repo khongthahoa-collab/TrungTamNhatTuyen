@@ -593,7 +593,16 @@ def scores_detail(class_id):
         (ScoreType.FINAL, f'CK {semester_suffix}'.strip()),
     ]
 
+    learning_student_ids = set()
+    if current_user.can_access('students'):
+        from blueprints.teacher_students import _classes, _roster
+        learning_student_ids = {
+            row.id for row in _roster([cls.id for cls in _classes()]).filter(
+                Student.id.in_(list(by_student)),
+            ).all()
+        }
     return render_template('teacher/scores_detail.html',
+                           learning_student_ids=learning_student_ids,
                            class_=class_,
                            matrix=matrix,
                            matrix_columns=matrix_columns,

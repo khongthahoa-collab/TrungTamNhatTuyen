@@ -1,0 +1,22 @@
+{% extends 'teacher/base.html' %}
+{% from 'teacher/_navigation.html' import page_header %}
+{% block title %}Học sinh – Nhật Tuyền{% endblock %}
+{% block content %}
+<div class="container-fluid px-3 py-3">
+  {{ page_header('Học sinh', 'people', subtitle='Chọn lớp để theo dõi học tập của học sinh') }}
+  <div class="row g-3">
+    {% for cls in classes %}
+    <div class="col-12 col-md-6 col-xl-4">
+      <a href="{{ url_for('teacher.class_students', class_id=cls.id) }}" class="card border-0 shadow-sm h-100 text-decoration-none">
+        <div class="card-body">
+          <h2 class="h6 fw-bold text-break">{{ cls.name }}</h2>
+          <span class="small text-muted">{{ counts.get(cls.id, 0) }} học sinh đang học</span>
+        </div>
+      </a>
+    </div>
+    {% else %}
+    <div class="col-12"><div class="alert alert-light border text-center">Bạn chưa có lớp đang phụ trách.</div></div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

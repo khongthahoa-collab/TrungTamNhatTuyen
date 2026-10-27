@@ -3,24 +3,18 @@
 {% block title %}Học sinh – Nhật Tuyền{% endblock %}
 {% block content %}
 <div class="container-fluid px-3 py-3">
-  {{ page_header('Học sinh', 'people', subtitle='Theo dõi học tập trong các lớp bạn đang phụ trách') }}
+  {{ page_header('Học sinh', 'people', subtitle=selected_class.name,
+     back_href=url_for('teacher.students_list'), back_label='danh sách lớp') }}
   <form method="get" class="card border-0 shadow-sm mb-3">
     <div class="card-body">
       <div class="row g-2 align-items-end">
-        <div class="col-12 col-sm-6">
+        <div class="col-12 col-sm-10">
           <label for="studentSearch" class="form-label">Tên học sinh</label>
           <input id="studentSearch" name="q" value="{{ q }}" class="form-control" type="search" placeholder="Tìm theo tên">
         </div>
-        <div class="col-12 col-sm-4">
-          <label for="studentClass" class="form-label">Lớp</label>
-          <select id="studentClass" name="class_id" class="form-select">
-            <option value="">Tất cả lớp phụ trách</option>
-            {% for cls in classes %}<option value="{{ cls.id }}"{% if class_id == cls.id %} selected{% endif %}>{{ cls.name }}</option>{% endfor %}
-          </select>
-        </div>
         <div class="col-12 col-sm-2 d-flex gap-2">
           <button type="submit" class="btn action-icon-btn icon-action-plain" title="Tìm học sinh" aria-label="Tìm học sinh"><i class="bi bi-search" aria-hidden="true"></i></button>
-          {% if q or class_id %}<a href="{{ url_for('teacher.students_list') }}" class="btn btn-outline-secondary">Bỏ lọc</a>{% endif %}
+          {% if q %}<a href="{{ url_for('teacher.class_students', class_id=class_id) }}" class="btn btn-outline-secondary">Bỏ lọc</a>{% endif %}
         </div>
       </div>
     </div>
@@ -33,10 +27,10 @@
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-start gap-2">
             <div class="text-break">
-              <h2 class="h6 fw-bold mb-1">{{ student.name }}</h2>
+              <h2 class="h6 fw-bold mb-1"><a href="{{ url_for('teacher.student_learning', student_id=student.id, class_id=class_id) }}">{{ student.name }}</a></h2>
               {% if student.grade %}<div class="small text-muted">{{ student.grade }}</div>{% endif %}
             </div>
-            <a href="{{ url_for('teacher.student_learning', student_id=student.id) }}" class="btn btn-outline-primary action-icon-btn" title="Xem học tập {{ student.name }}" aria-label="Xem học tập {{ student.name }}"><i class="bi bi-eye" aria-hidden="true"></i></a>
+            <a href="{{ url_for('teacher.student_learning', student_id=student.id, class_id=class_id) }}" class="btn btn-outline-primary action-icon-btn" title="Xem học tập {{ student.name }}" aria-label="Xem học tập {{ student.name }}"><i class="bi bi-eye" aria-hidden="true"></i></a>
           </div>
           {% for name in student.classes %}<div class="small mt-2 text-break">{{ name }}</div>{% endfor %}
           {% for warning in student.warnings %}
@@ -54,7 +48,7 @@
     <ul class="pagination pagination-sm justify-content-center flex-wrap">
       {% for p in pagination.iter_pages() %}
       <li class="page-item{% if p == pagination.page %} active{% endif %}{% if not p %} disabled{% endif %}">
-        {% if p %}<a class="page-link" href="{{ url_for('teacher.students_list', page=p, q=q, class_id=class_id) }}">{{ p }}</a>{% else %}<span class="page-link">…</span>{% endif %}
+        {% if p %}<a class="page-link" href="{{ url_for('teacher.class_students', page=p, q=q, class_id=class_id) }}">{{ p }}</a>{% else %}<span class="page-link">…</span>{% endif %}
       </li>
       {% endfor %}
     </ul>

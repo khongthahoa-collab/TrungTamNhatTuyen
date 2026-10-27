@@ -74,7 +74,8 @@ class TeacherStudentsTests(unittest.TestCase):
         self.assertEqual(self.client.get(f'/teacher/students?class_id={self.class_.id}').status_code, 404)
         self.class_.assistant_teachers.append(teacher)
         db.session.commit()
-        self.assertIn(self.student.full_name.encode(), self.client.get('/teacher/students').data)
+        self.assertIn(self.student.full_name.encode(), self.client.get(
+            f'/teacher/students/class/{self.class_.id}').data)
         self.assertEqual(self.client.get(f'/teacher/students/{self.student.id}').status_code, 200)
 
     def test_search_deduplicates_and_preserves_filters_in_pagination(self):
@@ -86,16 +87,50 @@ class TeacherStudentsTests(unittest.TestCase):
                 full_name=f'Other {index:02}', level='secondary',
             )))
         db.session.commit()
-        html = self.client.get('/teacher/students?q=%25_/').get_data(as_text=True)
+        path = f'/teacher/students/class/{self.class_.id}'
+        html = self.client.get(path + '?q=%25_/').get_data(as_text=True)
         self.assertIn('1 học sinh', html)
         self.assertIn('Literal %_/', html)
-        response = self.client.get('/teacher/students', query_string={'q': 'Other', 'class_id': self.class_.id})
+        response = self.client.get(path, query_string={'q': 'Other'})
         html = response.get_data(as_text=True)
         self.assertIn('22 học sinh', html)
         self.assertIn('q=Other', html)
-        self.assertIn(f'class_id={self.class_.id}', html)
+        self.assertIn(path, html)
         self.assertNotIn('Other 20', html)
-        self.assertIn('Other 20', self.client.get('/teacher/students?page=2&q=Other').get_data(as_text=True))
+        self.assertIn('Other 20', self.client.get(path + '?page=2&q=Other').get_data(as_text=True))
+
+    def test_class_first_navigation_and_scope(self):
+        self.populate()
+        path = f'/teacher/students/class/{self.class_.id}'
+        html = self.client.get('/teacher/students').get_data(as_text=True)
+        self.assertIn(f'href="{path}"', html)
+        self.assertNotIn(self.student.full_name, html)
+        html = self.client.get(path).get_data(as_text=True)
+        target = f'/teacher/students/{self.student.id}?class_id={self.class_.id}'
+        self.assertIn(f'href="{target}"', html)
+        detail = self.client.get(target).get_data(as_text=True)
+        self.assertIn(f'href="{path}"', detail)
+        self.assertEqual(self.client.get(f'/teacher/students/class/{self.hidden_class.id}').status_code, 404)
+        self.assertEqual(self.client.get(f'/teacher/students?class_id={self.class_.id}').status_code, 302)
+        with patch.object(User, 'can_access', return_value=False):
+            self.assertEqual(self.client.get(path).status_code, 403)
+
+    def test_score_names_link_to_learning_only_when_accessible(self):
+        self.populate()
+        score = Score.query.filter_by(class_id=self.class_.id, student_id=self.student.id).one()
+        score.score_type = 'continuous'
+        score.semester = 'semester_1'
+        db.session.commit()
+        target = f'/teacher/students/{self.student.id}?class_id={self.class_.id}'
+        path = f'/teacher/scores/{self.class_.id}/detai?year={self.start.year}&semester=semester_1'
+        html = self.client.get(path).get_data(as_text=True)
+        self.assertEqual(html.count(f'href="{target}"'), 2)
+        self.assertEqual(self.client.get(target).status_code, 200)
+        with patch.object(User, 'can_access', autospec=True, side_effect=lambda user, key: key != 'students'):
+            self.assertNotIn(f'href="{target}"', self.client.get(path).get_data(as_text=True))
+        self.enrollment.is_active = False
+        db.session.commit()
+        self.assertNotIn(f'href="{target}"', self.client.get(path).get_data(as_text=True))
 
     def test_modules_are_checked_server_side(self):
         self.populate()

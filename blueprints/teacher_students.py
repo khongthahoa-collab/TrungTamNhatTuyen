@@ -2,7 +2,7 @@
 from datetime import date
 from types import SimpleNamespace
 
-from flask import abort, render_template, request
+from flask import abort, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from blueprints.teacher import teacher_bp, require_teacher
@@ -45,11 +45,28 @@ def _require_access():
 def students_list():
     _require_access()
     classes = _classes()
-    allowed = {row.id for row in classes}
     class_id = request.args.get('class_id', type=int)
-    if class_id is not None and class_id not in allowed:
+    if class_id is not None:
+        if class_id not in {row.id for row in classes}:
+            abort(404)
+        return redirect(url_for('teacher.class_students', class_id=class_id,
+                                q=request.args.get('q', ''), page=request.args.get('page', 1, type=int)))
+    counts = dict(_roster([row.id for row in classes]).with_entities(
+        Enrollment.class_id, db.func.count(db.distinct(Student.id)),
+    ).group_by(Enrollment.class_id).all())
+    return render_template('teacher/student_classes.html', classes=classes, counts=counts)
+
+
+@teacher_bp.route('/students/class/<int:class_id>')
+@login_required
+@require_teacher
+def class_students(class_id):
+    _require_access()
+    classes = _classes()
+    selected_class = next((row for row in classes if row.id == class_id), None)
+    if selected_class is None:
         abort(404)
-    selected = {class_id} if class_id is not None else allowed
+    selected = {class_id}
     q = request.args.get('q', '').strip()
     query = _roster(selected)
     if q:
@@ -70,7 +87,7 @@ def students_list():
             'classes': [member.class_name for member in memberships if member.id == row.id],
             'warnings': [warning for warning in warnings if warning['student_id'] == row.id],
         })
-    return render_template('teacher/students_list.html', students=students, classes=classes,
+    return render_template('teacher/students_list.html', students=students, selected_class=selected_class,
                            pagination=pagination, q=q, class_id=class_id)
 
 
@@ -83,6 +100,9 @@ def student_learning(student_id):
     memberships = _roster([row.id for row in classes]).filter(Student.id == student_id).order_by(Class.name).all()
     if not memberships:
         abort(404)
+    back_class_id = request.args.get('class_id', type=int)
+    if back_class_id not in {member.class_id for member in memberships}:
+        back_class_id = memberships[0].class_id
     student = {'id': student_id, 'name': memberships[0].full_name, 'grade': memberships[0].current_grade}
     class_ids = [member.class_id for member in memberships]
     can_attendance = current_user.can_access('attendance')
@@ -145,5 +165,6 @@ def student_learning(student_id):
         attendance=attendance, scores=scores, homework=homework,
         can_attendance=can_attendance, can_scores=can_scores,
         score_labels=ScoreType.LABELS, exams=exams, can_exams=current_user.can_access('exams'),
+        back_class_id=back_class_id,
         absence_warnings=get_absence_warnings(class_ids, as_of=date.today()) if can_attendance else [],
     )

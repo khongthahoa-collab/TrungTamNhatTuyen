@@ -156,7 +156,7 @@ ADMIN_ENDPOINT_MODULES = {
 
 # endpoint function name (without the 'teacher.' prefix) -> module key
 TEACHER_ENDPOINT_MODULES = {
-    'students_list': 'students', 'student_learning': 'students',
+    'students_list': 'students', 'class_students': 'students', 'student_learning': 'students',
     'schedule': 'schedule', 'checkin': 'schedule',
     'available_rooms': 'schedule', 'create_intensive': 'schedule',
     'attendance_list': 'attendance', 'attendance_session': 'attendance', 'save_attendance': 'attendance',

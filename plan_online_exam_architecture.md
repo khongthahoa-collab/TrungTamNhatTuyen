@@ -41,8 +41,15 @@
 
 ### Theo doi hoc sinh phia giao vien (27/10/2026)
 
-- Menu duoi cung them "Hoc sinh": `/teacher/students`, tim ten (escape ky tu
-  wildcard), loc lop va phan trang 20 hoc sinh; moi hoc sinh chi hien mot lan.
+- Menu duoi cung "Hoc sinh": `/teacher/students` hien cac lop dang phu trach
+  va si so dang hoc. Bam lop vao `/teacher/students/class/<class_id>`,
+  tim ten (escape wildcard), phan trang 20 hoc sinh, roi bam ten vao chi tiet.
+  Link cu `?class_id=...` chuyen huong sang danh sach cua lop tuong ung.
+- Ten hoc sinh o ca bang desktop va the mobile trong ket qua diem
+  `/teacher/scores/<class_id>/detail` (va alias `/detai`) lien ket trang hoc
+  tap neu GV co quyen students va hoc sinh con thuoc pham vi theo doi.
+  Khong mo rong quyen cho hoc sinh da nghi/lop chi co lich day cu.
+  Chi tiet co nut quay lai danh sach hoc sinh cua lop.
 - Chi lay hoc sinh/dang ky/lop dang hoat dong trong lop GV dang la giao vien
   chinh hoac tro giang. Lich day cu khong cap quyen xem ho so; student/class ID
   ngoai pham vi tra 404. Trang chi ho tro GET, khong sua ho so hay du lieu hoc.
