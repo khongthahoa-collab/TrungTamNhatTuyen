@@ -39,6 +39,26 @@
 - Khong doi cu phap `[A:...]`, `[*B:...]`, du lieu dap an hay cach cham.
   De cu co nhan E/F van duoc giu. Ban lam bai khong tiet lo dau *.
 
+### Canh bao hoc sinh nghi qua 2 buoi (27/10/2026)
+
+- Moi hoc sinh co chu ky rieng tu ngay `Enrollment.enrolled_at` cua lop:
+  `sessions_per_week * 4` buoi (2 buoi/tuan = 8, 3 buoi/tuan = 12).
+  Khong chia theo thang duong lich; tinh ca buoi tang cuong, bo lich huy,
+  buoi tuong lai va buoi chua co bat ky ban ghi diem danh nao.
+- Tu buoi nghi thu 3 trong chu ky hien tai se canh bao: tinh `absent` va
+  `excused`, ke ca don nghi da duyet trung buoi da diem danh; khong dem
+  trung don nghi/ban ghi diem danh, khong tinh `late`.
+- Chu ky du 8/12 buoi van giu canh bao cho den khi co buoi da diem danh
+  dau tien cua chu ky tiep theo. Sua diem danh se tinh lai canh bao.
+- Hien o tong quan GV chinh/tro giang cua lop dang hoat dong (neu co
+  quyen diem danh), danh sach diem danh va diem danh tung buoi. Trang
+  diem danh xem lich su tinh den ngay duoc xem, khong lay du lieu tuong lai.
+  Sau khi luu, API tra `absence_warnings` va giao dien cap nhat ngay.
+- Chi tinh hoc sinh/dang ky con hoat dong va chua xoa. Khong tao cron,
+  khong thay hoc phi, khong gui Zalo hay thong bao phu huynh tu dong.
+  Kiem thu: `python -m unittest test_attendance_warnings` va
+  `node test_attendance_warnings.js` (hai man hinh diem danh cap nhat sau luu).
+
 ### Popup thong bao dung chung (27/10/2026)
 
 - Cac thong bao JavaScript dung `showMessage(text)` thay `alert()`.

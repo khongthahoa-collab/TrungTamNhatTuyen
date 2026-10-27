@@ -10,6 +10,7 @@ from services.zalo_service import ZaloService
 from services.reward_service import create_suggested_reward
 from services.salary_service import scheduled_sessions, substituted_sessions, taught_classes_count
 from services.auth_context import get_active_role
+from services.attendance_warnings import get_absence_warnings
 
 teacher_bp = Blueprint('teacher', __name__)
 
@@ -104,8 +105,15 @@ def dashboard():
     year = request.args.get('year', today.year, type=int)
 
     salary = Salary.query.filter_by(teacher_id=teacher.id, month=month, year=year).first()
+    warning_class_ids = [
+        row[0] for row in db.session.query(Class.id).filter(
+            Class.is_active.is_(True),
+            db.or_(Class.primary_teacher_id == teacher.id, Class.assistant_teachers.any(id=teacher.id)),
+        ).all()
+    ] if current_user.can_access('attendance') else []
 
     return render_template('teacher/dashboard.html',
+                           absence_warnings=get_absence_warnings(warning_class_ids, as_of=today),
                            teacher=teacher,
                            today=today,
                            month=month,
@@ -1455,8 +1463,14 @@ def attendance_list():
     # nên chỉ nhắc "chưa điểm danh" cho đúng hôm nay, tránh nhắc việc không
     # còn làm được nữa.
     pending_count = sum(1 for s in schedules if s.date == today and not roster[s.id]['attendance_taken'])
+    absence_warnings = get_absence_warnings(class_ids, as_of=min(range_end, today))
+    absence_warnings_by_class = {
+        class_id: [warning for warning in absence_warnings if warning['class_id'] == class_id]
+        for class_id in sorted(class_ids)
+    }
 
     return render_template('teacher/attendance_list.html',
+                         absence_warnings_by_class=absence_warnings_by_class,
                          schedules=schedules,
                          summaries=summary_dict,
                          roster=roster,
@@ -1551,6 +1565,7 @@ def attendance_session(schedule_id):
     center_phone = SystemConfig.get('center_phone', '')
 
     return render_template('teacher/attendance_session.html',
+                         absence_warnings=get_absence_warnings([schedule.class_id], as_of=min(schedule.date, date.today())),
                          schedule=schedule,
                          enrollments=enrollments,
                          attendance_dict=attendance_dict,
@@ -1701,6 +1716,7 @@ def _save_attendance_records(schedule, schedule_id):
     return jsonify({
         'success': True,
         'message': 'Lưu điểm danh thành công',
+        'absence_warnings': get_absence_warnings([schedule.class_id], as_of=schedule.date),
         'summary': summary_data
     })
 

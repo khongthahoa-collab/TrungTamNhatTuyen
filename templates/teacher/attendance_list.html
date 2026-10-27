@@ -11,6 +11,10 @@
     {% if pending_count > 0 %}<span class="badge bg-warning text-dark">{{ pending_count }} chưa điểm danh</span>{% endif %}
   {% endcall %}
 
+  {% for absence_class_id, absence_warnings in absence_warnings_by_class.items() %}
+    {% include 'teacher/_absence_warnings.html' %}
+  {% endfor %}
+
   <!-- Bộ lọc theo ngày / tuần / tháng -->
   <div class="card border-0 shadow-sm mb-3">
     <div class="card-body py-2">
@@ -97,7 +101,7 @@
           </div>
           {% if summary and data.attendance_taken %}
           <div class="small mt-1">
-            <span class="text-success me-2"><i class="bi bi-check-circle"></i> {{ summary.present_count }} có mặt</span>
+            <span class="text-success me-2"><i class="bi bi-check-circle"></i> {{ summary.present_count + summary.late_count }} có mặt</span>
             {% if summary.absent_count %}<span class="text-danger me-2"><i class="bi bi-x-circle"></i> {{ summary.absent_count }} vắng</span>{% endif %}
             {% if summary.excused_count %}<span class="text-warning-emphasis me-2"><i class="bi bi-file-earmark-check"></i> {{ summary.excused_count }} vắng phép</span>{% endif %}
           </div>
@@ -137,7 +141,7 @@
             </button>
           </div>
           <div class="col-4">
-            <button type="button" class="btn btn-primary w-100 btn-save btn-attendance-action" data-schedule="{{ schedule.id }}" disabled>
+            <button type="button" class="btn btn-primary w-100 btn-save btn-attendance-action" data-schedule="{{ schedule.id }}" data-class="{{ schedule.class_id }}" disabled>
               <i class="bi bi-save me-md-1"></i><span class="d-none d-md-inline">Lưu điểm danh</span>
             </button>
           </div>
@@ -175,17 +179,18 @@
               {% set student = enrollment.student %}
               {% set att = data.attendance.get(student.id) %}
               {% set is_locked_excused = student.id in data.excused_student_ids %}
-              {% set init_status = 'excused' if is_locked_excused else (att.status if att and att.status in ('present', 'excused') else 'absent') %}
+              {% set init_status = 'excused' if is_locked_excused else (att.status if att and att.status in ('present', 'excused', 'late') else 'absent') %}
               <tr class="att-row" data-student="{{ student.id }}" data-status="{{ init_status }}"
                   data-touched="{{ '1' if (att or is_locked_excused) else '0' }}"
                   data-locked="{{ 'true' if is_locked_excused else 'false' }}">
                 <td>
                   <input type="checkbox" class="form-check-input att-check" {% if not can_edit or is_locked_excused %}disabled{% endif %}
-                         {% if init_status == 'present' %}checked{% endif %}>
+                         {% if init_status in ('present', 'late') %}checked{% endif %}>
                 </td>
                 <td class="small text-muted d-none d-sm-table-cell">{{ loop.index }}</td>
                 <td>
                   <div class="fw-semibold small">{{ student.full_name }}</div>
+                  <span class="badge bg-warning text-dark late-badge{% if init_status != 'late' %} d-none{% endif %}">Đi trễ</span>
                   {% if is_locked_excused %}
                   <span class="badge bg-warning text-dark">
                     <i class="bi bi-exclamation-triangle-fill me-1"></i>Đã xin nghỉ phép
@@ -196,7 +201,7 @@
                 <td class="small text-muted d-none d-sm-table-cell">{{ student.parent_phone or 'Chưa có' }}</td>
                 <td class="text-center">
                   <div class="d-flex gap-1 justify-content-center flex-wrap status-toggle">
-                    <button type="button" class="btn btn-sm rounded-pill btn-outline-success status-btn {% if init_status == 'present' %}active{% endif %}"
+                    <button type="button" class="btn btn-sm rounded-pill btn-outline-success status-btn {% if init_status in ('present', 'late') %}active{% endif %}"
                             data-value="present" {% if not can_edit or is_locked_excused %}disabled{% endif %}
                             title="Có mặt"><i class="bi bi-check-circle"></i><span class="d-none d-sm-inline ms-1">Có</span></button>
                     <button type="button" class="btn btn-sm rounded-pill btn-outline-warning status-btn {% if init_status == 'excused' %}active{% endif %}"
@@ -306,6 +311,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/attendance-warnings.js') }}"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script>
 const ATT_CSRF = '{{ csrf_token() }}';
@@ -313,9 +319,10 @@ const ATT_CSRF = '{{ csrf_token() }}';
 function setRowStatus(row, status) {
   row.dataset.status = status;
   const check = row.querySelector('.att-check');
-  if (check) check.checked = (status === 'present');
+  if (check) check.checked = (status === 'present' || status === 'late');
+  row.querySelector('.late-badge').classList.toggle('d-none', status !== 'late');
   row.querySelectorAll('.status-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.value === status);
+    btn.classList.toggle('active', btn.dataset.value === status || (status === 'late' && btn.dataset.value === 'present'));
   });
 }
 
@@ -328,7 +335,7 @@ function updateCounters(scheduleId) {
     // Học sinh chưa được điểm danh (chưa "touched") không tính vào Vắng —
     // mặc định Vắng: 0 cho đến khi giáo viên thực sự đánh dấu trạng thái.
     if (row.dataset.touched !== '1') return;
-    if (row.dataset.status === 'present') present++;
+    if (row.dataset.status === 'present' || row.dataset.status === 'late') present++;
     else if (row.dataset.status === 'excused') excused++;
     else absent++;
   });
@@ -350,7 +357,7 @@ function syncSelectAll(table) {
   // select-all checkbox could never show as fully checked.
   const rows = Array.from(table.querySelectorAll('.att-row')).filter(r => r.dataset.locked !== 'true');
   const total = rows.length;
-  const presentCount = rows.filter(r => r.dataset.status === 'present').length;
+  const presentCount = rows.filter(r => r.dataset.status === 'present' || r.dataset.status === 'late').length;
   selectAll.checked = total > 0 && presentCount === total;
   selectAll.indeterminate = presentCount > 0 && presentCount < total;
 }
@@ -440,6 +447,7 @@ document.querySelectorAll('.btn-save').forEach(saveBtn => {
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || 'Lỗi khi lưu điểm danh.');
+      window.updateAbsenceWarnings(Number(saveBtn.dataset.class), result.absence_warnings);
       saveBtn.innerHTML = '<i class="bi bi-check-lg"></i>';
       setTimeout(() => { saveBtn.innerHTML = original; }, 1500);
     } catch (err) {
@@ -469,7 +477,7 @@ document.querySelectorAll('.btn-export').forEach(btn => {
     const rows = document.querySelectorAll(`.attendance-table[data-schedule="${scheduleId}"] .att-row`);
     rows.forEach(row => {
       const status = row.dataset.status;
-      if (status === 'present') { present++; return; }
+      if (status === 'present' || status === 'late') { present++; return; }
       if (status === 'excused') excused++; else absent++;
 
       stt++;
