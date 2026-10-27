@@ -42,6 +42,10 @@ const icons = execFileSync('curl', ['-fsSL', '--max-time', '30',
         assert.equal((await logout.textContent()).trim(), '');
         assert.equal(await logout.getAttribute('title'), 'Đăng xuất');
         assert.equal(await logout.locator('.bi-box-arrow-right').count(), 1);
+        assert.deepEqual(await logout.evaluate(el => ({
+          border: getComputedStyle(el).borderTopColor,
+          background: getComputedStyle(el).backgroundColor,
+        })), { border: 'rgba(0, 0, 0, 0)', background: 'rgba(0, 0, 0, 0)' });
         assert.ok(await logout.evaluate(el => {
           const r = el.getBoundingClientRect();
           return r.width >= 44 && r.height >= 44;
