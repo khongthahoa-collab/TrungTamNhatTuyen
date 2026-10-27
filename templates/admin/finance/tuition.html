@@ -59,11 +59,11 @@
 <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
   {% if prev_period %}
   <a aria-label="Tháng trước" href="{{ url_for('admin.tuition', month=prev_period[1], year=prev_period[0]) }}"
-     class="btn btn-outline-secondary btn-sm action-icon-btn" title="Tháng trước">
+     class="btn btn-outline-secondary btn-sm" title="Tháng trước">
     <i aria-hidden="true" class="bi bi-chevron-left"></i>
   </a>
   {% else %}
-  <button aria-label="Trước" title="Trước" class="btn btn-outline-secondary btn-sm action-icon-btn" disabled><i aria-hidden="true" class="bi bi-chevron-left"></i></button>
+  <button aria-label="Trước" title="Trước" class="btn btn-outline-secondary btn-sm" disabled><i aria-hidden="true" class="bi bi-chevron-left"></i></button>
   {% endif %}
 
   <form method="get" class="d-flex gap-1 align-items-center" id="periodForm">
@@ -91,11 +91,11 @@
 
   {% if next_period %}
   <a aria-label="Tháng sau" href="{{ url_for('admin.tuition', month=next_period[1], year=next_period[0]) }}"
-     class="btn btn-outline-secondary btn-sm action-icon-btn" title="Tháng sau">
+     class="btn btn-outline-secondary btn-sm" title="Tháng sau">
     <i aria-hidden="true" class="bi bi-chevron-right"></i>
   </a>
   {% else %}
-  <button aria-label="Sau" title="Sau" class="btn btn-outline-secondary btn-sm action-icon-btn" disabled><i aria-hidden="true" class="bi bi-chevron-right"></i></button>
+  <button aria-label="Sau" title="Sau" class="btn btn-outline-secondary btn-sm" disabled><i aria-hidden="true" class="bi bi-chevron-right"></i></button>
   {% endif %}
 
   {% if not is_writable %}

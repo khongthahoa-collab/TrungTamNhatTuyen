@@ -53,13 +53,13 @@
 <!-- Date switcher -->
 <div class="card border-0 shadow-sm mb-4">
   <div class="card-body py-2">
-    <div class="d-flex align-items-center gap-2 mb-2 action-date-navigation">
+    <div class="d-flex align-items-center gap-2 mb-2">
       <a aria-label="Lùi 1 tuần" href="{{ url_for('admin.attendance_list', view='day', class_id=selected_class_id, date=prev_week_date.isoformat()) }}"
-         class="btn btn-outline-secondary btn-sm flex-shrink-0 action-icon-btn" title="Lùi 1 tuần">
+         class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Lùi 1 tuần">
         <i aria-hidden="true" class="bi bi-chevron-double-left"></i>
       </a>
       <a aria-label="Ngày trước" href="{{ url_for('admin.attendance_list', view='day', class_id=selected_class_id, date=prev_date.isoformat()) }}"
-         class="btn btn-outline-secondary btn-sm flex-shrink-0 action-icon-btn" title="Ngày trước">
+         class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Ngày trước">
         <i aria-hidden="true" class="bi bi-chevron-left"></i>
       </a>
       <form method="get" class="flex-grow-1">
@@ -69,11 +69,11 @@
                value="{{ target_date.isoformat() }}" onchange="this.form.submit()">
       </form>
       <a aria-label="Ngày sau" href="{{ url_for('admin.attendance_list', view='day', class_id=selected_class_id, date=next_date.isoformat()) }}"
-         class="btn btn-outline-secondary btn-sm flex-shrink-0 action-icon-btn" title="Ngày sau">
+         class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Ngày sau">
         <i aria-hidden="true" class="bi bi-chevron-right"></i>
       </a>
       <a aria-label="Tiến 1 tuần" href="{{ url_for('admin.attendance_list', view='day', class_id=selected_class_id, date=next_week_date.isoformat()) }}"
-         class="btn btn-outline-secondary btn-sm flex-shrink-0 action-icon-btn" title="Tiến 1 tuần">
+         class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Tiến 1 tuần">
         <i aria-hidden="true" class="bi bi-chevron-double-right"></i>
       </a>
     </div>

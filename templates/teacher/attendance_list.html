@@ -14,14 +14,14 @@
   <!-- Bộ lọc theo ngày / tuần / tháng -->
   <div class="card border-0 shadow-sm mb-3">
     <div class="card-body py-2">
-      <div class="d-flex align-items-center gap-2 mb-2 action-date-navigation">
+      <div class="d-flex align-items-center gap-2 mb-2">
         <a aria-label="Lùi 2 {{ 'tháng' if view_mode == 'month' else 'tuần' }}" href="{{ url_for('teacher.attendance_list', date=prev2_date.isoformat(), view=view_mode) }}"
-           class="btn btn-outline-secondary btn-sm flex-shrink-0 action-icon-btn"
+           class="btn btn-outline-secondary btn-sm flex-shrink-0"
            title="Lùi 2 {{ 'tháng' if view_mode == 'month' else 'tuần' }}">
           <i aria-hidden="true" class="bi bi-chevron-double-left"></i>
         </a>
         <a aria-label="Trước" title="Trước" href="{{ url_for('teacher.attendance_list', date=prev_date.isoformat(), view=view_mode) }}"
-           class="btn btn-outline-secondary btn-sm flex-shrink-0 action-icon-btn">
+           class="btn btn-outline-secondary btn-sm flex-shrink-0">
           <i aria-hidden="true" class="bi bi-chevron-left"></i>
         </a>
         <form method="get" class="flex-grow-1">
@@ -30,11 +30,11 @@
                  value="{{ ref_date.isoformat() }}" onchange="this.form.submit()">
         </form>
         <a aria-label="Sau" title="Sau" href="{{ url_for('teacher.attendance_list', date=next_date.isoformat(), view=view_mode) }}"
-           class="btn btn-outline-secondary btn-sm flex-shrink-0 action-icon-btn">
+           class="btn btn-outline-secondary btn-sm flex-shrink-0">
           <i aria-hidden="true" class="bi bi-chevron-right"></i>
         </a>
         <a aria-label="Tiến 2 {{ 'tháng' if view_mode == 'month' else 'tuần' }}" href="{{ url_for('teacher.attendance_list', date=next2_date.isoformat(), view=view_mode) }}"
-           class="btn btn-outline-secondary btn-sm flex-shrink-0 action-icon-btn"
+           class="btn btn-outline-secondary btn-sm flex-shrink-0"
            title="Tiến 2 {{ 'tháng' if view_mode == 'month' else 'tuần' }}">
           <i aria-hidden="true" class="bi bi-chevron-double-right"></i>
         </a>

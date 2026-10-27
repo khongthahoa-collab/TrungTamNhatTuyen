@@ -19,6 +19,8 @@
   va outline khi focus bang ban phim.
 - Nut icon loc/kinh lup trong macro bo loc cung dung `.icon-action-plain`;
   nut tim kiem co chu va khung o nhap khong thay doi.
+- Nut dieu huong `<`, `<<`, `>`, `>>` giu kieu Bootstrap ban dau,
+  khong dung `.action-icon-btn` hay bo tron.
 - Trang tai khoan Admin dung `.acct-action-btn` tron 44px dong bo
   voi nut chia khoa: but = thong tin, khien-khoa = phan quyen,
   chia khoa = mat khau, nguoi = trang thai, thung rac = xoa.

@@ -42,14 +42,6 @@
   color: inherit;
 }
 .btn.icon-action-plain:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-@media (max-width: 575.98px) {
-  .action-date-navigation {
-    display: grid !important;
-    grid-template-columns: repeat(4, 44px);
-    justify-content: space-between;
-  }
-  .action-date-navigation > form { grid-column: 1 / -1; grid-row: 1; min-width: 0; }
-}
 
 .app-message {
   width: min(440px, calc(100% - 2rem));

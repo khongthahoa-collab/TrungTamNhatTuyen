@@ -89,6 +89,14 @@ const bootstrap = execFileSync('curl', [
       for (const width of [320, 375, 768, 1440]) {
         await page.setViewportSize({ width, height: 900 });
         await page.waitForTimeout(350);
+        const navigation = page.locator('a, button').filter({
+          has: page.locator('.bi-chevron-left, .bi-chevron-right, .bi-chevron-double-left, .bi-chevron-double-right'),
+        });
+        for (let i = 0; i < await navigation.count(); i++) {
+          const button = navigation.nth(i);
+          assert.equal(await button.evaluate(el => el.classList.contains('action-icon-btn')), false);
+          assert.notEqual(await button.evaluate(el => getComputedStyle(el).borderRadius), '50%');
+        }
         const accountPage = path === '/admin/accounts';
         const actions = page.locator(accountPage ? '.acct-action-btn' : '.action-icon-btn');
         assert.ok(await actions.count() > 0);
