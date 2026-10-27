@@ -316,8 +316,7 @@
                  class="text-body text-decoration-none">{{ exam.title }}</a>
             </td>
             <td class="text-center" data-label="Bài đã nộp">
-              <span class="fw-semibold">{{ row.submission_count }}</span>
-              <div class="small text-muted">{{ row.submitted_students }}/{{ row.assigned_students }}</div>
+              <span class="fw-semibold">{{ row.submitted_students }}/{{ row.assigned_students }}</span>
             </td>
             <td data-label="Trạng thái">
               {% if exam.is_draft %}<span class="badge bg-secondary">Nháp</span>{% else %}<span class="badge bg-success">Đã đăng</span>{% endif %}
