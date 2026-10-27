@@ -298,9 +298,15 @@ def create_app(config_name=None):
         def repl(m):
             star, label, seg = m.group(1), m.group(2), m.group(3)
             cls = 'text-success fw-bold' if (star and reveal) else ''
-            return f'<span class="{cls}" style="text-decoration:underline;">{seg}</span><sup>{label}</sup>'
+            return (f'<span class="exam-error-segment {cls}">'
+                    f'<span class="exam-error-underline">{seg}</span>'
+                    f'<span class="exam-error-label">{label}</span></span>')
 
         return Markup(re.sub(r'\[(\*?)([A-F]):([^\]]*)\]', repl, escaped))
+
+    @app.template_filter('error_id_labels')
+    def error_id_labels(text):
+        return list(dict.fromkeys(re.findall(r'\[\*?([A-F]):[^\]]*\]', str(text or ''))))
 
     @app.template_filter('exam_newlines')
     def exam_newlines(value):

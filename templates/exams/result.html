@@ -1,6 +1,6 @@
 {% extends 'student/base.html' if current_user.is_student else 'parent/base.html' %}
 {% from 'exams/_essay_images.html' import render_essay_images %}
-{% from 'exams/_macros.html' import render_true_false_review %}
+{% from 'exams/_macros.html' import render_true_false_review, render_error_id_choices %}
 {% block extra_head %}{% include 'exams/_mathjax.html' %}{% endblock %}
 {% block content %}
 <div class="container py-3" style="max-width:840px;">
@@ -86,11 +86,12 @@
               {{ render_essay_images(question.images) }}
               <div class="small text-muted">Câu tự luận được giáo viên chấm thủ công.</div>
             {% elif group.type == 'error_id' %}
+              {{ render_error_id_choices(question.text, question.correct_answer, question.student_answer | upper) }}
               <div class="small mb-1" aria-label="Câu trả lời đã chọn">
-                <span class="fw-semibold">{{ question.student_answer or 'Chưa trả lời' }}</span>
+                Em chọn: <span class="fw-semibold">{{ question.student_answer or 'Chưa trả lời' }}</span>
               </div>
               <div class="small text-success" aria-label="Đáp án chính xác">
-                <span class="fw-semibold">{{ question.correct_answer }}</span>
+                Đáp án đúng: <span class="fw-semibold">{{ question.correct_answer }}</span>
               </div>
             {% endif %}
             {% if question.explanation %}

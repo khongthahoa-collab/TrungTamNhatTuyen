@@ -151,7 +151,7 @@
 
   function errorIdText(value) {
     return escapeHtml(value).replace(/\[(\*?)([A-F]):([^\]]*)\]/g, (_, correct, label, content) =>
-      `<u class="${correct ? 'text-success fw-bold' : ''}">${content}</u><sup>${label}</sup>`);
+      `<span class="exam-error-segment ${correct ? 'text-success fw-bold' : ''}"><span class="exam-error-underline">${content}</span><span class="exam-error-label">${label}</span></span>`);
   }
 
   function renderQuestion(group, question, gi, qi) {
@@ -165,6 +165,14 @@
     } else if (group.type === 'short_answer') {
       answers = `<div class="small text-success">Đáp án: ${text(question.accepted_answers.join(' | '))}</div>`;
     } else if (group.type === 'essay') answers = '<div class="small text-muted">Tự luận · Chấm tay</div>';
+    else if (group.type === 'error_id') {
+      const matches = [...question.text.matchAll(/\[(\*?)([A-F]):([^\]]*)\]/g)];
+      const correct = matches.find(match => match[1])?.[2];
+      answers = `<div class="exam-error-choices" role="group" aria-label="Các lựa chọn tìm lỗi sai">${
+        [...new Set(matches.map(match => match[2]))].map(label =>
+          `<span class="btn btn-sm ${label === correct ? 'btn-success' : 'btn-outline-secondary'}">${label}${label === correct ? '<span class="visually-hidden"> — Đáp án đúng</span>' : ''}</span>`
+        ).join('')}</div>`;
+    }
     const body = group.type === 'error_id'
       ? `<span class="exam-math exam-preview-content">${errorIdText(question.text)}</span>` : text(question.text);
     return `<article class="card border-0 shadow-sm mb-3 exam-preview-card" data-anchor="${gi}-${qi}">

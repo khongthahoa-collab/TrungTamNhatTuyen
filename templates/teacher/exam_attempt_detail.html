@@ -1,6 +1,6 @@
 {% extends 'teacher/base.html' %}
 {% from 'teacher/_navigation.html' import page_header %}
-{% from 'exams/_macros.html' import render_true_false_review %}
+{% from 'exams/_macros.html' import render_true_false_review, render_error_id_choices %}
 {% block title %}Chi tiết bài làm – Giáo viên – Nhật Tuyền{% endblock %}
 {% block extra_head %}
 {% include 'exams/_mathjax.html' %}
@@ -107,6 +107,7 @@
         <div class="form-text">Mỗi đáp án trên một dòng. Có thể nhập nhiều cách viết tương đương.</div>
       </div>
       {% elif group.type == 'error_id' %}
+        {{ render_error_id_choices(question.text, question.correct_answer, question.student_answer | upper) }}
       <div class="alert alert-info small">
         Dùng dấu <code>[*A:... ]</code> để đánh dấu lỗi cần tìm; các lựa chọn còn lại dùng dạng <code>[B:... ]</code>.
       </div>

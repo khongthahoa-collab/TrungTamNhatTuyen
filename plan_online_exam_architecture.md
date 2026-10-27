@@ -6,6 +6,14 @@
 
 ## 0. Gia dinh ve chi phi va gioi han
 
+### Hien thi cau tim loi sai
+
+- Nhan A/B/C/D nam ngay duoi cum tu gach chan, cac lua chon nam tren
+  mot hang ben duoi cau. Soan de/xem truoc va ket qua dung cung bo cuc;
+  ket qua phan biet dap an dung va dap an da chon.
+- Khong doi cu phap `[A:...]`, `[*B:...]`, du lieu dap an hay cach cham.
+  De cu co nhan E/F van duoc giu. Ban lam bai khong tiet lo dau *.
+
 ### Popup thong bao dung chung (27/10/2026)
 
 - Cac thong bao JavaScript dung `showMessage(text)` thay `alert()`.

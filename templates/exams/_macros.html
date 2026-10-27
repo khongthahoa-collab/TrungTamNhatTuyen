@@ -27,6 +27,7 @@
     <div class="ms-3 mt-1 text-muted"><i class="bi bi-pencil-square me-1"></i>Học sinh trả lời tự do; giáo viên chấm điểm.</div>
   {% elif qtype == 'error_id' %}
     <div class="fw-semibold">Câu {{ index }}. {{ q.text | error_id_render | exam_newlines }}</div>
+    {{ render_error_id_choices(q.text, q.correct_label) }}
   {% endif %}
   {% if q.explanation %}
   <div class="small text-muted ms-3 mt-1 exam-answer-explanation">
@@ -34,6 +35,18 @@
     <div class="exam-math exam-answer-explanation-content">{{ q.explanation | markdown | exam_newlines }}</div>
   </div>
   {% endif %}
+{% endmacro %}
+
+{% macro render_error_id_choices(text, correct='', selected='') %}
+<div class="exam-error-choices" role="group" aria-label="Các lựa chọn tìm lỗi sai">
+  {% for label in text | error_id_labels %}
+  <span class="btn btn-sm {% if label == correct %}btn-success{% elif label == selected %}btn-danger{% else %}btn-outline-secondary{% endif %}{% if label == selected %} is-selected{% endif %}">
+    {{ label }}
+    {% if label == correct %}<span class="visually-hidden"> — Đáp án đúng</span>{% endif %}
+    {% if label == selected %}<span class="visually-hidden"> — Đã chọn</span>{% endif %}
+  </span>
+  {% endfor %}
+</div>
 {% endmacro %}
 
 {% macro group_type_label(gtype) %}{{ {'mcq': 'Trắc nghiệm', 'true_false': 'Đúng/Sai', 'short_answer': 'Trả lời ngắn', 'essay': 'Tự luận', 'error_id': 'Tìm lỗi sai'}.get(gtype, gtype) }}{% endmacro %}
