@@ -1,10 +1,19 @@
-from flask import Blueprint, render_template, request, jsonify, current_app, send_from_directory
+from flask import Blueprint, render_template, request, jsonify, current_app, send_from_directory, redirect, url_for
 from datetime import date, timedelta
 from sqlalchemy.orm import joinedload, contains_eager
 from models import Schedule, Class, Course, Score, SystemConfig, StudentLevel, ContactInquiry, Student, School, Reward
 from extensions import db
 
 public_bp = Blueprint('public', __name__)
+
+
+@public_bp.before_request
+def redirect_disabled_homepage():
+    # Temporarily bypass the homepage without removing its content.
+    if request.endpoint == 'public.index':
+        response = redirect(url_for('auth.login'), code=302)
+        response.headers['Cache-Control'] = 'no-store'
+        return response
 
 
 @public_bp.route('/manifest.json')
