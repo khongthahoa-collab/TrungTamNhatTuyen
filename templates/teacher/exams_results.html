@@ -37,7 +37,7 @@
             <td class="text-center">
               {% if row.result and row.result.get('pending_essay_count', 0) > 0 %}
               <a class="badge bg-warning text-dark text-decoration-none"
-                 href="{{ url_for('admin.exams_grade_attempt', exam_id=exam.id, attempt_id=row.attempt.id) }}">
+                 href="{{ url_for('teacher.exams_grade_attempt', exam_id=exam.id, attempt_id=row.attempt.id) }}">
                 Chờ chấm ({{ row.result.pending_essay_count }})
               </a>
               {% elif row.result %}
@@ -59,12 +59,12 @@
             </td>
             <td class="text-center">
               {% for pending_attempt in row.pending_essay_attempts %}
-              <a href="{{ url_for('admin.exams_grade_attempt', exam_id=exam.id, attempt_id=pending_attempt.id) }}" class="btn btn-sm btn-outline-primary mb-1">
+              <a href="{{ url_for('teacher.exams_grade_attempt', exam_id=exam.id, attempt_id=pending_attempt.id) }}" class="btn btn-sm btn-outline-primary mb-1">
                 Chấm lượt {{ pending_attempt.started_at | datetime_vn }}
               </a>
               {% else %}
               {% if row.result.get('essay_questions') %}
-              <a href="{{ url_for('admin.exams_grade_attempt', exam_id=exam.id, attempt_id=row.attempt.id) }}" class="btn btn-sm btn-outline-primary">
+              <a href="{{ url_for('teacher.exams_grade_attempt', exam_id=exam.id, attempt_id=row.attempt.id) }}" class="btn btn-sm btn-outline-primary">
                 {{ 'Chấm bài' if row.result.get('pending_essay_count', 0) else 'Xem điểm tự luận' }}
               </a>
               {% endif %}

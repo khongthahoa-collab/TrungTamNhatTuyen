@@ -9,7 +9,7 @@ from models import Exam, ExamLog, ExamAttempt, ExamFolder, Class, Course, User, 
 from blueprints.admin import admin_bp, require_admin, require_admin_or_teacher
 from blueprints.exams_shared import (
     EXAM_TYPES, DURATION_OPTIONS, SESSION_KEY, exam_assignment_options,
-    apply_manual_essay_scores, parse_groups_payload, require_owns_or_admin,
+    parse_groups_payload, require_owns_or_admin,
     require_teacher_exam_access, reset_student_exam_attempts, session_draft,
     parse_confirm_settings, parse_folder_fields, posted_exam_draft, regrade_submitted_attempts, has_stale_scoring,
 )
@@ -287,80 +287,11 @@ def exam_reset_attempts(exam_id, student_id):
 @login_required
 @require_admin_or_teacher
 def exams_grade_attempt(exam_id, attempt_id):
-    exam = Exam.query.get_or_404(exam_id)
-    require_owns_or_admin(exam)
-    attempt = ExamAttempt.query.filter_by(id=attempt_id, exam_id=exam.id, status='submitted').first_or_404()
-    result = attempt.result
-    essay_questions = result.get('essay_questions', [])
-    if not essay_questions:
-        abort(404)
-
-    answers = attempt.answers
-    from services.essay_images import images_by_answer
-    essay_images = images_by_answer(attempt.id)
-    items = []
-    for item in essay_questions:
-        key = item['key']
-        items.append({
-            'key': key,
-            'title': item.get('group_title', ''),
-            'position': item.get('position', 1),
-            'text': item.get('question_text', ''),
-            'answer': answers.get(item.get('answer_field', ''), ''),
-            'images': essay_images.get(item.get('answer_field', ''), []),
-            'max_score': round(item['weight'], 4),
-            'score': result.get('essay_scores', {}).get(key, ''),
-        })
-
-    if request.method == 'POST':
-        updated_scores = dict(result.get('essay_scores', {}))
-        errors = []
-        for item in items:
-            raw_score = request.form.get(f"score_{item['key']}", '').strip()
-            item['score'] = raw_score
-            if not raw_score:
-                continue
-            try:
-                score = float(raw_score)
-            except ValueError:
-                errors.append(f"Câu {item['position']}: điểm phải là một số.")
-                continue
-            if not 0 <= score <= item['max_score'] + 1e-6:
-                errors.append(
-                    f"Câu {item['position']}: điểm phải từ 0 đến {item['max_score']:g}."
-                )
-                continue
-            updated_scores[item['key']] = score
-
-        if errors:
-            for error in errors:
-                flash(error, 'danger')
-        else:
-            result = apply_manual_essay_scores(result, updated_scores)
-            attempt.result_json = json.dumps(result)
-            attempt.score = result['percent'] if result['pending_essay_count'] == 0 else 0
-            db.session.commit()
-            flash(
-                'Đã lưu điểm tự luận.' if result['pending_essay_count'] == 0
-                else 'Đã lưu phần đã chấm; bài vẫn còn câu tự luận chờ chấm.',
-                'success',
-            )
-            if get_active_role(current_user) == 'teacher':
-                return redirect(url_for('teacher.exams_results', exam_id=exam.id))
-            return redirect(url_for('admin.exams_results', exam_id=exam.id))
-
-    return render_template(
-        'exams/grade_attempt.html',
-        exam=exam,
-        attempt=attempt,
-        items=items,
-        result=result,
-        base_template='teacher/base.html' if get_active_role(current_user) == 'teacher' else 'admin/base.html',
-        results_url=url_for(
-            'teacher.exams_results' if get_active_role(current_user) == 'teacher' else 'admin.exams_results',
-            exam_id=exam.id,
-        ),
-    )
+    if get_active_role(current_user) == 'teacher':
+        return redirect(url_for('teacher.exams_grade_attempt', exam_id=exam_id, attempt_id=attempt_id),
+                        code=307 if request.method == 'POST' else 302)
+    from blueprints.exam_grading import grade_attempt
+    return grade_attempt(exam_id, attempt_id, role='admin')
 
 
 @admin_bp.route('/exam/create', methods=['GET', 'POST'])

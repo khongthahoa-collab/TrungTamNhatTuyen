@@ -41,6 +41,12 @@
 
 ### Theo doi hoc sinh phia giao vien (27/10/2026)
 
+- Cham tu luan tach URL theo vai tro: teacher dung
+  `/teacher/exams/<exam_id>/attempts/<attempt_id>/grade`, admin giu
+  `/admin/exam/<exam_id>/attempt/<attempt_id>/grade`. Chung handler cham,
+  rieng decorator/quyen/layout va link quay ve. Link cu admin khi dang o
+  vai tro teacher redirect sang teacher (POST dung 307 giu du lieu).
+  GET can quyen exams read, POST can write; teacher chi cham de cua minh.
 - Footer De thi giu icon `bi-pc-display` o ca trang active/inactive:
   Bootstrap Icons 1.11.3 khong co `bi-pc-display-fill`. Trang active van
   danh dau bang mau xanh va vien tren.

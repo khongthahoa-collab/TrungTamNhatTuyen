@@ -168,6 +168,60 @@ class TeacherStudentsTests(unittest.TestCase):
         self.assertEqual(set(context['memberships'][0]._mapping),
                          {'id', 'full_name', 'current_grade', 'class_id', 'class_name'})
 
+    def test_role_specific_grading_routes_and_save(self):
+        self.populate()
+        attempt = ExamAttempt(exam=self.exam, student_id=self.student.id,
+                              user_id=self.teacher.user_id, status='submitted',
+                              result_json=json.dumps({
+                                  'essay_questions': [{'key': 'g0q0', 'group_index': 0, 'weight': 10,
+                                                       'position': 1, 'question_text': 'Essay'}],
+                                  'auto_breakdown': [{'earned': 0}], 'auto_earned': 0, 'total': 10,
+                              }))
+        db.session.add(attempt)
+        db.session.commit()
+        teacher_path = f'/teacher/exams/{self.exam.id}/attempts/{attempt.id}/grade'
+        admin_path = f'/admin/exam/{self.exam.id}/attempt/{attempt.id}/grade'
+        response = self.client.get(admin_path)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.location, teacher_path)
+        response = self.client.post(admin_path, data={'score_g0q0': '6'}, follow_redirects=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(attempt.score, 60)
+        html = self.client.get(f'/teacher/exams/{self.exam.id}/results').get_data(as_text=True)
+        self.assertNotIn(admin_path, html)
+        html = self.client.get(teacher_path).get_data(as_text=True)
+        self.assertIn('Chấm bài tự luận', html)
+        self.assertIn('teacher-bottom-nav', html)
+        self.assertNotIn(admin_path, html)
+        response = self.client.post(teacher_path, data={'score_g0q0': '7'})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.location, f'/teacher/exams/{self.exam.id}/results')
+        self.assertEqual(attempt.score, 70)
+        response = self.client.post(teacher_path, data={'score_g0q0': '11'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(attempt.score, 70)
+        other = User(username='other_grader', role='teacher', password_hash='test')
+        db.session.add(Teacher(user=other))
+        db.session.commit()
+        self.login(other)
+        self.assertEqual(self.client.get(teacher_path).status_code, 403)
+        self.login(self.teacher.user)
+        with patch.object(User, 'can_write', return_value=False):
+            self.assertEqual(self.client.post(teacher_path, data={'score_g0q0': '9'}).status_code, 403)
+        admin = User(username='grading_admin', role='admin', is_master=True, password_hash='test')
+        db.session.add(admin)
+        db.session.commit()
+        self.login(admin)
+        with self.client.session_transaction() as session:
+            session['active_role'] = 'admin'
+        self.assertEqual(self.client.get(teacher_path).status_code, 403)
+        response = self.client.get(admin_path)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn('teacher-bottom-nav', response.get_data(as_text=True))
+        response = self.client.post(admin_path, data={'score_g0q0': '8'})
+        self.assertEqual(response.location, f'/admin/exam/{self.exam.id}/results')
+        self.assertEqual(attempt.score, 80)
+
     def test_attendance_detail_only_lists_unexcused_before_limit(self):
         from models import Attendance
         path = f'/teacher/students/{self.student.id}'

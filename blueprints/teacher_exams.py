@@ -540,6 +540,16 @@ def exams_leaderboard(exam_id):
                            leaderboard=True)
 
 
+@teacher_bp.route('/exams/<int:exam_id>/attempts/<int:attempt_id>/grade', methods=['GET', 'POST'])
+@login_required
+@require_teacher
+def exams_grade_attempt(exam_id, attempt_id):
+    from blueprints.exam_grading import grade_attempt
+    if not current_user.can_access('exams') or (request.method == 'POST' and not current_user.can_write('exams')):
+        abort(403)
+    return grade_attempt(exam_id, attempt_id, role='teacher')
+
+
 @teacher_bp.route('/exams/<int:exam_id>/attempts/<int:attempt_id>')
 @login_required
 @require_teacher

@@ -38,6 +38,14 @@
         </div>
         <div class="border rounded bg-light p-3 mb-3 exam-math" style="white-space:pre-wrap; overflow-wrap:anywhere;">{{ item.answer or ('Bài làm đính kèm bên dưới.' if item.images else 'Học sinh không nhập câu trả lời.') }}</div>
         {{ render_essay_images(item.images) }}
+        <div class="border rounded p-3 mb-3">
+          <div class="fw-semibold mb-2">Giải thích đáp án</div>
+          {% if item.explanation %}
+          <div class="exam-math" style="white-space:pre-wrap; overflow-wrap:anywhere;">{{ item.explanation }}</div>
+          {% else %}
+          <div class="text-muted">Đề chưa có giải thích đáp án cho câu này.</div>
+          {% endif %}
+        </div>
         <label class="form-label" for="score_{{ item.key }}">Điểm câu này (tối đa {{ item.max_score | round(4) }})</label>
         <input class="form-control" type="number" id="score_{{ item.key }}" name="score_{{ item.key }}"
                min="0" max="{{ item.max_score }}" step="any" value="{{ item.score }}" inputmode="decimal">

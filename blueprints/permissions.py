@@ -128,6 +128,7 @@ ADMIN_ENDPOINT_MODULES = {
     'document_delete': 'documents', 'document_download': 'documents',
 
     # exams.py — shared with teacher role via require_admin_or_teacher
+    'exams_grade_attempt': 'exams',
     'exams_list': 'exams', 'exam_folder_create': 'exams', 'exam_folder_edit': 'exams',
     'exam_folder_delete': 'exams', 'exam_duplicate': 'exams', 'exams_results': 'exams',
     'exams_new': 'exams', 'exams_edit': 'exams', 'exams_confirm': 'exams', 'exams_delete': 'exams',
@@ -168,6 +169,7 @@ TEACHER_ENDPOINT_MODULES = {
     'documents': 'documents_teacher', 'delete_document': 'documents_teacher',
     # teacher's own exam screens (blueprints/teacher_exams.py) — separate routes from admin's,
     # gated by the same 'exams' module key as the admin side
+    'exams_grade_attempt': 'exams',
     'exams_list': 'exams', 'exam_duplicate': 'exams', 'exams_results': 'exams',
     'exams_new': 'exams', 'exams_edit': 'exams', 'exams_confirm': 'exams',
     'exams_delete': 'exams', 'exams_preview': 'exams', 'exams_export': 'exams',
