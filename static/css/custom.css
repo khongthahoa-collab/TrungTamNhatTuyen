@@ -32,6 +32,16 @@
 .btn.action-icon-btn { border-radius: 50% !important; padding: 0 !important; }
 .action-icon-btn.dropdown-toggle::after { display: none; }
 .action-icon-btn > .bi { margin: 0; pointer-events: none; }
+.btn.icon-action-plain,
+.btn.icon-action-plain:hover,
+.btn.icon-action-plain:active,
+.btn.icon-action-plain:focus {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+}
+.btn.icon-action-plain:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 @media (max-width: 575.98px) {
   .action-date-navigation {
     display: grid !important;

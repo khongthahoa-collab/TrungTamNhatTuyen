@@ -14,6 +14,9 @@
 - Nut action chi co icon tren toan website dung vien tron 50%, ke ca nut
   xem, tai xuong, doi trang thai va cac nut duoc tao dong. Nut co chu,
   phan trang va nut dong modal giu bo cuc hien tai.
+- Ngoai le: chuong thong bao va mat hien/an mat khau tren trang dang nhap
+  dung `.icon-action-plain`, khong nen/vien bao quanh; giu vung bam 44px
+  va outline khi focus bang ban phim.
 - Trang tai khoan Admin dung `.acct-action-btn` tron 44px dong bo
   voi nut chia khoa: but = thong tin, khien-khoa = phan quyen,
   chia khoa = mat khau, nguoi = trang thai, thung rac = xoa.

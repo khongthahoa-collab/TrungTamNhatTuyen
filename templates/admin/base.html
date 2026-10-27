@@ -268,8 +268,8 @@
           <i aria-hidden="true" class="bi bi-box-arrow-up-right"></i>
         </a>
         <!-- Bell notification (admin) -->
-        <a href="{{ url_for('admin.notifications') }}" class="btn btn-sm btn-outline-secondary ms-2 position-relative" title="Thông báo">
-          <i class="bi bi-bell{% if unread_notifications %}-fill{% endif %}"></i>
+        <a href="{{ url_for('admin.notifications') }}" class="btn btn-sm ms-2 position-relative action-icon-btn icon-action-plain" title="Thông báo" aria-label="Thông báo">
+          <i class="bi bi-bell{% if unread_notifications %}-fill{% endif %}" aria-hidden="true"></i>
           {% if unread_notifications %}
           <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
                 style="font-size:0.6rem;">

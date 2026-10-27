@@ -105,13 +105,32 @@ const bootstrap = execFileSync('curl', [
               text: content.textContent.trim(),
               hidden: element.querySelector('i')?.getAttribute('aria-hidden'),
               radius: getComputedStyle(element).borderRadius,
+              plain: element.classList.contains('icon-action-plain'),
+              border: getComputedStyle(element).borderTopColor,
+              background: getComputedStyle(element).backgroundColor,
             };
           });
           const minSize = 44;
           assert.ok(details.w >= minSize && details.h >= minSize, JSON.stringify({ path, width, details }));
           assert.equal(details.radius, '50%');
+          if (details.plain) {
+            assert.equal(details.border, 'rgba(0, 0, 0, 0)');
+            assert.equal(details.background, 'rgba(0, 0, 0, 0)');
+          }
           if (!accountPage) {
             assert.ok(details.x >= 0 && details.right <= width, JSON.stringify({ path, width, details }));
+          }
+          if (path === 'login') {
+            const source = fs.readFileSync('templates/auth/login.html', 'utf8');
+            const toggle = source.slice(source.indexOf('function togglePw()'), source.indexOf('</script>', source.indexOf('function togglePw()')));
+            await page.addScriptTag({ content: toggle });
+            const eye = page.locator('button:has(#pwEye)');
+            await eye.click();
+            assert.equal(await page.locator('#pwInput').getAttribute('type'), 'text');
+            await eye.click();
+            assert.equal(await page.locator('#pwInput').getAttribute('type'), 'password');
+            await eye.focus();
+            assert.equal(await eye.evaluate(el => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)');
           }
           assert.ok(details.title && details.label);
           assert.equal(details.text, '');
