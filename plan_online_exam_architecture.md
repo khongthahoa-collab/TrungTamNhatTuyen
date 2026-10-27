@@ -17,6 +17,8 @@
 - Ngoai le: chuong thong bao va mat hien/an mat khau tren trang dang nhap
   dung `.icon-action-plain`, khong nen/vien bao quanh; giu vung bam 44px
   va outline khi focus bang ban phim.
+- Nut icon loc/kinh lup trong macro bo loc cung dung `.icon-action-plain`;
+  nut tim kiem co chu va khung o nhap khong thay doi.
 - Trang tai khoan Admin dung `.acct-action-btn` tron 44px dong bo
   voi nut chia khoa: but = thong tin, khien-khoa = phan quyen,
   chia khoa = mat khau, nguoi = trang thai, thung rac = xoa.
