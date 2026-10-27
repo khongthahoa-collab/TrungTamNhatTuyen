@@ -20,8 +20,7 @@
       </button>
       {% endif %}
     </div>
-    <p class="small text-muted">Cuộn năm sẽ tạo lớp kế thừa, giữ lịch sử cũ và tăng khối một lần.
-      Việc tạo lịch chạy bằng worker <code>flask --app wsgi:app process-academic-rollovers</code>, không giữ request trình duyệt chờ.</p>
+    <p class="small text-muted">Cuộn năm sẽ tạo lớp kế thừa, giữ lịch sử cũ và tăng khối một lần.</p>
     {% for job in rollover_jobs %}
     <div class="small mb-2">
       <a href="{{ url_for('admin.academic_rollover_status', job_id=job.id) }}">Yêu cầu #{{ job.id }} → {{ job.target_year }}–{{ job.target_year + 1 }}</a>
