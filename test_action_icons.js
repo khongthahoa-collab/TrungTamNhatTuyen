@@ -28,6 +28,7 @@ with app.app_context():
     db.session.add_all([admin, reader,
         ExamContentTemplate(name='Mẫu <Test>', content='Synthetic content'),
         BankAccount(bank_id='VCB', bank_name='Synthetic Bank', account_number='0000000000', account_name='TEST'),
+        BankAccount(bank_id='VCB', bank_name='Disabled Bank', account_number='0000000001', account_name='TEST', is_active=False),
         Room(name='Test room')])
     db.session.commit()
     for name in app.jinja_env.list_templates():
@@ -98,6 +99,16 @@ const bootstrap = execFileSync('curl', [
           assert.notEqual(await button.evaluate(el => getComputedStyle(el).borderRadius), '50%');
         }
         const accountPage = path === '/admin/accounts';
+        if (path === '/admin/settings/bank-accounts') {
+          for (const [action, icon] of [['Tắt', 'toggle-on'], ['Bật', 'toggle-off']]) {
+            const toggle = page.getByRole('button', { name: new RegExp(`^${action} tài khoản`) });
+            assert.equal(await toggle.getAttribute('type'), 'submit');
+            assert.equal(await toggle.locator(`.bi-${icon}`).count(), 1);
+            assert.equal((await toggle.textContent()).trim(), '');
+            assert.ok(await toggle.evaluate(el =>
+              el.form.method === 'post' && !!el.form.querySelector('[name="csrf_token"]')));
+          }
+        }
         const actions = page.locator(accountPage ? '.acct-action-btn' : '.action-icon-btn');
         assert.ok(await actions.count() > 0);
         for (let i = 0; i < await actions.count(); i++) {

@@ -58,10 +58,12 @@
                   data-account-name="{{ acc.account_name }}">
             <i class="bi bi-pencil" aria-hidden="true"></i>
           </button>
-          <form method="post" action="{{ url_for('admin.bank_account_toggle', account_id=acc.id) }}" class="flex-grow-1">
+          <form method="post" action="{{ url_for('admin.bank_account_toggle', account_id=acc.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-outline-{{ 'warning' if acc.is_active else 'success' }} btn-sm w-100">
-              {{ 'Tắt' if acc.is_active else 'Bật' }}
+            <button type="submit" class="btn btn-outline-{{ 'warning' if acc.is_active else 'success' }} btn-sm action-icon-btn"
+                    title="{{ 'Tắt' if acc.is_active else 'Bật' }} tài khoản {{ acc.bank_name }} — {{ acc.account_number }}"
+                    aria-label="{{ 'Tắt' if acc.is_active else 'Bật' }} tài khoản {{ acc.bank_name }} — {{ acc.account_number }}">
+              <i class="bi bi-{{ 'toggle-on' if acc.is_active else 'toggle-off' }}" aria-hidden="true"></i>
             </button>
           </form>
           <form method="post" action="{{ url_for('admin.bank_account_delete', account_id=acc.id) }}"
