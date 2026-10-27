@@ -407,16 +407,20 @@
 {% endif %}
 
 <!-- Modal thông báo học phí cá nhân -->
-<div class="modal fade" id="tuitionReminderModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
+<div class="modal fade" id="tuitionReminderModal" tabindex="-1" aria-labelledby="tuitionReminderTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
-        <h6 class="modal-title fw-bold">
+        <h6 class="modal-title fw-bold" id="tuitionReminderTitle">
           <i class="bi bi-image me-2 text-primary"></i>Thông báo học phí
         </h6>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body d-flex justify-content-center py-4" style="background:#f1f5f9;">
+      <div class="modal-body py-4" style="background:#f1f5f9;">
+        <fieldset id="itcAccountSelection" class="tuition-account-selection mb-3 d-none">
+          <legend class="fs-6 fw-semibold mb-2">Chọn tài khoản nhận học phí</legend>
+          <div id="itcAccountPicker" class="d-flex flex-column gap-2"></div>
+        </fieldset>
         <div id="individualTuitionCard" class="tuition-card tuition-card-individual">
           <div class="text-center mb-3">
             <img src="{{ url_for('static', filename='icons/logo-mark.png') }}" height="40" alt="logo">
@@ -453,7 +457,6 @@
               ⚠️ Nhớ CHỤP BILL gửi lại để trung tâm tránh nhầm lẫn nhé.
             </div>
           </div>
-          <div id="itcAccountPicker" class="d-flex gap-3 justify-content-center mt-2 small d-none"></div>
         </div>
       </div>
       <div class="modal-footer">
@@ -528,7 +531,18 @@
   background: #fef3e2; color: #b45309; font-size: 0.7rem;
   border-radius: 8px; padding: 6px 10px;
 }
-.tuition-card-individual { position: static; }
+.tuition-card-individual { position: static; max-width: 100%; overflow-wrap: anywhere; }
+.tuition-card-individual .tuition-qr-img { max-width: 100%; }
+.tuition-account-selection { min-width: 0; max-width: 375px; margin-inline: auto; }
+.tuition-account-option {
+  display: flex; align-items: flex-start; gap: .75rem;
+  padding: .75rem; border: 1px solid #cbd5e1; border-radius: .5rem;
+  background: #fff; cursor: pointer;
+}
+.tuition-account-option:has(input:checked) { border-color: #2563eb; background: #eff6ff; }
+.tuition-account-option:focus-within { outline: 2px solid #2563eb; outline-offset: 2px; }
+.tuition-account-option .form-check-input { flex-shrink: 0; margin: .2rem 0 0; }
+.tuition-account-details { min-width: 0; overflow-wrap: anywhere; }
 .tuition-profile-box { background: #fff7ed; border-radius: 12px; padding: 14px; }
 .tuition-total-due { color: #ea580c; font-weight: 800; font-size: 1.2rem; }
 
@@ -641,6 +655,35 @@ function runGroupExport(mode) {
 let pendingGroupExportMode = null;
 let pendingGroupAccounts = [];
 
+function populateTuitionAccountPicker(picker, accounts, radioName, onChange) {
+  picker.replaceChildren();
+  accounts.forEach((acc, i) => {
+    const label = document.createElement('label');
+    label.className = 'tuition-account-option';
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.className = 'form-check-input';
+    radio.name = radioName;
+    radio.value = String(i);
+    radio.checked = i === 0;
+    if (onChange) radio.addEventListener('change', () => onChange(acc));
+    const details = document.createElement('span');
+    details.className = 'tuition-account-details small';
+    for (const [text, className] of [
+      [acc.bank_name, 'd-block fw-semibold'],
+      [`Số tài khoản: ${acc.account_number}`, 'd-block'],
+      [`Chủ tài khoản: ${acc.account_name}`, 'd-block text-muted'],
+    ]) {
+      const line = document.createElement('span');
+      line.className = className;
+      line.textContent = text;
+      details.append(line);
+    }
+    label.append(radio, details);
+    picker.append(label);
+  });
+}
+
 document.querySelectorAll('.btn-group-tuition-export').forEach(btn => {
   btn.addEventListener('click', function () {
     const accounts = JSON.parse(this.dataset.accounts || '[]');
@@ -654,18 +697,7 @@ document.querySelectorAll('.btn-group-tuition-export').forEach(btn => {
     pendingGroupExportMode = mode;
     pendingGroupAccounts = accounts;
     const picker = document.getElementById('groupBankAccountPicker');
-    picker.innerHTML = '';
-    accounts.forEach((acc, i) => {
-      const id = `groupBankAcc${acc.id}`;
-      picker.insertAdjacentHTML('beforeend', `
-        <label class="form-check d-flex align-items-center gap-2 border rounded p-2" for="${id}">
-          <input type="radio" class="form-check-input mt-0" name="groupBankAccountRadio" id="${id}" value="${i}" ${i === 0 ? 'checked' : ''}>
-          <span>
-            <span class="fw-semibold">${acc.bank_name}</span>
-            <span class="text-muted small d-block">${acc.account_number} — ${acc.account_name}</span>
-          </span>
-        </label>`);
-    });
+    populateTuitionAccountPicker(picker, accounts, 'groupBankAccountRadio');
     bootstrap.Modal.getOrCreateInstance(document.getElementById('groupBankAccountModal')).show();
   });
 });
@@ -707,21 +739,8 @@ document.getElementById('tuitionReminderModal').addEventListener('show.bs.modal'
 
   const accounts = JSON.parse(btn.dataset.accounts || '[]');
   const picker = document.getElementById('itcAccountPicker');
-  picker.innerHTML = '';
-  picker.classList.toggle('d-none', accounts.length <= 1);
-  accounts.forEach((acc, i) => {
-    if (accounts.length > 1) {
-      const id = `itcAcc${acc.id}`;
-      picker.insertAdjacentHTML('beforeend', `
-        <label class="d-flex align-items-center gap-1">
-          <input type="radio" name="itcAccountRadio" value="${i}" ${i === 0 ? 'checked' : ''}>
-          ${acc.bank_name}
-        </label>`);
-    }
-  });
-  picker.querySelectorAll('input[name="itcAccountRadio"]').forEach(radio => {
-    radio.addEventListener('change', () => renderTuitionAccount(accounts[parseInt(radio.value, 10)]));
-  });
+  document.getElementById('itcAccountSelection').classList.toggle('d-none', accounts.length <= 1);
+  populateTuitionAccountPicker(picker, accounts, 'itcAccountRadio', renderTuitionAccount);
 
   if (accounts.length > 0) renderTuitionAccount(accounts[0]);
 });
