@@ -87,12 +87,13 @@
       <label for="classSearch" class="form-label small fw-semibold mb-2">Tìm lớp hoặc khóa học</label>
       <div class="scores-search">
         <div class="input-group">
-          <span class="input-group-text bg-white text-muted"><i class="bi bi-search" aria-hidden="true"></i></span>
           <input id="classSearch" type="search" name="q" value="{{ search_query }}"
                  class="form-control" placeholder="Ví dụ: Toán 8"
                  autocomplete="off" enterkeyhint="search">
         </div>
-        <button class="btn btn-primary" type="submit">Tìm lớp</button>
+        <button class="btn action-icon-btn icon-action-plain" type="submit" title="Tìm lớp" aria-label="Tìm lớp">
+          <i class="bi bi-search" aria-hidden="true"></i>
+        </button>
         {% if search_query %}
         <a href="{{ url_for('teacher.scores_list') }}" class="scores-search-reset btn btn-outline-secondary" aria-label="Xóa tìm kiếm" title="Xóa tìm kiếm">
           <i class="bi bi-x-lg" aria-hidden="true"></i><span class="d-none d-sm-inline ms-2">Xóa tìm kiếm</span>
