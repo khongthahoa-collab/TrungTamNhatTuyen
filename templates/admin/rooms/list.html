@@ -47,8 +47,8 @@
           </div>
           <div class="d-flex gap-2">
             <a href="{{ url_for('admin.room_edit', room_id=room.id) }}"
-               class="btn btn-outline-primary btn-sm flex-fill">
-              <i class="bi bi-pencil me-1"></i>Sửa
+               class="btn btn-outline-primary btn-sm action-icon-btn" title="Sửa phòng {{ room.name }}" aria-label="Sửa phòng {{ room.name }}">
+              <i class="bi bi-pencil" aria-hidden="true"></i>
             </a>
             {% if room.is_active %}
             <form method="post" action="{{ url_for('admin.room_delete', room_id=room.id) }}"

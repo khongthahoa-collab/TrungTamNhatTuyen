@@ -30,9 +30,9 @@
             <div class="small text-muted">{{ folder.scope_label }}</div>
           </a>
           {% if current_user.is_admin or folder.created_by == current_user.id %}
-          <button type="button" class="btn btn-sm btn-link text-muted px-2" data-bs-toggle="modal"
-                  data-bs-target="#editExamFolderModal{{ folder.id }}" title="Sửa thư mục">
-            <i class="bi bi-pencil-fill" style="font-size:0.75rem;"></i>
+          <button type="button" class="btn btn-sm btn-outline-primary action-icon-btn" data-bs-toggle="modal"
+                  data-bs-target="#editExamFolderModal{{ folder.id }}" title="Sửa thư mục {{ folder.name }}" aria-label="Sửa thư mục {{ folder.name }}">
+            <i class="bi bi-pencil" aria-hidden="true"></i>
           </button>
           {% endif %}
         </div>
@@ -301,8 +301,8 @@
                 <form method="post" action="{{ url_for('admin.document_delete', doc_id=doc.id) }}"
                       onsubmit="return confirm('Bạn có chắc muốn xóa tài liệu này?')">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <button type="submit" class="btn btn-outline-danger btn-sm" title="Xóa">
-                    <i class="bi bi-trash"></i>
+                  <button type="submit" class="btn btn-outline-danger btn-sm action-icon-btn" title="Xóa tài liệu" aria-label="Xóa tài liệu">
+                    <i class="bi bi-trash" aria-hidden="true"></i>
                   </button>
                 </form>
               </div>

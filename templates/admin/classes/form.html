@@ -242,7 +242,7 @@ function buildRow() {
     <div class="col-6 col-sm-2"><select class="form-select form-select-sm sched-end" name="sched_end[]"><option value="">-- Đến --</option>${TIME_OPT}</select></div>
     <div class="col-6 col-sm-3"><select class="form-select form-select-sm" name="sched_room_id[]">${ROOM_OPT}</select></div>
     <div class="col-6 col-sm-2 sched-teacher-col d-none"><select class="form-select form-select-sm sched-teacher" name="sched_teacher_id[]"></select></div>
-    <div class="col-auto"><button type="button" class="btn btn-outline-danger btn-sm remove-row" title="Xóa"><i class="bi bi-x-lg"></i></button></div>`;
+    <div class="col-auto"><button type="button" class="btn btn-outline-danger btn-sm action-icon-btn remove-row" title="Xóa khung giờ" aria-label="Xóa khung giờ"><i class="bi bi-trash" aria-hidden="true"></i></button></div>`;
   return div;
 }
 

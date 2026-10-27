@@ -116,8 +116,8 @@
                 action="{{ url_for('teacher.delete_document', doc_id=doc.id) }}"
                 onsubmit="return confirm('Xóa tài liệu này?')">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa" style="min-height:36px;">
-              <i class="bi bi-trash"></i>
+            <button type="submit" class="btn btn-sm btn-outline-danger action-icon-btn" title="Xóa tài liệu {{ doc.title }}" aria-label="Xóa tài liệu {{ doc.title }}">
+              <i class="bi bi-trash" aria-hidden="true"></i>
             </button>
           </form>
         </div>

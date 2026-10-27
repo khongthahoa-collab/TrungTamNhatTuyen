@@ -96,14 +96,14 @@
           <td class="text-end">
             <div class="d-flex align-items-center justify-content-end gap-2">
               {% if r.status == 'APPROVED' %}
-              <button type="button" class="acct-action-btn acct-action-edit" title="Sửa đơn nghỉ phép"
+              <button type="button" class="btn btn-outline-primary btn-sm action-icon-btn" title="Sửa đơn nghỉ phép" aria-label="Sửa đơn nghỉ phép"
                       data-bs-toggle="modal" data-bs-target="#editLeaveModal"
                       data-request-id="{{ r.id }}"
                       data-student-name="{{ r.student.full_name if r.student else '' }}"
                       data-start-date="{{ r.start_date.isoformat() }}"
                       data-end-date="{{ r.end_date.isoformat() }}"
                       data-reason="{{ r.reason or '' }}">
-                <i class="bi bi-pencil"></i>
+                <i class="bi bi-pencil" aria-hidden="true"></i>
               </button>
               <form method="post" action="{{ url_for('admin.leave_request_cancel', request_id=r.id) }}" class="d-inline">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

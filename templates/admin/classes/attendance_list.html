@@ -267,8 +267,8 @@
           {% endif %}
           <td class="text-center">
             <a href="{{ url_for('admin.attendance_session', schedule_id=s.id) }}"
-               class="btn btn-outline-secondary btn-sm">
-              <i class="bi bi-pencil"></i> Sửa
+               class="btn btn-outline-primary btn-sm action-icon-btn" title="Sửa điểm danh {{ s.date | date_vn }}" aria-label="Sửa điểm danh {{ s.date | date_vn }}">
+              <i class="bi bi-pencil" aria-hidden="true"></i>
             </a>
           </td>
         </tr>

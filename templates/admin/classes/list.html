@@ -106,8 +106,8 @@
             </td>
             <td class="text-center">
               <div class="d-flex justify-content-center gap-1">
-                <a href="{{ url_for('admin.class_detail', class_id=cls.id, edit=1) }}" class="btn btn-outline-secondary btn-sm" title="Xem / Sửa">
-                  <i class="bi bi-pencil"></i>
+                <a href="{{ url_for('admin.class_detail', class_id=cls.id, edit=1) }}" class="btn btn-outline-primary btn-sm action-icon-btn" title="Sửa lớp {{ cls.name }}" aria-label="Sửa lớp {{ cls.name }}">
+                  <i class="bi bi-pencil" aria-hidden="true"></i>
                 </a>
               </div>
             </td>

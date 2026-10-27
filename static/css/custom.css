@@ -9,6 +9,18 @@
 .exam-error-choices .btn { min-width: 3rem; }
 .exam-error-choices .is-selected { outline: 2px solid currentColor; outline-offset: 2px; }
 
+.action-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: .5rem;
+}
+.action-icon-btn > .bi { margin: 0; pointer-events: none; }
+
 .app-message {
   width: min(440px, calc(100% - 2rem));
   max-height: calc(100dvh - 2rem);

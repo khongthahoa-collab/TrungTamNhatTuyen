@@ -50,12 +50,13 @@
         </form>
         {% endif %}
         <div class="d-flex gap-2">
-          <button type="button" class="btn btn-outline-secondary btn-sm flex-grow-1"
+          <button type="button" class="btn btn-outline-primary btn-sm action-icon-btn"
+                  title="Sửa tài khoản {{ acc.bank_name }} — {{ acc.account_number }}" aria-label="Sửa tài khoản {{ acc.bank_name }} — {{ acc.account_number }}"
                   data-bs-toggle="modal" data-bs-target="#editBankAccountModal"
                   data-id="{{ acc.id }}" data-bank-id="{{ acc.bank_id }}"
                   data-bank-name="{{ acc.bank_name }}" data-account-number="{{ acc.account_number }}"
                   data-account-name="{{ acc.account_name }}">
-            <i class="bi bi-pencil me-1"></i>Sửa
+            <i class="bi bi-pencil" aria-hidden="true"></i>
           </button>
           <form method="post" action="{{ url_for('admin.bank_account_toggle', account_id=acc.id) }}" class="flex-grow-1">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -66,8 +67,8 @@
           <form method="post" action="{{ url_for('admin.bank_account_delete', account_id=acc.id) }}"
                 onsubmit="return confirm('Xoá tài khoản {{ acc.bank_name }} — {{ acc.account_number }}?')">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-outline-danger btn-sm" title="Xoá">
-              <i class="bi bi-trash"></i>
+            <button type="submit" class="btn btn-outline-danger btn-sm action-icon-btn" title="Xóa tài khoản {{ acc.bank_name }} — {{ acc.account_number }}" aria-label="Xóa tài khoản {{ acc.bank_name }} — {{ acc.account_number }}">
+              <i class="bi bi-trash" aria-hidden="true"></i>
             </button>
           </form>
         </div>

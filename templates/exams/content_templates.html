@@ -22,13 +22,15 @@
         <div class="small text-muted">{{ item.content|length }} ký tự</div>
       </div>
       <div class="d-flex gap-2">
-        <a href="{{ url_for('admin.exam_content_template_edit', template_id=item.id) }}" class="btn btn-sm btn-outline-primary">
-          {{ 'Sửa' if current_user.can_write('exams') else 'Xem' }}
+        <a href="{{ url_for('admin.exam_content_template_edit', template_id=item.id) }}" class="btn btn-sm btn-outline-primary action-icon-btn"
+           title="{{ 'Sửa' if current_user.can_write('exams') else 'Xem' }} mẫu {{ item.name }}"
+           aria-label="{{ 'Sửa' if current_user.can_write('exams') else 'Xem' }} mẫu {{ item.name }}">
+          <i class="bi {{ 'bi-pencil' if current_user.can_write('exams') else 'bi-eye' }}" aria-hidden="true"></i>
         </a>
         {% if current_user.can_write('exams') %}
         <form method="post" action="{{ url_for('admin.exam_content_template_delete', template_id=item.id) }}" onsubmit="return confirm('Xóa mẫu nội dung này? Các đề đã tạo sẽ không bị thay đổi.');">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button type="submit" class="btn btn-sm btn-outline-danger" aria-label="Xóa mẫu {{ item.name }}">Xóa</button>
+          <button type="submit" class="btn btn-sm btn-outline-danger action-icon-btn" title="Xóa mẫu {{ item.name }}" aria-label="Xóa mẫu {{ item.name }}"><i class="bi bi-trash" aria-hidden="true"></i></button>
         </form>
         {% endif %}
       </div>

@@ -175,14 +175,18 @@
         move.disabled = frozen || index + direction < 0 || index + direction >= images.length;
         actions.append(move);
       });
-      actions.append(button('Xóa', `Xóa ảnh ${index + 1}`, () => {
+      const remove = button('', `Xóa ảnh ${index + 1}`, () => {
         if (!confirm(`Xóa ảnh bài làm ${index + 1}?`)) return;
         schedule(panel, async () => {
           await request(card.querySelector('a').getAttribute('href'), { method: 'DELETE' });
           card.remove();
           refreshActions(panel);
         }, 'Xóa ảnh');
-      }));
+      });
+      remove.className = 'btn btn-outline-danger btn-sm action-icon-btn';
+      remove.title = `Xóa ảnh ${index + 1}`;
+      remove.innerHTML = '<i class="bi bi-trash" aria-hidden="true"></i>';
+      actions.append(remove);
     });
   }
 

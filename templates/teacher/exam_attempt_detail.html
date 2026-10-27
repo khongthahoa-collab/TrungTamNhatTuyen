@@ -52,8 +52,8 @@
 
 {% macro question_editor(exam, attempt, group, question) -%}
   <details class="attempt-question-editor mt-3">
-    <summary class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Sửa nội dung câu
+    <summary class="btn btn-outline-primary btn-sm action-icon-btn" title="Sửa nội dung câu {{ question.position }}" aria-label="Sửa nội dung câu {{ question.position }}">
+      <i class="bi bi-pencil" aria-hidden="true"></i>
     </summary>
     <form class="border rounded p-3 mt-2 bg-light" method="post"
           action="{{ url_for('teacher.exams_attempt_question_edit', exam_id=exam.id, attempt_id=attempt.id, group_index=group.group_index, question_index=question.source_index) }}">

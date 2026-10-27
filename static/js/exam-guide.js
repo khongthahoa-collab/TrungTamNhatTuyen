@@ -20,7 +20,7 @@
       ['[data-guide="samples"]', '3. Sử dụng nội dung mẫu',
         'Chọn mẫu do admin tạo rồi bấm “Sử dụng mẫu”. Mẫu sẽ thay thế nội dung đang nhập sau khi bạn xác nhận; tên đề không thay đổi.'],
       ['#groupsContainer', '4. Kiểm tra bản xem trước',
-        'Khung xem trước chỉ đọc và tự cập nhật khi nhập. Chọn “Sửa trong văn bản” để đến nội dung gốc. Trên điện thoại, dùng hai nút “Nhập nội dung” và “Xem trước”.'],
+        'Khung xem trước chỉ đọc và tự cập nhật khi nhập. Chọn biểu tượng bút ở câu hỏi để đến nội dung gốc. Trên điện thoại, dùng hai nút “Nhập nội dung” và “Xem trước”.'],
       ['[data-guide="configure"]', '5. Chuyển sang cấu hình',
         'Khi đã nhập tên đề và câu hỏi, bấm “Cấu hình” để chọn môn, cách chia điểm và lớp cần giao. Bước này chưa đăng đề cho học sinh.'],
     ],

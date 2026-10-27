@@ -75,8 +75,8 @@
         <p class="mt-2 mb-0 small text-muted">{{ class_.description }}</p>
         {% endif %}
       </div>
-      <button type="button" id="toggleClassEditBtn" class="btn btn-outline-primary btn-sm flex-shrink-0" onclick="toggleClassEdit(true)">
-        <i class="bi bi-pencil me-1"></i>Sửa
+      <button type="button" id="toggleClassEditBtn" class="btn btn-outline-primary btn-sm action-icon-btn" title="Sửa thông tin lớp" aria-label="Sửa thông tin lớp" onclick="toggleClassEdit(true)">
+        <i class="bi bi-pencil" aria-hidden="true"></i>
       </button>
     </div>
 
@@ -365,7 +365,7 @@
               {% endif %}
               {% if not loop.first %}
               <div class="col-auto">
-                <button type="button" class="btn btn-outline-danger btn-sm remove-resched-row" title="Xóa"><i class="bi bi-x-lg"></i></button>
+                <button type="button" class="btn btn-outline-danger btn-sm action-icon-btn remove-resched-row" title="Xóa khung giờ" aria-label="Xóa khung giờ"><i class="bi bi-trash" aria-hidden="true"></i></button>
               </div>
               {% endif %}
             </div>
@@ -614,7 +614,7 @@ function buildReschedRow() {
     <div class="col-6 col-sm-2"><select class="form-select form-select-sm resched-end" name="sched_end[]"><option value="">-- Đến --</option>${RESCHED_TIME_OPT}</select></div>
     <div class="col-6 col-sm-3"><select class="form-select form-select-sm" name="sched_room_id[]">${RESCHED_ROOM_OPT}</select></div>
     ${RESCHED_TEACHER_COL}
-    <div class="col-auto"><button type="button" class="btn btn-outline-danger btn-sm remove-resched-row" title="Xóa"><i class="bi bi-x-lg"></i></button></div>`;
+    <div class="col-auto"><button type="button" class="btn btn-outline-danger btn-sm action-icon-btn remove-resched-row" title="Xóa khung giờ" aria-label="Xóa khung giờ"><i class="bi bi-trash" aria-hidden="true"></i></button></div>`;
   return div;
 }
 

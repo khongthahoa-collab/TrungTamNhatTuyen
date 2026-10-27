@@ -172,26 +172,26 @@
           <td class="text-end text-nowrap">
             <div class="d-flex align-items-center justify-content-end gap-2">
               <!-- Edit profile -->
-              <button class="acct-action-btn acct-action-edit"
-                      title="Sửa thông tin"
+              <button class="btn btn-outline-primary btn-sm action-icon-btn"
+                      title="Sửa thông tin {{ u.full_name }}" aria-label="Sửa thông tin {{ u.full_name }}"
                       data-bs-toggle="modal"
                       data-bs-target="#userEditModal"
                       data-user-id="{{ u.id }}"
                       data-user-full-name="{{ u.full_name }}"
                       data-user-phone="{{ u.phone or '' }}"
                       data-user-gender="{{ u.gender or '' }}">
-                <i class="bi bi-pencil"></i>
+                <i class="bi bi-pencil" aria-hidden="true"></i>
               </button>
               {% if current_user.is_master and u.id != current_user.id %}
               <!-- Edit permissions -->
-              <button class="acct-action-btn acct-action-perm"
-                      title="Sửa quyền"
+              <button class="btn btn-outline-primary btn-sm action-icon-btn"
+                      title="Sửa quyền {{ u.full_name }}" aria-label="Sửa quyền {{ u.full_name }}"
                       data-bs-toggle="modal"
                       data-bs-target="#permEditModal"
                       data-user-id="{{ u.id }}"
                       data-user-name="{{ u.full_name }}"
                       data-user-group-id="{{ u.permission_group_id or '' }}">
-                <i class="bi bi-shield-lock"></i>
+                <i class="bi bi-pencil" aria-hidden="true"></i>
               </button>
               {% endif %}
               <!-- Reset password -->
@@ -222,10 +222,10 @@
                     class="d-inline">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit"
-                        class="acct-action-btn acct-action-delete"
-                        title="Xoá tài khoản"
+                        class="btn btn-outline-danger btn-sm action-icon-btn"
+                        title="Xóa tài khoản {{ u.full_name }}" aria-label="Xóa tài khoản {{ u.full_name }}"
                         onclick="return confirm('Xoá tài khoản {{ u.full_name }}? Tài khoản sẽ bị ẩn khỏi danh sách nhưng dữ liệu liên quan vẫn được giữ nguyên.')">
-                  <i class="bi bi-trash"></i>
+                  <i class="bi bi-trash" aria-hidden="true"></i>
                 </button>
               </form>
               {% endif %}

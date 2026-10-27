@@ -85,8 +85,8 @@
           </td>
           <td class="text-center">
             <a href="{{ url_for('admin.teacher_detail', teacher_id=teacher.id) }}"
-               class="btn btn-sm btn-outline-primary" title="Sửa">
-              <i class="bi bi-pencil"></i>
+               class="btn btn-sm btn-outline-primary action-icon-btn" title="Sửa giáo viên {{ teacher.full_name }}" aria-label="Sửa giáo viên {{ teacher.full_name }}">
+              <i class="bi bi-pencil" aria-hidden="true"></i>
             </a>
           </td>
         </tr>

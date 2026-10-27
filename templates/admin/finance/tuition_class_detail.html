@@ -222,11 +222,11 @@
             </button>
             {% endif %}
             {% if not r.is_paid and not r.is_voided and can_edit %}
-            <button class="btn btn-link p-0 ms-1" type="button"
+            <button class="btn btn-outline-primary btn-sm action-icon-btn ms-1" type="button"
                     data-bs-toggle="collapse"
                     data-bs-target="#adj{{ r.id }}"
-                    title="Điều chỉnh học phí tháng này">
-              <i class="bi bi-pencil text-muted" style="font-size:0.7rem;"></i>
+                    title="Điều chỉnh học phí tháng này" aria-label="Điều chỉnh học phí tháng này">
+              <i class="bi bi-pencil" aria-hidden="true"></i>
             </button>
             {% endif %}
             <div class="text-muted" style="font-size:0.72rem;">{{ r.student.parent_phone or '' }}</div>

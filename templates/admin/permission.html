@@ -137,14 +137,14 @@
           </td>
           <td class="text-end text-nowrap">
             <div class="d-flex align-items-center justify-content-end gap-2">
-              <a href="{{ url_for('admin.admin_permission', group_id=g.id) }}" class="perm-pill-btn">
-                <i class="bi bi-shield-lock me-1"></i>Sửa quyền
+              <a href="{{ url_for('admin.admin_permission', group_id=g.id) }}" class="btn btn-outline-primary btn-sm action-icon-btn" title="Sửa nhóm quyền {{ g.name }}" aria-label="Sửa nhóm quyền {{ g.name }}">
+                <i class="bi bi-pencil" aria-hidden="true"></i>
               </a>
               <form method="post" action="{{ url_for('admin.permission_group_delete', group_id=g.id) }}" class="d-inline">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="perm-pill-btn-outline-danger"
+                <button type="submit" class="btn btn-outline-danger btn-sm action-icon-btn" title="Xóa nhóm quyền {{ g.name }}" aria-label="Xóa nhóm quyền {{ g.name }}"
                         onclick="return confirm('Xoá nhóm quyền \'{{ g.name }}\'?')">
-                  <i class="bi bi-trash me-1"></i>Xoá
+                  <i class="bi bi-trash" aria-hidden="true"></i>
                 </button>
               </form>
             </div>

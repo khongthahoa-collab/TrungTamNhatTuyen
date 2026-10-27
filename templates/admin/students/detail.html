@@ -59,8 +59,8 @@
             <form method="post" action="{{ url_for('admin.student_photo_delete', student_id=student.id) }}"
                   onsubmit="return confirm('Xóa ảnh này?')" class="mt-1">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button class="btn btn-link btn-sm text-danger p-0" style="font-size:0.75rem;">
-                <i class="bi bi-trash me-1"></i>Xóa ảnh
+              <button type="submit" class="btn btn-outline-danger btn-sm action-icon-btn" title="Xóa ảnh học sinh" aria-label="Xóa ảnh học sinh">
+                <i class="bi bi-trash" aria-hidden="true"></i>
               </button>
             </form>
             {% endif %}
@@ -579,11 +579,11 @@
               <td class="text-end small">
                 {{ tp.amount | vnd }}
                 <!-- Nút chỉnh sửa số tiền -->
-                <button class="btn btn-link btn-sm p-0 ms-1" type="button"
+                <button class="btn btn-outline-primary btn-sm action-icon-btn ms-1" type="button"
                         data-bs-toggle="collapse"
                         data-bs-target="#editAmount{{ tp.id }}"
-                        title="Điều chỉnh">
-                  <i class="bi bi-pencil-fill text-muted" style="font-size:0.7rem;"></i>
+                        title="Điều chỉnh học phí" aria-label="Điều chỉnh học phí">
+                  <i class="bi bi-pencil" aria-hidden="true"></i>
                 </button>
               </td>
               <td class="text-center">

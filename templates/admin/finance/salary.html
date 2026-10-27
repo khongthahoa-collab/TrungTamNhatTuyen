@@ -128,8 +128,8 @@
             <td class="text-center">
               {% if sal %}
               <a href="{{ url_for('admin.salary_detail', salary_id=sal.id) }}"
-                 class="btn btn-outline-primary btn-sm" title="Sửa lương">
-                <i class="bi bi-pencil"></i>
+                 class="btn btn-outline-primary btn-sm action-icon-btn" title="Sửa lương" aria-label="Sửa lương">
+                <i class="bi bi-pencil" aria-hidden="true"></i>
               </a>
               {% else %}
               <form method="post" action="{{ url_for('admin.salary_start', teacher_id=teacher.id) }}" class="d-inline">

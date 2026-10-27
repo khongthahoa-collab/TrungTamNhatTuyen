@@ -179,7 +179,7 @@
       <div class="card-body">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
           <h3 class="h6 fw-bold mb-0">Câu ${qi + 1}</h3>
-          <button type="button" class="btn btn-outline-secondary btn-sm" data-source-group="${gi}" data-source-question="${qi}">Sửa trong văn bản</button>
+          <button type="button" class="btn btn-outline-primary btn-sm action-icon-btn" title="Sửa câu ${qi + 1} trong văn bản" aria-label="Sửa câu ${qi + 1} trong văn bản" data-source-group="${gi}" data-source-question="${qi}"><i class="bi bi-pencil" aria-hidden="true"></i></button>
         </div>
         <div class="mb-2">${body}</div>${answers}
         ${question.explanation ? `<div class="border-top mt-3 pt-2 small"><strong>Hướng dẫn giải</strong><div>${text(question.explanation)}</div></div>` : ''}

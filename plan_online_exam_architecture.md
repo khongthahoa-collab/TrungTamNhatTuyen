@@ -6,6 +6,15 @@
 
 ## 0. Gia dinh ve chi phi va gioi han
 
+### Nut thao tac sua/xoa
+
+- Thao tac tung dong/the dung `.action-icon-btn` 44x44px: but xanh de sua,
+  thung rac do de xoa, con mat cho quyen chi xem. Moi nut co `title` va
+  `aria-label`; icon trang tri co `aria-hidden="true"`.
+- Giu icon + chu trong menu, xoa hang loat, thao tac quan trong tren
+  trang chi tiet va cac nut xac nhan. Xoa bo loc khong dung thung rac.
+  Khong doi endpoint, CSRF, phan quyen hay buoc xac nhan xoa.
+
 ### Hien thi cau tim loi sai
 
 - Nhan A/B/C/D nam ngay duoi cum tu gach chan, cac lua chon nam tren
