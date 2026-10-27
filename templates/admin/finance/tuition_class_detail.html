@@ -357,8 +357,15 @@
 {% endif %}
 
 {% if all_records %}
-<!-- Off-screen capture cho "Xuất ảnh học phí nhóm" — không hiển thị cho người dùng -->
-<div id="groupTuitionCapture" class="tuition-card tuition-card-group tuition-card-offscreen">
+<div class="modal fade" id="groupTuitionModal" tabindex="-1" aria-labelledby="groupTuitionTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title fw-bold" id="groupTuitionTitle">Thông báo học phí toàn bộ học sinh</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+      </div>
+      <div class="modal-body" style="background:#f1f5f9;">
+<div id="groupTuitionCapture" class="tuition-card tuition-card-group">
   <div class="d-flex align-items-center justify-content-between mb-3">
     <img src="{{ url_for('static', filename='icons/logo-mark.png') }}" height="48" alt="logo">
     <div class="text-end">
@@ -406,6 +413,21 @@
     </div>
   </div>
 </div>
+        <div id="groupBankAccountPicker" class="d-flex flex-column gap-2 mt-3"
+             role="group" aria-label="Chọn tài khoản nhận học phí"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+        <button type="button" class="btn btn-outline-primary" id="btnCopyGroupTuitionCard">
+          <i class="bi bi-clipboard me-1"></i>Sao chép ảnh
+        </button>
+        <button type="button" class="btn btn-primary" id="btnDownloadGroupTuitionCard">
+          <i class="bi bi-download me-1"></i>Tải ảnh thông báo
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endif %}
 
 <!-- Modal thông báo học phí cá nhân -->
@@ -418,7 +440,7 @@
         </h6>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body d-flex justify-content-center py-4" style="background:#f1f5f9;">
+      <div class="modal-body py-4" style="background:#f1f5f9;">
         <div id="individualTuitionCard" class="tuition-card tuition-card-individual">
           <div class="text-center mb-3">
             <img src="{{ url_for('static', filename='icons/logo-mark.png') }}" height="40" alt="logo">
@@ -474,29 +496,6 @@
   </div>
 </div>
 
-<!-- Modal chọn tài khoản ngân hàng trước khi xuất ảnh học phí nhóm -->
-<div class="modal fade" id="groupBankAccountModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h6 class="modal-title fw-bold">
-          <i class="bi bi-bank me-2 text-primary"></i>Vui lòng chọn tài khoản
-        </h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <div id="groupBankAccountPicker" class="d-flex flex-column gap-2"></div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
-        <button type="button" class="btn btn-primary" id="btnGroupBankAccountOk">
-          <i class="bi bi-check-lg me-1"></i>OK
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <style>
 .tuition-card {
   width: 375px;
@@ -507,7 +506,7 @@
   padding: 20px;
   font-family: inherit;
 }
-.tuition-card-offscreen { position: absolute; left: -9999px; top: 0; }
+.tuition-card-group { max-width: 100%; overflow-wrap: anywhere; }
 .tuition-card-title { color: #ea580c; font-weight: 800; font-size: 1.3rem; }
 .tuition-teacher-avatar {
   width: 44px; height: 44px; border-radius: 50%;
@@ -616,59 +615,29 @@ function exportTuitionCardAsImage(captureEl, filename, btn) {
     });
 }
 
-// Xuất ảnh học phí nhóm (toàn bộ hoặc chỉ chưa đóng): bấm nút -> nếu có
-// hơn 1 tài khoản ngân hàng đang bật thì hiện popup radio để chọn tài
-// khoản nhận tiền cho lần xuất này -> OK mới thực sự xuất ảnh. Chỉ 1 tài
-// khoản thì dùng luôn, không cần hỏi.
+// Xuất ảnh học phí nhóm: xem trước và chọn tài khoản trước khi tải/sao chép.
 function applyGroupAccount(acc) {
   document.getElementById('groupBankName').textContent = acc.bank_name;
   document.getElementById('groupAccountNumber').textContent = acc.account_number;
   document.getElementById('groupAccountName').textContent = acc.account_name;
-  document.getElementById('groupQrImg').src = acc.qr_url || '';
+  const qr = document.getElementById('groupQrImg');
+  if (qr) qr.src = acc.qr_url || '';
 }
 
-function runGroupExport(mode) {
-  if (mode === 'all') {
-    exportTuitionCardAsImage(
-      document.getElementById('groupTuitionCapture'),
-      `hoc-phi-nhom-{{ cls.id }}-T{{ month }}-{{ year }}.png`,
-      document.getElementById('btnGroupExportAll'),
-    );
-    return;
-  }
-
-  // Chỉ gồm học sinh chưa đóng — ẩn tạm các dòng đã đóng + đánh lại STT
-  // trước khi chụp, rồi khôi phục nguyên trạng bảng sau khi xong (dùng
-  // chung 1 bảng đã render sẵn, không cần dựng thêm 1 thẻ ẩn thứ hai).
+let currentGroupExportMode = 'all';
+function showGroupTuitionPreview(mode) {
+  currentGroupExportMode = mode;
+  document.getElementById('groupTuitionTitle').textContent = mode === 'unpaid'
+    ? 'Thông báo học phí chưa đóng' : 'Thông báo học phí toàn bộ học sinh';
   const rows = document.querySelectorAll('#groupTuitionCapture .group-tuition-row');
-  const originalDisplay = [];
-  const originalStt = [];
   let stt = 0;
   rows.forEach(row => {
-    originalDisplay.push(row.style.display);
-    originalStt.push(row.querySelector('.group-tuition-stt').textContent);
-    if (row.dataset.paid === 'true') {
-      row.style.display = 'none';
-    } else {
-      stt++;
-      row.querySelector('.group-tuition-stt').textContent = stt;
-    }
+    const hidden = mode === 'unpaid' && row.dataset.paid === 'true';
+    row.style.display = hidden ? 'none' : '';
+    if (!hidden) row.querySelector('.group-tuition-stt').textContent = ++stt;
   });
-
-  exportTuitionCardAsImage(
-    document.getElementById('groupTuitionCapture'),
-    `hoc-phi-chua-dong-{{ cls.id }}-T{{ month }}-{{ year }}.png`,
-    document.getElementById('btnGroupExportUnpaid'),
-  ).finally(() => {
-    rows.forEach((row, i) => {
-      row.style.display = originalDisplay[i];
-      row.querySelector('.group-tuition-stt').textContent = originalStt[i];
-    });
-  });
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('groupTuitionModal')).show();
 }
-
-let pendingGroupExportMode = null;
-let pendingGroupAccounts = [];
 
 function populateTuitionAccountPicker(picker, accounts, radioName, onChange) {
   picker.replaceChildren();
@@ -703,26 +672,24 @@ document.querySelectorAll('.btn-group-tuition-export').forEach(btn => {
   btn.addEventListener('click', function () {
     const accounts = JSON.parse(this.dataset.accounts || '[]');
     const mode = this.dataset.exportMode;
-    if (accounts.length <= 1) {
-      if (accounts.length === 1) applyGroupAccount(accounts[0]);
-      runGroupExport(mode);
-      return;
-    }
-
-    pendingGroupExportMode = mode;
-    pendingGroupAccounts = accounts;
+    if (accounts.length) applyGroupAccount(accounts[0]);
     const picker = document.getElementById('groupBankAccountPicker');
-    populateTuitionAccountPicker(picker, accounts, 'groupBankAccountRadio');
-    bootstrap.Modal.getOrCreateInstance(document.getElementById('groupBankAccountModal')).show();
+    picker.classList.toggle('d-none', accounts.length <= 1);
+    populateTuitionAccountPicker(picker, accounts, 'groupBankAccountRadio', applyGroupAccount);
+    showGroupTuitionPreview(mode);
   });
 });
 
-document.getElementById('btnGroupBankAccountOk').addEventListener('click', function () {
-  const checked = document.querySelector('input[name="groupBankAccountRadio"]:checked');
-  const idx = checked ? parseInt(checked.value, 10) : 0;
-  applyGroupAccount(pendingGroupAccounts[idx]);
-  bootstrap.Modal.getOrCreateInstance(document.getElementById('groupBankAccountModal')).hide();
-  runGroupExport(pendingGroupExportMode);
+document.getElementById('btnDownloadGroupTuitionCard')?.addEventListener('click', function () {
+  const prefix = currentGroupExportMode === 'unpaid' ? 'hoc-phi-chua-dong' : 'hoc-phi-nhom';
+  exportTuitionCardAsImage(
+    document.getElementById('groupTuitionCapture'),
+    `${prefix}-{{ cls.id }}-T{{ month }}-{{ year }}.png`,
+    this,
+  );
+});
+document.getElementById('btnCopyGroupTuitionCard')?.addEventListener('click', function () {
+  copyTuitionCardAsImage(document.getElementById('groupTuitionCapture'), this);
 });
 
 // Thông báo học phí cá nhân — điền lại thẻ preview trong modal mỗi khi mở
@@ -786,10 +753,12 @@ document.getElementById('btnDownloadTuitionCard').addEventListener('click', func
   );
 });
 
-document.getElementById('btnCopyTuitionCard').addEventListener('click', function () {
-  const btn = this;
-  const captureEl = document.getElementById('individualTuitionCard');
-  if (typeof html2canvas === 'undefined') return;
+function copyTuitionCardAsImage(captureEl, btn) {
+  if (!captureEl || typeof html2canvas !== 'function') {
+    console.error('Không thể sao chép học phí: thiếu vùng ảnh hoặc thư viện html2canvas.');
+    showMessage('Chưa tải được công cụ xuất ảnh. Hãy tải lại trang và thử lại.');
+    return;
+  }
   const original = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
@@ -813,6 +782,9 @@ document.getElementById('btnCopyTuitionCard').addEventListener('click', function
       btn.disabled = false;
       btn.innerHTML = original;
     });
+}
+document.getElementById('btnCopyTuitionCard').addEventListener('click', function () {
+  copyTuitionCardAsImage(document.getElementById('individualTuitionCard'), this);
 });
 
 // Công tắc "Đã thu đủ" — lưu ngay lập tức cả 2 chiều, không có bước Lưu

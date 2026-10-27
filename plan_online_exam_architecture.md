@@ -97,6 +97,13 @@
 
 ### Anh VietQR trong thong bao hoc phi (27/10/2026)
 
+- Hai nut xuat toan bo/chua dong mo popup xem truoc ngay nhu thong bao
+  ca nhan, khong tu tai tep. Popup cho doi tai khoan, sao chep va tai PNG.
+  Che do chua dong an dong da thu va danh lai STT; mo toan bo hien lai
+  day du. Bo chon tai khoan nam ngoai vung anh de khong lot vao PNG.
+- Modal ca nhan dung body block, khong flex stretch chieu cao the anh
+  theo khung cuon. The tu cao theo noi dung de vien nen va anh PNG
+  bao tron thong tin hoc sinh, hoc phi, no va chuyen khoan tren mobile.
 - Nha cung cap hien redirect JPG sang SVG. Proxy chi chap nhan toi da mot
   redirect sang dung URL cung host, cung tai khoan/query, chi doi duoi `.svg`.
   Khong theo redirect tuy y. SVG duoc doc bang defusedxml va dung lai voi
