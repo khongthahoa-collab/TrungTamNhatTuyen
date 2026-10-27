@@ -202,7 +202,16 @@
         </ul>
         {% endif %}
         <div class="px-3 pt-3">
-          <div class="exam-jump-bar mb-3" id="examJumpBar" role="search" aria-label="Điều hướng đến câu hỏi">
+          <div class="exam-jump-bar" id="examJumpBar" role="group" aria-label="Lọc và điều hướng câu hỏi">
+            <div class="attempt-filters" role="group" aria-label="Lọc câu hỏi">
+              {% for value, label in [('all', 'Tất cả'), ('correct', 'Đúng'), ('wrong', 'Sai')] %}
+              <button type="button" class="btn btn-sm {{ 'btn-primary' if value == 'all' else 'btn-outline-primary' }}"
+                      data-attempt-filter="{{ value }}" aria-pressed="{{ 'true' if value == 'all' else 'false' }}">
+                {{ label }} <span data-filter-count="{{ value }}"></span>
+              </button>
+              {% endfor %}
+              <button type="button" class="btn btn-sm btn-outline-secondary" data-attempt-filter="original" aria-pressed="false">Đề gốc</button>
+            </div>
             <div class="exam-jump-field">
               <label for="examJumpQuestion" class="exam-jump-label">Đi đến câu</label>
               <input type="number" id="examJumpQuestion" class="exam-jump-input" min="1" value="1" inputmode="numeric">
@@ -219,15 +228,6 @@
             </div>
             <button type="button" id="examJumpGo" class="exam-jump-go">Đến <i class="bi bi-arrow-right" aria-hidden="true"></i></button>
             <span id="examJumpHint" class="exam-jump-hint" role="status"></span>
-          </div>
-          <div class="attempt-filters" role="group" aria-label="Lọc câu hỏi">
-            {% for value, label in [('all', 'Tất cả'), ('correct', 'Đúng'), ('wrong', 'Sai')] %}
-            <button type="button" class="btn btn-sm {{ 'btn-primary' if value == 'all' else 'btn-outline-primary' }}"
-                    data-attempt-filter="{{ value }}" aria-pressed="{{ 'true' if value == 'all' else 'false' }}">
-              {{ label }} <span data-filter-count="{{ value }}"></span>
-            </button>
-            {% endfor %}
-            <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" data-attempt-filter="original" aria-pressed="false">Đề gốc</button>
           </div>
           <p class="small text-muted mt-2 mb-0" data-attempt-filter-hint role="status">Lọc trong phần đang xem. “Sai” gồm sai, đúng một phần và chưa trả lời; không gồm tự luận chờ chấm.</p>
         </div>
