@@ -65,7 +65,7 @@
   </div>
 </div>
 
-{% if payload.groups | selectattr('type', 'equalto', 'true_false') | list %}
+{% if unified_edit or payload.groups | selectattr('type', 'equalto', 'true_false') | list %}
 <div class="border rounded p-3">
   <div class="fw-semibold small mb-1">Trọng số câu Đúng/Sai</div>
   <div class="form-text mb-2">Tỉ lệ điểm nhận được theo số ý đúng; áp dụng cho mỗi câu Đúng/Sai và có thể điều chỉnh.</div>

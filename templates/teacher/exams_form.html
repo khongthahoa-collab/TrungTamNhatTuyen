@@ -1,8 +1,10 @@
-{% extends 'teacher/base.html' %}
+{% extends 'teacher/exams_confirm.html' if editing else 'teacher/base.html' %}
 {% from 'teacher/_navigation.html' import back_button, page_header %}
 {% block title %}{% if editing %}Sửa đề thi{% else %}Tạo đề thi{% endif %} – Giáo viên – Nhật Tuyền{% endblock %}
 {% block extra_head %}
+{% if editing %}{{ super() }}{% else %}
 {% include 'exams/_mathjax.html' %}
+{% endif %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/exam-editor.css') }}">
 <style>
   .exam-editor-toolbar {
@@ -22,12 +24,20 @@
 {% endblock %}
 {% block content %}
 <div class="container-fluid px-3 pt-3">
+  {% if editing %}
+  <div class="nav nav-tabs mb-3" role="tablist" aria-label="Chỉnh sửa đề thi">
+    <button class="nav-link{{ ' active' if request.args.get('tab') != 'settings' and not settings_errors else '' }}" id="examContentTab" data-bs-toggle="tab" data-bs-target="#examContentPane" type="button" role="tab" aria-controls="examContentPane" aria-selected="{{ 'false' if request.args.get('tab') == 'settings' or settings_errors else 'true' }}">Nội dung đề</button>
+    <button class="nav-link{{ ' active' if request.args.get('tab') == 'settings' or settings_errors else '' }}" id="examSettingsTab" data-bs-toggle="tab" data-bs-target="#examSettingsPane" type="button" role="tab" aria-controls="examSettingsPane" aria-selected="{{ 'true' if request.args.get('tab') == 'settings' or settings_errors else 'false' }}">Cài đặt đề</button>
+  </div>
+  <div class="tab-content">
+  <div class="tab-pane{{ ' show active' if request.args.get('tab') != 'settings' and not settings_errors else '' }}" id="examContentPane" role="tabpanel" aria-labelledby="examContentTab">
+  {% endif %}
   <form id="exam-form" method="post">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="title" id="titleField">
     <input type="hidden" name="groups_json" id="groupsField">
     <div class="exam-editor-toolbar">
-      {% call page_header('Chỉnh sửa nội dung đề thi' if editing else 'Soạn nội dung đề thi', 'pencil-square', badge='Bước 1/2',
+      {% call page_header('Chỉnh sửa nội dung đề thi' if editing else 'Soạn nội dung đề thi', 'pencil-square', badge=none if editing else 'Bước 1/2',
          back_href=url_for('teacher.exams_list', folder_id=exam.folder_id if editing else request.args.get('folder_id')), back_label='danh sách đề thi', editor_exit=true, compact=true, extra_class='mb-2') %}
         {% set exam_guide_page = 'compose' %}
         {% include 'teacher/_exam_guide.html' %}
@@ -57,8 +67,19 @@
     {% set editor_quick_save = editing %}
     {% include 'exams/_editor.html' %}
   </form>
+  {% if editing %}
+  </div>
+  <div class="tab-pane{{ ' show active' if request.args.get('tab') == 'settings' or settings_errors else '' }}" id="examSettingsPane" role="tabpanel" aria-labelledby="examSettingsTab">
+    {{ super() }}
+  </div>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/exam-editor.js') }}"></script>
+{% if editing %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/exam-edit-tabs.js') }}"></script>
+{% endif %}
 {% endblock %}

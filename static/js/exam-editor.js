@@ -324,10 +324,14 @@
       window.location.assign(link.href);
     }
   }));
-  form.addEventListener('submit', event => {
+  function serializeForm() {
     refreshState();
     document.getElementById('titleField').value = title.value.trim();
     document.getElementById('groupsField').value = JSON.stringify({ groups });
+  }
+  form.addEventListener('exam:serialize', serializeForm);
+  form.addEventListener('submit', event => {
+    serializeForm();
     saveDraft();
     if (!title.value.trim() || !groups.some(group => group.questions.some(q => q.text.trim()))) {
       event.preventDefault();

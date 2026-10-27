@@ -292,7 +292,6 @@
           <tr class="exam-list-row"
               data-exam-preview="{{ url_for('teacher.exams_preview', exam_id=exam.id) }}"
               data-exam-results="{{ url_for('teacher.exams_results', exam_id=exam.id) }}"
-              data-exam-settings="{{ url_for('teacher.exam_settings', exam_id=exam.id) }}"
               data-exam-edit="{{ url_for('teacher.exams_edit', exam_id=exam.id) }}"
               data-exam-statistics="{{ url_for('teacher.exams_statistics', exam_id=exam.id) }}"
               data-exam-leaderboard="{{ url_for('teacher.exams_leaderboard', exam_id=exam.id) }}"
@@ -349,38 +348,6 @@
           {% endfor %}
         </tbody>
       </table>
-    </div>
-  </div>
-</div>
-
-<div class="modal fade" id="examSettingsModal" tabindex="-1" aria-labelledby="examSettingsTitle" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content border-0 shadow">
-      <form id="examSettingsForm" method="post">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="modal-header">
-          <h5 class="modal-title fw-bold" id="examSettingsTitle">Cài đặt đề</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
-        </div>
-        <div class="modal-body">
-          <label class="form-label fw-semibold" for="examSettingsName">Tên đề</label>
-          <input class="form-control mb-3" id="examSettingsName" name="title" required maxlength="200">
-          <label class="form-label fw-semibold" for="examSettingsFolder">Thư mục</label>
-          <select class="form-select" id="examSettingsFolder" name="folder_id">
-            <option value="">Tất cả (chưa xếp thư mục)</option>
-            {% for folder in folders %}
-            <option value="{{ folder.id }}" data-folder-scope="{{ folder.scope_type }}"
-                    data-folder-class="{{ folder.class_id or '' }}" data-folder-subject="{{ folder.subject or '' }}">
-              {{ folder.path_label }} · {{ folder.scope_label }}
-            </option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
-          <button type="submit" class="btn btn-primary">Lưu cài đặt</button>
-        </div>
-      </form>
     </div>
   </div>
 </div>
@@ -471,7 +438,6 @@
   syncFolderScope();
 
   const menu = document.getElementById('examContextMenu');
-  const settingsForm = document.getElementById('examSettingsForm');
   const moveForm = document.getElementById('examMoveForm');
   let activeTrigger = null;
 
@@ -545,10 +511,6 @@
     const deleteButton = document.querySelector('#examDeleteForm button');
     deleteButton.disabled = hasAttempts;
     deleteButton.title = hasAttempts ? 'Đề có lịch sử làm bài; hãy hủy xuất bản để ẩn đề.' : '';
-    settingsForm.action = row.dataset.examSettings;
-    document.getElementById('examSettingsName').value = row.dataset.examTitle;
-    filterFolderOptions(document.getElementById('examSettingsFolder'), row);
-    document.getElementById('examSettingsFolder').value = row.dataset.examFolder;
     moveForm.action = row.dataset.examMove;
     filterFolderOptions(document.getElementById('examMoveFolder'), row);
     document.getElementById('examMoveFolder').value = row.dataset.examFolder;
@@ -581,7 +543,7 @@
     if (!action || !activeTrigger) return;
     const row = activeTrigger.closest('.exam-list-row');
     if (action.dataset.menuAction === 'settings') {
-      openModal('examSettingsModal');
+      window.location.assign(row.dataset.examEdit + '?tab=settings');
     } else if (action.dataset.menuAction === 'move') {
       openModal('examMoveModal');
     } else if (action.dataset.menuAction === 'copy-link') {

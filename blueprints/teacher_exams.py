@@ -801,8 +801,8 @@ def exams_edit(exam_id):
 
         if not title or not groups:
             flash('Vui lòng nhập tên đề thi và ít nhất 1 câu hỏi hợp lệ trong các phần thi.', 'danger')
-            return render_template('teacher/exams_form.html', prefill={'title': title, 'groups': groups},
-                                   editing=True, exam=exam, return_attempt_id=return_attempt_id)
+            return _render_exam_confirm({'title': title, 'groups': groups, 'edit_exam_id': exam.id},
+                                        existing=exam, return_attempt_id=return_attempt_id)
 
         def shape(group_list):
             return [len(g.get('questions', [])) for g in group_list]
@@ -847,8 +847,8 @@ def exams_edit(exam_id):
     draft = session_draft()
     if not draft or draft.get('edit_exam_id') != exam.id:
         draft = {'title': exam.title, 'groups': exam.question_groups}
-    return render_template(
-        'teacher/exams_form.html', prefill=draft, editing=True, exam=exam,
+    return _render_exam_confirm(
+        draft, existing=exam,
         return_attempt_id=request.args.get('return_attempt_id', type=int),
     )
 
@@ -859,7 +859,9 @@ def _render_exam_confirm(draft, existing=None, form=None, return_attempt_id=None
     schools, students = exam_assignment_options([cls.id for cls in classes])
     folders = ExamFolder.query.filter_by(created_by=current_user.id).order_by(ExamFolder.name).all()
     return render_template(
-        'teacher/exams_confirm.html', payload=draft, classes=classes, courses=courses,
+        'teacher/exams_form.html' if existing else 'teacher/exams_confirm.html',
+        payload=draft, prefill=draft, exam=existing, unified_edit=bool(existing),
+        settings_errors=form is not None, classes=classes, courses=courses,
         schools=schools, students=students,
         folders=folders, exam_types=EXAM_TYPES, durations=DURATION_OPTIONS, form=form,
         editing=bool(existing), existing=existing, return_attempt_id=return_attempt_id,

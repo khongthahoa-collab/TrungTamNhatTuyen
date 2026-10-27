@@ -41,6 +41,12 @@
 
 ### Kiem tra responsive (27/10/2026)
 
+- Teacher sua de gom hai tab Noi dung de/Cai dat de tren cung trang
+  `/teacher/exams/edit/<id>`. Menu Cai dat di thang `?tab=settings`,
+  khong mo popup cu. Doi tab giu DOM/input chua luu; luu tu ca hai tab
+  serialize noi dung moi va POST cung cai dat qua confirm hien co.
+  Thay so cau cap nhat truong trong so; loi server giu lai hai tab va
+  du lieu da nhap. Kiem thu `node test_exam_edit_tabs.js`.
 - Chi tiet bai lam co loc Tat ca/Dung/Sai, dem theo tab dang xem.
   Thanh Di den cau/Nhom dung lai CSS editor, danh so theo bai HS nhan.
   Nut Den/Enter mo dung tab, focus va cuon den cau; neu loc an cau thi

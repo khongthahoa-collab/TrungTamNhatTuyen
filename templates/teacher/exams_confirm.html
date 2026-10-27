@@ -14,12 +14,14 @@
 {% set existing_student_ids = existing.student_list if existing else [] %}
 {% set course_names = courses | map(attribute='name') | list %}
 {% set subject_matches_course = existing and existing.subject in course_names %}
+{% if not unified_edit %}
 {% call page_header('Cập nhật cấu hình đề thi' if editing else 'Cấu hình & xác nhận đề thi', 'sliders', badge='Bước 2/2',
    back_href=url_for('teacher.exams_edit', exam_id=existing.id, return_attempt_id=return_attempt_id) if editing else url_for('teacher.exams_new', mode='compose', folder_id=form.get('folder_id') if form else payload.get('folder_id')),
    back_label='chỉnh sửa nội dung đề thi') %}
   {% set exam_guide_page = 'confirm' %}
   {% include 'teacher/_exam_guide.html' %}
 {% endcall %}
+{% endif %}
 
 {% if editing and existing.attempts.count() > 0 %}
 <div class="alert alert-warning small">
@@ -29,7 +31,7 @@
 </div>
 {% endif %}
 
-<form method="post" action="{{ url_for('teacher.exams_confirm') }}">
+<form id="exam-settings-form" method="post" action="{{ url_for('teacher.exams_confirm') }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="title" value="{{ payload.title }}">
   <input type="hidden" name="groups_json" value="{{ {'groups': payload.groups} | tojson | forceescape }}">
@@ -44,7 +46,7 @@
           <h6 class="fw-semibold mb-3"><i class="bi bi-info-circle me-1 text-success"></i>Thông tin đề thi</h6>
           <div class="mb-3">
             <span class="text-muted small">Tên đề thi</span>
-            <div class="fw-semibold fs-5">{{ payload.title }}</div>
+            <div class="fw-semibold fs-5" data-settings-title>{{ payload.title }}</div>
           </div>
           <div class="row g-3">
             <div class="col-md-6">
@@ -237,9 +239,13 @@
     <div class="col-lg-5">
       <div class="card border-0 shadow-sm" style="position:sticky; top:8px;">
         <div class="card-body" style="max-height:60vh; overflow-y:auto;">
+          {% if unified_edit %}
+          <p class="mb-0">Lưu thay đổi sẽ lưu cả nội dung và cài đặt hiện tại. Chọn tab “Nội dung đề” để xem trước nội dung.</p>
+          {% else %}
           {% for group in payload.groups %}
           {{ exam_macros.render_group(group) }}
           {% endfor %}
+          {% endif %}
         </div>
         <div class="card-footer bg-white">
           <button type="submit" class="btn btn-primary w-100" data-guide="save">

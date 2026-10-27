@@ -252,6 +252,34 @@ class TeacherStudentsTests(unittest.TestCase):
         self.assertIn('Đề chưa có giải thích đáp án cho câu này.',
                       self.client.get(path).get_data(as_text=True))
 
+    def test_unified_exam_edit_saves_and_preserves_invalid_settings(self):
+        self.populate()
+        groups = [{'title': 'Essay', 'type': 'essay', 'questions': [{'text': 'Updated content'}]}]
+        data = {
+            'edit_exam_id': str(self.exam.id), 'title': 'Updated exam',
+            'groups_json': json.dumps({'groups': groups}), 'subject': 'English',
+            'description': 'Keep settings', 'duration_minutes': '40', 'is_draft': 'draft',
+            'section_points_0': '1', 'question_points_0_0': '1',
+            'scoring_mode': 'question', 'class_ids': str(self.class_.id),
+        }
+        path = f'/teacher/exams/edit/{self.exam.id}?tab=settings'
+        html = self.client.get(path).get_data(as_text=True)
+        self.assertIn('id="examContentTab"', html)
+        self.assertIn('id="examSettingsTab"', html)
+        invalid = dict(data, duration_minutes='invalid')
+        response = self.client.post('/teacher/exams/confirm', data=invalid)
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn('id="examSettingsTab"', html)
+        self.assertIn('Keep settings', html)
+        self.assertIn('Updated content', html)
+        self.assertNotEqual(self.exam.title, 'Updated exam')
+        response = self.client.post('/teacher/exams/confirm', data=data)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.exam.title, 'Updated exam')
+        self.assertEqual(self.exam.description, 'Keep settings')
+        self.assertEqual(self.exam.question_groups[0]['questions'][0]['text'], 'Updated content')
+
     def test_attendance_detail_only_lists_unexcused_before_limit(self):
         from models import Attendance
         path = f'/teacher/students/{self.student.id}'
