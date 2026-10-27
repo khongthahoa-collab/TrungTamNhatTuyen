@@ -14,11 +14,18 @@ from blueprints.admin.account_utils import next_username, DEFAULT_TEMP_PASSWORD
 def teachers():
     today = date.today()
     page = request.args.get('page', 1, type=int)
+    q = request.args.get('q', '').strip()
+    query = Teacher.query.join(Teacher.user).filter(
+        User.is_deleted == False, User.is_active == True,
+    )
+    if q:
+        query = query.filter(db.or_(
+            User.full_name.icontains(q, autoescape=True),
+            User.phone.icontains(q, autoescape=True),
+            User.username.icontains(q, autoescape=True),
+        ))
     pagination = (
-        Teacher.query
-        .join(Teacher.user)
-        .filter(User.is_deleted == False, User.is_active == True)
-        .order_by(User.full_name)
+        query.order_by(User.full_name, Teacher.id)
         .paginate(page=page, per_page=10, error_out=False)
     )
     teachers = pagination.items
@@ -46,6 +53,7 @@ def teachers():
 
     return render_template('admin/teachers/list.html',
                            teachers=teachers,
+                           q=q,
                            pagination=pagination,
                            class_counts=class_counts,
                            session_counts=session_counts)
