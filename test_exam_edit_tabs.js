@@ -73,25 +73,34 @@ const select2 = fetchAsset('https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist
       const layout = await page.evaluate(() => {
         const columns = [...document.querySelectorAll('#exam-settings-form > .row > .col-lg-6')];
         const [left, right] = columns.map(el => el.getBoundingClientRect());
-        const save = document.querySelector('#exam-settings-form [data-guide="save"]').getBoundingClientRect();
+        const saves = [...document.querySelectorAll('#exam-settings-form [data-guide="save"]')];
+        const topSave = saves[0].getBoundingClientRect();
+        const save = saves[1].getBoundingClientRect();
         return {
           columns: columns.length,
           sideBySide: Math.abs(left.top - right.top) < 1,
           footerBelow: save.top >= Math.max(left.bottom, right.bottom),
+          headerAbove: topSave.bottom <= Math.min(left.top, right.top),
+          saveCount: saves.length,
           cards: columns.map(el => el.querySelectorAll('.card').length),
         };
       });
       assert.equal(layout.columns, 2);
       assert.equal(layout.sideBySide, width >= 992);
       assert.equal(layout.footerBelow, true);
+      assert.equal(layout.headerAbove, true);
+      assert.equal(layout.saveCount, 2);
       assert.deepEqual(layout.cards, [2, 3]);
     }
     await page.locator('#examSettingsTab').click();
-    await page.locator('#exam-settings-form button[type="submit"]').click();
+    await page.locator('#exam-settings-form button[type="submit"]').first().click();
     const saved = await page.evaluate(() => window.savedForm);
     assert.equal(saved.title, 'Updated title');
     assert.equal(saved.description, 'Unsaved settings');
     assert.equal(JSON.parse(saved.groups_json).groups[0].questions[0].text, 'Updated question');
+    await page.evaluate(() => { delete window.savedForm; });
+    await page.locator('#exam-settings-form button[type="submit"]').last().click();
+    assert.deepEqual(await page.evaluate(() => window.savedForm), saved);
     await page.locator('#examContentTab').click();
     await page.locator('#rawTextEditor').fill('## Essay {essay}\nCâu 1: Updated question\nCâu 2: Additional question');
     await page.locator('#examSettingsTab').click();

@@ -52,7 +52,8 @@
   du lieu da nhap. Kiem thu `node test_exam_edit_tabs.js`.
   Tab cai dat dung hai cot ngang nhau tren desktop: thong tin/giao de
   ben trai, diem/thoi gian/lam lai ben phai; mobile xep doc. Bo cot
-  huong dan rieng, nut luu dat cuoi form. Luong tao de van giu preview.
+  huong dan rieng, nut luu dat ca dau va cuoi form, cung luu noi dung
+  va cai dat. Luong tao de van giu preview.
 - Chi tiet bai lam co loc Tat ca/Dung/Sai, dem theo tab dang xem.
   Thanh Di den cau/Nhom dung lai CSS editor, danh so theo bai HS nhan.
   Nut Den/Enter mo dung tab, focus va cuon den cau; neu loc an cau thi

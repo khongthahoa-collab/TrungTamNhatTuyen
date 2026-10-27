@@ -39,6 +39,14 @@
   {% if return_attempt_id %}
   <input type="hidden" name="return_attempt_id" value="{{ return_attempt_id }}">
   {% endif %}
+  {% if unified_edit %}
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h5 class="mb-0">Cài đặt đề</h5>
+    <button type="submit" class="btn btn-primary" data-guide="save">
+      <i class="bi bi-check-circle me-1"></i>Lưu thay đổi
+    </button>
+  </div>
+  {% endif %}
   <div class="row g-3">
     <div class="{{ 'col-lg-6' if unified_edit else 'col-lg-7' }}">
       <div class="card border-0 shadow-sm mb-3">
