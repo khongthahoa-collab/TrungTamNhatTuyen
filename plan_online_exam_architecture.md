@@ -39,6 +39,18 @@
 - Khong doi cu phap `[A:...]`, `[*B:...]`, du lieu dap an hay cach cham.
   De cu co nhan E/F van duoc giu. Ban lam bai khong tiet lo dau *.
 
+### Kiem tra responsive (27/10/2026)
+
+- `node test_responsive_pages.js`: render 50 trang admin/teacher/parent/student
+  va public voi SQLite memory, du lieu gia; do tran ngang o
+  320/375/576/768/992/1440/1920px. Bang cuon ngang, sidebar an va modal
+  co co che rieng; khong xem bang rong co cuon la loi tran trang.
+- Chi tiet bai lam: noi dung cau hoi trong flex can `min-width: 0` va
+  `overflow-wrap: anywhere` de chuoi dai khong day verdict/nut sua ra ngoai.
+- Test nay khong thay the kiem tra moi trang co du lieu that hay moi
+  trinh duyet/thiet bi. Popup, editor, icon, hoc phi, bang de va anh tu luan
+  duoc kiem tra rieng bang cac test JavaScript hien co.
+
 ### Theo doi hoc sinh phia giao vien (27/10/2026)
 
 - Cham tu luan tach URL theo vai tro: teacher dung

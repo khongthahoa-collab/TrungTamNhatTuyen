@@ -18,6 +18,7 @@
   .attempt-tabs .nav-link { min-height: 44px; color: var(--nt-text); }
   .attempt-tabs .nav-link.active { color: var(--nt-primary-deeper); font-weight: 600; }
   .attempt-question { border: 1px solid var(--nt-border-light); border-radius: var(--nt-radius-lg); }
+  .attempt-question-text { min-width: 0; overflow-wrap: anywhere; }
   .attempt-option { overflow-wrap: anywhere; }
   .attempt-answer-box { white-space: pre-wrap; overflow-wrap: anywhere; }
   .exam-tf-review { margin-top: .25rem; }
@@ -222,7 +223,7 @@
               <article id="attempt-question-g{{ group.group_index }}-q{{ question.position }}"
                        class="attempt-question p-3 mb-3 {{ {'correct': 'is-correct', 'wrong': 'is-wrong', 'blank': 'is-blank', 'partial': 'is-wrong'}.get(state, '') }}">
                 <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
-                  <div class="fw-semibold">Câu {{ question.position }}. <span class="exam-math">{{ question.text | error_id_render }}</span></div>
+                  <div class="fw-semibold attempt-question-text">Câu {{ question.position }}. <span class="exam-math">{{ question.text | error_id_render }}</span></div>
                   <div class="d-flex align-items-center gap-2 flex-shrink-0">
                     {{ verdict(state) }}
                     <button type="button" class="btn btn-outline-primary btn-sm action-icon-btn icon-action-plain"
