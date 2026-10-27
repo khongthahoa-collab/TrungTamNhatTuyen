@@ -31,9 +31,8 @@
       {% endif %}
 
       <!-- Logout -->
-      <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-light d-flex align-items-center gap-1" title="Đăng xuất">
-        <i class="bi bi-box-arrow-right"></i>
-        <span class="d-none d-sm-inline" style="font-size:0.8rem;">Đăng xuất</span>
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-light action-icon-btn" title="Đăng xuất" aria-label="Đăng xuất">
+        <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
       </a>
     </div>
   </div>

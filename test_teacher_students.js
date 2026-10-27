@@ -12,7 +12,7 @@ test = TeacherStudentsTests()
 test.setUp()
 try:
     test.populate()
-    paths = ['/teacher/exams', '/teacher/students', f'/teacher/students/class/{test.class_.id}?q=Synthetic',
+    paths = ['/teacher/exams', f'/teacher/scores/{test.class_.id}/detai', '/teacher/students', f'/teacher/students/class/{test.class_.id}?q=Synthetic',
              f'/teacher/students/{test.student.id}']
     print(json.dumps({path: test.client.get(path).get_data(as_text=True) for path in paths}))
 finally:
@@ -35,13 +35,21 @@ const icons = execFileSync('curl', ['-fsSL', '--max-time', '30',
     for (const [path, html] of Object.entries(JSON.parse(rendered.stdout))) {
       await page.setContent(html.replace(/<link\b[^>]*>/g, '')
         .replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, '')
-        .replace('</head>', `<style>${bootstrap}\n${icons}\n${fs.readFileSync('static/css/custom.css', 'utf8')}</style></head>`));
+        .replace('</head>', `<style>${bootstrap}\n${icons}\n${fs.readFileSync('static/css/custom.css', 'utf8')}\n${fs.readFileSync('static/css/teacher-scores.css', 'utf8')}</style></head>`));
       for (const width of [320, 375, 576, 768, 1440]) {
         await page.setViewportSize({ width, height: 900 });
+        const logout = page.getByRole('link', { name: 'Đăng xuất', exact: true });
+        assert.equal((await logout.textContent()).trim(), '');
+        assert.equal(await logout.getAttribute('title'), 'Đăng xuất');
+        assert.equal(await logout.locator('.bi-box-arrow-right').count(), 1);
+        assert.ok(await logout.evaluate(el => {
+          const r = el.getBoundingClientRect();
+          return r.width >= 44 && r.height >= 44;
+        }));
         const nav = page.locator('nav.fixed-bottom');
         const students = nav.getByRole('link', { name: 'Học sinh', exact: true });
         assert.equal(await students.getAttribute('href'), '/teacher/students');
-        assert.equal((await students.getAttribute('class')).includes('border-top'), path !== '/teacher/exams');
+        assert.equal((await students.getAttribute('class')).includes('border-top'), path.startsWith('/teacher/students'));
         const exams = nav.getByRole('link', { name: 'Đề thi', exact: true });
         const examIcon = exams.locator('i');
         assert.ok(await examIcon.isVisible());
@@ -54,6 +62,20 @@ const icons = execFileSync('curl', ['-fsSL', '--max-time', '30',
         assert.equal(bounds.length, 6);
         assert.ok(bounds.every(r => r.left >= 0 && r.right <= width + 0.5 && r.height >= 44), JSON.stringify({ width, bounds }));
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${path} at ${width}`);
+        if (path.includes('/scores/')) {
+          const layout = await page.locator('.score-results-search').evaluate(el => {
+            const input = el.querySelector('.form-control').getBoundingClientRect();
+            const check = el.querySelector('.form-check').getBoundingClientRect();
+            const label = el.querySelector('label');
+            const range = document.createRange();
+            range.selectNodeContents(label);
+            return { sameRow: Math.abs(input.top - check.top) < 2,
+              lines: range.getClientRects().length, fits: el.scrollWidth <= el.clientWidth,
+              inputWidth: input.width };
+          });
+          assert.ok(layout.sameRow && layout.fits && layout.inputWidth > 0, JSON.stringify({ width, layout }));
+          assert.equal(layout.lines, 1);
+        }
         const content = await page.locator('body').textContent();
         for (const secret of ['PRIVATE_PARENT_NAME', 'PRIVATE_PARENT_PHONE', 'PRIVATE_STUDENT_NOTE', 'PRIVATE_OTHER_CLASS']) {
           assert.ok(!content.includes(secret));
@@ -78,6 +100,8 @@ const icons = execFileSync('curl', ['-fsSL', '--max-time', '30',
           border: getComputedStyle(el).borderTopColor,
           background: getComputedStyle(el).backgroundColor,
         })), { border: 'rgba(0, 0, 0, 0)', background: 'rgba(0, 0, 0, 0)' });
+      } else if (path.includes('/scores/')) {
+        assert.equal(await page.locator('#detailFailed').count(), 1);
       } else if (path !== '/teacher/students') {
         assert.equal(await page.locator('form[method="post"]').count(), 0);
         assert.ok((await page.locator('body').textContent()).includes('0.0/10.0'));
