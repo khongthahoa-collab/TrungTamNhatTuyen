@@ -54,7 +54,13 @@ const bootstrap = execFileSync('curl', [
       }
       if (path.includes('?')) {
         assert.equal(await page.locator('[name="q"]').inputValue(), 'Synthetic');
-        assert.ok(await page.getByRole('link', { name: 'Xem học tập Synthetic student', exact: true }).getAttribute('href'));
+        const card = page.getByRole('link', { name: 'Xem học tập Synthetic student', exact: true });
+        assert.ok(await card.getAttribute('href'));
+        assert.equal(await page.locator('.bi-eye').count(), 0);
+        await card.hover();
+        assert.equal(await card.evaluate(el => getComputedStyle(el).cursor), 'pointer');
+        await card.focus();
+        assert.equal(await card.evaluate(el => el === document.activeElement), true);
       } else if (path !== '/teacher/students') {
         assert.equal(await page.locator('form[method="post"]').count(), 0);
         assert.ok((await page.locator('body').textContent()).includes('0.0/10.0'));
@@ -74,7 +80,10 @@ const bootstrap = execFileSync('curl', [
     await page.goto('https://teacher.test/teacher/students');
     await page.getByRole('link', { name: /Synthetic class/ }).click();
     assert.ok(new URL(page.url()).pathname.includes('/students/class/'));
-    await page.getByRole('link', { name: 'Synthetic student', exact: true }).click();
+    const studentCard = page.getByRole('link', { name: 'Xem học tập Synthetic student', exact: true });
+    const expectedTarget = await studentCard.getAttribute('href');
+    await studentCard.locator('.card-body').click({ position: { x: 5, y: 5 } });
+    assert.equal(new URL(page.url()).pathname + new URL(page.url()).search, expectedTarget);
     assert.ok(/\/students\/\d+$/.test(new URL(page.url()).pathname));
     assert.ok((await page.locator('body').textContent()).includes('0.0/10.0'));
     await page.getByRole('link', { name: /học sinh trong lớp/ }).click();

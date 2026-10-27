@@ -44,6 +44,8 @@
 - Menu duoi cung "Hoc sinh": `/teacher/students` hien cac lop dang phu trach
   va si so dang hoc. Bam lop vao `/teacher/students/class/<class_id>`,
   tim ten (escape wildcard), phan trang 20 hoc sinh, roi bam ten vao chi tiet.
+  The hoc sinh la lien ket ca the (con tro ban tay, Tab/Enter dung duoc),
+  khong co icon mat; dich den giu `class_id` cua lop dang xem.
   Link cu `?class_id=...` chuyen huong sang danh sach cua lop tuong ung.
 - Ten hoc sinh o ca bang desktop va the mobile trong ket qua diem
   `/teacher/scores/<class_id>/detail` (va alias `/detai`) lien ket trang hoc

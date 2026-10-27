@@ -23,18 +23,17 @@
   <div class="row g-3">
     {% for student in students %}
     <div class="col-12 col-md-6 col-xl-4">
-      <article class="card border-0 shadow-sm h-100">
+      <a href="{{ url_for('teacher.student_learning', student_id=student.id, class_id=class_id) }}"
+         class="card border-0 shadow-sm h-100 text-decoration-none text-body"
+         aria-label="Xem học tập {{ student.name }}">
         <div class="card-body">
-          <div class="d-flex justify-content-between align-items-start gap-2">
-            <div class="text-break">
-              <h2 class="h6 fw-bold mb-1"><a href="{{ url_for('teacher.student_learning', student_id=student.id, class_id=class_id) }}">{{ student.name }}</a></h2>
-              {% if student.grade %}<div class="small text-muted">{{ student.grade }}</div>{% endif %}
-            </div>
-            <a href="{{ url_for('teacher.student_learning', student_id=student.id, class_id=class_id) }}" class="btn btn-outline-primary action-icon-btn" title="Xem học tập {{ student.name }}" aria-label="Xem học tập {{ student.name }}"><i class="bi bi-eye" aria-hidden="true"></i></a>
+          <div class="text-break">
+            <h2 class="h6 fw-bold mb-1">{{ student.name }}</h2>
+            {% if student.grade %}<div class="small text-muted">{{ student.grade }}</div>{% endif %}
           </div>
           {% for name in student.classes %}<div class="small mt-2 text-break">{{ name }}</div>{% endfor %}
         </div>
-      </article>
+      </a>
     </div>
     {% else %}
     <div class="col-12"><div class="alert alert-light border text-center">Không có học sinh phù hợp trong các lớp bạn đang phụ trách.</div></div>
