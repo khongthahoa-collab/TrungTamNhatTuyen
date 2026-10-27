@@ -416,11 +416,7 @@
         </h6>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body py-4" style="background:#f1f5f9;">
-        <fieldset id="itcAccountSelection" class="tuition-account-selection mb-3 d-none">
-          <legend class="fs-6 fw-semibold mb-2">Chọn tài khoản nhận học phí</legend>
-          <div id="itcAccountPicker" class="d-flex flex-column gap-2"></div>
-        </fieldset>
+      <div class="modal-body d-flex justify-content-center py-4" style="background:#f1f5f9;">
         <div id="individualTuitionCard" class="tuition-card tuition-card-individual">
           <div class="text-center mb-3">
             <img src="{{ url_for('static', filename='icons/logo-mark.png') }}" height="40" alt="logo">
@@ -457,6 +453,8 @@
               ⚠️ Nhớ CHỤP BILL gửi lại để trung tâm tránh nhầm lẫn nhé.
             </div>
           </div>
+          <div id="itcAccountPicker" class="d-flex flex-wrap gap-3 justify-content-center mt-2 small d-none"
+               role="group" aria-label="Chọn tài khoản nhận học phí"></div>
         </div>
       </div>
       <div class="modal-footer">
@@ -533,7 +531,12 @@
 }
 .tuition-card-individual { position: static; max-width: 100%; overflow-wrap: anywhere; }
 .tuition-card-individual .tuition-qr-img { max-width: 100%; }
-.tuition-account-selection { min-width: 0; max-width: 375px; margin-inline: auto; }
+#itcAccountPicker label {
+  display: inline-flex; align-items: flex-start; gap: .25rem;
+  min-width: 0; max-width: 100%; cursor: pointer;
+}
+#itcAccountPicker input { flex-shrink: 0; margin-top: .25rem; }
+#itcAccountPicker span { min-width: 0; overflow-wrap: anywhere; }
 .tuition-account-option {
   display: flex; align-items: flex-start; gap: .75rem;
   padding: .75rem; border: 1px solid #cbd5e1; border-radius: .5rem;
@@ -739,8 +742,26 @@ document.getElementById('tuitionReminderModal').addEventListener('show.bs.modal'
 
   const accounts = JSON.parse(btn.dataset.accounts || '[]');
   const picker = document.getElementById('itcAccountPicker');
-  document.getElementById('itcAccountSelection').classList.toggle('d-none', accounts.length <= 1);
-  populateTuitionAccountPicker(picker, accounts, 'itcAccountRadio', renderTuitionAccount);
+  picker.replaceChildren();
+  picker.classList.toggle('d-none', accounts.length <= 1);
+  if (accounts.length > 1) accounts.forEach((acc, i) => {
+    const label = document.createElement('label');
+    label.title = `${acc.bank_name} — ${acc.account_number} — ${acc.account_name}`;
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = 'itcAccountRadio';
+    radio.value = String(i);
+    radio.checked = i === 0;
+    radio.addEventListener('change', () => renderTuitionAccount(acc));
+    const name = document.createElement('span');
+    const sameBank = accounts.filter(other =>
+      other.bank_name.trim().toLocaleLowerCase() === acc.bank_name.trim().toLocaleLowerCase());
+    name.textContent = sameBank.length > 1
+      ? `${acc.bank_name} — ${acc.account_number} — ${acc.account_name}`
+      : acc.bank_name;
+    label.append(radio, name);
+    picker.append(label);
+  });
 
   if (accounts.length > 0) renderTuitionAccount(accounts[0]);
 });
