@@ -41,6 +41,9 @@
 
 ### Theo doi hoc sinh phia giao vien (27/10/2026)
 
+- Footer De thi giu icon `bi-pc-display` o ca trang active/inactive:
+  Bootstrap Icons 1.11.3 khong co `bi-pc-display-fill`. Trang active van
+  danh dau bang mau xanh va vien tren.
 - Menu duoi cung "Hoc sinh": `/teacher/students` hien cac lop dang phu trach
   va si so dang hoc. Bam lop vao `/teacher/students/class/<class_id>`,
   tim ten (escape wildcard), phan trang 20 hoc sinh, roi bam ten vao chi tiet.

@@ -12,7 +12,7 @@ test = TeacherStudentsTests()
 test.setUp()
 try:
     test.populate()
-    paths = ['/teacher/students', f'/teacher/students/class/{test.class_.id}?q=Synthetic',
+    paths = ['/teacher/exams', '/teacher/students', f'/teacher/students/class/{test.class_.id}?q=Synthetic',
              f'/teacher/students/{test.student.id}']
     print(json.dumps({path: test.client.get(path).get_data(as_text=True) for path in paths}))
 finally:
@@ -24,6 +24,8 @@ const bootstrap = execFileSync('curl', [
   '-fsSL', '--max-time', '30',
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css',
 ], { encoding: 'utf8' });
+const icons = execFileSync('curl', ['-fsSL', '--max-time', '30',
+  'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css'], { encoding: 'utf8' });
 
 (async () => {
   const browser = await chromium.launch();
@@ -33,13 +35,18 @@ const bootstrap = execFileSync('curl', [
     for (const [path, html] of Object.entries(JSON.parse(rendered.stdout))) {
       await page.setContent(html.replace(/<link\b[^>]*>/g, '')
         .replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, '')
-        .replace('</head>', `<style>${bootstrap}\n${fs.readFileSync('static/css/custom.css', 'utf8')}</style></head>`));
+        .replace('</head>', `<style>${bootstrap}\n${icons}\n${fs.readFileSync('static/css/custom.css', 'utf8')}</style></head>`));
       for (const width of [320, 375, 576, 768, 1440]) {
         await page.setViewportSize({ width, height: 900 });
         const nav = page.locator('nav.fixed-bottom');
         const students = nav.getByRole('link', { name: 'Học sinh', exact: true });
         assert.equal(await students.getAttribute('href'), '/teacher/students');
-        assert.ok((await students.getAttribute('class')).includes('border-top'));
+        assert.equal((await students.getAttribute('class')).includes('border-top'), path !== '/teacher/exams');
+        const exams = nav.getByRole('link', { name: 'Đề thi', exact: true });
+        const examIcon = exams.locator('i');
+        assert.ok(await examIcon.isVisible());
+        assert.notEqual(await examIcon.evaluate(el => getComputedStyle(el, '::before').content), 'none');
+        assert.equal((await exams.getAttribute('class')).includes('border-top'), path === '/teacher/exams');
         const bounds = await nav.locator('a').evaluateAll(elements => elements.map(element => {
           const r = element.getBoundingClientRect();
           return { left: r.left, right: r.right, height: r.height, text: element.textContent.trim() };
@@ -61,6 +68,8 @@ const bootstrap = execFileSync('curl', [
         assert.equal(await card.evaluate(el => getComputedStyle(el).cursor), 'pointer');
         await card.focus();
         assert.equal(await card.evaluate(el => el === document.activeElement), true);
+      } else if (path === '/teacher/exams') {
+        assert.equal(await page.locator('.teacher-bottom-nav .bi-pc-display-fill').count(), 0);
       } else if (path !== '/teacher/students') {
         assert.equal(await page.locator('form[method="post"]').count(), 0);
         assert.ok((await page.locator('body').textContent()).includes('0.0/10.0'));

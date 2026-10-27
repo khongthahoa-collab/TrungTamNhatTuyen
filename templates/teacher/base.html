@@ -122,7 +122,7 @@
          class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none
                 {% if 'exam' in request.endpoint %}text-success border-top border-success border-2{% else %}text-muted{% endif %}"
          style="font-size:0.65rem;">
-        <i class="bi bi-pc-display{% if 'exam' in request.endpoint %}-fill{% endif %} fs-5"></i>
+        <i class="bi bi-pc-display fs-5" aria-hidden="true"></i>
         <span>Đề thi</span>
       </a>
       {% endif %}
