@@ -28,6 +28,15 @@ try:
         pages[path] = response.get_data(as_text=True)
     with t.app.test_request_context('/teacher/exams/1/attempts/1'):
         login_user(t.teacher.user)
+        t.exam.questions_json = json.dumps({'groups': [{
+            'type': 'essay', 'title': 'Chemistry', 'questions': [{
+                'text': 'Synthetic chemistry question',
+                'explanation': '## Trong một chu kì đi từ trái sang phải, tính base của các oxide cao nhất giảm dần\\n\\nNormal explanation',
+            }],
+        }]})
+        pages['teacher-preview-heading'] = render_template(
+            'teacher/exams_preview.html', exam=t.exam, can_edit_exam=True,
+            is_shared_source=False, classes=[])
         question = dict(position=1, source_index=0, text='LongQuestionWithoutSpaces' * 8,
                         student_answer='answer', correct_answers=['answer'], explanation='Explanation')
         from types import SimpleNamespace
@@ -118,6 +127,34 @@ const css = execFileSync('curl', ['-fsSL', '--max-time', '30',
             `Question edit button must stay on-screen at ${width}px`);
           assert.ok(await page.locator('.attempt-question-text').evaluate(el =>
             el.scrollWidth <= el.clientWidth + 1), `Question text must wrap at ${width}px`);
+        }
+        if (path === 'teacher-preview-heading') {
+          assert.ok(await page.locator('.exam-answer-explanation-content h2').evaluate(el =>
+            getComputedStyle(el).fontSize === getComputedStyle(el.parentElement).fontSize),
+          'Markdown heading in explanation must not enlarge the text');
+        }
+      }
+      if (path === 'teacher-attempt-long-question') {
+        await page.evaluate(() => {
+          const original = document.querySelector('[data-attempt-state]');
+          for (const state of ['wrong', 'partial', 'blank', 'pending', 'graded']) {
+            const clone = original.cloneNode(true);
+            clone.removeAttribute('id');
+            clone.dataset.attemptState = state;
+            original.parentElement.append(clone);
+          }
+        });
+        await page.addScriptTag({ content: fs.readFileSync('static/js/attempt-filters.js', 'utf8') });
+        assert.equal(await page.locator('[data-filter-count="all"]').textContent(), '(6)');
+        assert.equal(await page.locator('[data-filter-count="correct"]').textContent(), '(1)');
+        assert.equal(await page.locator('[data-filter-count="wrong"]').textContent(), '(3)');
+        for (const [filter, count] of [['correct', 1], ['wrong', 3], ['original', 6], ['all', 6]]) {
+          await page.locator(`[data-attempt-filter="${filter}"]`).click();
+          assert.equal(await page.locator('[data-attempt-state]:visible').count(), count);
+          if (filter === 'original') {
+            assert.equal(await page.locator('[data-attempt-review]:visible').count(), 0);
+            assert.equal(await page.locator('[data-attempt-original]:not([hidden])').count(), 6);
+          }
         }
       }
     }

@@ -1233,6 +1233,13 @@ footer a:hover { color: #fff !important; }
 .exam-answer-explanation-content > p {
   margin: 0;
 }
+.exam-answer-explanation-content :is(h1, h2, h3, h4, h5, h6),
+.exam-explanation-markdown :is(h1, h2, h3, h4, h5, h6) {
+  font-size: 1em;
+  line-height: inherit;
+  font-weight: 600;
+  margin-block: .5em;
+}
 
 /* ── Admin circular pastel action buttons — shared across list pages
    (accounts, permission groups, leave requests, ...) so the same row of

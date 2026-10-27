@@ -19,6 +19,10 @@
   .attempt-tabs .nav-link.active { color: var(--nt-primary-deeper); font-weight: 600; }
   .attempt-question { border: 1px solid var(--nt-border-light); border-radius: var(--nt-radius-lg); }
   .attempt-question-text { min-width: 0; overflow-wrap: anywhere; }
+  .attempt-filters { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .attempt-filters .btn { min-height: 44px; }
+  .attempt-question[hidden], [data-attempt-group][hidden],
+  [data-attempt-review][hidden], [data-attempt-original][hidden] { display: none !important; }
   .attempt-option { overflow-wrap: anywhere; }
   .attempt-answer-box { white-space: pre-wrap; overflow-wrap: anywhere; }
   .exam-tf-review { margin-top: .25rem; }
@@ -194,14 +198,27 @@
           </li>
         </ul>
         {% endif %}
+        <div class="px-3 pt-3">
+          <div class="attempt-filters" role="group" aria-label="Lọc câu hỏi">
+            {% for value, label in [('all', 'Tất cả'), ('correct', 'Đúng'), ('wrong', 'Sai')] %}
+            <button type="button" class="btn btn-sm {{ 'btn-primary' if value == 'all' else 'btn-outline-primary' }}"
+                    data-attempt-filter="{{ value }}" aria-pressed="{{ 'true' if value == 'all' else 'false' }}">
+              {{ label }} <span data-filter-count="{{ value }}"></span>
+            </button>
+            {% endfor %}
+            <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" data-attempt-filter="original" aria-pressed="false">Đề gốc</button>
+          </div>
+          <p class="small text-muted mt-2 mb-0" data-attempt-filter-hint role="status">Lọc trong phần đang xem. “Sai” gồm sai, đúng một phần và chưa trả lời; không gồm tự luận chờ chấm.</p>
+        </div>
         <div class="card-body tab-content">
           {% for pane_id, pane_groups in (('objective', objective_groups), ('essay', essay_groups)) %}
           {% if pane_groups %}
           <div class="tab-pane fade {% if loop.first or not show_tabs %}show active{% endif %}" id="pane-{{ pane_id }}" role="tabpanel">
             {% if pane_id == 'essay' %}
-            <p class="small text-muted">Nhập điểm từng câu theo thang điểm tối đa. Có thể lưu từng câu; câu chưa nhập sẽ tiếp tục chờ chấm.</p>
+            <p class="small text-muted" data-attempt-review>Nhập điểm từng câu theo thang điểm tối đa. Có thể lưu từng câu; câu chưa nhập sẽ tiếp tục chờ chấm.</p>
             {% endif %}
             {% for group in pane_groups %}
+            <div data-attempt-group>
             <h2 class="h6 fw-bold text-uppercase mb-3 {% if not loop.first %}mt-4{% endif %}">{{ group.title or 'Phần ' ~ loop.index }}</h2>
             {% for question in group.questions %}
               {% set state = 'blank' %}
@@ -221,10 +238,11 @@
                 {% set state = 'graded' if question.essay_score is not none else 'pending' %}
               {% endif %}
               <article id="attempt-question-g{{ group.group_index }}-q{{ question.position }}"
+                       data-attempt-state="{{ state }}"
                        class="attempt-question p-3 mb-3 {{ {'correct': 'is-correct', 'wrong': 'is-wrong', 'blank': 'is-blank', 'partial': 'is-wrong'}.get(state, '') }}">
                 <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
                   <div class="fw-semibold attempt-question-text">Câu {{ question.position }}. <span class="exam-math">{{ question.text | error_id_render }}</span></div>
-                  <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                  <div class="d-flex align-items-center gap-2 flex-shrink-0" data-attempt-review>
                     {{ verdict(state) }}
                     <button type="button" class="btn btn-outline-primary btn-sm action-icon-btn icon-action-plain"
                             title="Sửa nội dung câu {{ question.position }}" aria-label="Sửa nội dung câu {{ question.position }}"
@@ -235,6 +253,22 @@
                   </div>
                 </div>
 
+                <div data-attempt-original hidden>
+                  {% if group.type == 'mcq' %}
+                  <div class="row g-2">
+                    {% for option in question.options %}
+                    <div class="col-12 col-md-6"><div class="attempt-option small border rounded p-2 h-100">
+                      {{ option.label }}. <span class="exam-math">{{ option.text }}</span>
+                    </div></div>
+                    {% endfor %}
+                  </div>
+                  {% elif group.type == 'true_false' %}
+                    {% for statement in question.statements %}
+                    <div class="attempt-option small border rounded p-2 mb-2"><span class="exam-math">{{ statement.text }}</span></div>
+                    {% endfor %}
+                  {% endif %}
+                </div>
+                <div data-attempt-review>
                 {% if group.type == 'mcq' %}
                   <div class="row g-2">
                     {% for option in question.options %}
@@ -282,9 +316,12 @@
                 {% endif %}
                 {{ question_editor(exam, attempt, group, question) }}
                 {{ explanation(question) }}
+                </div>
               </article>
             {% endfor %}
+            </div>
             {% endfor %}
+            <p class="text-muted text-center py-3 mb-0" data-attempt-empty hidden>Không có câu hỏi phù hợp trong phần này.</p>
           </div>
           {% endif %}
           {% endfor %}
@@ -298,6 +335,7 @@
 </div>
 {% endblock %}
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/attempt-filters.js') }}"></script>
 <script>
   if (location.hash === '#pane-essay') {
     const tab = document.getElementById('tab-essay');

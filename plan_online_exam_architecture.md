@@ -41,6 +41,12 @@
 
 ### Kiem tra responsive (27/10/2026)
 
+- Chi tiet bai lam co loc Tat ca/Dung/Sai, dem theo tab dang xem.
+  Sai gom wrong/partial/blank, khong gom tu luan pending/graded.
+  De goc la che do chi xem cau hoi/lua chon theo thu tu HS da nhan,
+  an bai lam, dap an, loi giai va thao tac cham/sua; khong doi du lieu de.
+- Tieu de Markdown h1-h6 trong loi giai preview/ket qua giu co chu
+  bang noi dung xung quanh, tranh dong `##` phong to bat thuong.
 - `node test_responsive_pages.js`: render 50 trang admin/teacher/parent/student
   va public voi SQLite memory, du lieu gia; do tran ngang o
   320/375/576/768/992/1440/1920px. Bang cuon ngang, sidebar an va modal
