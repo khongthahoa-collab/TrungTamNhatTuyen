@@ -222,6 +222,36 @@ class TeacherStudentsTests(unittest.TestCase):
         self.assertEqual(response.location, f'/admin/exam/{self.exam.id}/results')
         self.assertEqual(attempt.score, 80)
 
+    def test_grading_explanation_matches_source_question_not_display_position(self):
+        self.populate()
+        self.exam.questions_json = json.dumps({'groups': [{
+            'type': 'essay', 'questions': [
+                {'text': 'First', 'explanation': 'WRONG_EXPLANATION'},
+                {'text': 'Second', 'explanation': 'EXPECTED <script>unsafe</script>\nSecond line'},
+            ],
+        }]})
+        attempt = ExamAttempt(exam=self.exam, student_id=self.student.id,
+                              user_id=self.teacher.user_id, status='submitted',
+                              answers_json=json.dumps({'g0_q1': 'STUDENT_RESPONSE'}),
+                              result_json=json.dumps({'essay_questions': [{
+                                  'key': 'g0_q1', 'group_index': 0, 'position': 1,
+                                  'weight': 10, 'answer_field': 'g0_q1',
+                              }]}))
+        db.session.add(attempt)
+        db.session.commit()
+        path = f'/teacher/exams/{self.exam.id}/attempts/{attempt.id}/grade'
+        html = self.client.get(path).get_data(as_text=True)
+        self.assertIn('Giải thích đáp án', html)
+        self.assertIn('STUDENT_RESPONSE', html)
+        self.assertIn('EXPECTED &lt;script&gt;unsafe&lt;/script&gt;', html)
+        self.assertNotIn('WRONG_EXPLANATION', html)
+        self.exam.questions_json = json.dumps({'groups': [{
+            'type': 'essay', 'questions': [{'text': 'First'}, {'text': 'Second'}],
+        }]})
+        db.session.commit()
+        self.assertIn('Đề chưa có giải thích đáp án cho câu này.',
+                      self.client.get(path).get_data(as_text=True))
+
     def test_attendance_detail_only_lists_unexcused_before_limit(self):
         from models import Attendance
         path = f'/teacher/students/{self.student.id}'
