@@ -18,6 +18,7 @@
 #examSampleSelect { flex: 1 1 180px; min-width: 0; }
 @media (min-width: 992px) {
   .exam-compose-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .exam-compose-preview { height: 100%; box-sizing: border-box; contain: size; }
   .exam-source-text { font-size: .875rem; }
 }
 @media (max-width: 991.98px) {

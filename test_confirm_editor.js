@@ -57,6 +57,7 @@ assert.equal(rendered.status, 0, rendered.stderr);
       });
       await page.goto('https://popup.test/editor');
       await page.addStyleTag({ content: fs.readFileSync('static/css/custom.css', 'utf8') });
+      await page.addStyleTag({ content: fs.readFileSync('static/css/exam-editor.css', 'utf8') });
       await page.evaluate(() => {
         window.scheduleExamMathTypeset = () => {};
         const config = JSON.parse(document.getElementById('examEditorConfig').textContent);
@@ -92,6 +93,27 @@ assert.equal(rendered.status, 0, rendered.stderr);
       await page.getByRole('button', { name: 'Hủy', exact: true }).click();
       await page.waitForFunction(() => !document.querySelector('.app-message[open]'));
       assert.equal(page.url(), 'https://popup.test/editor');
+      for (const width of [992, 1440]) {
+        await page.setViewportSize({ width, height: 900 });
+        for (const height of [600, 850]) {
+          await page.locator('#rawTextEditor').evaluate((el, size) => {
+            el.style.height = `${size}px`;
+          }, height);
+          await page.locator('#examSyntaxHelp').evaluate((el, open) => { el.open = open; }, height === 850);
+          const sizes = await page.locator('#examComposer').evaluate(el => {
+            const preview = el.querySelector('.exam-compose-preview').getBoundingClientRect();
+            const source = el.querySelector('.exam-compose-source').getBoundingClientRect();
+            return { preview: preview.height, source: source.height, top: preview.top - source.top };
+          });
+          assert.ok(Math.abs(sizes.preview - sizes.source) <= 1, JSON.stringify(sizes));
+          assert.equal(sizes.top, 0);
+        }
+      }
+      await page.setViewportSize({ width: 375, height: 800 });
+      assert.equal(await page.locator('.exam-compose-preview').isVisible(), false);
+      await page.locator('[data-editor-pane="preview"]').click();
+      assert.equal(await page.locator('.exam-compose-source').isVisible(), false);
+      assert.equal(await page.locator('.exam-compose-preview').isVisible(), true);
       assert.deepEqual(errors, []);
       await page.close();
     }

@@ -22,8 +22,6 @@
   .attempt-option { overflow-wrap: anywhere; }
   .attempt-answer-box { white-space: pre-wrap; overflow-wrap: anywhere; }
   .exam-tf-review { margin-top: .25rem; }
-  .attempt-question-editor > summary { display: inline-flex; align-items: center; cursor: pointer; list-style: none; }
-  .attempt-question-editor > summary::-webkit-details-marker { display: none; }
   @media (min-width: 992px) {
     .attempt-side { position: sticky; top: 1rem; }
   }
@@ -51,10 +49,7 @@
 {%- endmacro %}
 
 {% macro question_editor(exam, attempt, group, question) -%}
-  <details class="attempt-question-editor mt-3">
-    <summary class="btn btn-outline-primary btn-sm action-icon-btn" title="Sửa nội dung câu {{ question.position }}" aria-label="Sửa nội dung câu {{ question.position }}">
-      <i class="bi bi-pencil" aria-hidden="true"></i>
-    </summary>
+  <div class="collapse attempt-question-editor" id="question-editor-g{{ group.group_index }}-q{{ question.position }}">
     <form class="border rounded p-3 mt-2 bg-light" method="post"
           action="{{ url_for('teacher.exams_attempt_question_edit', exam_id=exam.id, attempt_id=attempt.id, group_index=group.group_index, question_index=question.source_index) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -126,7 +121,7 @@
         </button>
       </div>
     </form>
-  </details>
+  </div>
 {%- endmacro %}
 
 {% from 'exams/_essay_images.html' import render_essay_images %}
@@ -233,7 +228,15 @@
                        class="attempt-question p-3 mb-3 {{ {'correct': 'is-correct', 'wrong': 'is-wrong', 'blank': 'is-blank', 'partial': 'is-wrong'}.get(state, '') }}">
                 <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
                   <div class="fw-semibold">Câu {{ question.position }}. <span class="exam-math">{{ question.text | error_id_render }}</span></div>
-                  <span class="flex-shrink-0">{{ verdict(state) }}</span>
+                  <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                    {{ verdict(state) }}
+                    <button type="button" class="btn btn-outline-primary btn-sm action-icon-btn icon-action-plain"
+                            title="Sửa nội dung câu {{ question.position }}" aria-label="Sửa nội dung câu {{ question.position }}"
+                            data-bs-toggle="collapse" data-bs-target="#question-editor-g{{ group.group_index }}-q{{ question.position }}"
+                            aria-expanded="false" aria-controls="question-editor-g{{ group.group_index }}-q{{ question.position }}">
+                      <i class="bi bi-pencil" aria-hidden="true"></i>
+                    </button>
+                  </div>
                 </div>
 
                 {% if group.type == 'mcq' %}
