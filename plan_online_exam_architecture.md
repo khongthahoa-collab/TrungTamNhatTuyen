@@ -101,6 +101,10 @@
   ca nhan, khong tu tai tep. Popup cho doi tai khoan, sao chep va tai PNG.
   Che do chua dong an dong da thu va danh lai STT; mo toan bo hien lai
   day du. Bo chon tai khoan nam ngoai vung anh de khong lot vao PNG.
+- Radio ngan hang nhom va ca nhan dung chung helper va layout gon,
+  xuong dong tren mobile; trung ten ngan hang thi kem so TK/chu TK.
+  Nut but dieu chinh hoc phi dung icon-action-plain, khong vien/nen tron,
+  van giu vung bam va focus ban phim.
 - Modal ca nhan dung body block, khong flex stretch chieu cao the anh
   theo khung cuon. The tu cao theo noi dung de vien nen va anh PNG
   bao tron thong tin hoc sinh, hoc phi, no va chuyen khoan tren mobile.

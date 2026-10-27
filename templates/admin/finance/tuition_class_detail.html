@@ -222,7 +222,7 @@
             </button>
             {% endif %}
             {% if not r.is_paid and not r.is_voided and can_edit %}
-            <button class="btn btn-outline-primary btn-sm action-icon-btn ms-1" type="button"
+            <button class="btn btn-outline-primary btn-sm action-icon-btn icon-action-plain ms-1" type="button"
                     data-bs-toggle="collapse"
                     data-bs-target="#adj{{ r.id }}"
                     title="Điều chỉnh học phí tháng này" aria-label="Điều chỉnh học phí tháng này">
@@ -413,7 +413,7 @@
     </div>
   </div>
 </div>
-        <div id="groupBankAccountPicker" class="d-flex flex-column gap-2 mt-3"
+        <div id="groupBankAccountPicker" class="tuition-account-picker d-flex flex-wrap gap-3 justify-content-center mt-3 small"
              role="group" aria-label="Chọn tài khoản nhận học phí"></div>
       </div>
       <div class="modal-footer">
@@ -479,7 +479,7 @@
               ⚠️ Nhớ CHỤP BILL gửi lại để trung tâm tránh nhầm lẫn nhé.
             </div>
           </div>
-          <div id="itcAccountPicker" class="d-flex flex-wrap gap-3 justify-content-center mt-2 small d-none"
+          <div id="itcAccountPicker" class="tuition-account-picker d-flex flex-wrap gap-3 justify-content-center mt-2 small d-none"
                role="group" aria-label="Chọn tài khoản nhận học phí"></div>
         </div>
       </div>
@@ -534,21 +534,12 @@
 }
 .tuition-card-individual { position: static; max-width: 100%; overflow-wrap: anywhere; }
 .tuition-card-individual .tuition-qr-img { max-width: 100%; }
-#itcAccountPicker label {
+.tuition-account-picker label {
   display: inline-flex; align-items: flex-start; gap: .25rem;
   min-width: 0; max-width: 100%; cursor: pointer;
 }
-#itcAccountPicker input { flex-shrink: 0; margin-top: .25rem; }
-#itcAccountPicker span { min-width: 0; overflow-wrap: anywhere; }
-.tuition-account-option {
-  display: flex; align-items: flex-start; gap: .75rem;
-  padding: .75rem; border: 1px solid #cbd5e1; border-radius: .5rem;
-  background: #fff; cursor: pointer;
-}
-.tuition-account-option:has(input:checked) { border-color: #2563eb; background: #eff6ff; }
-.tuition-account-option:focus-within { outline: 2px solid #2563eb; outline-offset: 2px; }
-.tuition-account-option .form-check-input { flex-shrink: 0; margin: .2rem 0 0; }
-.tuition-account-details { min-width: 0; overflow-wrap: anywhere; }
+.tuition-account-picker input { flex-shrink: 0; margin-top: .25rem; }
+.tuition-account-picker span { min-width: 0; overflow-wrap: anywhere; }
 .tuition-profile-box { background: #fff7ed; border-radius: 12px; padding: 14px; }
 .tuition-total-due { color: #ea580c; font-weight: 800; font-size: 1.2rem; }
 
@@ -641,29 +632,24 @@ function showGroupTuitionPreview(mode) {
 
 function populateTuitionAccountPicker(picker, accounts, radioName, onChange) {
   picker.replaceChildren();
+  picker.classList.toggle('d-none', accounts.length <= 1);
+  if (accounts.length <= 1) return;
   accounts.forEach((acc, i) => {
     const label = document.createElement('label');
-    label.className = 'tuition-account-option';
+    label.title = `${acc.bank_name} — ${acc.account_number} — ${acc.account_name}`;
     const radio = document.createElement('input');
     radio.type = 'radio';
-    radio.className = 'form-check-input';
     radio.name = radioName;
     radio.value = String(i);
     radio.checked = i === 0;
     if (onChange) radio.addEventListener('change', () => onChange(acc));
-    const details = document.createElement('span');
-    details.className = 'tuition-account-details small';
-    for (const [text, className] of [
-      [acc.bank_name, 'd-block fw-semibold'],
-      [`Số tài khoản: ${acc.account_number}`, 'd-block'],
-      [`Chủ tài khoản: ${acc.account_name}`, 'd-block text-muted'],
-    ]) {
-      const line = document.createElement('span');
-      line.className = className;
-      line.textContent = text;
-      details.append(line);
-    }
-    label.append(radio, details);
+    const name = document.createElement('span');
+    const sameBank = accounts.filter(other =>
+      other.bank_name.trim().toLocaleLowerCase() === acc.bank_name.trim().toLocaleLowerCase());
+    name.textContent = sameBank.length > 1
+      ? `${acc.bank_name} — ${acc.account_number} — ${acc.account_name}`
+      : acc.bank_name;
+    label.append(radio, name);
     picker.append(label);
   });
 }
@@ -674,7 +660,6 @@ document.querySelectorAll('.btn-group-tuition-export').forEach(btn => {
     const mode = this.dataset.exportMode;
     if (accounts.length) applyGroupAccount(accounts[0]);
     const picker = document.getElementById('groupBankAccountPicker');
-    picker.classList.toggle('d-none', accounts.length <= 1);
     populateTuitionAccountPicker(picker, accounts, 'groupBankAccountRadio', applyGroupAccount);
     showGroupTuitionPreview(mode);
   });
@@ -721,26 +706,7 @@ document.getElementById('tuitionReminderModal').addEventListener('show.bs.modal'
 
   const accounts = JSON.parse(btn.dataset.accounts || '[]');
   const picker = document.getElementById('itcAccountPicker');
-  picker.replaceChildren();
-  picker.classList.toggle('d-none', accounts.length <= 1);
-  if (accounts.length > 1) accounts.forEach((acc, i) => {
-    const label = document.createElement('label');
-    label.title = `${acc.bank_name} — ${acc.account_number} — ${acc.account_name}`;
-    const radio = document.createElement('input');
-    radio.type = 'radio';
-    radio.name = 'itcAccountRadio';
-    radio.value = String(i);
-    radio.checked = i === 0;
-    radio.addEventListener('change', () => renderTuitionAccount(acc));
-    const name = document.createElement('span');
-    const sameBank = accounts.filter(other =>
-      other.bank_name.trim().toLocaleLowerCase() === acc.bank_name.trim().toLocaleLowerCase());
-    name.textContent = sameBank.length > 1
-      ? `${acc.bank_name} — ${acc.account_number} — ${acc.account_name}`
-      : acc.bank_name;
-    label.append(radio, name);
-    picker.append(label);
-  });
+  populateTuitionAccountPicker(picker, accounts, 'itcAccountRadio', renderTuitionAccount);
 
   if (accounts.length > 0) renderTuitionAccount(accounts[0]);
 });

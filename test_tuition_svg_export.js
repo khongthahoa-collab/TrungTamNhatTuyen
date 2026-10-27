@@ -48,6 +48,10 @@ const canvasLibrary = execFileSync('curl', [
   'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js',
 ], { encoding: 'utf8' });
 const template = fs.readFileSync('templates/admin/finance/tuition_class_detail.html', 'utf8');
+const editButton = template.slice(template.lastIndexOf('<button', template.indexOf('data-bs-target="#adj')),
+  template.indexOf('</button>', template.indexOf('data-bs-target="#adj')) + 9)
+  .replace('{{ r.id }}', '1');
+assert.ok(editButton.includes('icon-action-plain'));
 const exporter = template.slice(template.indexOf('function exportTuitionCardAsImage('),
   template.indexOf('// Xuất ảnh học phí nhóm'));
 const groupScript = template.slice(template.indexOf('// Xuất ảnh học phí nhóm'),
@@ -111,8 +115,8 @@ const bootstrapJs = execFileSync('curl', ['-fsSL', '--max-time', '30',
       + '<button id="individual" data-bs-toggle="modal" data-bs-target="#tuitionReminderModal"'
       + ' data-student-name="SYNTHETIC STUDENT" data-class-name="TEST CLASS"'
       + ' data-month-year="Tháng 10/2026" data-amount="500000" data-remaining="600000" data-debt="100000">Individual</button>'
-      + svg.preview + svg.individual);
-    await page.addStyleTag({ content: bootstrapCss });
+      + editButton + svg.preview + svg.individual);
+    await page.addStyleTag({ content: bootstrapCss + fs.readFileSync('static/css/custom.css', 'utf8') });
     await page.addStyleTag({ content: template.slice(template.indexOf('<style>') + 7, template.indexOf('</style>')) });
     await page.addScriptTag({ content: bootstrapJs });
     await page.evaluate(accounts => {
@@ -137,6 +141,21 @@ const bootstrapJs = execFileSync('curl', ['-fsSL', '--max-time', '30',
     page.on('download', () => downloadCount++);
     for (const width of [320, 375, 1440]) {
       await page.setViewportSize({ width, height: 900 });
+      const pencil = page.locator('button:has(.bi-pencil)');
+      for (const state of ['normal', 'hover', 'focus']) {
+        if (state === 'hover') await pencil.hover();
+        if (state === 'focus') await pencil.focus();
+        await page.waitForFunction(() => {
+          const el = document.querySelector('button:has(.bi-pencil)');
+          const style = getComputedStyle(el);
+          return style.borderTopColor === 'rgba(0, 0, 0, 0)'
+            && style.backgroundColor === 'rgba(0, 0, 0, 0)';
+        });
+        assert.deepEqual(await pencil.evaluate(el => ({
+          border: getComputedStyle(el).borderTopColor,
+          background: getComputedStyle(el).backgroundColor,
+        })), { border: 'rgba(0, 0, 0, 0)', background: 'rgba(0, 0, 0, 0)' });
+      }
       await page.locator('#individual').click();
       const individualModal = page.locator('#tuitionReminderModal');
       await individualModal.waitFor({ state: 'visible' });
@@ -147,6 +166,9 @@ const bootstrapJs = execFileSync('curl', ['-fsSL', '--max-time', '30',
           && el.lastElementChild.getBoundingClientRect().bottom <= card.bottom;
       }), true, 'Individual card must enclose all information, not stretch to viewport height');
       assert.equal(await page.locator('#itcDebtRow').isVisible(), true);
+      const personalPicker = await page.locator('#itcAccountPicker label').evaluateAll(labels =>
+        labels.map(el => ({ text: el.textContent, title: el.title, display: getComputedStyle(el).display,
+          border: getComputedStyle(el).borderTopWidth, padding: getComputedStyle(el).padding })));
       const individualDownload = page.waitForEvent('download');
       await page.locator('#btnDownloadTuitionCard').click();
       const individualFile = await individualDownload;
@@ -171,6 +193,10 @@ const bootstrapJs = execFileSync('curl', ['-fsSL', '--max-time', '30',
         const modal = page.locator('#groupTuitionModal');
         await modal.waitFor({ state: 'visible' });
         await page.locator('#groupQrImg').evaluate(img => img.decode());
+        assert.deepEqual(await modal.locator('#groupBankAccountPicker label').evaluateAll(labels =>
+          labels.map(el => ({ text: el.textContent, title: el.title, display: getComputedStyle(el).display,
+            border: getComputedStyle(el).borderTopWidth, padding: getComputedStyle(el).padding }))),
+        personalPicker, 'Group bank radio layout must match individual');
         assert.equal(downloadCount, before, 'Opening preview must not download');
         assert.equal(await modal.locator('.group-tuition-row:visible').count(), mode === 'all' ? 3 : 2);
         assert.deepEqual(await modal.locator('.group-tuition-row:visible .group-tuition-stt').allTextContents(),
@@ -194,6 +220,20 @@ const bootstrapJs = execFileSync('curl', ['-fsSL', '--max-time', '30',
       }
     }
     assert.equal(await page.evaluate(() => window.copiedImages), 6);
+    await page.evaluate(() => {
+      const picker = document.getElementById('groupBankAccountPicker');
+      const accounts = JSON.parse(document.querySelector('.btn-group-tuition-export').dataset.accounts);
+      populateTuitionAccountPicker(picker, [accounts[0]], 'groupBankAccountRadio', applyGroupAccount);
+    });
+    assert.equal(await page.locator('#groupBankAccountPicker').isVisible(), false);
+    await page.evaluate(() => {
+      const accounts = JSON.parse(document.querySelector('.btn-group-tuition-export').dataset.accounts);
+      accounts[1].bank_name = accounts[0].bank_name;
+      populateTuitionAccountPicker(document.getElementById('groupBankAccountPicker'),
+        accounts, 'groupBankAccountRadio', applyGroupAccount);
+    });
+    assert.ok((await page.locator('#groupBankAccountPicker label').first().textContent()).includes('0000000001'),
+      'Same-bank accounts must remain distinguishable');
     assert.deepEqual(errors, []);
     console.log('PASS: full-height individual card and PNG dimensions; safe SVG export; immediate group previews without auto-download; unpaid/all filtering and numbering; account switching; download/copy at 320/375/1440px; broken QR recovery.');
   } finally {
