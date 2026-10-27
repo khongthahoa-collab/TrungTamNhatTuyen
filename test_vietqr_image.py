@@ -1,5 +1,6 @@
 """VietQR proxy tests: synthetic accounts, in-memory DB, mocked upstream only."""
 from io import BytesIO
+import base64
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -60,6 +61,7 @@ class VietQRImageTests(unittest.TestCase):
         self.image = buf.getvalue()
         self.upstream = MagicMock()
         self.upstream.status_code = 200
+        self.upstream.headers = {}
         self.upstream.iter_content.return_value = [self.image]
         self.upstream.__enter__.return_value = self.upstream
         self.get_patch = patch('requests.get', return_value=self.upstream)
@@ -133,3 +135,65 @@ class VietQRImageTests(unittest.TestCase):
         self.assertIn('/BIDV-0000000001-print.jpg?', source)
         self.assertIn('amount=600000', source)
         self.assertIn('addInfo=HP+OTHER', source)
+
+    def svg(self, extra=''):
+        png = base64.b64encode(self.image).decode()
+        return (f'<svg xmlns="http://www.w3.org/2000/svg" width="600" height="776">'
+                f'<image width="32" height="32" href="data:image/png;base64,{png}"/>'
+                f'<text x="10" y="40">TEST</text>{extra}</svg>').encode()
+
+    def test_jpg_redirect_to_matching_svg_preserves_account_amount_and_info(self):
+        source = image_signer().loads(self.url.split('token=')[1])
+        target = source.replace('-print.jpg?', '-print.svg?')
+        redirect = MagicMock()
+        redirect.status_code = 301
+        redirect.headers = {'Location': target}
+        redirect.__enter__.return_value = redirect
+        self.upstream.iter_content.return_value = [self.svg()]
+        self.get.side_effect = [redirect, self.upstream]
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, 'image/svg+xml')
+        self.assertIn(b'data:image/png;base64,', response.data)
+        self.assertEqual(self.get.call_args_list[1].args[0], target)
+        self.assertFalse(self.get.call_args.kwargs['allow_redirects'])
+        self.assertIn("default-src 'none'", response.headers['Content-Security-Policy'])
+
+    def test_redirect_cannot_change_host_account_amount_or_repeat(self):
+        source = image_signer().loads(self.url.split('token=')[1])
+        target = source.replace('-print.jpg?', '-print.svg?')
+        for location in ('https://example.test/qr.svg', target.replace('500000', '900000'),
+                         target.replace('0000000000', '0000000001'), '//localhost/image.svg'):
+            self.get.reset_mock()
+            self.upstream.status_code = 301
+            self.upstream.headers = {'Location': location}
+            self.assertEqual(self.client.get(self.url).status_code, 502)
+            self.assertEqual(self.get.call_count, 1)
+        self.get.reset_mock()
+        self.upstream.headers = {'Location': target}
+        self.assertEqual(self.client.get(self.url).status_code, 502)
+        self.assertEqual(self.get.call_count, 2)
+
+    def test_svg_supports_embedded_jpeg_bank_logo(self):
+        logo = BytesIO()
+        Image.new('RGB', (32, 32), 'white').save(logo, 'JPEG')
+        data = base64.b64encode(logo.getvalue()).decode()
+        self.upstream.iter_content.return_value = [
+            self.svg(f'<image width="32" height="32" href="data:image/jpeg;base64,{data}"/>')
+        ]
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, 'image/svg+xml')
+
+    def test_active_svg_and_external_resources_are_rejected(self):
+        for extra in ('<script>alert(1)</script>', '<foreignObject/>',
+                      '<image href="https://example.test/a.png"/>',
+                      '<rect fill="url(https://example.test/x)"/>',
+                      '<text onclick="alert(1)">TEST</text>'):
+            self.upstream.iter_content.return_value = [self.svg(extra)]
+            self.assertEqual(self.client.get(self.url).status_code, 502)
+        self.upstream.iter_content.return_value = [
+            b'<!DOCTYPE svg [<!ENTITY x SYSTEM "file:///etc/passwd">]>'
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="600" height="776">&x;</svg>'
+        ]
+        self.assertEqual(self.client.get(self.url).status_code, 502)

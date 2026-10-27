@@ -1,0 +1,64 @@
+{% extends 'teacher/base.html' %}
+{% from 'teacher/_navigation.html' import page_header %}
+{% block title %}Học sinh – Nhật Tuyền{% endblock %}
+{% block content %}
+<div class="container-fluid px-3 py-3">
+  {{ page_header('Học sinh', 'people', subtitle='Theo dõi học tập trong các lớp bạn đang phụ trách') }}
+  <form method="get" class="card border-0 shadow-sm mb-3">
+    <div class="card-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-sm-6">
+          <label for="studentSearch" class="form-label">Tên học sinh</label>
+          <input id="studentSearch" name="q" value="{{ q }}" class="form-control" type="search" placeholder="Tìm theo tên">
+        </div>
+        <div class="col-12 col-sm-4">
+          <label for="studentClass" class="form-label">Lớp</label>
+          <select id="studentClass" name="class_id" class="form-select">
+            <option value="">Tất cả lớp phụ trách</option>
+            {% for cls in classes %}<option value="{{ cls.id }}"{% if class_id == cls.id %} selected{% endif %}>{{ cls.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-12 col-sm-2 d-flex gap-2">
+          <button type="submit" class="btn action-icon-btn icon-action-plain" title="Tìm học sinh" aria-label="Tìm học sinh"><i class="bi bi-search" aria-hidden="true"></i></button>
+          {% if q or class_id %}<a href="{{ url_for('teacher.students_list') }}" class="btn btn-outline-secondary">Bỏ lọc</a>{% endif %}
+        </div>
+      </div>
+    </div>
+  </form>
+  <p class="small text-muted">{{ pagination.total }} học sinh · Chỉ xem thông tin học tập, không hiển thị thông tin phụ huynh hoặc học phí.</p>
+  <div class="row g-3">
+    {% for student in students %}
+    <div class="col-12 col-md-6 col-xl-4">
+      <article class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <div class="text-break">
+              <h2 class="h6 fw-bold mb-1">{{ student.name }}</h2>
+              {% if student.grade %}<div class="small text-muted">{{ student.grade }}</div>{% endif %}
+            </div>
+            <a href="{{ url_for('teacher.student_learning', student_id=student.id) }}" class="btn btn-outline-primary action-icon-btn" title="Xem học tập {{ student.name }}" aria-label="Xem học tập {{ student.name }}"><i class="bi bi-eye" aria-hidden="true"></i></a>
+          </div>
+          {% for name in student.classes %}<div class="small mt-2 text-break">{{ name }}</div>{% endfor %}
+          {% for warning in student.warnings %}
+          <div class="alert alert-warning small mt-2 mb-0">{{ warning.class_name }}: nghỉ {{ warning.absence_count }} buổi trong chu kỳ {{ warning.cycle_size }} buổi.</div>
+          {% endfor %}
+        </div>
+      </article>
+    </div>
+    {% else %}
+    <div class="col-12"><div class="alert alert-light border text-center">Không có học sinh phù hợp trong các lớp bạn đang phụ trách.</div></div>
+    {% endfor %}
+  </div>
+  {% if pagination.pages > 1 %}
+  <nav class="mt-3" aria-label="Phân trang học sinh">
+    <ul class="pagination pagination-sm justify-content-center flex-wrap">
+      {% for p in pagination.iter_pages() %}
+      <li class="page-item{% if p == pagination.page %} active{% endif %}{% if not p %} disabled{% endif %}">
+        {% if p %}<a class="page-link" href="{{ url_for('teacher.students_list', page=p, q=q, class_id=class_id) }}">{{ p }}</a>{% else %}<span class="page-link">…</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </nav>
+  {% endif %}
+</div>
+{% endblock %}

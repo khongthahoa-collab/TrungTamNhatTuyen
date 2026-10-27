@@ -17,3 +17,4 @@ Markdown==3.7
 bleach==6.2.0
 pywebpush==2.3.0
 requests>=2.21.0,<3
+defusedxml==0.7.1

@@ -1,0 +1,66 @@
+{% extends 'teacher/base.html' %}
+{% from 'teacher/_navigation.html' import page_header %}
+{% block title %}Học tập – {{ student.name }}{% endblock %}
+{% block content %}
+<div class="container-fluid px-3 py-3">
+  {{ page_header(student.name, 'person', subtitle=student.grade or 'Theo dõi học tập',
+     back_href=url_for('teacher.students_list'), back_label='học sinh') }}
+  <div class="d-flex gap-2 flex-wrap mb-3">{% for member in memberships %}<span class="badge bg-secondary text-wrap">{{ member.class_name }}</span>{% endfor %}</div>
+  {% if can_attendance %}
+    {% set absence_warnings = absence_warnings | selectattr('student_id', 'equalto', student.id) | list %}
+    {% include 'teacher/_absence_warnings.html' %}
+  {% endif %}
+  <p class="small text-muted">Chỉ hiển thị dữ liệu học tập của lớp bạn đang phụ trách. Mỗi mục hiển thị tối đa 50 bản ghi gần nhất.</p>
+  {% if can_attendance %}
+  <section class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-white fw-bold">Chuyên cần</div>
+    <div class="card-body">
+      {% for row in attendance %}
+      <div class="d-flex justify-content-between gap-2 border-bottom py-2 small">
+        <span>{{ row.date | date_vn }} · {{ row.class_name }}</span>
+        <span>{{ {'present':'Có mặt', 'absent':'Vắng không phép', 'excused':'Vắng có phép', 'late':'Đi trễ'}.get(row.status, 'Chưa xác định') }}</span>
+      </div>
+      {% else %}<p class="text-muted mb-0">Chưa có dữ liệu điểm danh.</p>{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+  {% if can_scores %}
+  <section class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-white fw-bold">Điểm số tại trung tâm</div>
+    <div class="card-body">
+      {% for row in scores %}
+      <div class="border-bottom py-2 small">
+        <div>{{ row.class_name }} · {{ row.exam_date | date_vn if row.exam_date else 'Chưa ghi ngày' }}</div>
+        <div>{{ score_labels.get(row.score_type, row.score_type) }}: <strong>{{ row.score_value }}/{{ row.max_score }}</strong></div>
+      </div>
+      {% else %}<p class="text-muted mb-0">Chưa có điểm được ghi nhận.</p>{% endfor %}
+    </div>
+  </section>
+  <section class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-white fw-bold">Bài tập về nhà</div>
+    <div class="card-body">
+      {% for row in homework %}
+      <div class="border-bottom py-2 small">
+        <div>{{ row.assigned_date | date_vn }} · {{ row.class_name }} · {{ row.title or ('Lần ' ~ row.assignment_round) }}</div>
+        <strong>{{ {'done':'Có làm', 'not_done':'Không làm'}.get(row.status, 'Chưa ghi nhận') }}</strong>
+      </div>
+      {% else %}<p class="text-muted mb-0">Chưa có bài tập trong thời gian học lớp.</p>{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+  {% if can_exams %}
+  <section class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-white fw-bold">Thi online</div>
+    <div class="card-body">
+      <p class="small text-muted">Các đề bạn tạo và đã giao cho học sinh. Trạng thái theo lượt làm gần nhất; mở kết quả để xem điểm đã cập nhật.</p>
+      {% for exam in exams %}
+      <div class="d-flex justify-content-between align-items-center gap-2 border-bottom py-2 small">
+        <div class="text-break">{{ exam.title }} · <strong>{{ exam.status }}</strong></div>
+        <a href="{{ url_for('teacher.exams_results', exam_id=exam.id) }}" class="btn btn-outline-primary action-icon-btn" title="Xem kết quả {{ exam.title }}" aria-label="Xem kết quả {{ exam.title }}"><i class="bi bi-eye" aria-hidden="true"></i></a>
+      </div>
+      {% else %}<p class="text-muted mb-0">Chưa có đề thi thuộc phạm vi theo dõi.</p>{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

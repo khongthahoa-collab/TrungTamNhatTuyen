@@ -39,6 +39,26 @@
 - Khong doi cu phap `[A:...]`, `[*B:...]`, du lieu dap an hay cach cham.
   De cu co nhan E/F van duoc giu. Ban lam bai khong tiet lo dau *.
 
+### Theo doi hoc sinh phia giao vien (27/10/2026)
+
+- Menu duoi cung them "Hoc sinh": `/teacher/students`, tim ten (escape ky tu
+  wildcard), loc lop va phan trang 20 hoc sinh; moi hoc sinh chi hien mot lan.
+- Chi lay hoc sinh/dang ky/lop dang hoat dong trong lop GV dang la giao vien
+  chinh hoac tro giang. Lich day cu khong cap quyen xem ho so; student/class ID
+  ngoai pham vi tra 404. Trang chi ho tro GET, khong sua ho so hay du lieu hoc.
+- Trang `/teacher/students/<id>` chi nhan projection ten/khoi/lop va du lieu
+  hoc tap, khong truyen Student ORM, ten/SDT phu huynh, dia chi, ngay sinh,
+  tai khoan, ghi chu ca nhan, hoc phi hay cong no sang template.
+- Quyen `students` dieu khien menu/trang; tung muc tiep tuc kiem tra quyen
+  `attendance`, `scores`, `exams` tai server. Xem 50 ban ghi gan nhat moi muc:
+  diem danh, diem trung tam, bai tap; chua ghi nhan khong coi la khong lam,
+  diem 0 khong coi la thieu diem. Canh bao nghi dung lai service chu ky 8/12.
+- Thi online chi hien de da dang do chinh GV tao va giao cho hoc sinh trong
+  pham vi lop phu trach; trang thai theo luot gan nhat, cho cham hien rieng.
+  Link ket qua dung man hinh hien co de tranh hien diem luu cu/sai dap an moi.
+- Kiem thu: `python -m unittest test_teacher_students.TeacherStudentsTests`
+  va `node test_teacher_students.js` (menu 6 muc, mobile, quyen va du lieu rieng).
+
 ### Canh bao hoc sinh nghi qua 2 buoi (27/10/2026)
 
 - Moi hoc sinh co chu ky rieng tu ngay `Enrollment.enrolled_at` cua lop:
@@ -77,12 +97,20 @@
 
 ### Anh VietQR trong thong bao hoc phi (27/10/2026)
 
+- Nha cung cap hien redirect JPG sang SVG. Proxy chi chap nhan toi da mot
+  redirect sang dung URL cung host, cung tai khoan/query, chi doi duoi `.svg`.
+  Khong theo redirect tuy y. SVG duoc doc bang defusedxml va dung lai voi
+  danh sach tag/thuoc tinh tinh; chi cho anh PNG/JPEG nhung base64 da kiem tra,
+  cam script, foreignObject, su kien, DTD/entity va tai nguyen ngoai.
+  Tra dung MIME SVG kem CSP sandbox; browser rasterize khi xuat PNG.
+  Can cai dependency `defusedxml==0.7.1` khi deploy. Test:
+  `python -m unittest test_vietqr_image` va `node test_tuition_svg_export.js`.
 - Preview va xuat/sao chep anh dung `/admin/tuition/qr-image` cung origin
   thay vi tai truc tiep tu VietQR, tranh loi khi upstream thieu header CORS.
   URL nguon duoc server ky, chi admin co quyen hoc phi hoac hoc sinh moi
-  doc duoc; khong nhan URL tuy y va khong theo redirect.
+  doc duoc; khong nhan URL tuy y va khong theo redirect ngoai quy tac tren.
 - Timeout ket noi/doc 3/8 giay, gioi han 2 MB va 4 trieu pixel, chi nhan
-  anh PNG/JPEG hop le. Loi upstream tra 502, ghi log khong kem URL/thong tin
+  anh PNG/JPEG hop le hoac SVG tinh da dung lai an toan. Loi upstream tra 502, ghi log khong kem URL/thong tin
   tai khoan. Trinh duyet hien loi va chan xuat anh khi QR khong tai duoc.
 - Ap dung cho thong bao ca nhan/nhom tren trang hoc phi va anh hoc phi
   trong ho so hoc sinh; khong thay doi tai khoan, so tien hay noi dung CK.

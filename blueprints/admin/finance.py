@@ -27,7 +27,8 @@ def vietqr_image():
     from flask import Response
     from itsdangerous import BadSignature
     from PIL import Image, UnidentifiedImageError
-    from services.vietqr_image import image_signer
+    from services.vietqr_image import image_signer, sanitize_vietqr_svg
+    from urllib.parse import urljoin, urlsplit, urlunsplit
 
     if not (current_user.can_access('tuition') or current_user.can_access('students')):
         abort(403)
@@ -38,21 +39,35 @@ def vietqr_image():
     if not isinstance(source, str) or not source.startswith('https://img.vietqr.io/image/'):
         abort(400, description='Nguồn ảnh QR không hợp lệ.')
     try:
-        with requests.get(source, timeout=(3, 8), stream=True, allow_redirects=False) as upstream:
-            if upstream.status_code != 200:
-                raise ValueError(f'VietQR HTTP {upstream.status_code}')
-            content = bytearray()
-            for chunk in upstream.iter_content(64 * 1024):
-                content.extend(chunk)
-                if len(content) > 2 * 1024 * 1024:
-                    raise ValueError('VietQR image exceeds size limit')
-        with warnings.catch_warnings():
-            warnings.simplefilter('error', Image.DecompressionBombWarning)
-            with Image.open(io.BytesIO(content)) as image:
-                if image.format not in ('JPEG', 'PNG') or image.width * image.height > 4_000_000:
-                    raise ValueError('Invalid VietQR image format or dimensions')
-                mimetype = Image.MIME[image.format]
-                image.verify()
+        parts = urlsplit(source)
+        svg_target = urlunsplit(parts._replace(path=parts.path.rsplit('.', 1)[0] + '.svg'))
+        content = bytearray()
+        for hop in range(2):
+            with requests.get(source, timeout=(3, 8), stream=True, allow_redirects=False) as upstream:
+                if upstream.status_code in (301, 302, 307, 308):
+                    target = urljoin(source, upstream.headers.get('Location', ''))
+                    if hop or target != svg_target:
+                        raise ValueError('Unexpected VietQR redirect')
+                    source = target
+                    continue
+                if upstream.status_code != 200:
+                    raise ValueError(f'VietQR HTTP {upstream.status_code}')
+                for chunk in upstream.iter_content(64 * 1024):
+                    content.extend(chunk)
+                    if len(content) > 2 * 1024 * 1024:
+                        raise ValueError('VietQR image exceeds size limit')
+                break
+        if bytes(content).lstrip().startswith((b'<svg', b'<?xml')):
+            content = sanitize_vietqr_svg(bytes(content))
+            mimetype = 'image/svg+xml'
+        else:
+            with warnings.catch_warnings():
+                warnings.simplefilter('error', Image.DecompressionBombWarning)
+                with Image.open(io.BytesIO(content)) as image:
+                    if image.format not in ('JPEG', 'PNG') or image.width * image.height > 4_000_000:
+                        raise ValueError('Invalid VietQR image format or dimensions')
+                    mimetype = Image.MIME[image.format]
+                    image.verify()
     except (requests.RequestException, ValueError, OSError, UnidentifiedImageError,
             Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
         from flask import current_app
@@ -61,6 +76,7 @@ def vietqr_image():
     return Response(bytes(content), mimetype=mimetype, headers={
         'Cache-Control': 'private, no-store',
         'X-Content-Type-Options': 'nosniff',
+        'Content-Security-Policy': "default-src 'none'; img-src data:; sandbox",
     })
 
 

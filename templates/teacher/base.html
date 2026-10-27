@@ -63,7 +63,7 @@
 </div>
 
 <!-- Bottom Navigation Bar -->
-<nav class="navbar fixed-bottom border-top bg-white py-0" style="z-index:150; padding-bottom: env(safe-area-inset-bottom);">
+<nav class="navbar fixed-bottom border-top bg-white py-0 teacher-bottom-nav" style="z-index:150; padding-bottom: env(safe-area-inset-bottom);">
   <div class="container-fluid p-0">
     <div class="d-flex w-100">
 
@@ -86,6 +86,16 @@
       </a>
       {% endif %}
       #}
+
+      {% if current_user.can_access('students') %}
+      <a href="{{ url_for('teacher.students_list') }}"
+         class="flex-fill d-flex flex-column align-items-center justify-content-center py-2 text-decoration-none
+                {% if request.endpoint in ('teacher.students_list', 'teacher.student_learning') %}text-success border-top border-success border-2{% else %}text-muted{% endif %}"
+         style="font-size:0.65rem;">
+        <i class="bi bi-people{% if request.endpoint in ('teacher.students_list', 'teacher.student_learning') %}-fill{% endif %} fs-5" aria-hidden="true"></i>
+        <span>Học sinh</span>
+      </a>
+      {% endif %}
 
       {% if current_user.can_access('attendance') %}
       <a href="{{ url_for('teacher.attendance_list') }}"

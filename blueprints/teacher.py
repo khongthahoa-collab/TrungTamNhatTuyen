@@ -1724,3 +1724,4 @@ def _save_attendance_records(schedule, schedule_id):
 # Import to register the teacher-side exam routes (separate screens from admin's,
 # sharing only the underlying models + blueprints/exams_shared.py parsing logic)
 from blueprints import teacher_exams  # noqa: E402,F401
+from blueprints import teacher_students  # noqa: E402,F401

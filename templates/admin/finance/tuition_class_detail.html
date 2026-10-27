@@ -576,7 +576,11 @@
 // Chung cho mọi nút xuất ảnh học phí — cùng cách xử lý iOS Safari (không hỗ
 // trợ <a download>, phải dùng Share Sheet) như tính năng Xuất ảnh Điểm danh.
 function exportTuitionCardAsImage(captureEl, filename, btn) {
-  if (!captureEl || typeof html2canvas === 'undefined') return Promise.resolve();
+  if (!captureEl || typeof html2canvas !== 'function') {
+    console.error('Không thể xuất học phí: thiếu vùng ảnh hoặc thư viện html2canvas.');
+    showMessage('Chưa tải được công cụ xuất ảnh. Hãy tải lại trang và thử lại.');
+    return Promise.resolve();
+  }
   const original = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
@@ -587,11 +591,13 @@ function exportTuitionCardAsImage(captureEl, filename, btn) {
   return ready.then(() => html2canvas(captureEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff' }))
     .then(canvas => new Promise(resolve => canvas.toBlob(resolve, 'image/png')))
     .then(blob => {
-      if (!blob) return;
+      if (!blob) throw new Error('Không tạo được tệp ảnh học phí.');
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
       const file = (isIOS && window.File) ? new File([blob], filename, { type: 'image/png' }) : null;
       if (isIOS && file && navigator.canShare && navigator.canShare({ files: [file] })) {
-        return navigator.share({ files: [file], title: 'Thông báo học phí' }).catch(() => {});
+        return navigator.share({ files: [file], title: 'Thông báo học phí' }).catch(error => {
+          if (error.name !== 'AbortError') throw error;
+        });
       }
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -600,7 +606,8 @@ function exportTuitionCardAsImage(captureEl, filename, btn) {
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     })
-    .catch(() => {
+    .catch(error => {
+      console.error('Không thể xuất ảnh học phí.', error);
       showMessage('Không xuất được ảnh hoặc QR chưa tải xong. Vui lòng thử lại.');
     })
     .finally(() => {

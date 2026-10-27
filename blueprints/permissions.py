@@ -60,6 +60,7 @@ ADMIN_SIDEBAR_GROUPS = [
 
 # (key, label, bootstrap-icon) — order matches the teacher bottom nav
 TEACHER_MODULES = [
+    ('students', 'Học sinh', 'bi-people'),
     ('schedule', 'Lịch dạy', 'bi-calendar3'),
     ('attendance', 'Điểm danh', 'bi-person-check'),
     ('scores', 'Điểm số', 'bi-pencil-square'),
@@ -155,6 +156,7 @@ ADMIN_ENDPOINT_MODULES = {
 
 # endpoint function name (without the 'teacher.' prefix) -> module key
 TEACHER_ENDPOINT_MODULES = {
+    'students_list': 'students', 'student_learning': 'students',
     'schedule': 'schedule', 'checkin': 'schedule',
     'available_rooms': 'schedule', 'create_intensive': 'schedule',
     'attendance_list': 'attendance', 'attendance_session': 'attendance', 'save_attendance': 'attendance',

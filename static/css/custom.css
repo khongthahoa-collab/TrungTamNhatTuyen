@@ -32,6 +32,7 @@
 .btn.action-icon-btn { border-radius: 50% !important; padding: 0 !important; }
 .action-icon-btn.dropdown-toggle::after { display: none; }
 .action-icon-btn > .bi { margin: 0; pointer-events: none; }
+.teacher-bottom-nav .flex-fill { min-height: 60px; }
 .btn.icon-action-plain,
 .btn.icon-action-plain:hover,
 .btn.icon-action-plain:active,
