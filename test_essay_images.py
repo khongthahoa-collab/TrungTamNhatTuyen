@@ -153,6 +153,20 @@ class EssayImageTests(unittest.TestCase):
         g.pop('_login_user', None)
         self.assertEqual(self.client.get(payload['url']).status_code, 302)
 
+    def test_submitted_image_and_result_stay_readable_after_assignment_ends(self):
+        payload = self.upload().get_json()
+        self.attempt.status = 'submitted'
+        self.exam.student_ids = ''
+        db.session.commit()
+        response = self.client.get(payload['url'])
+        self.assertEqual(response.status_code, 200)
+        response.close()
+        self.assertEqual(self.client.get(f'/student/exams/{self.exam.id}/result').status_code, 200)
+        self.assertEqual(self.client.get(f'/student/exams/{self.exam.id}').status_code, 404)
+        self.login(self.other_student)
+        self.assertEqual(self.client.get(payload['url']).status_code, 403)
+        self.assertEqual(self.client.get(f'/student/exams/{self.exam.id}/result').status_code, 404)
+
     def test_exam_routes_share_upload_validation_and_private_reads(self):
         self.upload_url = f'/exam/attempt/{self.attempt.id}/upload-essay-image'
         self.assertEqual(self.upload(csrf=False).status_code, 400)

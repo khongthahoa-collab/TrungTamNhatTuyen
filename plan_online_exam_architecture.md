@@ -6,6 +6,82 @@
 
 ## 0. Gia dinh ve chi phi va gioi han
 
+### Chuyen nam hoc va tai su dung hoc lieu (27/10/2026)
+
+- **MAC DINH TAT:** `ACADEMIC_ROLLOVER_ENABLED=0` (mac dinh khi khong dat).
+  Nam 2026 chi chuan bi code, KHONG cai cron hoac chay chuyen nam tren data
+  that. Khi den ky chuyen nam va da backup/kiem thu staging, admin moi chu
+  dong dat `ACADEMIC_ROLLOVER_ENABLED=1`, deploy lai va cau hinh worker.
+  Ca web POST va CLI worker deu tu choi khi tat; moc ngay 01/07 van duoc
+  kiem tra doc lap sau khi bat. Khong tu dong bat theo dong ho.
+- Admin tu bam **Cuon nam hoc** tu 01/07. Preview liet ke ten/khoi moi,
+  lich tuan, giao vien tung buoi, so hoc sinh va loi can xu ly.
+  Lop moi co ID rieng va `rolled_over_from_id`; lop/lich/diem danh/diem/
+  hoa don/lan giao bai/ket qua nam cu khong bi ghi de.
+- Ke thua giao vien chinh, tro giang, giao vien tung khung gio, phong,
+  hoc phi, Zalo, si so, mo ta; dang ky moi giu `discount_pct` va `note`.
+  Chi chuyen dang ky dang hoc. Dang ky dang hoc tro vao hoc sinh nghi/
+  xoa/cho xac nhan se chan chuyen nam, khong am tham bo hoc sinh.
+- Hoc sinh du dieu kien tang dung mot khoi; cap hoc doi tuong ung khi
+  5 len 6 va 9 len 10. Hoc sinh/khoi 12 tot nghiep, dong lop va vo hieu
+  tai khoan hoc sinh (khong khoa tai khoan phu huynh). Hoc sinh da nghi,
+  xoa hoac cho xac nhan khong tu tang khoi.
+- `grade_year` phai dung nam nguon; thieu/cu/di truoc se chan thao tac.
+  Admin doi chieu va sua **Moc nam cua khoi lop** trong ho so hoc sinh.
+  Khong gan moc hang loat theo phong doan. Lop khoi tu do/ten khong xac
+  dinh khoi/ngay ngoai nam nguon cung can xu ly truoc.
+- Lich ke thua lay cac khung gio tren ngay thuong ky moi nhat cua tung
+  thu trong nam hoc nguon, khong lay lich truoc nam nguon hay buoi bu/huy;
+  giu nhieu khung gio cung ngay. Giao vien quan ly, tro giang va giao vien
+  tung buoi phai con tai khoan hoat dong; neu khong se chan de admin xu ly,
+  khong tu thay nguoi. DB hien chua
+  luu rieng mau lich tuan bat bien; admin phai doi chieu preview (nhat la
+  lop tung bo mot thu hoc). Khong tu suy doan lich goc luc tao lop.
+- Chan toan bo neu trung giao vien/phong/hoc sinh trong cac lich moi
+  hoac voi buoi da co cua nam dich; khong tu bo buoi. Nam dich da tao
+  nhung chua kich hoat duoc tai su dung neu ngay hop le.
+- Request xac nhan chi luu `academic_rollovers` (unique nam dich).
+  CLI worker `flask --app wsgi:app process-academic-rollovers` xu ly mot
+  yeu cau moi lan goi, transaction toan bo va bulk insert lich theo lo 500.
+  Thanh cong va du lieu duoc commit cung nhau; loi rollback het va hien
+  trang thai that bai. Process chet giua chung se rollback, yeu cau van
+  pending de worker chay lai. PostgreSQL dung advisory lock + table locks
+  ngan worker/chinh sua dong thoi; lock timeout 5 giay. Nen chay luc it
+  nguoi thao tac, theo doi trang thai va log. Khong tang Gunicorn timeout
+  de giai quyet tac vu nay.
+- **Can cau hinh worker tren VPS truoc khi su dung.** Vi du host Docker:
+
+  ```cron
+  * * * * * /usr/bin/docker exec my-app-running flask --app wsgi:app process-academic-rollovers >> /var/log/academic-rollover.log 2>&1
+  ```
+
+  Doi chieu `command -v docker`, ten container va quyen Docker cua user cron.
+  Chay thu lenh (khi khong co yeu cau se bao `No pending academic rollovers.`).
+  Khong tao cron trong moi web worker. Backup DB truoc lan chuyen nam dau;
+  theo doi va rotate log. Chua co hoan tac tu dong sau khi thanh cong.
+- Khi khoi dong, co che schema hien co them bang `academic_rollovers`,
+  cot `exams.content_grade`, `students.grade_year` neu thieu; khong backfill
+  khoi/nam hay doi du lieu cu. Schema update PostgreSQL duoc serialize
+  bang advisory transaction lock giua cac Gunicorn worker.
+- **Kho de:** `content_grade` la nhan khoi noi dung doc lap voi lop duoc
+  giao. Giao vien loc trong **Dung lai de**, admin loc trong danh sach de.
+  Cuon nam khong doi nhan hay chuyen de cu sang lop moi. De cu chua gan
+  nhan van tim duoc o **Tat ca khoi**; admin/giao vien tu phan loai.
+  Sao chep tao ban nhap doc lap, giu noi dung/dap an/thang diem/thiet lap
+  tron, bo lop/truong/hoc sinh/lich mo de va thu muc gan lop cu; khong sao
+  chep attempt/anh/diem. Chinh sua ban sao khong tinh lai diem de nguon.
+- Hoc sinh van thay/xem ket qua va anh cua bai minh da nop sau khi lop
+  cu dong; khong duoc lam lai neu khong con duoc giao de. Quyen xem lich
+  su khong cho phep doc bai/anh cua hoc sinh khac. De chuyen ve nhap van an.
+- **Bai tap ve nha:** tren lop moi co **Dung lai bai tap cung mon/khoi**
+  tu cac lop giao vien duoc phep truy cap (ke ca lop luu lich su).
+  Chi sao chep ten/ghi chu, dung ngay/ky cua lan giao moi, khong mang
+  trang thai lam bai cua hoc sinh cu. `Homework` hien la so theo doi
+  bai tap, chua phai kho tep bai tap. Khong giao bai moi vao lop da dong.
+- Kiem thu: `python -m unittest test_academic_rollover test_exam_reuse`.
+  Suite dung SQLite co lap; kiem thu lock dong thoi thuc te tren PostgreSQL
+  staging van can truoc lan chuyen nam production dau tien.
+
 ### Anh bai lam tu luan (cap nhat 24/10/2026)
 
 - Hoc sinh/phu huynh co the nhap chu, tai anh, hoac ket hop ca hai.

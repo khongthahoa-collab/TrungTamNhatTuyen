@@ -1,0 +1,17 @@
+{% extends 'admin/base.html' %}
+{% block content %}
+<h5>Chuyển sang năm học {{ job.target_year }}–{{ job.target_year + 1 }}</h5>
+{% if job.status == 'pending' %}
+<div class="alert alert-info">Yêu cầu #{{ job.id }} đang chờ hoặc đang được worker xử lý. Dữ liệu chỉ được chuyển khi toàn bộ kiểm tra thành công.
+  Nếu trạng thái không đổi, quản trị máy chủ cần kiểm tra lịch chạy lệnh
+  <code>flask --app wsgi:app process-academic-rollovers</code>.</div>
+<a href="{{ url_for('admin.academic_rollover_status', job_id=job.id) }}" class="btn btn-primary">Cập nhật trạng thái</a>
+{% elif job.status == 'succeeded' %}
+<div class="alert alert-success">Chuyển năm thành công. Lịch sử cũ được giữ nguyên.</div>
+{% else %}
+<div class="alert alert-danger"><strong>Chưa chuyển năm; mọi thay đổi của tác vụ đã được rollback.</strong>
+  <pre class="text-wrap mb-0">{{ job.error }}</pre></div>
+<a href="{{ url_for('admin.academic_year_rollover_preview') }}" class="btn btn-primary">Xem trước và thử lại</a>
+{% endif %}
+<a href="{{ url_for('admin.academic_years') }}" class="btn btn-outline-secondary">Quản lý năm học</a>
+{% endblock %}

@@ -46,6 +46,16 @@
             class="row g-2 align-items-end">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="semester" value="{{ semester }}">
+        <div class="col-12">
+          <label for="sourceHomework" class="form-label fw-semibold small mb-1">Dùng lại bài tập cùng môn/khối</label>
+          <select id="sourceHomework" name="source_homework_id" class="form-select">
+            <option value="">Tạo bài mới theo tên bên dưới</option>
+            {% for homework in reusable_homeworks %}
+            <option value="{{ homework.id }}">{{ homework.assigned_date | date_vn }} — {{ homework.display_title }} ({{ homework.class_.name }})</option>
+            {% endfor %}
+          </select>
+          <div class="form-text">Chỉ sao chép tên và ghi chú. Ngày giao/kỳ lấy ở lần giao mới; không sao chép trạng thái làm bài của học sinh cũ.</div>
+        </div>
         <div class="col-12 col-md-4">
           <label class="form-label fw-semibold small mb-1" for="assigned_date">Ngày giao</label>
           <input type="date" class="form-control" name="assigned_date" id="assigned_date"

@@ -12,6 +12,7 @@
         <div>
           <div class="fw-semibold">{{ exam.title }}</div>
           <div class="small text-muted">{{ exam.subject }} · {{ exam.type_label }} · {{ exam.duration_minutes }} phút</div>
+          {% if row.history_only %}<div class="small text-muted">Lịch sử bài đã nộp — không còn được giao để làm lại.</div>{% endif %}
         </div>
         {% if row.in_progress %}
           <span class="badge bg-warning text-dark">Đang làm</span>

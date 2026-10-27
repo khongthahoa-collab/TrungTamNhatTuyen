@@ -720,6 +720,13 @@ def student_edit(student_id):
                                    levels=StudentLevel.LABELS, grade_by_level=GRADE_BY_LEVEL,
                                    schools=schools, form=request.form)
 
+        grade_year_raw = request.form.get('grade_year', '').strip()
+        grade_year = int(grade_year_raw) if grade_year_raw.isascii() and grade_year_raw.isdigit() else None
+        if grade_year_raw and (grade_year is None or not 2000 <= grade_year <= date.today().year + 1):
+            flash('Mốc năm của khối lớp phải là năm bắt đầu năm học hợp lệ (từ 2000 đến năm sau).', 'danger')
+            return render_template('admin/students/form.html', action='edit', student=student,
+                                   levels=StudentLevel.LABELS, grade_by_level=GRADE_BY_LEVEL,
+                                   schools=schools, form=request.form)
         student.full_name = request.form.get('full_name', student.full_name).strip()
         dob_str = request.form.get('dob', '')
         try:
@@ -738,6 +745,8 @@ def student_edit(student_id):
             student.school_id = None
         if current_grade != student.current_grade:
             student.grade_year = current_academic_year_start()
+        if grade_year is not None:
+            student.grade_year = grade_year
         student.current_grade = current_grade
         student.level = level
         student.parent_name = request.form.get('parent_name', '').strip()

@@ -78,6 +78,7 @@ def exams_list():
             id=folder_id, created_by=current_user.id
         ).first_or_404()
     subject = request.args.get('subject', '').strip()
+    content_grade = request.args.get('content_grade', '').strip()
     exam_type = request.args.get('exam_type', '').strip()
     class_id = request.args.get('class_id', type=int)
     status = request.args.get('status', '').strip()
@@ -98,6 +99,8 @@ def exams_list():
         query = query.filter_by(folder_id=current_folder.id)
     if subject:
         query = query.filter_by(subject=subject)
+    if content_grade:
+        query = query.filter_by(content_grade=content_grade)
     if exam_type:
         query = query.filter_by(exam_type=exam_type)
     if status == 'draft':
@@ -214,7 +217,8 @@ def exams_list():
                            folder_exam_counts=folder_exam_counts, breadcrumbs=breadcrumbs, classes=classes,
                            courses=courses, exam_types=EXAM_TYPES,
                            folder_id=folder_id, subject=subject, exam_type=exam_type,
-                           class_id=class_id, status=status, reuse_mode=reuse_mode, search=search)
+                           class_id=class_id, status=status, reuse_mode=reuse_mode, search=search,
+                           content_grade=content_grade)
 
 
 @teacher_bp.route('/exams/folders/new', methods=['POST'])
@@ -266,19 +270,23 @@ def exam_duplicate(exam_id):
     new_exam = Exam(
         title=f'{original.title} (bản sao)',
         subject=original.subject,
+        content_grade=original.content_grade,
         exam_type=original.exam_type,
         description=original.description,
         scoring_mode=original.scoring_mode,
         class_ids='',
         school_ids='',
         student_ids='',
-        folder_id=original.folder_id if original.created_by == current_user.id else None,
+        folder_id=original.folder_id if (
+            original.created_by == current_user.id and original.folder
+            and original.folder.scope_type != 'class'
+        ) else None,
         duration_minutes=original.duration_minutes,
         availability_mode='always',
         allow_attempts=original.allow_attempts,
         scoring_config_json=original.scoring_config_json,
-        shuffle_questions=True,
-        shuffle_answers=True,
+        shuffle_questions=original.shuffle_questions,
+        shuffle_answers=original.shuffle_answers,
         is_draft=True,
         is_shared_with_teachers=False,
         created_by=current_user.id,
@@ -902,6 +910,7 @@ def exams_confirm():
             ) or (had_attempts and has_stale_scoring(existing, settings['scoring_mode']))
             existing.title = draft['title']
             existing.subject = settings['subject']
+            existing.content_grade = settings['content_grade']
             existing.exam_type = settings['exam_type']
             existing.scoring_mode = settings['scoring_mode']
             existing.scoring_config_json = json.dumps(settings['scoring_config'])
@@ -941,6 +950,7 @@ def exams_confirm():
             exam = Exam(
                 title=draft['title'],
                 subject=settings['subject'],
+                content_grade=settings['content_grade'],
                 exam_type=settings['exam_type'],
                 scoring_mode=settings['scoring_mode'],
                 scoring_config_json=json.dumps(settings['scoring_config']),

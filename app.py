@@ -9,6 +9,8 @@ def _ensure_new_columns():
     from sqlalchemy import inspect, text
     new_columns = [
         ('students', 'user_id', 'INTEGER REFERENCES users(id)'),
+        ('students', 'grade_year', 'INTEGER'),
+        ('exams', 'content_grade', "VARCHAR(20) NOT NULL DEFAULT ''"),
         ('exams', 'scoring_mode', "VARCHAR(20) NOT NULL DEFAULT 'question'"),
         ('exams', 'scoring_config_json', "TEXT NOT NULL DEFAULT '{}'"),
         ('exams', 'is_shared_with_teachers', 'BOOLEAN NOT NULL DEFAULT FALSE'),
@@ -17,13 +19,14 @@ def _ensure_new_columns():
         ('exam_folders', 'parent_id', 'INTEGER REFERENCES exam_folders(id)'),
     ]
     try:
-        from models import EssayImage, ExamContentTemplate, PushSubscription
-        ExamContentTemplate.__table__.create(bind=db.engine, checkfirst=True)
-        PushSubscription.__table__.create(bind=db.engine, checkfirst=True)
-        EssayImage.__table__.create(bind=db.engine, checkfirst=True)
-        inspector = inspect(db.engine)
-        tables = set(inspector.get_table_names())
+        from models import AcademicRollover, EssayImage, ExamContentTemplate, PushSubscription
         with db.engine.begin() as conn:
+            if db.engine.dialect.name == 'postgresql':
+                conn.execute(text('SELECT pg_advisory_xact_lock(726020)'))
+            for model in (AcademicRollover, ExamContentTemplate, PushSubscription, EssayImage):
+                model.__table__.create(bind=conn, checkfirst=True)
+            inspector = inspect(conn)
+            tables = set(inspector.get_table_names())
             for table, column, ddl in new_columns:
                 if table not in tables:
                     continue
@@ -110,6 +113,8 @@ def create_app(config_name=None):
     app.register_blueprint(exam_images_bp)
     app.register_blueprint(exam_essay_images_bp)
     app.cli.add_command(cleanup_essay_images)
+    from services.academic_rollover import process_academic_rollovers
+    app.cli.add_command(process_academic_rollovers)
     # Token-authenticated JSON API, not cookie/session-based — Flask-WTF's
     # CSRF protection doesn't apply the same way here.
     csrf.exempt(api_bp)
@@ -171,6 +176,7 @@ def create_app(config_name=None):
             'current_admin_module': ADMIN_ENDPOINT_MODULES.get((request.endpoint or '').split('.')[-1]),
             'ADMIN_SIDEBAR_GROUPS': ADMIN_SIDEBAR_GROUPS,
             'UserRole': m.UserRole,
+            'GRADE_SEQUENCE': m.GRADE_SEQUENCE,
             'StudentLevel': m.StudentLevel,
             'ScheduleType': m.ScheduleType,
             'AttendanceStatus': m.AttendanceStatus,

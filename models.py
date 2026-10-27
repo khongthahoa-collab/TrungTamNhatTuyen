@@ -251,6 +251,7 @@ class Exam(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
     subject = db.Column(db.String(100), nullable=False, default='')
+    content_grade = db.Column(db.String(20), nullable=False, default='', server_default='')
     exam_type = db.Column(db.String(40), nullable=False, default='practice')
     description = db.Column(db.Text)
     class_ids = db.Column(db.Text, default='')
@@ -549,6 +550,22 @@ class AcademicYear(db.Model):
 
     def __repr__(self):
         return f'<AcademicYear {self.name}>'
+
+
+class AcademicRollover(db.Model):
+    """Durable, retryable year-transition request; changes commit with success."""
+    __tablename__ = 'academic_rollovers'
+
+    id = db.Column(db.Integer, primary_key=True)
+    target_year = db.Column(db.Integer, nullable=False, unique=True)
+    source_year_id = db.Column(db.Integer, db.ForeignKey('academic_years.id'), nullable=False)
+    requested_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    fingerprint = db.Column(db.String(64), nullable=False)
+    status = db.Column(db.String(20), nullable=False, default='pending')
+    error = db.Column(db.Text)
+    result_json = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    finished_at = db.Column(db.DateTime)
 
 
 class Semester(db.Model):

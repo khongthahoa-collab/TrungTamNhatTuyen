@@ -115,6 +115,15 @@
               </select>
             </div>
 
+            {% if action == 'edit' %}
+            <div class="col-12 col-md-4">
+              <label for="gradeYear" class="form-label fw-semibold">Mốc năm của khối lớp</label>
+              <input id="gradeYear" name="grade_year" type="number" min="2000" class="form-control"
+                     value="{{ student.grade_year or '' }}" placeholder="VD: 2026">
+              <div class="form-text">Năm bắt đầu: 2026 nghĩa là khối đang học thuộc 2026–2027.
+                Chỉ sửa sau khi đối chiếu; thiếu mốc sẽ chặn cuộn năm.</div>
+            </div>
+            {% endif %}
             <!-- Trường -->
             <div class="col-12 col-md-8">
               <label class="form-label fw-semibold">Trường</label>

@@ -714,7 +714,16 @@ def exams(student_id):
     children = current_user.children.filter_by(is_active=True).all() if current_user.is_parent else []
 
     rows = []
-    for exam in _exams_for_student(student):
+    assigned = _exams_for_student(student)
+    assigned_ids = {exam.id for exam in assigned}
+    visible = Exam.query.filter(
+        Exam.is_draft.is_(False),
+        db.or_(
+            Exam.id.in_(assigned_ids),
+            Exam.attempts.any((ExamAttempt.student_id == student.id) & (ExamAttempt.status == 'submitted')),
+        ),
+    ).order_by(Exam.created_at.desc(), Exam.id.desc()).all()
+    for exam in visible:
         attempts = ExamAttempt.query.filter_by(exam_id=exam.id, student_id=student.id).order_by(
             ExamAttempt.started_at.desc()).all()
         submitted = [a for a in attempts if a.status == 'submitted']
@@ -723,13 +732,15 @@ def exams(student_id):
             can_take = True
         else:
             can_take = len(submitted) < exam.allow_attempts or in_progress is not None
+        history_only = exam.id not in assigned_ids
         rows.append({
             'exam': exam,
             'attempts_used': len(submitted),
             'last_attempt': submitted[0] if submitted else None,
-            'in_progress': in_progress is not None,
-            'can_take': can_take,
-            'is_open': exam.is_open_now(),
+            'in_progress': in_progress is not None and not history_only,
+            'can_take': can_take and not history_only,
+            'is_open': exam.is_open_now() and not history_only,
+            'history_only': history_only,
         })
 
     return render_template('exams/parent_list.html', rows=rows, student=student, children=children)
@@ -931,17 +942,17 @@ def exam_result(student_id, exam_id):
     student = _get_student_or_403(student_id)
     children = current_user.children.filter_by(is_active=True).all() if current_user.is_parent else []
     exam = Exam.query.get_or_404(exam_id)
-    if exam.is_draft or exam not in _exams_for_student(student):
-        abort(404)
-
+    assigned = exam in _exams_for_student(student)
     attempt = ExamAttempt.query.filter_by(exam_id=exam.id, student_id=student.id, status='submitted').order_by(
         ExamAttempt.started_at.desc()).first()
+    if exam.is_draft or (not assigned and attempt is None):
+        abort(404)
     if not attempt:
         flash('Bạn chưa hoàn thành bài thi này.', 'warning')
         return redirect(_exam_url('exams', student_id=student.id))
 
     submitted_count = ExamAttempt.query.filter_by(exam_id=exam.id, student_id=student.id, status='submitted').count()
-    can_retake = exam.is_unlimited_attempts or submitted_count < exam.allow_attempts
+    can_retake = assigned and (exam.is_unlimited_attempts or submitted_count < exam.allow_attempts)
 
     return render_template('exams/result.html', exam=exam, attempt=attempt, student=student, children=children,
                            can_retake=can_retake,

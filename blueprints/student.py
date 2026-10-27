@@ -59,7 +59,7 @@ def exam_save_progress(exam_id):
 @student_bp.route('/exams/<int:exam_id>/result')
 @login_required
 def exam_result(exam_id):
-    student, _exam = _assigned_exam_or_404(exam_id)
+    student = _current_student()
     return parent.exam_result(student.id, exam_id)
 
 

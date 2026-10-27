@@ -90,6 +90,7 @@
                 {% endfor %}
               </select>
             </div>
+            {% include 'exams/_content_grade.html' %}
             <div class="col-12">
               <label class="form-label fw-semibold">Mô tả / ghi chú <span class="text-muted small">(không bắt buộc)</span></label>
               <textarea name="description" class="form-control" rows="2">{{ form.get('description','') if form else (existing.description if existing else '') }}</textarea>

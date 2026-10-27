@@ -10,7 +10,7 @@ import re
 from datetime import datetime
 from flask_login import current_user
 from flask import abort, session
-from models import Class, Enrollment, ExamAttempt, ExamFolder, ExamLog, School, Student
+from models import Class, Enrollment, ExamAttempt, ExamFolder, ExamLog, School, Student, GRADE_SEQUENCE
 from extensions import db
 
 EXAM_TYPES = [
@@ -321,6 +321,9 @@ def parse_confirm_settings(form, groups=None):
     if subject == '__other__':
         subject = form.get('subject_other', '').strip()
     exam_type = form.get('exam_type', 'practice')
+    content_grade = form.get('content_grade', '').strip()
+    if content_grade and content_grade not in GRADE_SEQUENCE:
+        return None, 'Khối học liệu không hợp lệ.'
     scoring_mode = form.get('scoring_mode', 'question')
     if scoring_mode not in ('question', 'section', 'question_custom', 'section_custom'):
         return None, 'Vui lòng chọn cách chia điểm hợp lệ.'
@@ -459,6 +462,7 @@ def parse_confirm_settings(form, groups=None):
 
     return {
         'subject': subject or 'Chung', 'exam_type': exam_type, 'description': description,
+        'content_grade': content_grade,
         'scoring_mode': scoring_mode, 'scoring_config': scoring_config,
         'class_ids': [str(identifier) for identifier in class_ids],
         'school_ids': school_ids, 'student_ids': student_ids,

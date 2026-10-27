@@ -21,13 +21,12 @@
   lớp tương ứng; học sinh Lớp 12 sẽ tốt nghiệp.
 </p>
 
-{% if plan.already_rolled %}
+{% if plan.errors %}
 <div class="alert alert-warning">
-  <i class="bi bi-exclamation-triangle me-1"></i>
-  Năm học {{ plan.next_year }}-{{ plan.next_year + 1 }} đã được cuộn rồi — không thể cuộn lại.
-  Nếu cần điều chỉnh, hãy sửa từng lớp/học sinh thủ công.
+  <strong>Chưa thể chuyển năm. Cần xử lý các lỗi sau:</strong>
+  <ul class="mb-0">{% for error in plan.errors %}<li>{{ error }}</li>{% endfor %}</ul>
 </div>
-{% else %}
+{% endif %}
 
 <div class="card border-0 shadow-sm mb-4">
   <div class="card-header bg-white fw-semibold">
@@ -42,6 +41,7 @@
           <tr>
             <th class="ps-3">Lớp hiện tại</th>
             <th>Sĩ số</th>
+            <th>Lịch tuần kế thừa</th>
             <th class="pe-3">Lớp mới sẽ tạo</th>
           </tr>
         </thead>
@@ -50,6 +50,15 @@
           <tr>
             <td class="ps-3">{{ cls.name }} <span class="text-muted small">({{ cls.grade_level }})</span></td>
             <td>{{ roster_count }}</td>
+            <td class="small">
+              {% for item in plan.rolling if item.class.id == cls.id %}
+                {% for slot in item.slots %}
+                <div>{{ 'CN' if slot.weekday == 6 else 'Thứ ' ~ (slot.weekday + 2) }}:
+                  {{ slot.start_time.strftime('%H:%M') }}–{{ slot.end_time.strftime('%H:%M') }},
+                  {{ plan.teacher_names.get(slot.teacher_id, 'GV #' ~ slot.teacher_id) }}, phòng {{ slot.room or slot.room_id or 'chưa đặt' }}</div>
+                {% endfor %}
+              {% endfor %}
+            </td>
             <td class="pe-3 fw-semibold text-primary">{{ new_name }} <span class="text-muted small fw-normal">({{ next_grade }})</span></td>
           </tr>
           {% endfor %}
@@ -84,20 +93,11 @@
   <div class="col-12 col-md-6">
     <div class="card border-0 shadow-sm h-100">
       <div class="card-header bg-white fw-semibold">
-        <i class="bi bi-exclamation-circle me-2 text-secondary"></i>Cần tạo lớp thủ công ({{ plan.manual|length }})
+        <i class="bi bi-exclamation-circle me-2 text-secondary"></i>Kiểm tra trước khi chuyển
       </div>
       <div class="card-body">
-        {% if plan.manual %}
-        <ul class="mb-0 small">
-          {% for cls in plan.manual %}
-          <li>{{ cls.name }} <span class="text-muted">({{ cls.grade_level or 'Loại khác' }})</span></li>
-          {% endfor %}
-        </ul>
-        <div class="form-text mt-2">Lớp học khối tự do (không phải Lớp 1–12) sẽ đóng cùng năm học này nhưng
-          không thể tự xác định khối kế tiếp — tạo lớp mới thủ công nếu muốn tiếp tục.</div>
-        {% else %}
-        <p class="text-muted small mb-0">Không có lớp nào cần xử lý thủ công.</p>
-        {% endif %}
+        <p class="text-muted small mb-0">Khối tự do, tên không xác định được khối, thiếu mốc năm hoặc lịch xung đột
+          sẽ chặn toàn bộ thao tác. Không âm thầm bỏ lớp hoặc bỏ buổi.</p>
       </div>
     </div>
   </div>
@@ -120,9 +120,17 @@
   </div>
 </div>
 
+<p class="small">Dự kiến tạo {{ plan.schedules|length }} buổi. Giữ nguyên giáo viên, trợ giảng, giờ/phòng,
+  học phí, ưu đãi, ghi chú đăng ký. Không sao chép đề/bài làm/điểm danh cũ sang lớp mới.
+  Dùng “Sao chép để tái sử dụng” trong kho đề để giao học liệu cho khóa tiếp theo.</p>
+<p class="small">Đối chiếu kỹ lịch tuần hiển thị: nguồn được lấy từ các buổi thường kỳ mới nhất còn hiệu lực
+  theo từng thứ, không lấy buổi bù/hủy. Tổng {{ plan.students|length }} học sinh được xử lý,
+  trong đó {{ plan.graduating|length }} học sinh tốt nghiệp.</p>
+{% if not plan.errors %}
 <form method="post" action="{{ url_for('admin.academic_year_rollover_execute') }}"
       onsubmit="return confirm('Xác nhận cuộn năm học? Thao tác này sẽ tạo lớp mới, chuyển học sinh, và không thể hoàn tác tự động.')">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="fingerprint" value="{{ plan.fingerprint }}">
   <button type="submit" class="btn btn-primary">
     <i class="bi bi-check-circle me-1"></i>Xác nhận cuộn năm học
   </button>

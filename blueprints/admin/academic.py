@@ -1,12 +1,12 @@
-from flask import render_template, redirect, url_for, flash, request
-from flask_login import login_required
+from flask import abort, current_app, render_template, redirect, url_for, flash, request
+from flask_login import current_user, login_required
 from datetime import date, timedelta
 from extensions import db
-from models import (AcademicYear, Semester, SemesterType, Student, Class, Enrollment, Schedule,
-                    GRADE_SEQUENCE, GRADE_TO_LEVEL)
+from models import AcademicYear, Semester, SemesterType
 from blueprints.admin import admin_bp, require_admin
-from blueprints.admin.classes import _generate_schedules, _semester_for_date, _make_class_name
-from services.schedule_service import notify_class_teachers
+from services.academic_rollover import build_rollover_plan, RolloverError
+from models import AcademicRollover
+from sqlalchemy.exc import IntegrityError
 
 
 def current_academic_year_start(today=None):
@@ -53,6 +53,8 @@ def _rollover_window_open(today=None):
 def academic_years():
     years = AcademicYear.query.order_by(AcademicYear.start_date.desc()).all()
     return render_template('admin/academic/list.html', years=years,
+                           rollover_enabled=current_app.config['ACADEMIC_ROLLOVER_ENABLED'],
+                           rollover_jobs=AcademicRollover.query.order_by(AcademicRollover.id.desc()).limit(5).all(),
                            semester_types=SemesterType.LABELS,
                            rollover_window_open=_rollover_window_open(),
                            next_rollover_window_start=_next_rollover_window_start())
@@ -157,140 +159,37 @@ def semester_delete(sem_id):
     return redirect(url_for('admin.academic_years'))
 
 
-def _advance_student_grades(target_year):
-    """Advance every active, non-deleted student whose grade_year is behind
-    target_year by that many steps through GRADE_SEQUENCE. A student who
-    hasn't been baselined yet just gets grade_year stamped (not clear how
-    many steps they're behind). A step that would go past 'Lớp 12' graduates
-    the student (is_active=False, status='graduated') instead of clamping
-    them at 'Lớp 12' forever — their current_grade/profile stay as a record.
-    Students with a free-text current_grade (not in GRADE_SEQUENCE, legacy
-    data) are skipped — need a one-time manual fix by an admin."""
-    baselined = advanced = graduated = 0
-    students = Student.query.filter(Student.is_active == True, Student.is_deleted == False).all()
-    for s in students:
-        if s.current_grade not in GRADE_SEQUENCE:
-            continue
-        if s.grade_year is None:
-            s.grade_year = target_year
-            baselined += 1
-            continue
-        if s.grade_year < target_year:
-            steps = target_year - s.grade_year
-            new_idx = GRADE_SEQUENCE.index(s.current_grade) + steps
-            if new_idx >= len(GRADE_SEQUENCE):
-                s.is_active = False
-                s.status = 'graduated'
-                s.grade_year = target_year
-                if s.student_user:
-                    s.student_user.is_active = False
-                graduated += 1
-                continue
-            new_grade = GRADE_SEQUENCE[new_idx]
-            if new_grade != s.current_grade:
-                s.current_grade = new_grade
-                s.level = GRADE_TO_LEVEL[new_grade]
-                advanced += 1
-            s.grade_year = target_year
-    return baselined, advanced, graduated
-
-
 @admin_bp.route('/academic-years/sync-grades', methods=['POST'])
 @login_required
 @require_admin
 def academic_sync_grades():
-    """Đồng bộ lớp học cho năm học hiện tại — thao tác thủ công (bấm nút),
-    chưa chạy tự động theo cron/queue. Xem _advance_student_grades() cho chi
-    tiết logic lên lớp/tốt nghiệp."""
-    if not _rollover_window_open():
-        flash(f'Chỉ có thể lên lớp từ ngày {_next_rollover_window_start().strftime("%d/%m/%Y")}.', 'danger')
-        return redirect(url_for('admin.academic_years'))
-    current_year = current_academic_year_start()
-    baselined, advanced, graduated = _advance_student_grades(current_year)
-    db.session.commit()
-    msg = (f'Đã đồng bộ lớp học theo năm học hiện tại: {advanced} học sinh lên lớp, '
-           f'{baselined} học sinh được gắn mốc năm học lần đầu.')
-    if graduated:
-        msg += f' {graduated} học sinh đã tốt nghiệp (Lớp 12).'
-    flash(msg, 'success')
-    return redirect(url_for('admin.academic_years'))
-
-
-def _weekly_pattern(cls):
-    """Latest regular, non-cancelled Schedule row per weekday for a class —
-    the source pattern for rolling it into next year. Latest (not first)
-    picks up a mid-year room/time change if one happened. Shape matches what
-    _generate_schedules() expects: (weekday, start_str, end_str, room_id,
-    room_text, teacher_id).
-
-    teacher_id falls back to the class's current primary teacher if the
-    stored Schedule row's teacher isn't (or is no longer) that class's
-    primary/assistant teacher — a stored row can go stale relative to the
-    class's actual current teacher (e.g. a teacher swap between two classes
-    whose schedules predate that reassignment being cascaded), and rollover
-    must not carry that staleness into the new school year's class."""
-    rows = Schedule.query.filter_by(class_id=cls.id, schedule_type='regular',
-                                    is_cancelled=False).order_by(Schedule.date).all()
-    latest_by_weekday = {s.date.weekday(): s for s in rows}
-    valid_teacher_ids = {cls.primary_teacher_id} | {t.id for t in cls.assistant_teachers}
-    return [
-        (wd, s.start_time.strftime('%H:%M'), s.end_time.strftime('%H:%M'),
-         s.room_id, s.room,
-         s.teacher_id if s.teacher_id in valid_teacher_ids else cls.primary_teacher_id)
-        for wd, s in sorted(latest_by_weekday.items())
-    ]
-
-
-def _rollover_next_class_name(cls, next_grade):
-    """Replace just the grade token at the front of the class name (e.g.
-    'KHTN 8 - Cô Gấu' -> 'KHTN 9 - Cô Gấu'), preserving any custom suffix an
-    admin typed in. Falls back to a freshly generated name if the class's
-    name doesn't start with the expected '<course> <grade>' pattern (e.g. it
-    was fully custom-named)."""
-    old_short = cls.grade_level[len('Lớp '):] if cls.grade_level.startswith('Lớp ') else cls.grade_level
-    new_short = next_grade[len('Lớp '):] if next_grade.startswith('Lớp ') else next_grade
-    course_name = cls.course.name if cls.course else ''
-    prefix_old = f'{course_name} {old_short}'.strip()
-    prefix_new = f'{course_name} {new_short}'.strip()
-    if cls.name.startswith(prefix_old):
-        return prefix_new + cls.name[len(prefix_old):]
-    return _make_class_name(course_name, next_grade, cls.primary_teacher)
-
-
-def _rollover_plan():
-    """What a 'Cuộn năm học' run would do, computed fresh every time (never
-    cached/trusted across requests) so the preview page and the execute
-    route can't drift apart."""
-    current_year = current_academic_year_start()
-    next_year = current_year + 1
-    next_start = date(next_year, 7, 1)
-    already_rolled = (
-        Class.query.filter_by(start_date=next_start).first() is not None
-        or AcademicYear.query.filter_by(start_date=next_start).first() is not None
-    )
-    active = Class.query.filter_by(is_active=True).all()
-    rolling = [c for c in active if c.grade_level in GRADE_SEQUENCE and c.grade_level != 'Lớp 12']
-    lop12 = [c for c in active if c.grade_level == 'Lớp 12']
-    manual = [c for c in active if c.grade_level not in GRADE_SEQUENCE]
-    graduating = Student.query.filter_by(current_grade='Lớp 12', is_active=True, is_deleted=False).all()
-    return dict(current_year=current_year, next_year=next_year, already_rolled=already_rolled,
-               rolling=rolling, lop12=lop12, manual=manual, graduating=graduating)
+    """Compatibility endpoint: all advancement now goes through validated rollover."""
+    flash('Tăng khối đã được gộp vào quy trình cuộn năm có kiểm tra và xem trước; không đồng bộ riêng để tránh lệch lớp.', 'warning')
+    return redirect(url_for('admin.academic_year_rollover_preview'))
 
 
 @admin_bp.route('/academic-years/rollover')
 @login_required
 @require_admin
 def academic_year_rollover_preview():
+    if not current_app.config['ACADEMIC_ROLLOVER_ENABLED']:
+        flash('Chức năng cuộn năm đang tắt. Hiện chỉ chuẩn bị cấu hình, chưa chuyển dữ liệu.', 'warning')
+        return redirect(url_for('admin.academic_years'))
     if not _rollover_window_open():
         flash(f'Chỉ có thể cuộn năm học từ ngày {_next_rollover_window_start().strftime("%d/%m/%Y")}.', 'danger')
         return redirect(url_for('admin.academic_years'))
-    plan = _rollover_plan()
+    try:
+        plan = build_rollover_plan()
+    except RolloverError as exc:
+        flash(str(exc), 'danger')
+        return redirect(url_for('admin.academic_years'))
     rolling_info = [
-        (cls, GRADE_SEQUENCE[GRADE_SEQUENCE.index(cls.grade_level) + 1],
-         _rollover_next_class_name(cls, GRADE_SEQUENCE[GRADE_SEQUENCE.index(cls.grade_level) + 1]),
-         cls.current_enrollment)
-        for cls in plan['rolling']
+        (item['class'], item['grade'], item['name'], len(item['roster']))
+        for item in plan['rolling']
     ]
+    job = AcademicRollover.query.filter_by(target_year=plan['next_year']).first()
+    if job and job.status == 'pending':
+        return redirect(url_for('admin.academic_rollover_status', job_id=job.id))
     return render_template('admin/academic/rollover_preview.html', plan=plan, rolling_info=rolling_info)
 
 
@@ -298,95 +197,48 @@ def academic_year_rollover_preview():
 @login_required
 @require_admin
 def academic_year_rollover_execute():
+    if not current_app.config['ACADEMIC_ROLLOVER_ENABLED']:
+        flash('Chức năng cuộn năm đang tắt. Không có dữ liệu nào được chuyển.', 'danger')
+        return redirect(url_for('admin.academic_years'))
     if not _rollover_window_open():
         flash(f'Chỉ có thể cuộn năm học từ ngày {_next_rollover_window_start().strftime("%d/%m/%Y")}.', 'danger')
         return redirect(url_for('admin.academic_years'))
 
-    # Lock the currently active AcademicYear row (if one exists) for the
-    # rest of this transaction — a second concurrent POST (an admin
-    # double-click, or two admins both clicking "Cuộn năm học") blocks
-    # here until this request commits or rolls back, then re-evaluates
-    # already_rolled against the now-committed state instead of both
-    # requests reading the same stale "not yet rolled" snapshot and both
-    # proceeding to create duplicate classes. Real row lock on Postgres;
-    # SQLite has no row-level locking (dev-only limitation, same as
-    # services/tuition_service.record_payment) so this specific race can
-    # still be demonstrated on the dev DB — it cannot happen in production.
-    active_year_query = AcademicYear.query.filter_by(is_active=True)
-    if db.engine.dialect.name == 'postgresql':
-        active_year_query = active_year_query.with_for_update()
-    active_year = active_year_query.first()
-
-    plan = _rollover_plan()
-    if plan['already_rolled']:
-        flash('Năm học tới đã được cuộn rồi — không thể cuộn lại.', 'danger')
+    try:
+        plan = build_rollover_plan()
+        if plan['errors']:
+            raise RolloverError('Còn lỗi dữ liệu. Hãy xem trước và xử lý toàn bộ trước khi xác nhận.')
+        if request.form.get('fingerprint') != plan['fingerprint']:
+            raise RolloverError('Dữ liệu đã thay đổi hoặc chưa xem trước. Hãy kiểm tra và xác nhận lại.')
+        job = AcademicRollover.query.filter_by(target_year=plan['next_year']).with_for_update().first()
+        if job is None:
+            job = AcademicRollover(target_year=plan['next_year'])
+            db.session.add(job)
+        elif job.status != 'failed':
+            return redirect(url_for('admin.academic_rollover_status', job_id=job.id))
+        job.source_year_id = plan['source'].id
+        job.requested_by = current_user.id
+        job.fingerprint = plan['fingerprint']
+        job.status = 'pending'
+        job.error = job.result_json = job.finished_at = None
+        db.session.commit()
+        return redirect(url_for('admin.academic_rollover_status', job_id=job.id))
+    except RolloverError as exc:
+        db.session.rollback()
+        flash(str(exc), 'danger')
+        return redirect(url_for('admin.academic_year_rollover_preview'))
+    except IntegrityError:
+        db.session.rollback()
+        current_app.logger.exception('Concurrent academic rollover request')
+        flash('Yêu cầu chuyển năm đã thay đổi. Hãy kiểm tra trạng thái trước khi thử lại.', 'warning')
         return redirect(url_for('admin.academic_years'))
 
-    next_year = plan['next_year']
-    new_start = date(next_year, 7, 1)
-    new_end = date(next_year + 1, 6, 30)
-    graduating_ids = {s.id for s in plan['graduating']}
 
-    classes_rolled = 0
-    for cls in plan['rolling']:
-        next_grade = GRADE_SEQUENCE[GRADE_SEQUENCE.index(cls.grade_level) + 1]
-        new_name = _rollover_next_class_name(cls, next_grade)
-        sched_rows = _weekly_pattern(cls)
-
-        new_cls = Class(
-            name=new_name,
-            course_id=cls.course_id,
-            grade_level=next_grade,
-            max_students=cls.max_students,
-            monthly_fee=cls.monthly_fee,
-            sessions_per_week=len(sched_rows) or cls.sessions_per_week,
-            description=cls.description,
-            primary_teacher_id=cls.primary_teacher_id,
-            start_date=new_start,
-            end_date=new_end,
-            rolled_over_from_id=cls.id,
-        )
-        db.session.add(new_cls)
-        db.session.flush()
-        new_cls.assistant_teachers = list(cls.assistant_teachers)
-
-        semester = _semester_for_date(new_start)
-        _generate_schedules(new_cls.id, new_start, new_end, sched_rows,
-                            semester_id=semester.id if semester else None)
-
-        for e in cls.enrollments.filter_by(is_active=True).all():
-            if e.student_id in graduating_ids:
-                continue
-            db.session.add(Enrollment(student_id=e.student_id, class_id=new_cls.id))
-
-        notify_class_teachers(new_cls, 'Lịch học mới',
-                              f'Lớp {cls.name} đã được cuộn sang năm học mới: {new_cls.name}.',
-                              link=url_for('teacher.schedule'))
-        classes_rolled += 1
-
-    for cls in plan['rolling'] + plan['lop12'] + plan['manual']:
-        cls.is_active = False
-
-    baselined, advanced, graduated = _advance_student_grades(next_year)
-
-    # AcademicYear lifecycle — previously missing entirely: this route only
-    # ever touched Class/Student/Enrollment, so academic_years never
-    # actually tracked which year was "current" through a rollover (the
-    # rest of the app fell back to pure Jul-Jun calendar math instead).
-    # Same transaction as everything above — one commit for the whole
-    # rollover, all-or-nothing.
-    new_academic_year = AcademicYear.query.filter_by(start_date=new_start).first()
-    if not new_academic_year:
-        new_academic_year = AcademicYear(
-            name=f'{next_year}-{next_year + 1}', start_date=new_start, end_date=new_end, is_active=True)
-        db.session.add(new_academic_year)
-    else:
-        new_academic_year.is_active = True
-    if active_year:
-        active_year.is_active = False
-
-    db.session.commit()
-    flash(f'Đã cuộn năm học: {classes_rolled} lớp được tạo mới, {advanced} học sinh lên lớp, '
-          f'{graduated} học sinh tốt nghiệp, {baselined} học sinh được gắn mốc năm học lần đầu.',
-          'success')
-    return redirect(url_for('admin.academic_years'))
+@admin_bp.get('/academic-rollovers/<int:job_id>')
+@login_required
+@require_admin
+def academic_rollover_status(job_id):
+    job = db.session.get(AcademicRollover, job_id)
+    if job is None:
+        abort(404)
+    return render_template('admin/academic/rollover_status.html', job=job)

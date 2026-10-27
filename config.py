@@ -24,6 +24,7 @@ def _fix_db_url(url):
 
 
 class Config:
+    ACADEMIC_ROLLOVER_ENABLED = os.environ.get('ACADEMIC_ROLLOVER_ENABLED', '0') == '1'
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     WTF_CSRF_ENABLED = True

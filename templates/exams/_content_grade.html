@@ -1,0 +1,11 @@
+{% set selected_grade = form.get('content_grade', '') if form else (existing.content_grade if existing else '') %}
+<div class="col-md-6">
+  <label class="form-label fw-semibold" for="contentGrade">Khối học liệu</label>
+  <select name="content_grade" id="contentGrade" class="form-select">
+    <option value="">Chưa phân loại / nhiều khối</option>
+    {% for grade in GRADE_SEQUENCE %}
+    <option value="{{ grade }}" {% if selected_grade == grade %}selected{% endif %}>{{ grade }}</option>
+    {% endfor %}
+  </select>
+  <div class="form-text">Giữ nguyên qua các năm; không tự đổi theo lớp được giao. Bản sao không mang theo bài làm cũ.</div>
+</div>

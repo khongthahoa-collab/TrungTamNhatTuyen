@@ -142,6 +142,15 @@
     </div>
     <form method="get" class="row g-2">
       <input type="hidden" name="reuse" value="1">
+      <div class="col-12 col-md-auto">
+        <label class="visually-hidden" for="reuseGrade">Khối học liệu</label>
+        <select name="content_grade" id="reuseGrade" class="form-select">
+          <option value="">Tất cả khối học liệu</option>
+          {% for grade in GRADE_SEQUENCE %}
+          <option value="{{ grade }}" {% if content_grade == grade %}selected{% endif %}>{{ grade }}</option>
+          {% endfor %}
+        </select>
+      </div>
       <div class="col-12 col-md">
         <label class="visually-hidden" for="reuseExamSearch">Tìm đề theo tên, môn hoặc giáo viên</label>
         <input type="search" class="form-control" id="reuseExamSearch" name="q" value="{{ search }}"
@@ -172,7 +181,7 @@
           <span class="badge bg-primary-subtle text-primary border border-primary-subtle flex-shrink-0">Chia sẻ</span>
           {% endif %}
         </div>
-        <div class="small text-muted mb-3">{{ exam.subject }} · {{ exam.type_label }}</div>
+        <div class="small text-muted mb-3">{{ exam.subject }} · {{ exam.type_label }} · {{ exam.content_grade or 'Chưa phân loại khối' }}</div>
         {% if exam.creator %}
         <div class="small mb-2"><i class="bi bi-person me-1 text-muted"></i>{{ exam.creator.full_name }}</div>
         {% endif %}

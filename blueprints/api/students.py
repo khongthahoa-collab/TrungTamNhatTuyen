@@ -121,10 +121,12 @@ def students_create():
            for field, limit in STUDENT_TEXT_LIMITS.items()):
         return api_error('Thông tin học sinh vượt quá độ dài cho phép.', 400,
                          code='validation_error')
+    from blueprints.admin.academic import current_academic_year_start
     student = Student(
         full_name=full_name,
         level=level,
         current_grade=current_grade,
+        grade_year=current_academic_year_start(),
         gender=(body.get('gender') or '').strip() or None,
         date_of_birth=dob,
         current_school=school.name if school else ((body.get('current_school') or '').strip() or None),
@@ -218,6 +220,9 @@ def students_update(student_id):
             student.current_school = None
 
     student.level = level
+    if student.current_grade != current_grade:
+        from blueprints.admin.academic import current_academic_year_start
+        student.grade_year = current_academic_year_start()
     student.current_grade = current_grade
     student.date_of_birth = dob
 

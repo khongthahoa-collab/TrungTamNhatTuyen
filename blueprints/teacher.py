@@ -811,7 +811,14 @@ def homework(class_id):
                            available_years=available_years,
                            semester=semester,
                            semesters=SemesterType.LABELS,
-                           today=today)
+                           today=today,
+                           reusable_homeworks=Homework.query.join(Class, Homework.class_id == Class.id).options(
+                               contains_eager(Homework.class_),
+                           ).filter(
+                               Class.id.in_(_teacher_score_class_ids(teacher)),
+                               Class.grade_level == class_.grade_level,
+                               Class.course_id == class_.course_id,
+                           ).order_by(Homework.assigned_date.desc(), Homework.id.desc()).all())
 
 
 @teacher_bp.route('/homework/<int:class_id>/new', methods=['POST'])
@@ -825,6 +832,21 @@ def homework_new(class_id):
     class_ = Class.query.get_or_404(class_id)
     if not _teacher_can_access_class(teacher, class_):
         abort(403)
+    if not class_.is_active:
+        abort(409, description='Không thể giao bài mới cho lớp đã lưu lịch sử.')
+
+    source = None
+    source_id = request.form.get('source_homework_id', '').strip()
+    if source_id:
+        if not source_id.isascii() or not source_id.isdigit():
+            abort(400, description='Bài tập nguồn không hợp lệ.')
+        source = db.session.get(Homework, int(source_id))
+        if source is None:
+            abort(404)
+        if not _teacher_can_access_class(teacher, source.class_):
+            abort(403)
+        if source.class_.grade_level != class_.grade_level or source.class_.course_id != class_.course_id:
+            abort(400, description='Bài tập nguồn phải cùng môn và khối với lớp được giao.')
 
     semester = request.form.get('semester') or SemesterType.SEMESTER_1
     if semester not in SemesterType.LABELS:
@@ -846,7 +868,8 @@ def homework_new(class_id):
     hw = Homework(
         class_id=class_id,
         assigned_date=assigned_date,
-        title=(request.form.get('title') or '').strip() or None,
+        title=source.title if source else ((request.form.get('title') or '').strip() or None),
+        note=source.note if source else None,
         semester=semester,
         assignment_round=(current_max or 0) + 1,
         created_by=current_user.id,

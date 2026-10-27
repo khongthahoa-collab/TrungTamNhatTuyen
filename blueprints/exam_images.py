@@ -34,7 +34,8 @@ def _require_access(attempt, write=False):
         student = _get_student_or_403(attempt.student_id)
         if not student.is_active or student.is_deleted:
             abort(403)
-        if attempt.exam.is_draft or attempt.exam not in _exams_for_student(student):
+        historical_read = not write and attempt.status == 'submitted'
+        if attempt.exam.is_draft or (not historical_read and attempt.exam not in _exams_for_student(student)):
             abort(404)
     elif not write and role in ('teacher', 'admin'):
         if not (current_user.is_admin or current_user.is_teacher):

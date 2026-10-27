@@ -25,6 +25,15 @@
   <div class="card-body py-3">
     <form method="get" class="row g-2 align-items-end">
       <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold mb-1">Khối học liệu</label>
+        <select name="content_grade" class="form-select form-select-sm">
+          <option value="">Tất cả khối</option>
+          {% for grade in GRADE_SEQUENCE %}
+          <option value="{{ grade }}" {% if content_grade == grade %}selected{% endif %}>{{ grade }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
         <label class="form-label small fw-semibold mb-1">Thư mục</label>
         <select name="folder_id" class="form-select form-select-sm">
           <option value="">Tất cả thư mục</option>

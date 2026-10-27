@@ -9,26 +9,28 @@
   <h5 class="mb-0 fw-bold"><i class="bi bi-calendar3 me-2 text-primary"></i>Quản lý năm học</h5>
   <div class="d-flex flex-column align-items-end gap-1">
     <div class="d-flex gap-2">
-      {% if rollover_window_open %}
+      {% if rollover_enabled and rollover_window_open %}
       <a href="{{ url_for('admin.academic_year_rollover_preview') }}" class="btn btn-primary btn-sm">
         <i class="bi bi-arrow-up-right-circle me-1"></i>Cuộn năm học
       </a>
       {% else %}
       <button type="button" class="btn btn-primary btn-sm" disabled
-              title="Chỉ dùng được từ ngày {{ next_rollover_window_start | date_vn }}">
+              title="{{ 'Chức năng đang tắt, chỉ chuẩn bị trước' if not rollover_enabled else 'Chỉ dùng được từ ngày ' ~ (next_rollover_window_start | date_vn) }}">
         <i class="bi bi-arrow-up-right-circle me-1"></i>Cuộn năm học
       </button>
       {% endif %}
-      <form method="post" action="{{ url_for('admin.academic_sync_grades') }}"
-            onsubmit="return confirm('Đồng bộ lớp học cho tất cả học sinh theo năm học hiện tại? Học sinh sẽ được tự động lên lớp theo số năm đã trôi qua kể từ lần đồng bộ trước.')">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="btn btn-outline-primary btn-sm"
-                {% if not rollover_window_open %}disabled title="Chỉ dùng được từ ngày {{ next_rollover_window_start | date_vn }}"{% endif %}>
-          <i class="bi bi-arrow-repeat me-1"></i>Đồng bộ lớp học
-        </button>
-      </form>
     </div>
-    {% if not rollover_window_open %}
+    <p class="small text-muted">Cuộn năm sẽ tạo lớp kế thừa, giữ lịch sử cũ và tăng khối một lần.
+      Việc tạo lịch chạy bằng worker <code>flask --app wsgi:app process-academic-rollovers</code>, không giữ request trình duyệt chờ.</p>
+    {% for job in rollover_jobs %}
+    <div class="small mb-2">
+      <a href="{{ url_for('admin.academic_rollover_status', job_id=job.id) }}">Yêu cầu #{{ job.id }} → {{ job.target_year }}–{{ job.target_year + 1 }}</a>
+      — {{ {'pending': 'Chờ / đang xử lý', 'succeeded': 'Thành công', 'failed': 'Thất bại, chưa chuyển dữ liệu'}[job.status] }}
+    </div>
+    {% endfor %}
+    {% if not rollover_enabled %}
+    <div class="small text-warning">Chức năng đang tắt — chưa chuyển dữ liệu.</div>
+    {% elif not rollover_window_open %}
     <div class="small text-muted">
       <i class="bi bi-lock me-1"></i>Lên lớp chỉ mở lại từ ngày {{ next_rollover_window_start | date_vn }}.
     </div>

@@ -88,6 +88,9 @@ ADMIN_ENDPOINT_MODULES = {
     'academic_years': 'academic', 'academic_year_add': 'academic',
     'academic_year_activate': 'academic', 'semester_add': 'academic', 'semester_delete': 'academic',
     'academic_sync_grades': 'academic',
+    'academic_year_rollover_preview': 'academic',
+    'academic_year_rollover_execute': 'academic',
+    'academic_rollover_status': 'academic',
 
     # rewards.py
     'rewards': 'rewards', 'reward_confirm': 'rewards', 'reward_cancel': 'rewards', 'reward_add': 'rewards',
