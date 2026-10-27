@@ -128,7 +128,7 @@
   trong đó {{ plan.graduating|length }} học sinh tốt nghiệp.</p>
 {% if not plan.errors %}
 <form method="post" action="{{ url_for('admin.academic_year_rollover_execute') }}"
-      onsubmit="return confirm('Xác nhận cuộn năm học? Thao tác này sẽ tạo lớp mới, chuyển học sinh, và không thể hoàn tác tự động.')">
+      data-confirm="Xác nhận cuộn năm học? Thao tác này sẽ tạo lớp mới, chuyển học sinh, và không thể hoàn tác tự động.">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="fingerprint" value="{{ plan.fingerprint }}">
   <button type="submit" class="btn btn-primary">

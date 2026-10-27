@@ -34,8 +34,8 @@
         </div>
       </div>
       {% if n.link %}
-      <a href="{{ n.link }}" class="btn btn-outline-primary btn-sm flex-shrink-0 align-self-center">
-        <i class="bi bi-arrow-right"></i>
+      <a aria-label="Xem chi tiết" title="Xem chi tiết" href="{{ n.link }}" class="btn btn-outline-primary btn-sm flex-shrink-0 align-self-center action-icon-btn">
+        <i aria-hidden="true" class="bi bi-arrow-right"></i>
       </a>
       {% endif %}
     </div>

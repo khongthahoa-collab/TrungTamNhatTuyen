@@ -57,8 +57,8 @@
       </div>
       <div class="col-12 col-md-auto ms-md-auto d-flex gap-2 justify-content-end align-items-center">
         <button type="submit" class="btn btn-primary btn-sm">Lọc</button>
-        <a href="{{ url_for('teacher.exams_list', folder_id=current_folder.id) if current_folder else url_for('teacher.exams_list') }}"
-           class="btn btn-outline-secondary btn-sm" title="Xóa lọc"><i class="bi bi-x"></i></a>
+        <a aria-label="Xóa lọc" href="{{ url_for('teacher.exams_list', folder_id=current_folder.id) if current_folder else url_for('teacher.exams_list') }}"
+           class="btn btn-outline-secondary btn-sm action-icon-btn" title="Xóa lọc"><i aria-hidden="true" class="bi bi-x"></i></a>
       </div>
     </form>
   </div>
@@ -335,9 +335,9 @@
               {% endif %}
             </td>
             <td class="text-end">
-              <button type="button" class="btn btn-outline-primary btn-sm exam-context-trigger"
+              <button title="Thao tác với {{ exam.title }}" type="button" class="btn btn-outline-primary btn-sm exam-context-trigger action-icon-btn"
                       aria-label="Thao tác với {{ exam.title }}" aria-haspopup="menu" aria-expanded="false">
-                <i class="bi bi-three-dots"></i>
+                <i aria-hidden="true" class="bi bi-three-dots"></i>
               </button>
             </td>
           </tr>
@@ -438,7 +438,7 @@
     <button type="submit" class="exam-context-item"><i class="bi bi-copy"></i>Sao chép</button>
   </form>
   <button type="button" class="exam-context-item" data-menu-action="move"><i class="bi bi-arrows-move"></i>Cut / Di chuyển</button>
-  <form method="post" id="examDeleteForm" onsubmit="return confirm('Xóa đề này? Thao tác này không thể hoàn tác.')">
+  <form method="post" id="examDeleteForm" data-confirm="Xóa đề này? Thao tác này không thể hoàn tác.">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <button type="submit" class="exam-context-item text-danger"><i class="bi bi-trash"></i>Xóa</button>
   </form>
@@ -604,13 +604,11 @@
     const message = action === 'Đăng đề'
       ? 'Đăng đề thi này cho học sinh?'
       : 'Hủy xuất bản đề? Lịch sử bài làm hiện có sẽ được giữ nguyên.';
-    if (!confirm(message)) event.preventDefault();
+    window.confirmFormSubmit(event, message);
   });
   document.getElementById('examShareForm').addEventListener('submit', event => {
     const shared = document.getElementById('examShareValue').value === '1';
-    if (!confirm(shared ? 'Chia sẻ đề trong thư viện dành cho giáo viên?' : 'Gỡ đề khỏi thư viện chia sẻ giáo viên?')) {
-      event.preventDefault();
-    }
+    window.confirmFormSubmit(event, shared ? 'Chia sẻ đề trong thư viện dành cho giáo viên?' : 'Gỡ đề khỏi thư viện chia sẻ giáo viên?');
   });
 
   document.addEventListener('pointerdown', event => {

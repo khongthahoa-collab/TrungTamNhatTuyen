@@ -52,10 +52,10 @@
             </a>
             {% if room.is_active %}
             <form method="post" action="{{ url_for('admin.room_delete', room_id=room.id) }}"
-                  onsubmit="return confirm('Vô hiệu hóa phòng {{ room.name }}?')">
+                  data-confirm="Vô hiệu hóa phòng {{ room.name }}?">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" class="btn btn-outline-danger btn-sm" title="Vô hiệu hóa">
-                <i class="bi bi-x-circle"></i>
+              <button aria-label="Vô hiệu hóa" type="submit" class="btn btn-outline-danger btn-sm action-icon-btn" title="Vô hiệu hóa">
+                <i aria-hidden="true" class="bi bi-x-circle"></i>
               </button>
             </form>
             {% endif %}

@@ -172,11 +172,14 @@
             refreshActions(panel);
           }, 'Sắp xếp ảnh');
         });
+        move.classList.add('action-icon-btn');
+        move.title = direction < 0 ? 'Đưa ảnh lên trước' : 'Đưa ảnh xuống sau';
         move.disabled = frozen || index + direction < 0 || index + direction >= images.length;
         actions.append(move);
       });
-      const remove = button('', `Xóa ảnh ${index + 1}`, () => {
-        if (!confirm(`Xóa ảnh bài làm ${index + 1}?`)) return;
+      const remove = button('', `Xóa ảnh ${index + 1}`, async () => {
+        if (!await window.showConfirm(`Xóa ảnh bài làm ${index + 1}?`)) return;
+        if (frozen) return;
         schedule(panel, async () => {
           await request(card.querySelector('a').getAttribute('href'), { method: 'DELETE' });
           card.remove();

@@ -81,10 +81,10 @@
                 <input type="hidden" name="name" value="{{ course.name }}">
                 <input type="hidden" name="description" value="{{ course.description or '' }}">
                 <input type="hidden" name="is_active" value="{{ '0' if course.is_active else '1' }}">
-                <button type="submit"
-                        class="btn btn-sm {% if course.is_active %}btn-outline-secondary{% else %}btn-outline-success{% endif %}"
+                <button aria-label="{% if course.is_active %}Ẩn{% else %}Hiện{% endif %}" type="submit"
+                        class="btn btn-sm {% if course.is_active %}btn-outline-secondary{% else %}btn-outline-success{% endif %} action-icon-btn"
                         title="{% if course.is_active %}Ẩn{% else %}Hiện{% endif %}">
-                  <i class="bi {% if course.is_active %}bi-eye-slash{% else %}bi-eye{% endif %}"></i>
+                  <i aria-hidden="true" class="bi {% if course.is_active %}bi-eye-slash{% else %}bi-eye{% endif %}"></i>
                 </button>
               </form>
               <!-- Edit -->

@@ -64,9 +64,9 @@
               <input type="password" class="form-control" name="password" id="new_password"
                      placeholder="Để trống: dùng mật khẩu tạm pass@123" autocomplete="new-password"
                      oninput="syncPwdConfirmRequired()">
-              <button class="btn btn-outline-secondary" type="button"
+              <button aria-label="Hiển thị mật khẩu" title="Hiển thị mật khẩu" class="btn btn-outline-secondary action-icon-btn" type="button"
                       onclick="togglePwd('new_password', this)">
-                <i class="bi bi-eye"></i>
+                <i aria-hidden="true" class="bi bi-eye"></i>
               </button>
             </div>
             <div class="form-text">Để trống: mật khẩu tạm pass@123, bắt buộc đổi ở lần đăng nhập đầu tiên.</div>
@@ -77,9 +77,9 @@
               <input type="password" class="form-control" name="password_confirm" id="new_password_confirm"
                      placeholder="Nhập lại mật khẩu" autocomplete="new-password"
                      oninput="syncPwdConfirmRequired()">
-              <button class="btn btn-outline-secondary" type="button"
+              <button aria-label="Hiển thị mật khẩu" title="Hiển thị mật khẩu" class="btn btn-outline-secondary action-icon-btn" type="button"
                       onclick="togglePwd('new_password_confirm', this)">
-                <i class="bi bi-eye"></i>
+                <i aria-hidden="true" class="bi bi-eye"></i>
               </button>
             </div>
           </div>
@@ -212,7 +212,7 @@
                         class="acct-action-btn acct-action-toggle"
                         title="{{ 'Vô hiệu hóa' if u.is_active else 'Kích hoạt' }} tài khoản {{ u.full_name }}"
                         aria-label="{{ 'Vô hiệu hóa' if u.is_active else 'Kích hoạt' }} tài khoản {{ u.full_name }}"
-                        onclick="return confirm('{{ 'Vô hiệu hóa' if u.is_active else 'Kích hoạt' }} tài khoản {{ u.full_name }}?')">
+                        data-confirm="{{ 'Vô hiệu hóa' if u.is_active else 'Kích hoạt' }} tài khoản {{ u.full_name }}?">
                   <i class="bi {% if u.is_active %}bi-person-x{% else %}bi-person-check{% endif %}" aria-hidden="true"></i>
                 </button>
               </form>
@@ -225,7 +225,7 @@
                 <button type="submit"
                         class="acct-action-btn acct-action-delete"
                         title="Xóa tài khoản {{ u.full_name }}" aria-label="Xóa tài khoản {{ u.full_name }}"
-                        onclick="return confirm('Xoá tài khoản {{ u.full_name }}? Tài khoản sẽ bị ẩn khỏi danh sách nhưng dữ liệu liên quan vẫn được giữ nguyên.')">
+                        data-confirm="Xoá tài khoản {{ u.full_name }}? Tài khoản sẽ bị ẩn khỏi danh sách nhưng dữ liệu liên quan vẫn được giữ nguyên.">
                   <i class="bi bi-trash" aria-hidden="true"></i>
                 </button>
               </form>
@@ -330,9 +330,9 @@
               <input type="password" class="form-control" name="password"
                      id="new_password_reset" placeholder="••••••••" required
                      autocomplete="new-password">
-              <button class="btn btn-outline-secondary" type="button"
+              <button aria-label="Hiển thị mật khẩu" title="Hiển thị mật khẩu" class="btn btn-outline-secondary action-icon-btn" type="button"
                       onclick="togglePwd('new_password_reset', this)">
-                <i class="bi bi-eye"></i>
+                <i aria-hidden="true" class="bi bi-eye"></i>
               </button>
             </div>
           </div>

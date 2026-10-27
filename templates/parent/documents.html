@@ -75,10 +75,10 @@
             </div>
 
             <!-- Download button -->
-            <a href="{{ url_for('parent.download_document', doc_id=doc.id) }}"
-               class="btn btn-sm btn-outline-success flex-shrink-0"
+            <a aria-label="Tải xuống" href="{{ url_for('parent.download_document', doc_id=doc.id) }}"
+               class="btn btn-sm btn-outline-success flex-shrink-0 action-icon-btn"
                title="Tải xuống" style="min-height:40px;min-width:40px;">
-              <i class="bi bi-download"></i>
+              <i aria-hidden="true" class="bi bi-download"></i>
             </a>
 
           </div>

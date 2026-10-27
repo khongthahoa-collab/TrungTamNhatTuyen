@@ -18,7 +18,8 @@
   font-weight: 700;
 }
 
-.action-icon-btn {
+.action-icon-btn,
+.acct-action-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -28,7 +29,17 @@
   height: 44px;
   padding: .5rem;
 }
+.btn.action-icon-btn { border-radius: 50% !important; padding: 0 !important; }
+.action-icon-btn.dropdown-toggle::after { display: none; }
 .action-icon-btn > .bi { margin: 0; pointer-events: none; }
+@media (max-width: 575.98px) {
+  .action-date-navigation {
+    display: grid !important;
+    grid-template-columns: repeat(4, 44px);
+    justify-content: space-between;
+  }
+  .action-date-navigation > form { grid-column: 1 / -1; grid-row: 1; min-width: 0; }
+}
 
 .app-message {
   width: min(440px, calc(100% - 2rem));
@@ -1224,7 +1235,7 @@ footer a:hover { color: #fff !important; }
    (accounts, permission groups, leave requests, ...) so the same row of
    Sửa/Khóa/Xoá-style icons looks identical everywhere. ── */
 .acct-action-btn {
-  width: 36px; height: 36px; border-radius: 50%; border: none; padding: 0;
+  width: 44px; height: 44px; border-radius: 50%; border: none; padding: 0;
   display: flex; align-items: center; justify-content: center; font-size: .9rem;
   transition: all .2s ease;
 }

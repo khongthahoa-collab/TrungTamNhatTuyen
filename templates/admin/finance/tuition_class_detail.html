@@ -34,7 +34,7 @@
         <input type="hidden" name="month" value="{{ month }}">
         <input type="hidden" name="year" value="{{ year }}">
         <button type="submit" class="btn btn-outline-primary btn-sm"
-                onclick="return confirm('Mở lại danh sách học phí lớp {{ cls.name }} tháng {{ month }}/{{ year }}?')">
+                data-confirm="Mở lại danh sách học phí lớp {{ cls.name }} tháng {{ month }}/{{ year }}?">
           <i class="bi bi-unlock me-1"></i>Mở lại
         </button>
       </form>
@@ -44,7 +44,7 @@
         <input type="hidden" name="month" value="{{ month }}">
         <input type="hidden" name="year" value="{{ year }}">
         <button type="submit" class="btn btn-outline-primary btn-sm"
-                onclick="return confirm('Chốt danh sách học phí lớp {{ cls.name }} tháng {{ month }}/{{ year }}? Sẽ không thể Thu/Hủy/Hoàn tác/Điều chỉnh cho tới khi Mở lại.')">
+                data-confirm="Chốt danh sách học phí lớp {{ cls.name }} tháng {{ month }}/{{ year }}? Sẽ không thể Thu/Hủy/Hoàn tác/Điều chỉnh cho tới khi Mở lại.">
           <i class="bi bi-lock me-1"></i>Chốt danh sách học phí
         </button>
       </form>
@@ -122,14 +122,14 @@
     </div>
   </div>
   <div class="col-6 col-md-3 d-flex align-items-center">
-    <form method="post" action="{{ url_for('admin.tuition_remind_zalo') }}" class="w-100">
+    <form method="post" action="{{ url_for('admin.tuition_remind_zalo') }}" class="w-100"
+          onsubmit="return confirmFormSubmit(event, 'Gửi nhắc Zalo cho ' + document.getElementById('btnRemindZalo').dataset.unpaidCount + ' phụ huynh chưa đóng?')">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="month" value="{{ month }}">
       <input type="hidden" name="year" value="{{ year }}">
       <input type="hidden" name="class_id" value="{{ cls.id }}">
       <button type="submit" class="btn btn-outline-success btn-sm w-100" id="btnRemindZalo"
-              data-unpaid-count="{{ unpaid_count }}"
-              onclick="return confirm('Gửi nhắc Zalo cho ' + this.dataset.unpaidCount + ' phụ huynh chưa đóng?')">
+              data-unpaid-count="{{ unpaid_count }}">
         <i class="bi bi-chat-dots me-1"></i>Nhắc Zalo (<span id="zaloUnpaidCount">{{ unpaid_count }}</span>)
       </button>
     </form>
@@ -208,7 +208,7 @@
                   'qr_url': build_vietqr_url(acc.bank_id, acc.account_number, acc.account_name, amount=remaining, add_info=add_info),
               }) %}
             {% endfor %}
-            <button class="btn btn-link p-0 ms-1 btn-tuition-notice" type="button"
+            <button aria-label="Thông báo học phí" class="btn btn-link p-0 ms-1 btn-tuition-notice action-icon-btn" type="button"
                     title="Thông báo học phí"
                     data-bs-toggle="modal" data-bs-target="#tuitionReminderModal"
                     data-student-name="{{ r.student.full_name }}"
@@ -218,7 +218,7 @@
                     data-debt="{{ r.debt_carried_over | int }}"
                     data-remaining="{{ remaining }}"
                     data-accounts='{{ row_accounts | tojson }}'>
-              <i class="bi bi-image text-muted" style="font-size:0.75rem;"></i>
+              <i aria-hidden="true" class="bi bi-image text-muted" style="font-size:0.75rem;"></i>
             </button>
             {% endif %}
             {% if not r.is_paid and not r.is_voided and can_edit %}
@@ -275,7 +275,7 @@
               <form method="post" action="{{ url_for('admin.tuition_unvoid', payment_id=r.id) }}" class="d-inline">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-outline-secondary btn-sm"
-                        onclick="return confirm('Khôi phục học phí đã hủy của {{ r.student.full_name }}?')">
+                        data-confirm="Khôi phục học phí đã hủy của {{ r.student.full_name }}?">
                   <i class="bi bi-arrow-counterclockwise me-1"></i>Khôi phục
                 </button>
               </form>

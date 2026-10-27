@@ -28,7 +28,7 @@
         <form method="post" action="{{ url_for('api_calendar.rotate_calendar_token') }}" class="d-inline">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn btn-sm btn-outline-danger"
-                  onclick="return confirm('Đặt lại mã bảo mật lịch? Đường dẫn cũ trên điện thoại sẽ ngừng hoạt động ngay lập tức.')">
+                  data-confirm="Đặt lại mã bảo mật lịch? Đường dẫn cũ trên điện thoại sẽ ngừng hoạt động ngay lập tức.">
             <i class="bi bi-arrow-repeat me-1"></i>Làm mới mã bảo mật
           </button>
         </form>

@@ -90,7 +90,7 @@
       <form method="post" action="{{ url_for('admin.academic_year_activate', year_id=year.id) }}" class="d-inline">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="btn btn-outline-success btn-sm"
-                onclick="return confirm('Kích hoạt năm học {{ year.name }}? Năm học hiện tại sẽ bị hủy kích hoạt.')">
+                data-confirm="Kích hoạt năm học {{ year.name }}? Năm học hiện tại sẽ bị hủy kích hoạt.">
           <i class="bi bi-check-circle me-1"></i>Kích hoạt
         </button>
       </form>

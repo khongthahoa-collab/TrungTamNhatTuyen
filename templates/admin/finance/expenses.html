@@ -155,7 +155,7 @@
             <td class="small text-muted">{{ record.receipt_no or '—' }}</td>
             <td class="text-center">
               <form method="post" action="{{ url_for('admin.expense_delete', exp_id=record.id) }}"
-                    onsubmit="return confirm('Bạn có chắc muốn xóa chi phí này?')">
+                    data-confirm="Bạn có chắc muốn xóa chi phí này?">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-outline-danger btn-sm action-icon-btn" title="Xóa khoản chi" aria-label="Xóa khoản chi">
                   <i class="bi bi-trash" aria-hidden="true"></i>

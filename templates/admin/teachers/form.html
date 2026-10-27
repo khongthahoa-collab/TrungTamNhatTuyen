@@ -14,7 +14,7 @@
   <div class="d-flex gap-2">
     {% if action == 'edit' and current_user.is_master %}
     <form method="post" action="{{ url_for('admin.teacher_promote_academic_manager', teacher_id=teacher.id) }}"
-          onsubmit="return confirm('Cấp quyền Quản lý học vụ cho {{ teacher.full_name }}? Tài khoản này sẽ có quyền Điểm danh và Học sinh trên toàn trung tâm, các mục khác (học phí, cài đặt, lương...) bị từ chối.')">
+          data-confirm="Cấp quyền Quản lý học vụ cho {{ teacher.full_name }}? Tài khoản này sẽ có quyền Điểm danh và Học sinh trên toàn trung tâm, các mục khác (học phí, cài đặt, lương...) bị từ chối.">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="btn btn-outline-primary btn-sm">
         <i class="bi bi-mortarboard me-1"></i>Cấp quyền Quản lý học vụ
@@ -23,7 +23,7 @@
     {% endif %}
     {% if action == 'edit' and teacher.user.role != 'admin' and current_user.is_master %}
     <form method="post" action="{{ url_for('admin.teacher_promote', teacher_id=teacher.id) }}"
-          onsubmit="return confirm('Cấp quyền Admin cho {{ teacher.full_name }}? Tài khoản này sẽ có thể truy cập cả khu vực quản trị.')">
+          data-confirm="Cấp quyền Admin cho {{ teacher.full_name }}? Tài khoản này sẽ có thể truy cập cả khu vực quản trị.">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="btn btn-outline-danger btn-sm">
         <i class="bi bi-shield-plus me-1"></i>Cấp quyền Admin
@@ -119,7 +119,7 @@
     <div class="row g-2">
       <div class="col-12 col-sm-6">
         <form method="post" action="{{ url_for('admin.teacher_reset_password', teacher_id=teacher.id) }}"
-              onsubmit="return confirm('Đặt lại mật khẩu về pass@123 cho {{ teacher.full_name }}?')">
+              data-confirm="Đặt lại mật khẩu về pass@123 cho {{ teacher.full_name }}?">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn btn-outline-warning w-100">
             <i class="bi bi-key me-1"></i>Đặt lại mật khẩu
@@ -128,7 +128,7 @@
       </div>
       <div class="col-12 col-sm-6">
         <form method="post" action="{{ url_for('admin.teacher_delete', teacher_id=teacher.id) }}"
-              onsubmit="return confirm('Xoá tài khoản giáo viên {{ teacher.full_name }}? Tài khoản sẽ bị ẩn khỏi danh sách nhưng dữ liệu liên quan (điểm, lịch dạy...) vẫn được giữ nguyên.')">
+              data-confirm="Xoá tài khoản giáo viên {{ teacher.full_name }}? Tài khoản sẽ bị ẩn khỏi danh sách nhưng dữ liệu liên quan (điểm, lịch dạy...) vẫn được giữ nguyên.">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn btn-outline-danger w-100">
             <i class="bi bi-trash me-1"></i>Xoá tài khoản

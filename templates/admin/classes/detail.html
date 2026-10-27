@@ -232,11 +232,11 @@
             <td class="text-center">
               <form method="post"
                     action="{{ url_for('admin.student_unenroll', student_id=enrollment.student.id, class_id=enrollment.class_id) }}"
-                    onsubmit="return confirm('Bạn có chắc muốn rút học sinh {{ enrollment.student.full_name }} khỏi lớp này?')">
+                    data-confirm="Bạn có chắc muốn rút học sinh {{ enrollment.student.full_name }} khỏi lớp này?">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="redirect_to" value="class">
-                <button type="submit" class="btn btn-outline-danger btn-sm" title="Rút khỏi lớp">
-                  <i class="bi bi-person-dash"></i>
+                <button aria-label="Rút khỏi lớp" type="submit" class="btn btn-outline-danger btn-sm action-icon-btn" title="Rút khỏi lớp">
+                  <i aria-hidden="true" class="bi bi-person-dash"></i>
                 </button>
               </form>
             </td>

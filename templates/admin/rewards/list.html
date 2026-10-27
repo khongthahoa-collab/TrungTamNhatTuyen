@@ -109,10 +109,10 @@
                 </button>
                 <!-- Nút hủy -->
                 <form method="post" action="{{ url_for('admin.reward_cancel', reward_id=reward.id) }}"
-                      onsubmit="return confirm('Hủy khen thưởng này?')">
+                      data-confirm="Hủy khen thưởng này?">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <button type="submit" class="btn btn-outline-danger btn-sm" title="Hủy thưởng">
-                    <i class="bi bi-x-circle"></i>
+                  <button aria-label="Hủy thưởng" type="submit" class="btn btn-outline-danger btn-sm action-icon-btn" title="Hủy thưởng">
+                    <i aria-hidden="true" class="bi bi-x-circle"></i>
                   </button>
                 </form>
               </div>

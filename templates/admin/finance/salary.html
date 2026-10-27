@@ -46,7 +46,7 @@
           <input type="hidden" name="month" value="{{ month }}">
           <input type="hidden" name="year" value="{{ year }}">
           <button type="submit" class="btn btn-success btn-sm"
-                  onclick="return confirm('Tính toán lương tháng {{ month }}/{{ year }} và cập nhật chi phí lương?')">
+                  data-confirm="Tính toán lương tháng {{ month }}/{{ year }} và cập nhật chi phí lương?">
             <i class="bi bi-calculator me-1"></i>Tính toán
           </button>
         </form>
@@ -56,7 +56,7 @@
           <input type="hidden" name="month" value="{{ month }}">
           <input type="hidden" name="year" value="{{ year }}">
           <button type="submit" class="btn btn-outline-primary btn-sm"
-                  onclick="return confirm('Mở lại lương tháng {{ month }}/{{ year }}?')">
+                  data-confirm="Mở lại lương tháng {{ month }}/{{ year }}?">
             <i class="bi bi-unlock me-1"></i>Mở lại
           </button>
         </form>
@@ -67,7 +67,7 @@
           <input type="hidden" name="year" value="{{ year }}">
           <button type="submit" class="btn btn-primary btn-sm"
                   {% if not salaries_by_teacher %}disabled{% endif %}
-                  onclick="return confirm('Chốt lương tháng {{ month }}/{{ year }}? Sau khi chốt sẽ không sửa được cho tới khi Mở lại.')">
+                  data-confirm="Chốt lương tháng {{ month }}/{{ year }}? Sau khi chốt sẽ không sửa được cho tới khi Mở lại.">
             <i class="bi bi-lock me-1"></i>Chốt lương tháng {{ month }}
           </button>
         </form>

@@ -156,7 +156,7 @@
         </a>
         <form method="post"
               action="{{ url_for('teacher.homework_delete', class_id=class_.id, homework_id=detail.homework.id) }}"
-              onsubmit="return confirm('Xoá lần giao bài này? Toàn bộ ghi nhận của lần giao sẽ mất.');">
+              data-confirm="Xoá lần giao bài này? Toàn bộ ghi nhận của lần giao sẽ mất.">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn btn-outline-danger btn-sm action-icon-btn" title="Xóa lần giao {{ detail.homework.title }}" aria-label="Xóa lần giao {{ detail.homework.title }}">
             <i class="bi bi-trash" aria-hidden="true"></i>

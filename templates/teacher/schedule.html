@@ -20,27 +20,27 @@
   <!-- Week navigation bar -->
   <div class="card border-0 shadow-sm mb-3">
     <div class="card-body py-2">
-      <div class="d-flex align-items-center gap-2 mb-2">
-        <a href="{{ url_for('teacher.schedule', date=prev2_date.isoformat(), filter=filter_mode) }}"
-           class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Lùi 2 tuần">
-          <i class="bi bi-chevron-double-left"></i>
+      <div class="d-flex align-items-center gap-2 mb-2 action-date-navigation">
+        <a aria-label="Lùi 2 tuần" href="{{ url_for('teacher.schedule', date=prev2_date.isoformat(), filter=filter_mode) }}"
+           class="btn btn-outline-secondary btn-sm flex-shrink-0 action-icon-btn" title="Lùi 2 tuần">
+          <i aria-hidden="true" class="bi bi-chevron-double-left"></i>
         </a>
-        <a href="{{ url_for('teacher.schedule', date=prev_date.isoformat(), filter=filter_mode) }}"
-           class="btn btn-outline-secondary btn-sm flex-shrink-0">
-          <i class="bi bi-chevron-left"></i>
+        <a aria-label="Trước" title="Trước" href="{{ url_for('teacher.schedule', date=prev_date.isoformat(), filter=filter_mode) }}"
+           class="btn btn-outline-secondary btn-sm flex-shrink-0 action-icon-btn">
+          <i aria-hidden="true" class="bi bi-chevron-left"></i>
         </a>
         <form method="get" class="flex-grow-1">
           <input type="hidden" name="filter" value="{{ filter_mode }}">
           <input type="date" name="date" class="form-control form-control-sm text-center"
                  value="{{ ref_date.isoformat() }}" onchange="this.form.submit()">
         </form>
-        <a href="{{ url_for('teacher.schedule', date=next_date.isoformat(), filter=filter_mode) }}"
-           class="btn btn-outline-secondary btn-sm flex-shrink-0">
-          <i class="bi bi-chevron-right"></i>
+        <a aria-label="Sau" title="Sau" href="{{ url_for('teacher.schedule', date=next_date.isoformat(), filter=filter_mode) }}"
+           class="btn btn-outline-secondary btn-sm flex-shrink-0 action-icon-btn">
+          <i aria-hidden="true" class="bi bi-chevron-right"></i>
         </a>
-        <a href="{{ url_for('teacher.schedule', date=next2_date.isoformat(), filter=filter_mode) }}"
-           class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Tiến 2 tuần">
-          <i class="bi bi-chevron-double-right"></i>
+        <a aria-label="Tiến 2 tuần" href="{{ url_for('teacher.schedule', date=next2_date.isoformat(), filter=filter_mode) }}"
+           class="btn btn-outline-secondary btn-sm flex-shrink-0 action-icon-btn" title="Tiến 2 tuần">
+          <i aria-hidden="true" class="bi bi-chevron-double-right"></i>
         </a>
       </div>
       <div class="text-center text-muted small mb-2">

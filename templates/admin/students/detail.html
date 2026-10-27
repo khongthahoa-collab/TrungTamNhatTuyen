@@ -57,7 +57,7 @@
             </div>
             {% if student.photo_path %}
             <form method="post" action="{{ url_for('admin.student_photo_delete', student_id=student.id) }}"
-                  onsubmit="return confirm('Xóa ảnh này?')" class="mt-1">
+                  data-confirm="Xóa ảnh này?" class="mt-1">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" class="btn btn-outline-danger btn-sm action-icon-btn" title="Xóa ảnh học sinh" aria-label="Xóa ảnh học sinh">
                 <i class="bi bi-trash" aria-hidden="true"></i>
@@ -151,7 +151,7 @@
       </div>
       <div class="d-flex flex-wrap gap-2">
         <form method="post" action="{{ url_for('admin.student_reset_login_password', student_id=student.id) }}"
-              onsubmit="return confirm('Đặt lại mật khẩu về {{ student_default_temp_password }}? Học sinh sẽ phải đổi mật khẩu khi đăng nhập lần tiếp theo.')">
+              data-confirm="Đặt lại mật khẩu về {{ student_default_temp_password }}? Học sinh sẽ phải đổi mật khẩu khi đăng nhập lần tiếp theo.">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn btn-outline-warning btn-sm"
                   {% if not student_login_allowed or not student.is_active or student.is_deleted %}disabled{% endif %}>
@@ -180,7 +180,7 @@
       Mật khẩu khởi tạo mặc định là <strong>{{ student_default_temp_password }}</strong> và học sinh phải đổi khi đăng nhập lần đầu.
     </p>
     <form method="post" action="{{ url_for('admin.student_create_login_account', student_id=student.id) }}"
-          onsubmit="return confirm('Tạo tài khoản thi online cho học sinh này?')">
+          data-confirm="Tạo tài khoản thi online cho học sinh này?">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="btn btn-primary btn-sm" {% if not student.is_active or student.is_deleted %}disabled{% endif %}>
         <i class="bi bi-person-plus me-1"></i>Tạo tài khoản học sinh
@@ -211,7 +211,7 @@
         {% endif %}
       </div>
       <form method="post" action="{{ url_for('admin.student_reset_parent_password', student_id=student.id) }}"
-            onsubmit="return confirm('Đặt lại mật khẩu phụ huynh về định dạng mặc định?')">
+            data-confirm="Đặt lại mật khẩu phụ huynh về định dạng mặc định?">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="btn btn-outline-warning btn-sm">
           <i class="bi bi-key me-1"></i>Đặt lại mật khẩu
@@ -311,10 +311,10 @@
                 </td>
                 <td class="text-center">
                   <form method="post" action="{{ url_for('admin.student_unenroll', student_id=student.id, class_id=enrollment.class_id) }}"
-                        onsubmit="return confirm('Bạn có chắc muốn rút học sinh khỏi lớp này?')">
+                        data-confirm="Bạn có chắc muốn rút học sinh khỏi lớp này?">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn btn-outline-danger btn-sm">
-                      <i class="bi bi-x-lg"></i>
+                    <button aria-label="Rút học sinh khỏi lớp" title="Rút học sinh khỏi lớp" type="submit" class="btn btn-outline-danger btn-sm action-icon-btn">
+                      <i aria-hidden="true" class="bi bi-x-lg"></i>
                     </button>
                   </form>
                 </td>
@@ -598,8 +598,8 @@
                 <form method="post" action="{{ url_for('admin.tuition_mark_paid', payment_id=tp.id) }}" class="d-inline">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <input type="hidden" name="method" value="cash">
-                  <button type="submit" class="btn btn-success btn-sm" title="Đánh dấu đã thu">
-                    <i class="bi bi-check-circle"></i>
+                  <button aria-label="Đánh dấu đã thu" type="submit" class="btn btn-success btn-sm action-icon-btn" title="Đánh dấu đã thu">
+                    <i aria-hidden="true" class="bi bi-check-circle"></i>
                   </button>
                 </form>
                 {% endif %}

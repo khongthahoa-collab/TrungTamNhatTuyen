@@ -107,10 +107,7 @@
     const summary = `${type.selectedOptions[0].text} · ${semester.selectedOptions[0].text}\n`
       + `Ngày kiểm tra: ${date.value} · Lần: ${round.value || 'tự động'}\n`
       + `Lưu ${filled.length}/${inputs.length} học sinh. Các ô trống không được ghi điểm.`;
-    if (!confirm(summary)) {
-      event.preventDefault();
-      return;
-    }
+    if (!window.confirmFormSubmit(event, summary)) return;
     submitting = true;
   });
   window.addEventListener('beforeunload', event => {

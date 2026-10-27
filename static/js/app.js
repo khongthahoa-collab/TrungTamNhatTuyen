@@ -28,6 +28,7 @@
   document.addEventListener('click', (e) => {
     const link = e.target.closest('a[href]');
     if (!link) return;
+    if (e.defaultPrevented) return;
     if (link.target === '_blank' || link.hasAttribute('download')) return;
     if (link.hasAttribute('data-bs-toggle') || link.hasAttribute('data-bs-dismiss')) return;
     if (link.hasAttribute('data-no-loading')) return;
@@ -60,7 +61,9 @@
       // once text is injected into them — just disabling is enough there.
       if (window.innerWidth < 992) {
         submitBtn.dataset.originalHtml = submitBtn.innerHTML;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Đang xử lý...';
+        submitBtn.innerHTML = submitBtn.matches('.action-icon-btn, .acct-action-btn')
+          ? '<span class="spinner-border spinner-border-sm" role="status" aria-label="Đang xử lý"></span>'
+          : '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Đang xử lý...';
       }
       // Safety net matching the overlay's own timeout — never leave a button
       // stuck disabled if the page navigation stalls for some reason.
@@ -111,15 +114,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   roleSelect.addEventListener('change', updateTeacherFields);
   updateTeacherFields();
-});
-
-// Confirm dangerous actions
-document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('[data-confirm]').forEach(el => {
-    el.addEventListener('click', e => {
-      if (!confirm(el.dataset.confirm)) e.preventDefault();
-    });
-  });
 });
 
 // Format number as VND while typing

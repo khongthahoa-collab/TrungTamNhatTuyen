@@ -14,29 +14,29 @@
   <!-- Bộ lọc theo ngày / tuần / tháng -->
   <div class="card border-0 shadow-sm mb-3">
     <div class="card-body py-2">
-      <div class="d-flex align-items-center gap-2 mb-2">
-        <a href="{{ url_for('teacher.attendance_list', date=prev2_date.isoformat(), view=view_mode) }}"
-           class="btn btn-outline-secondary btn-sm flex-shrink-0"
+      <div class="d-flex align-items-center gap-2 mb-2 action-date-navigation">
+        <a aria-label="Lùi 2 {{ 'tháng' if view_mode == 'month' else 'tuần' }}" href="{{ url_for('teacher.attendance_list', date=prev2_date.isoformat(), view=view_mode) }}"
+           class="btn btn-outline-secondary btn-sm flex-shrink-0 action-icon-btn"
            title="Lùi 2 {{ 'tháng' if view_mode == 'month' else 'tuần' }}">
-          <i class="bi bi-chevron-double-left"></i>
+          <i aria-hidden="true" class="bi bi-chevron-double-left"></i>
         </a>
-        <a href="{{ url_for('teacher.attendance_list', date=prev_date.isoformat(), view=view_mode) }}"
-           class="btn btn-outline-secondary btn-sm flex-shrink-0">
-          <i class="bi bi-chevron-left"></i>
+        <a aria-label="Trước" title="Trước" href="{{ url_for('teacher.attendance_list', date=prev_date.isoformat(), view=view_mode) }}"
+           class="btn btn-outline-secondary btn-sm flex-shrink-0 action-icon-btn">
+          <i aria-hidden="true" class="bi bi-chevron-left"></i>
         </a>
         <form method="get" class="flex-grow-1">
           <input type="hidden" name="view" value="{{ view_mode }}">
           <input type="date" name="date" class="form-control form-control-sm text-center"
                  value="{{ ref_date.isoformat() }}" onchange="this.form.submit()">
         </form>
-        <a href="{{ url_for('teacher.attendance_list', date=next_date.isoformat(), view=view_mode) }}"
-           class="btn btn-outline-secondary btn-sm flex-shrink-0">
-          <i class="bi bi-chevron-right"></i>
+        <a aria-label="Sau" title="Sau" href="{{ url_for('teacher.attendance_list', date=next_date.isoformat(), view=view_mode) }}"
+           class="btn btn-outline-secondary btn-sm flex-shrink-0 action-icon-btn">
+          <i aria-hidden="true" class="bi bi-chevron-right"></i>
         </a>
-        <a href="{{ url_for('teacher.attendance_list', date=next2_date.isoformat(), view=view_mode) }}"
-           class="btn btn-outline-secondary btn-sm flex-shrink-0"
+        <a aria-label="Tiến 2 {{ 'tháng' if view_mode == 'month' else 'tuần' }}" href="{{ url_for('teacher.attendance_list', date=next2_date.isoformat(), view=view_mode) }}"
+           class="btn btn-outline-secondary btn-sm flex-shrink-0 action-icon-btn"
            title="Tiến 2 {{ 'tháng' if view_mode == 'month' else 'tuần' }}">
-          <i class="bi bi-chevron-double-right"></i>
+          <i aria-hidden="true" class="bi bi-chevron-double-right"></i>
         </a>
       </div>
       <div class="text-center small text-muted mb-2">
@@ -419,7 +419,7 @@ document.querySelectorAll('.btn-save').forEach(saveBtn => {
     const rows = document.querySelectorAll(`.attendance-table[data-schedule="${scheduleId}"] .att-row`);
     const untouched = Array.from(rows).filter(r => r.dataset.touched !== '1').length;
     if (untouched > 0) {
-      const proceed = confirm(`Còn ${untouched} học sinh chưa được điểm danh (mặc định Vắng). Bạn có chắc muốn lưu?`);
+      const proceed = await window.showConfirm(`Còn ${untouched} học sinh chưa được điểm danh (mặc định Vắng). Bạn có chắc muốn lưu?`);
       if (!proceed) return;
     }
 

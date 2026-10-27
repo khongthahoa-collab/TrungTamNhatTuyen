@@ -1,4 +1,4 @@
-(function () {
+(async function () {
   const config = JSON.parse(document.getElementById('examEditorConfig').textContent);
   const form = document.getElementById('exam-form');
   const editor = document.getElementById('rawTextEditor');
@@ -317,9 +317,12 @@
     scheduleDraft();
   });
   window.addEventListener('pagehide', saveDraft);
-  document.querySelectorAll('[data-exam-editor-exit]').forEach(link => link.addEventListener('click', event => {
+  document.querySelectorAll('[data-exam-editor-exit]').forEach(link => link.addEventListener('click', async event => {
     if (!config.localDraft) return;
-    if (!confirm('Thoát và lưu đề? Nội dung sẽ được lưu nháp trên thiết bị để khôi phục khi quay lại.') || !saveDraft()) event.preventDefault();
+    event.preventDefault();
+    if (await window.showConfirm('Thoát và lưu đề? Nội dung sẽ được lưu nháp trên thiết bị để khôi phục khi quay lại.') && saveDraft()) {
+      window.location.assign(link.href);
+    }
   }));
   form.addEventListener('submit', event => {
     refreshState();
@@ -336,7 +339,7 @@
     if (!config.localDraft) localStorage.removeItem(config.draftKey);
     const draft = config.localDraft ? JSON.parse(localStorage.getItem(config.draftKey) || 'null') : null;
     if (draft && Array.isArray(draft.groups) && Date.now() - draft.savedAt < 7 * 86400000) {
-      if (confirm('Tìm thấy bản nháp trên thiết bị. Bạn có muốn khôi phục không?')) {
+      if (await window.showConfirm('Tìm thấy bản nháp trên thiết bị. Bạn có muốn khôi phục không?')) {
         title.value = draft.title || '';
         editor.value = typeof draft.rawText === 'string' ? draft.rawText : serialize(draft.groups);
       } else localStorage.removeItem(config.draftKey);
@@ -384,13 +387,13 @@
   }
   sampleSelect.addEventListener('change', () => { applySample.disabled = !sampleSelect.value; });
   retrySamples.addEventListener('click', loadSamples);
-  applySample.addEventListener('click', () => {
+  applySample.addEventListener('click', async () => {
     const sample = samples.find(item => String(item.id) === sampleSelect.value);
     if (!sample) {
       showError('Vui lòng chọn nội dung mẫu hợp lệ.');
       return;
     }
-    if (editor.value.trim() && !confirm('Áp dụng mẫu sẽ thay thế toàn bộ nội dung câu hỏi đang nhập. Tiếp tục?')) return;
+    if (editor.value.trim() && !await window.showConfirm('Áp dụng mẫu sẽ thay thế toàn bộ nội dung câu hỏi đang nhập. Tiếp tục?')) return;
     editor.value = sample.content;
     errorBox.classList.add('d-none');
     refreshPreview();

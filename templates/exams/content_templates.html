@@ -28,7 +28,7 @@
           <i class="bi {{ 'bi-pencil' if current_user.can_write('exams') else 'bi-eye' }}" aria-hidden="true"></i>
         </a>
         {% if current_user.can_write('exams') %}
-        <form method="post" action="{{ url_for('admin.exam_content_template_delete', template_id=item.id) }}" onsubmit="return confirm('Xóa mẫu nội dung này? Các đề đã tạo sẽ không bị thay đổi.');">
+        <form method="post" action="{{ url_for('admin.exam_content_template_delete', template_id=item.id) }}" data-confirm="Xóa mẫu nội dung này? Các đề đã tạo sẽ không bị thay đổi.">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn btn-sm btn-outline-danger action-icon-btn" title="Xóa mẫu {{ item.name }}" aria-label="Xóa mẫu {{ item.name }}"><i class="bi bi-trash" aria-hidden="true"></i></button>
         </form>

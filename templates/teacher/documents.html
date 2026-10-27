@@ -108,13 +108,13 @@
 
         <!-- Actions -->
         <div class="flex-shrink-0 d-flex flex-column gap-1">
-          <a href="{{ url_for('teacher.download_document', doc_id=doc.id) }}"
-             class="btn btn-sm btn-outline-primary" title="Tải xuống" style="min-height:36px;">
-            <i class="bi bi-download"></i>
+          <a aria-label="Tải xuống" href="{{ url_for('teacher.download_document', doc_id=doc.id) }}"
+             class="btn btn-sm btn-outline-primary action-icon-btn" title="Tải xuống" style="min-height:36px;">
+            <i aria-hidden="true" class="bi bi-download"></i>
           </a>
           <form method="post"
                 action="{{ url_for('teacher.delete_document', doc_id=doc.id) }}"
-                onsubmit="return confirm('Xóa tài liệu này?')">
+                data-confirm="Xóa tài liệu này?">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-sm btn-outline-danger action-icon-btn" title="Xóa tài liệu {{ doc.title }}" aria-label="Xóa tài liệu {{ doc.title }}">
               <i class="bi bi-trash" aria-hidden="true"></i>

@@ -46,8 +46,8 @@
       {% endif %}
 
       <!-- Bell notification -->
-      <a href="{{ url_for('parent.notifications') }}" class="btn btn-sm btn-outline-light position-relative" title="Thông báo">
-        <i class="bi bi-bell{% if unread_notifications %}-fill{% endif %}"></i>
+      <a href="{{ url_for('parent.notifications') }}" class="btn btn-sm btn-outline-light position-relative action-icon-btn" title="Thông báo" aria-label="Thông báo">
+        <i class="bi bi-bell{% if unread_notifications %}-fill{% endif %}" aria-hidden="true"></i>
         {% if unread_notifications %}
         <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
               style="font-size:0.6rem;">
@@ -57,8 +57,8 @@
       </a>
 
       <!-- Change password -->
-      <a href="{{ url_for('parent.change_password') }}" class="btn btn-sm btn-outline-light" title="Đổi mật khẩu">
-        <i class="bi bi-key"></i>
+      <a aria-label="Đổi mật khẩu" href="{{ url_for('parent.change_password') }}" class="btn btn-sm btn-outline-light action-icon-btn" title="Đổi mật khẩu">
+        <i aria-hidden="true" class="bi bi-key"></i>
       </a>
 
       <!-- Logout -->

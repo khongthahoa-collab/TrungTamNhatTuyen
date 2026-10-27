@@ -329,8 +329,10 @@ form.addEventListener('change', updateExamProgress);
 updateExamProgress();
 
 // autoSubmit() bypasses this listener so only manual submissions ask for confirmation.
-form.addEventListener('submit', e => {
-  if (submitted) return;
+let confirmationPending = false;
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  if (submitted || confirmationPending) return;
   if (window.examEssayUploads.isBusy() || window.examEssayUploads.hasErrors()) {
     e.preventDefault();
     showMessage('Ảnh đang được xử lý hoặc còn lỗi tải ảnh. Hãy đợi tải xong, thử lại hoặc bỏ ảnh lỗi trước khi nộp.');
@@ -341,12 +343,21 @@ form.addEventListener('submit', e => {
   const confirmation = unansweredCount
     ? `Còn ${unansweredCount} câu chưa làm xong. Em xác nhận nộp bài hay không?`
     : 'Bạn có chắc muốn nộp bài? Sau khi nộp sẽ không thể chỉnh sửa lại.';
-  if (!confirm(confirmation)) {
-    e.preventDefault();
+  confirmationPending = true;
+  let confirmed;
+  try {
+    confirmed = await window.showConfirm(confirmation);
+  } finally {
+    confirmationPending = false;
+  }
+  if (!confirmed || submitted) return;
+  if (window.examEssayUploads.isBusy() || window.examEssayUploads.hasErrors()) {
+    showMessage('Ảnh đang được xử lý hoặc còn lỗi tải ảnh. Hãy đợi tải xong, thử lại hoặc bỏ ảnh lỗi trước khi nộp.');
     return;
   }
   submitted = true;
   window.examEssayUploads.freeze();
+  form.submit();
 });
 
 form.addEventListener('input', event => {

@@ -3,12 +3,12 @@
    đây khi đã có bộ lọc, nút này đổi thành link "Bỏ lọc" nên bấm lần 2 trở
    đi không tìm kiếm nữa mà lại xoá bộ lọc, gây nhầm lẫn. #}
 <div class="d-flex gap-1">
-  <button type="submit" class="btn btn-outline-primary btn-sm" title="Tìm kiếm">
-    <i class="bi {{ search_icon }}"></i>
+  <button aria-label="Tìm kiếm" type="submit" class="btn btn-outline-primary btn-sm action-icon-btn" title="Tìm kiếm">
+    <i aria-hidden="true" class="bi {{ search_icon }}"></i>
   </button>
   {% if is_filtered %}
-  <a href="{{ clear_url }}" class="btn btn-outline-secondary btn-sm" title="Bỏ lọc">
-    <i class="bi bi-x-lg"></i>
+  <a aria-label="Bỏ lọc" href="{{ clear_url }}" class="btn btn-outline-secondary btn-sm action-icon-btn" title="Bỏ lọc">
+    <i aria-hidden="true" class="bi bi-x-lg"></i>
   </a>
   {% endif %}
 </div>

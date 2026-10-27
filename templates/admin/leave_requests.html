@@ -108,7 +108,7 @@
               <form method="post" action="{{ url_for('admin.leave_request_cancel', request_id=r.id) }}" class="d-inline">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="acct-action-btn acct-action-delete" title="Hủy đơn"
-                        onclick="return confirm('Hủy đơn nghỉ phép của {{ r.student.full_name if r.student else "học sinh" }}? Học sinh sẽ không còn được khóa điểm danh Vắng phép cho các buổi trong khoảng ngày này.')">
+                        data-confirm="Hủy đơn nghỉ phép của {{ r.student.full_name if r.student else 'học sinh' }}? Học sinh sẽ không còn được khóa điểm danh Vắng phép cho các buổi trong khoảng ngày này.">
                   <i class="bi bi-x-lg"></i>
                 </button>
               </form>

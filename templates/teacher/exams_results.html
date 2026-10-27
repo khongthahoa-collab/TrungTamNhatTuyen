@@ -73,7 +73,7 @@
             <td class="text-end pe-3">
               {% if row.student %}
               <form method="post" action="{{ url_for('teacher.exam_reset_attempts', exam_id=exam.id, student_id=row.student.id) }}"
-                    onsubmit="return confirm('Xóa toàn bộ lượt đã nộp, đang làm và chờ chấm của học sinh này? Học sinh sẽ được làm lại đề từ đầu. Thao tác này không thể hoàn tác.')">
+                    data-confirm="Xóa toàn bộ lượt đã nộp, đang làm và chờ chấm của học sinh này? Học sinh sẽ được làm lại đề từ đầu. Thao tác này không thể hoàn tác.">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-outline-danger btn-sm">
                   <i class="bi bi-arrow-counterclockwise me-1"></i>Cho làm lại

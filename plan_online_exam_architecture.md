@@ -11,7 +11,10 @@
 - Thao tac tung dong/the dung `.action-icon-btn` 44x44px: but xanh de sua,
   thung rac do de xoa, con mat cho quyen chi xem. Moi nut co `title` va
   `aria-label`; icon trang tri co `aria-hidden="true"`.
-- Rieng trang tai khoan Admin dung `.acct-action-btn` tron 36px dong bo
+- Nut action chi co icon tren toan website dung vien tron 50%, ke ca nut
+  xem, tai xuong, doi trang thai va cac nut duoc tao dong. Nut co chu,
+  phan trang va nut dong modal giu bo cuc hien tai.
+- Trang tai khoan Admin dung `.acct-action-btn` tron 44px dong bo
   voi nut chia khoa: but = thong tin, khien-khoa = phan quyen,
   chia khoa = mat khau, nguoi = trang thai, thung rac = xoa.
 - Giu icon + chu trong menu, xoa hang loat, thao tac quan trong tren
@@ -37,7 +40,12 @@
 - Ham tra Promise, dung `await showMessage(text)` neu phai cho dong popup
   truoc khi dieu huong/nop bai. Luong tu nop bai danh dau da nop va dong
   bang upload truoc khi cho, tranh nop lap khi timer tiep tuc chay.
-- Khong thay `confirm()` hay banner flash. Component doc lap Bootstrap,
+- Xac nhan dung `await showConfirm(text)` tra boolean; Dong y moi tiep tuc,
+  Huy/X/Escape tra false, mac dinh focus Huy. Cung hang doi voi thong bao.
+  Form dung `data-confirm` tren form/submitter hoac `confirmFormSubmit(event, text)`
+  cho noi dung dong; giu validation, CSRF, submitter va chan yeu cau lap.
+- Banner flash va canh bao `beforeunload` khong doi: trinh duyet khong cho
+  thay popup dong tab bang dialog tuy bien. Component doc lap Bootstrap,
   tai tu base template truoc script tung trang. Kiem thu: `node test_messages.js`.
 
 ### Anh VietQR trong thong bao hoc phi (27/10/2026)

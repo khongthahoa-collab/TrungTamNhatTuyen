@@ -51,7 +51,7 @@
           <td class="text-muted small">{{ inq.created_at | datetime_vn }}</td>
           <td class="text-end pe-3">
             <form method="post" action="{{ url_for('admin.inquiry_delete', inquiry_id=inq.id) }}"
-                  onsubmit="return confirm('Xóa yêu cầu này?')">
+                  data-confirm="Xóa yêu cầu này?">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" class="btn btn-sm btn-outline-danger action-icon-btn" title="Xóa yêu cầu liên hệ" aria-label="Xóa yêu cầu liên hệ"><i class="bi bi-trash" aria-hidden="true"></i></button>
             </form>

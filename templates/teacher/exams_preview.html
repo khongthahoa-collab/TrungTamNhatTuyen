@@ -60,7 +60,7 @@
           {% endif %}
           {% if can_edit_exam %}
           <form method="post" action="{{ url_for('teacher.exam_toggle_sharing', exam_id=exam.id) }}" class="m-0"
-                onsubmit="return confirm('{% if exam.is_shared_with_teachers %}Gỡ đề này khỏi thư viện chia sẻ cho giáo viên khác?{% else %}Công khai đề này để các giáo viên khác có thể xem và sao chép? Kết quả thi không được chia sẻ.{% endif %}')">
+                data-confirm="{% if exam.is_shared_with_teachers %}Gỡ đề này khỏi thư viện chia sẻ cho giáo viên khác?{% else %}Công khai đề này để các giáo viên khác có thể xem và sao chép? Kết quả thi không được chia sẻ.{% endif %}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="return_to" value="preview">
             {% if exam.is_shared_with_teachers %}

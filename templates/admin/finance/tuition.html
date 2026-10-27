@@ -48,7 +48,7 @@
       <input type="hidden" name="class_id" value="{{ selected_class_id }}">
       {% endif %}
       <button type="submit" class="btn btn-outline-success w-100 btn-sm"
-              onclick="return confirm('Gửi nhắc nhở Zalo cho tất cả phụ huynh chưa đóng?')">
+              data-confirm="Gửi nhắc nhở Zalo cho tất cả phụ huynh chưa đóng?">
         <i class="bi bi-chat-dots me-1"></i>Nhắc Zalo hàng loạt
       </button>
     </form>
@@ -58,12 +58,12 @@
 <!-- ── Danh sách học phí theo lớp ──────────────────── -->
 <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
   {% if prev_period %}
-  <a href="{{ url_for('admin.tuition', month=prev_period[1], year=prev_period[0]) }}"
-     class="btn btn-outline-secondary btn-sm" title="Tháng trước">
-    <i class="bi bi-chevron-left"></i>
+  <a aria-label="Tháng trước" href="{{ url_for('admin.tuition', month=prev_period[1], year=prev_period[0]) }}"
+     class="btn btn-outline-secondary btn-sm action-icon-btn" title="Tháng trước">
+    <i aria-hidden="true" class="bi bi-chevron-left"></i>
   </a>
   {% else %}
-  <button class="btn btn-outline-secondary btn-sm" disabled><i class="bi bi-chevron-left"></i></button>
+  <button aria-label="Trước" title="Trước" class="btn btn-outline-secondary btn-sm action-icon-btn" disabled><i aria-hidden="true" class="bi bi-chevron-left"></i></button>
   {% endif %}
 
   <form method="get" class="d-flex gap-1 align-items-center" id="periodForm">
@@ -90,12 +90,12 @@
   </script>
 
   {% if next_period %}
-  <a href="{{ url_for('admin.tuition', month=next_period[1], year=next_period[0]) }}"
-     class="btn btn-outline-secondary btn-sm" title="Tháng sau">
-    <i class="bi bi-chevron-right"></i>
+  <a aria-label="Tháng sau" href="{{ url_for('admin.tuition', month=next_period[1], year=next_period[0]) }}"
+     class="btn btn-outline-secondary btn-sm action-icon-btn" title="Tháng sau">
+    <i aria-hidden="true" class="bi bi-chevron-right"></i>
   </a>
   {% else %}
-  <button class="btn btn-outline-secondary btn-sm" disabled><i class="bi bi-chevron-right"></i></button>
+  <button aria-label="Sau" title="Sau" class="btn btn-outline-secondary btn-sm action-icon-btn" disabled><i aria-hidden="true" class="bi bi-chevron-right"></i></button>
   {% endif %}
 
   {% if not is_writable %}
@@ -125,8 +125,8 @@
       <label class="form-check-label small text-nowrap" for="notGeneratedCheck">Lớp chưa tạo học phí</label>
     </div>
     {% if selected_class_id or selected_course_id or not_generated %}
-    <a href="{{ url_for('admin.tuition', month=month, year=year) }}" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-x-lg"></i>
+    <a aria-label="Bỏ lọc" title="Bỏ lọc" href="{{ url_for('admin.tuition', month=month, year=year) }}" class="btn btn-outline-secondary btn-sm action-icon-btn">
+      <i aria-hidden="true" class="bi bi-x-lg"></i>
     </a>
     {% endif %}
   </form>

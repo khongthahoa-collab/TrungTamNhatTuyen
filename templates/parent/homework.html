@@ -12,9 +12,9 @@
       </h5>
       <div class="text-muted small">{{ student.full_name }}</div>
     </div>
-    <a href="{{ url_for('parent.scores', student_id=student.id) }}"
-       class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-arrow-left"></i>
+    <a aria-label="Quay lại" title="Quay lại" href="{{ url_for('parent.scores', student_id=student.id) }}"
+       class="btn btn-outline-secondary btn-sm action-icon-btn">
+      <i aria-hidden="true" class="bi bi-arrow-left"></i>
     </a>
   </div>
 
