@@ -267,7 +267,7 @@
   searchInput.closest('form').addEventListener('submit', function (e) {
     if (!hiddenId.value) {
       e.preventDefault();
-      alert('Vui lòng chọn một học sinh từ danh sách gợi ý.');
+      showMessage('Vui lòng chọn một học sinh từ danh sách gợi ý.');
       searchInput.focus();
     }
   });

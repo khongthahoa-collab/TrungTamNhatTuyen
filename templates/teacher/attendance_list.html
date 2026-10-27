@@ -443,7 +443,7 @@ document.querySelectorAll('.btn-save').forEach(saveBtn => {
       saveBtn.innerHTML = '<i class="bi bi-check-lg"></i>';
       setTimeout(() => { saveBtn.innerHTML = original; }, 1500);
     } catch (err) {
-      alert(err.message);
+      showMessage(err.message);
       saveBtn.innerHTML = original;
       saveBtn.disabled = false;
     }

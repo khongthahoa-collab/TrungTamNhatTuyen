@@ -588,13 +588,13 @@
       closeMenu();
       if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(link)
-          .then(() => alert('Đã sao chép đường dẫn xem đề.'))
+          .then(() => showMessage('Đã sao chép đường dẫn xem đề.'))
           .catch(error => {
             console.error('Không thể sao chép đường dẫn đề thi.', error);
-            alert(`Không thể tự sao chép. Hãy sao chép đường dẫn này: ${link}`);
+            showMessage(`Không thể tự sao chép. Hãy sao chép đường dẫn này: ${link}`);
           });
       } else {
-        alert(`Đường dẫn xem đề: ${link}`);
+        showMessage(`Đường dẫn xem đề: ${link}`);
       }
     }
   });

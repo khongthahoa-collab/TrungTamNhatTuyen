@@ -2,6 +2,33 @@
    Nhật Tuyền — Custom styles  (Green theme)
    ══════════════════════════════════════════════ */
 
+.app-message {
+  width: min(440px, calc(100% - 2rem));
+  max-height: calc(100dvh - 2rem);
+  padding: 0;
+  border: 1px solid var(--nt-border-light);
+  border-radius: var(--nt-radius-lg);
+  color: var(--nt-text);
+  background: var(--nt-white);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .2);
+}
+.app-message::backdrop { background: rgba(15, 23, 42, .45); }
+.app-message-header, .app-message-footer {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+}
+.app-message-header { justify-content: space-between; border-bottom: 1px solid var(--nt-border-light); }
+.app-message-header h2 { margin: 0; font-size: 1.1rem; font-weight: 700; }
+.app-message-text {
+  padding: 1.25rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.app-message-footer { justify-content: flex-end; border-top: 1px solid var(--nt-border-light); }
+html:has(.app-message[open]) { overflow: hidden; }
+
 /* ── Design tokens ── */
 :root {
   /* ── Green palette ── */

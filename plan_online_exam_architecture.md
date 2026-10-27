@@ -6,6 +6,17 @@
 
 ## 0. Gia dinh ve chi phi va gioi han
 
+### Popup thong bao dung chung (27/10/2026)
+
+- Cac thong bao JavaScript dung `showMessage(text)` thay `alert()`.
+  Noi dung hien thi dang text, xuong dong va co the sao chep; popup khong
+  tu bien mat. Dong bang nut, Escape; nhieu thong bao duoc xep hang.
+- Ham tra Promise, dung `await showMessage(text)` neu phai cho dong popup
+  truoc khi dieu huong/nop bai. Luong tu nop bai danh dau da nop va dong
+  bang upload truoc khi cho, tranh nop lap khi timer tiep tuc chay.
+- Khong thay `confirm()` hay banner flash. Component doc lap Bootstrap,
+  tai tu base template truoc script tung trang. Kiem thu: `node test_messages.js`.
+
 ### Anh VietQR trong thong bao hoc phi (27/10/2026)
 
 - Preview va xuat/sao chep anh dung `/admin/tuition/qr-image` cung origin

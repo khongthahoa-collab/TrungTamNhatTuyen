@@ -318,7 +318,7 @@ document.getElementById('classForm').addEventListener('submit', function(e) {
   const spw = parseInt(spwField.value, 10);
   const rowCount = document.querySelectorAll('.sched-row').length;
   if (spw && spw !== rowCount) {
-    alert('Vui lòng kiểm tra lại Lịch học');
+    showMessage('Vui lòng kiểm tra lại Lịch học');
     e.preventDefault();
   }
 });

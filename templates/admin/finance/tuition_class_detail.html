@@ -601,7 +601,7 @@ function exportTuitionCardAsImage(captureEl, filename, btn) {
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     })
     .catch(() => {
-      alert('Không xuất được ảnh hoặc QR chưa tải xong. Vui lòng thử lại.');
+      showMessage('Không xuất được ảnh hoặc QR chưa tải xong. Vui lòng thử lại.');
     })
     .finally(() => {
       btn.disabled = false;
@@ -794,13 +794,13 @@ document.getElementById('btnCopyTuitionCard').addEventListener('click', function
     .then(canvas => new Promise(resolve => canvas.toBlob(resolve, 'image/png')))
     .then(blob => {
       if (!blob || !navigator.clipboard || !window.ClipboardItem) {
-        alert('Trình duyệt này không hỗ trợ sao chép ảnh — hãy dùng "Tải ảnh thông báo".');
+        showMessage('Trình duyệt này không hỗ trợ sao chép ảnh — hãy dùng "Tải ảnh thông báo".');
         return;
       }
       return navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
     })
     .catch(() => {
-      alert('Không sao chép được ảnh — hãy dùng "Tải ảnh thông báo".');
+      showMessage('Không sao chép được ảnh — hãy dùng "Tải ảnh thông báo".');
     })
     .finally(() => {
       btn.disabled = false;
@@ -853,7 +853,7 @@ function bindTuitionToggle(toggle) {
       .then(res => res.json())
       .then(data => {
         if (!data.success) {
-          alert(data.message || 'Không thể cập nhật trạng thái đã thu.');
+          showMessage(data.message || 'Không thể cập nhật trạng thái đã thu.');
           this.checked = !turningOn;
           this.disabled = false;
           return;
@@ -908,7 +908,7 @@ function bindTuitionToggle(toggle) {
         }
       })
       .catch(() => {
-        alert('Lỗi kết nối — vui lòng thử lại.');
+        showMessage('Lỗi kết nối — vui lòng thử lại.');
         this.checked = !turningOn;
         this.disabled = false;
       });

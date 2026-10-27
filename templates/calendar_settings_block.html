@@ -53,6 +53,6 @@ function copyWebCalLink() {
   el.select();
   el.setSelectionRange(0, 99999);
   navigator.clipboard.writeText(el.value);
-  alert('Đã sao chép liên kết lịch! Dán vào mục "Thêm lịch bằng URL" trên ứng dụng Lịch của bạn.');
+  showMessage('Đã sao chép liên kết lịch! Dán vào mục "Thêm lịch bằng URL" trên ứng dụng Lịch của bạn.');
 }
 </script>

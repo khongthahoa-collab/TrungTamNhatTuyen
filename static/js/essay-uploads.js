@@ -200,7 +200,7 @@
         const totalReserved = Array.from(reservedUploads.values()).reduce((sum, items) => sum + items.size, 0);
         if (cards(panel).length + reserved.size + files.length > 3
             || form.querySelectorAll('[data-image-id]').length + totalReserved + files.length > 10) {
-          alert('Tối đa 3 ảnh/câu và 10 ảnh/bài. Hãy chọn ít ảnh hơn hoặc xóa ảnh đã tải.');
+          window.showMessage('Tối đa 3 ảnh/câu và 10 ảnh/bài. Hãy chọn ít ảnh hơn hoặc xóa ảnh đã tải.');
           return;
         }
         reservedUploads.set(panel, reserved);

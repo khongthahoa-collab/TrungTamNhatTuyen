@@ -777,7 +777,7 @@ function submitContact() {
     .catch(function () {
       btn.disabled = false;
       btn.innerHTML = '<i class="bi bi-send me-1"></i>Gửi yêu cầu';
-      alert('Có lỗi xảy ra. Vui lòng thử lại.');
+      showMessage('Có lỗi xảy ra. Vui lòng thử lại.');
     });
 }
 </script>

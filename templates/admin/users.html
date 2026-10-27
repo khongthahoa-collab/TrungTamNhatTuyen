@@ -402,7 +402,7 @@ document.getElementById('addUserFormEl')?.addEventListener('submit', function(e)
   if (pwd || confirm) {
     if (pwd !== confirm) {
       e.preventDefault();
-      alert('Mật khẩu nhập lại không khớp.');
+      showMessage('Mật khẩu nhập lại không khớp.');
     }
   }
 });

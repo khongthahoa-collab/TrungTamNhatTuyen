@@ -115,12 +115,12 @@ document.getElementById('profileForm').addEventListener('submit', function(e) {
   const confirm = this.confirm_password.value;
   if (pw || confirm) {
     if (pw.length < 6) {
-      alert('Mật khẩu mới phải có ít nhất 6 ký tự.');
+      showMessage('Mật khẩu mới phải có ít nhất 6 ký tự.');
       e.preventDefault();
       return;
     }
     if (pw !== confirm) {
-      alert('Mật khẩu xác nhận không khớp.');
+      showMessage('Mật khẩu xác nhận không khớp.');
       e.preventDefault();
     }
   }

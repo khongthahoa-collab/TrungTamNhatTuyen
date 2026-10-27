@@ -29,7 +29,10 @@ function setup() {
     },
   };
   const context = {
-    window: { dispatchEvent: event => state.events.push(event.type) },
+    window: {
+      dispatchEvent: event => state.events.push(event.type),
+      showMessage: message => state.alerts.push(message),
+    },
     document: {
       hidden: true, hasFocus: () => false,
       getElementById: id => id === 'examForm' ? form : element(),
@@ -45,7 +48,6 @@ function setup() {
     setTimeout: callback => { state.timers.set(++timerId, callback); return timerId; },
     clearTimeout: id => state.timers.delete(id),
     Event: class { constructor(type) { this.type = type; } },
-    alert: message => state.alerts.push(message),
     console,
     createImageBitmap: async () => ({
       width: state.width || 4000, height: state.height || 3000,

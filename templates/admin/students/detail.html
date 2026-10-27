@@ -807,7 +807,7 @@ document.getElementById('btnStudentTuitionExport')?.addEventListener('click', fu
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     })
     .catch(() => {
-      alert('Không xuất được ảnh hoặc QR chưa tải xong. Vui lòng thử lại.');
+      showMessage('Không xuất được ảnh hoặc QR chưa tải xong. Vui lòng thử lại.');
     })
     .finally(() => {
       btn.disabled = false;

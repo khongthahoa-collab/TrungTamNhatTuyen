@@ -267,7 +267,7 @@ document.getElementById('saveBtn')?.addEventListener('click', async function () 
   });
 
   if (attendance.length === 0) {
-    alert('Vui lòng chọn trạng thái cho ít nhất một học sinh!');
+    showMessage('Vui lòng chọn trạng thái cho ít nhất một học sinh!');
     btn.disabled = false;
     btn.innerHTML = '<i class="bi bi-save me-2"></i>Lưu Điểm Danh';
     return;
@@ -314,10 +314,10 @@ document.getElementById('saveBtn')?.addEventListener('click', async function () 
       if (s.zalo_sent) document.getElementById('smZaloAlert').classList.remove('d-none');
       new bootstrap.Modal(document.getElementById('summaryModal')).show();
     } else {
-      alert('Lỗi: ' + (data.error || 'Không xác định'));
+      showMessage('Lỗi: ' + (data.error || 'Không xác định'));
     }
   } catch (err) {
-    alert('Lỗi kết nối, vui lòng thử lại.');
+    showMessage('Lỗi kết nối, vui lòng thử lại.');
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<i class="bi bi-save me-2"></i>Lưu Điểm Danh';
