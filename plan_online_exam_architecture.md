@@ -11,6 +11,9 @@
 - Thao tac tung dong/the dung `.action-icon-btn` 44x44px: but xanh de sua,
   thung rac do de xoa, con mat cho quyen chi xem. Moi nut co `title` va
   `aria-label`; icon trang tri co `aria-hidden="true"`.
+- Rieng trang tai khoan Admin dung `.acct-action-btn` tron 36px dong bo
+  voi nut chia khoa: but = thong tin, khien-khoa = phan quyen,
+  chia khoa = mat khau, nguoi = trang thai, thung rac = xoa.
 - Giu icon + chu trong menu, xoa hang loat, thao tac quan trong tren
   trang chi tiet va cac nut xac nhan. Xoa bo loc khong dung thung rac.
   Khong doi endpoint, CSRF, phan quyen hay buoc xac nhan xoa.
@@ -20,6 +23,9 @@
 - Nhan A/B/C/D nam ngay duoi cum tu gach chan, cac lua chon nam tren
   mot hang ben duoi cau. Soan de/xem truoc va ket qua dung cung bo cuc;
   ket qua phan biet dap an dung va dap an da chon.
+- Trang lam bai co bon nut radio chi ghi A/B/C/D, khong lap cum tu.
+  Nhom chon co legend, giu bon cot tren mobile va vung bam toi thieu
+  44px theo chieu cao; dap an dang chon duoc to nen va khoi phuc tu ban luu.
 - Khong doi cu phap `[A:...]`, `[*B:...]`, du lieu dap an hay cach cham.
   De cu co nhan E/F van duoc giu. Ban lam bai khong tiet lo dau *.
 

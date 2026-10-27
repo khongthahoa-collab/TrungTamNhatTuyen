@@ -8,6 +8,15 @@
 .exam-error-choices { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }
 .exam-error-choices .btn { min-width: 3rem; }
 .exam-error-choices .is-selected { outline: 2px solid currentColor; outline-offset: 2px; }
+.exam-error-input { min-width: 0; margin-top: .75rem; }
+.exam-error-input .exam-error-choices { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 0; }
+.exam-error-input .exam-choice-button { min-width: 0; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+.exam-error-input .btn-check:checked + .btn {
+  color: #fff;
+  background-color: var(--nt-primary-dark);
+  border-color: var(--nt-primary-dark);
+  font-weight: 700;
+}
 
 .action-icon-btn {
   display: inline-flex;

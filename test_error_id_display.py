@@ -62,3 +62,15 @@ class ErrorIdDisplayTests(unittest.TestCase):
             )
             self.assertEqual(html.count('<span class="btn btn-sm'), 6)
             self.assertIn('exam-error-choices', html)
+
+    def test_student_input_has_four_options_and_restores_saved_answer(self):
+        with self.app.test_request_context():
+            html = render_template_string(
+                "{% from 'exams/_macros.html' import render_error_id_input %}"
+                "{{ render_error_id_input(['A','B','C','D'], 'g0_q1', 'C', 1) }}",
+            )
+            self.assertEqual(html.count('type="radio"'), 4)
+            self.assertEqual(html.count('name="g0_q1"'), 4)
+            self.assertEqual(html.count('checked'), 1)
+            self.assertIn('id="g0_q1_C" value="C"', html)
+            self.assertIn('Chọn một đáp án cho câu 1', html)

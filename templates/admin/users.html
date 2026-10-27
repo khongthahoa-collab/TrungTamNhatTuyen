@@ -172,7 +172,7 @@
           <td class="text-end text-nowrap">
             <div class="d-flex align-items-center justify-content-end gap-2">
               <!-- Edit profile -->
-              <button class="btn btn-outline-primary btn-sm action-icon-btn"
+              <button type="button" class="acct-action-btn acct-action-edit"
                       title="Sửa thông tin {{ u.full_name }}" aria-label="Sửa thông tin {{ u.full_name }}"
                       data-bs-toggle="modal"
                       data-bs-target="#userEditModal"
@@ -184,24 +184,24 @@
               </button>
               {% if current_user.is_master and u.id != current_user.id %}
               <!-- Edit permissions -->
-              <button class="btn btn-outline-primary btn-sm action-icon-btn"
-                      title="Sửa quyền {{ u.full_name }}" aria-label="Sửa quyền {{ u.full_name }}"
+              <button type="button" class="acct-action-btn acct-action-perm"
+                      title="Phân quyền {{ u.full_name }}" aria-label="Phân quyền {{ u.full_name }}"
                       data-bs-toggle="modal"
                       data-bs-target="#permEditModal"
                       data-user-id="{{ u.id }}"
                       data-user-name="{{ u.full_name }}"
                       data-user-group-id="{{ u.permission_group_id or '' }}">
-                <i class="bi bi-pencil" aria-hidden="true"></i>
+                <i class="bi bi-shield-lock" aria-hidden="true"></i>
               </button>
               {% endif %}
               <!-- Reset password -->
-              <button class="acct-action-btn acct-action-pwd"
-                      title="Đặt lại mật khẩu"
+              <button type="button" class="acct-action-btn acct-action-pwd"
+                      title="Đặt lại mật khẩu {{ u.full_name }}" aria-label="Đặt lại mật khẩu {{ u.full_name }}"
                       data-bs-toggle="modal"
                       data-bs-target="#resetPwdModal"
                       data-user-id="{{ u.id }}"
                       data-user-name="{{ u.full_name }}">
-                <i class="bi bi-key"></i>
+                <i class="bi bi-key" aria-hidden="true"></i>
               </button>
               <!-- Toggle active -->
               <form method="post"
@@ -210,9 +210,10 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit"
                         class="acct-action-btn acct-action-toggle"
-                        title="{% if u.is_active %}Vô hiệu hóa{% else %}Kích hoạt{% endif %}"
+                        title="{{ 'Vô hiệu hóa' if u.is_active else 'Kích hoạt' }} tài khoản {{ u.full_name }}"
+                        aria-label="{{ 'Vô hiệu hóa' if u.is_active else 'Kích hoạt' }} tài khoản {{ u.full_name }}"
                         onclick="return confirm('{{ 'Vô hiệu hóa' if u.is_active else 'Kích hoạt' }} tài khoản {{ u.full_name }}?')">
-                  <i class="bi {% if u.is_active %}bi-person-x{% else %}bi-person-check{% endif %}"></i>
+                  <i class="bi {% if u.is_active %}bi-person-x{% else %}bi-person-check{% endif %}" aria-hidden="true"></i>
                 </button>
               </form>
               {% if current_user.is_master and u.id != current_user.id %}
@@ -222,7 +223,7 @@
                     class="d-inline">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit"
-                        class="btn btn-outline-danger btn-sm action-icon-btn"
+                        class="acct-action-btn acct-action-delete"
                         title="Xóa tài khoản {{ u.full_name }}" aria-label="Xóa tài khoản {{ u.full_name }}"
                         onclick="return confirm('Xoá tài khoản {{ u.full_name }}? Tài khoản sẽ bị ẩn khỏi danh sách nhưng dữ liệu liên quan vẫn được giữ nguyên.')">
                   <i class="bi bi-trash" aria-hidden="true"></i>

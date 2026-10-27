@@ -37,6 +37,20 @@
   {% endif %}
 {% endmacro %}
 
+{% macro render_error_id_input(labels, answer_key, selected='', position=1) %}
+<fieldset class="exam-error-input">
+  <legend class="small text-muted mb-2">Chọn một đáp án cho câu {{ position }}</legend>
+  <div class="exam-error-choices">
+    {% for label in labels %}
+    <input type="radio" class="btn-check" name="{{ answer_key }}"
+           {% if selected == label %}checked{% endif %}
+           id="{{ answer_key }}_{{ label }}" value="{{ label }}">
+    <label class="btn btn-outline-primary exam-choice-button" for="{{ answer_key }}_{{ label }}">{{ label }}</label>
+    {% endfor %}
+  </div>
+</fieldset>
+{% endmacro %}
+
 {% macro render_error_id_choices(text, correct='', selected='') %}
 <div class="exam-error-choices" role="group" aria-label="Các lựa chọn tìm lỗi sai">
   {% for label in text | error_id_labels %}

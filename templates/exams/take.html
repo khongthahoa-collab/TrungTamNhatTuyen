@@ -1,4 +1,5 @@
 {% extends 'student/base.html' if current_user.is_student else 'parent/base.html' %}
+{% from 'exams/_macros.html' import render_error_id_input %}
 {% block extra_head %}{% include 'exams/_mathjax.html' %}{% endblock %}
 {% block content %}
 <div class="container py-3 exam-take-page">
@@ -148,14 +149,7 @@
         {% elif group.type == 'error_id' %}
           {% set answer_key = 'g' ~ group.index ~ '_q' ~ q.position %}
           <div class="fw-semibold mb-2 exam-question-title">Câu {{ q.position }}. {{ q.text | error_id_render(false) }}</div>
-          <div class="exam-error-choices" role="group" aria-label="Chọn lỗi sai cho câu {{ q.position }}">
-            {% for label in q.labels %}
-            <input type="radio" class="btn-check" name="{{ answer_key }}"
-                   {% if draft_answers.get(answer_key, '') == label %}checked{% endif %}
-                   id="g{{ group.index }}_q{{ q.position }}_{{ label }}" value="{{ label }}">
-            <label class="btn btn-outline-primary exam-choice-button" for="g{{ group.index }}_q{{ q.position }}_{{ label }}">{{ label }}</label>
-            {% endfor %}
-          </div>
+          {{ render_error_id_input(q.labels, answer_key, draft_answers.get(answer_key, ''), q.position) }}
         {% endif %}
       </div>
     </div>

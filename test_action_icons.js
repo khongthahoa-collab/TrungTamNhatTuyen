@@ -35,7 +35,7 @@ with app.app_context():
         session['_user_id'] = str(admin.id)
         session['_fresh'] = True
     pages = {}
-    for path in ['/admin/exam/content-templates', '/admin/settings/bank-accounts', '/admin/rooms']:
+    for path in ['/admin/exam/content-templates', '/admin/settings/bank-accounts', '/admin/rooms', '/admin/accounts']:
         response = client.get(path)
         assert response.status_code == 200
         pages[path] = response.get_data(as_text=True)
@@ -68,7 +68,8 @@ const bootstrap = execFileSync('curl', [
       for (const width of [320, 375, 768, 1440]) {
         await page.setViewportSize({ width, height: 900 });
         await page.waitForTimeout(350);
-        const actions = page.locator('.action-icon-btn');
+        const accountPage = path === '/admin/accounts';
+        const actions = page.locator(accountPage ? '.acct-action-btn' : '.action-icon-btn');
         assert.ok(await actions.count() > 0);
         for (let i = 0; i < await actions.count(); i++) {
           const action = actions.nth(i);
@@ -80,13 +81,43 @@ const bootstrap = execFileSync('curl', [
               title: element.title, label: element.getAttribute('aria-label'),
               text: element.textContent.trim(),
               hidden: element.querySelector('i')?.getAttribute('aria-hidden'),
+              radius: getComputedStyle(element).borderRadius,
             };
           });
-          assert.ok(details.w >= 44 && details.h >= 44, JSON.stringify({ path, width, details }));
-          assert.ok(details.x >= 0 && details.right <= width, JSON.stringify({ path, width, details }));
+          const minSize = accountPage ? 36 : 44;
+          assert.ok(details.w >= minSize && details.h >= minSize, JSON.stringify({ path, width, details }));
+          if (accountPage) {
+            assert.equal(details.radius, '50%');
+          } else {
+            assert.ok(details.x >= 0 && details.right <= width, JSON.stringify({ path, width, details }));
+          }
           assert.ok(details.title && details.label);
           assert.equal(details.text, '');
           assert.equal(details.hidden, 'true');
+        }
+        if (path === '/admin/accounts') {
+          const row = page.locator('tbody tr').filter({ hasText: 'reader' });
+          for (const [icon, target] of [
+            ['bi-pencil', '#userEditModal'],
+            ['bi-shield-lock', '#permEditModal'],
+            ['bi-key', '#resetPwdModal'],
+          ]) {
+            const button = row.locator(`button:has(.${icon})`);
+            assert.equal(await button.count(), 1);
+            assert.equal(await button.getAttribute('data-bs-target'), target);
+            assert.ok(await button.getAttribute('data-user-id'));
+          }
+          assert.equal(await row.locator('.bi-pencil').count(), 1);
+          for (const suffix of ['/lock', '/delete']) {
+            const form = row.locator(`form[action$="${suffix}"]`);
+            assert.equal(await form.locator('[name="csrf_token"]').count(), 1);
+            assert.ok((await form.locator('button').getAttribute('onclick')).includes('confirm('));
+          }
+          const selfRow = page.locator('tbody tr').filter({
+            has: page.locator('td').filter({ hasText: /^master$/ }),
+          });
+          assert.equal(await selfRow.count(), 1);
+          assert.equal(await selfRow.locator('.bi-shield-lock, .bi-trash').count(), 0);
         }
       }
       if (path === 'reader') {
@@ -101,7 +132,7 @@ const bootstrap = execFileSync('curl', [
         assert.ok((await page.locator('a.action-icon-btn').getAttribute('href')).endsWith('/edit'));
       }
     }
-    console.log('PASS: all Jinja templates compile; icon actions are 44px at 320–1440px with title/ARIA, no clipped controls, read-only eye/no delete, unchanged edit links/delete confirmation/CSRF.');
+    console.log('PASS: Jinja compilation; 44px generic icons and 36px round account icons at 320–1440px; distinct profile/permission/password controls, title/ARIA, self-account restrictions, unchanged modal targets/confirmation/CSRF.');
   } finally {
     await browser.close();
   }
