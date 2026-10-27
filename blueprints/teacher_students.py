@@ -8,7 +8,7 @@ from flask_login import current_user, login_required
 from blueprints.teacher import teacher_bp, require_teacher
 from blueprints.exams_shared import exam_is_assigned_to_student
 from extensions import db
-from models import Attendance, Class, Enrollment, Exam, ExamAttempt, Homework, HomeworkRecord, Schedule, Score, ScoreType, Student
+from models import Attendance, AttendanceStatus, Class, Enrollment, Exam, ExamAttempt, Homework, HomeworkRecord, Schedule, Score, ScoreType, Student
 from services.attendance_warnings import get_absence_warnings
 
 
@@ -114,6 +114,7 @@ def student_learning(student_id):
             Schedule.date, Schedule.start_time, Class.name.label('class_name'), Attendance.status,
         ).join(Schedule, Attendance.schedule_id == Schedule.id).join(Class, Schedule.class_id == Class.id).filter(
             Attendance.student_id == student_id, Schedule.class_id.in_(class_ids),
+            Attendance.status == AttendanceStatus.ABSENT,
             Schedule.is_cancelled.is_(False), Schedule.date <= date.today(),
         ).order_by(Schedule.date.desc(), Schedule.start_time.desc(), Schedule.id.desc()).limit(50).all()
     if can_scores:

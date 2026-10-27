@@ -62,6 +62,10 @@
   `attendance`, `scores`, `exams` tai server. Xem 50 ban ghi gan nhat moi muc:
   diem danh, diem trung tam, bai tap; chua ghi nhan khong coi la khong lam,
   diem 0 khong coi la thieu diem. Canh bao nghi dung service thang duong lich.
+- Danh sach Chuyen can chi hien toi da 50 lan vang khong phep gan nhat,
+  loc tai SQL truoc limit; khong liet ke co mat, vang co phep hay di tre.
+  Quy tac canh bao thang van tinh ca vang co phep va khong phep.
+  Bo hai dong mo ta pham vi du lieu/thi online khoi giao dien chi tiet.
 - Thi online chi hien de da dang do chinh GV tao va giao cho hoc sinh trong
   pham vi lop phu trach; trang thai theo luot gan nhat, cho cham hien rieng.
   Link ket qua dung man hinh hien co de tranh hien diem luu cu/sai dap an moi.

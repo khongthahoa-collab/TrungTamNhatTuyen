@@ -168,6 +168,27 @@ class TeacherStudentsTests(unittest.TestCase):
         self.assertEqual(set(context['memberships'][0]._mapping),
                          {'id', 'full_name', 'current_grade', 'class_id', 'class_name'})
 
+    def test_attendance_detail_only_lists_unexcused_before_limit(self):
+        from models import Attendance
+        path = f'/teacher/students/{self.student.id}'
+        self.assertIn('Không có buổi vắng không phép.', self.client.get(path).get_data(as_text=True))
+        absence = AttendanceWarningTests.session(self, 0, 'absent')
+        for index in range(52):
+            AttendanceWarningTests.session(self, 1, ('present', 'excused', 'late')[index % 3])
+        with patch('blueprints.teacher_students.render_template', return_value='OK') as render:
+            self.assertEqual(self.client.get(path).status_code, 200)
+        attendance = render.call_args.kwargs['attendance']
+        self.assertEqual(len(attendance), 1)
+        self.assertEqual(attendance[0].status, 'absent')
+        self.assertEqual(attendance[0].date, absence.date)
+        html = self.client.get(path).get_data(as_text=True)
+        self.assertIn('Vắng không phép', html)
+        self.assertNotIn('Chỉ hiển thị dữ liệu học tập của lớp bạn đang phụ trách.', html)
+        self.assertNotIn('Các đề bạn tạo và đã giao cho học sinh.', html)
+        Attendance.query.filter_by(schedule_id=absence.id).one().status = 'present'
+        db.session.commit()
+        self.assertIn('Không có buổi vắng không phép.', self.client.get(path).get_data(as_text=True))
+
     def test_exam_scope_and_pending_not_presented_as_zero(self):
         self.populate()
         other_user = User(username='other', role='teacher', password_hash='test')
