@@ -4,6 +4,7 @@
 {% block title %}Chi tiết bài làm – Giáo viên – Nhật Tuyền{% endblock %}
 {% block extra_head %}
 {% include 'exams/_mathjax.html' %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/exam-editor.css') }}">
 <style>
   .attempt-side-title {
     background: var(--nt-primary-50);
@@ -19,6 +20,8 @@
   .attempt-tabs .nav-link.active { color: var(--nt-primary-deeper); font-weight: 600; }
   .attempt-question { border: 1px solid var(--nt-border-light); border-radius: var(--nt-radius-lg); }
   .attempt-question-text { min-width: 0; overflow-wrap: anywhere; }
+  .attempt-question { scroll-margin-block: 90px; }
+  .attempt-question:focus { outline: 2px solid var(--nt-primary); outline-offset: 2px; }
   .attempt-filters { display: flex; flex-wrap: wrap; gap: .5rem; }
   .attempt-filters .btn { min-height: 44px; }
   .attempt-question[hidden], [data-attempt-group][hidden],
@@ -199,6 +202,24 @@
         </ul>
         {% endif %}
         <div class="px-3 pt-3">
+          <div class="exam-jump-bar mb-3" id="examJumpBar" role="search" aria-label="Điều hướng đến câu hỏi">
+            <div class="exam-jump-field">
+              <label for="examJumpQuestion" class="exam-jump-label">Đi đến câu</label>
+              <input type="number" id="examJumpQuestion" class="exam-jump-input" min="1" value="1" inputmode="numeric">
+            </div>
+            <div class="exam-jump-field exam-jump-group">
+              <label for="examJumpGroup" class="exam-jump-label">Nhóm</label>
+              <select id="examJumpGroup" class="exam-jump-select" aria-label="Chọn nhóm câu hỏi">
+                {% for group in groups %}
+                {% if group.questions %}
+                <option value="{{ group.group_index }}" title="{{ group.title }}">{{ group.group_index + 1 }}</option>
+                {% endif %}
+                {% endfor %}
+              </select>
+            </div>
+            <button type="button" id="examJumpGo" class="exam-jump-go">Đến <i class="bi bi-arrow-right" aria-hidden="true"></i></button>
+            <span id="examJumpHint" class="exam-jump-hint" role="status"></span>
+          </div>
           <div class="attempt-filters" role="group" aria-label="Lọc câu hỏi">
             {% for value, label in [('all', 'Tất cả'), ('correct', 'Đúng'), ('wrong', 'Sai')] %}
             <button type="button" class="btn btn-sm {{ 'btn-primary' if value == 'all' else 'btn-outline-primary' }}"
@@ -218,7 +239,7 @@
             <p class="small text-muted" data-attempt-review>Nhập điểm từng câu theo thang điểm tối đa. Có thể lưu từng câu; câu chưa nhập sẽ tiếp tục chờ chấm.</p>
             {% endif %}
             {% for group in pane_groups %}
-            <div data-attempt-group>
+            <div data-attempt-group="{{ group.group_index }}">
             <h2 class="h6 fw-bold text-uppercase mb-3 {% if not loop.first %}mt-4{% endif %}">{{ group.title or 'Phần ' ~ loop.index }}</h2>
             {% for question in group.questions %}
               {% set state = 'blank' %}
@@ -238,7 +259,7 @@
                 {% set state = 'graded' if question.essay_score is not none else 'pending' %}
               {% endif %}
               <article id="attempt-question-g{{ group.group_index }}-q{{ question.position }}"
-                       data-attempt-state="{{ state }}"
+                       data-attempt-state="{{ state }}" data-question-position="{{ question.position }}" tabindex="-1"
                        class="attempt-question p-3 mb-3 {{ {'correct': 'is-correct', 'wrong': 'is-wrong', 'blank': 'is-blank', 'partial': 'is-wrong'}.get(state, '') }}">
                 <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
                   <div class="fw-semibold attempt-question-text">Câu {{ question.position }}. <span class="exam-math">{{ question.text | error_id_render }}</span></div>

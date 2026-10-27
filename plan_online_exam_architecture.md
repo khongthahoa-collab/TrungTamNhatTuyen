@@ -42,6 +42,9 @@
 ### Kiem tra responsive (27/10/2026)
 
 - Chi tiet bai lam co loc Tat ca/Dung/Sai, dem theo tab dang xem.
+  Thanh Di den cau/Nhom dung lai CSS editor, danh so theo bai HS nhan.
+  Nut Den/Enter mo dung tab, focus va cuon den cau; neu loc an cau thi
+  ve Tat ca. So cau khong hop le hien thong bao, khong tu nhay cau khac.
   Sai gom wrong/partial/blank, khong gom tu luan pending/graded.
   De goc la che do chi xem cau hoi/lua chon theo thu tu HS da nhan,
   an bai lam, dap an, loi giai va thao tac cham/sua; khong doi du lieu de.

@@ -44,7 +44,10 @@ try:
             'teacher/exam_attempt_detail.html', exam=t.exam,
             attempt=SimpleNamespace(id=1, student=t.student, submitted_at=None, cheat_count=0, was_flagged=False),
             result={}, duration=None, sections=[], groups=[dict(group_index=0,
-            title='Synthetic questions', type='short_answer', questions=[question])])
+            title='Synthetic questions', type='short_answer', questions=[question]),
+            dict(group_index=1, title='Essay', type='essay', questions=[dict(
+                position=1, source_index=0, text='Essay question', student_answer='Answer',
+                images=[], essay_score=None, essay_max=10, key='g1_q0', explanation='')])])
     admin = User(username='responsive_admin', role='admin', is_master=True, password_hash='test')
     db.session.add(admin)
     db.session.commit()
@@ -95,12 +98,15 @@ assert.equal(fixture.status, 0, fixture.stderr);
 const pages = JSON.parse(fixture.stdout);
 const css = execFileSync('curl', ['-fsSL', '--max-time', '30',
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css'], { encoding: 'utf8' });
+const bootstrapJs = execFileSync('curl', ['-fsSL', '--max-time', '30',
+  'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js'], { encoding: 'utf8' });
 
 (async () => {
   const browser = await chromium.launch();
   const failures = [];
   try {
     const page = await browser.newPage();
+    page.on('pageerror', error => console.error(error.message));
     await page.route('**/*', route => route.abort());
     for (const [path, html] of Object.entries(pages)) {
       const localCss = [...html.matchAll(/href="\/static\/([^"?]+\.css)(?:\?[^"]*)?"/g)]
@@ -125,7 +131,7 @@ const css = execFileSync('curl', ['-fsSL', '--max-time', '30',
           const bounds = await edit.boundingBox();
           assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= width,
             `Question edit button must stay on-screen at ${width}px`);
-          assert.ok(await page.locator('.attempt-question-text').evaluate(el =>
+          assert.ok(await page.locator('#attempt-question-g0-q1 .attempt-question-text').evaluate(el =>
             el.scrollWidth <= el.clientWidth + 1), `Question text must wrap at ${width}px`);
         }
         if (path === 'teacher-preview-heading') {
@@ -153,9 +159,29 @@ const css = execFileSync('curl', ['-fsSL', '--max-time', '30',
           assert.equal(await page.locator('[data-attempt-state]:visible').count(), count);
           if (filter === 'original') {
             assert.equal(await page.locator('[data-attempt-review]:visible').count(), 0);
-            assert.equal(await page.locator('[data-attempt-original]:not([hidden])').count(), 6);
+            assert.equal(await page.locator('.tab-pane.active [data-attempt-original]:not([hidden])').count(), 6);
           }
         }
+          await page.addScriptTag({ content: bootstrapJs });
+          await page.locator('[data-attempt-filter="wrong"]').click();
+          await page.locator('#examJumpQuestion').fill('1');
+          await page.locator('#examJumpGo').click();
+          assert.equal(await page.locator('[data-attempt-filter="all"]').getAttribute('aria-pressed'), 'true');
+          assert.equal(await page.evaluate(() => document.activeElement.id), 'attempt-question-g0-q1');
+          await page.locator('#examJumpGroup').selectOption({ value: '1' });
+          assert.equal(await page.locator('#examJumpQuestion').getAttribute('max'), '1');
+          await page.locator('#examJumpQuestion').fill('9');
+          await page.locator('#examJumpGo').click();
+          assert.ok((await page.locator('#examJumpHint').textContent()).includes('1 đến 1'));
+          await page.locator('#examJumpQuestion').fill('1');
+          await page.locator('#examJumpGroup').selectOption({ value: '1' });
+          assert.equal(await page.locator('#examJumpGroup').inputValue(), '1');
+          await page.locator('#examJumpGo').click();
+          await page.waitForFunction(() => document.activeElement.id === 'attempt-question-g1-q1');
+          assert.equal(await page.locator('#pane-essay').evaluate(el => el.classList.contains('active')), true);
+          await page.locator('#examJumpGroup').selectOption({ value: '0' });
+          await page.locator('#examJumpQuestion').press('Enter');
+          await page.waitForFunction(() => document.activeElement.id === 'attempt-question-g0-q1');
       }
     }
     assert.deepEqual(failures, [], JSON.stringify(failures, null, 2));

@@ -35,5 +35,51 @@
     update();
   }));
   document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tab => tab.addEventListener('shown.bs.tab', update));
+  const jumpGroup = document.getElementById('examJumpGroup');
+  const jumpQuestion = document.getElementById('examJumpQuestion');
+  const jumpGo = document.getElementById('examJumpGo');
+  const hint = document.getElementById('examJumpHint');
+  function groupQuestions() {
+    const group = [...document.querySelectorAll('[data-attempt-group]')]
+      .find(el => el.dataset.attemptGroup === jumpGroup.value);
+    return group ? [...group.querySelectorAll('[data-question-position]')] : [];
+  }
+  function updateJumpLimit() {
+    const questions = groupQuestions();
+    jumpQuestion.max = String(Math.max(0, ...questions.map(q => Number(q.dataset.questionPosition))));
+    jumpGo.disabled = questions.length === 0;
+    hint.textContent = '';
+  }
+  function jump() {
+    const number = Number(jumpQuestion.value);
+    const target = groupQuestions().find(q => Number(q.dataset.questionPosition) === number);
+    if (!Number.isInteger(number) || !target) {
+      hint.textContent = `Nhập số câu từ 1 đến ${jumpQuestion.max} trong nhóm đã chọn.`;
+      jumpQuestion.focus();
+      return;
+    }
+    hint.textContent = '';
+    if (!matches(target.dataset.attemptState, selected)) selected = 'all';
+    const pane = target.closest('.tab-pane');
+    const reveal = () => {
+      update();
+      target.focus({ preventScroll: true });
+      target.scrollIntoView({ block: 'start', behavior: 'auto' });
+    };
+    if (!pane.classList.contains('active')) {
+      const tab = document.querySelector(`[data-bs-target="#${pane.id}"]`);
+      tab.addEventListener('shown.bs.tab', () => requestAnimationFrame(reveal), { once: true });
+      bootstrap.Tab.getOrCreateInstance(tab).show();
+    } else reveal();
+  }
+  jumpGroup.addEventListener('change', updateJumpLimit);
+  jumpGo.addEventListener('click', jump);
+  jumpQuestion.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      jump();
+    }
+  });
+  updateJumpLimit();
   update();
 })();
