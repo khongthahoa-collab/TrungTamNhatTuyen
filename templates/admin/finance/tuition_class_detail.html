@@ -394,7 +394,9 @@
   <div class="tuition-transfer-box text-center">
     <div class="fw-bold text-primary mb-2">THÔNG TIN CHUYỂN KHOẢN</div>
     {% if active_bank_accounts %}
-    <img id="groupQrImg" src="{{ group_qr_by_account.get(active_bank_accounts[0].id, '') }}" alt="VietQR" class="tuition-qr-img mb-2" crossorigin="anonymous">
+    <img id="groupQrImg" src="{{ group_qr_by_account.get(active_bank_accounts[0].id, '') }}" alt="VietQR" class="tuition-qr-img mb-2" crossorigin="anonymous"
+         onerror="this.nextElementSibling.classList.remove('d-none')" onload="this.nextElementSibling.classList.add('d-none')">
+    <div class="small text-danger d-none" role="alert">Không tải được QR. Vui lòng mở lại thông báo hoặc thử lại sau.</div>
     {% endif %}
     <div class="small mb-1">Ngân hàng: <strong id="groupBankName">{{ active_bank_accounts[0].bank_name if active_bank_accounts else '—' }}</strong></div>
     <div class="small mb-1">Số tài khoản: <strong id="groupAccountNumber">{{ active_bank_accounts[0].account_number if active_bank_accounts else '—' }}</strong></div>
@@ -445,7 +447,9 @@
           </div>
           <div class="tuition-transfer-box text-center">
             <div class="fw-bold text-primary mb-2">THÔNG TIN CHUYỂN KHOẢN</div>
-            <img id="itcQrImg" src="" alt="VietQR" class="tuition-qr-img mb-2" crossorigin="anonymous">
+            <img id="itcQrImg" src="" alt="VietQR" class="tuition-qr-img mb-2" crossorigin="anonymous"
+                 onerror="this.nextElementSibling.classList.remove('d-none')" onload="this.nextElementSibling.classList.add('d-none')">
+            <div class="small text-danger d-none" role="alert">Không tải được QR. Vui lòng mở lại thông báo hoặc thử lại sau.</div>
             <div class="small mb-1">Ngân hàng: <strong id="itcBankName">—</strong></div>
             <div class="small mb-1">Số tài khoản: <strong id="itcAccountNumber">—</strong></div>
             <div class="small">Chủ TK: <strong id="itcAccountName">—</strong></div>
@@ -578,9 +582,7 @@ function exportTuitionCardAsImage(captureEl, filename, btn) {
   btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
   const qrImg = captureEl.querySelector('.tuition-qr-img');
-  const ready = qrImg && !qrImg.complete
-    ? new Promise(resolve => { qrImg.onload = resolve; qrImg.onerror = resolve; })
-    : Promise.resolve();
+  const ready = qrImg ? qrImg.decode() : Promise.resolve();
 
   return ready.then(() => html2canvas(captureEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff' }))
     .then(canvas => new Promise(resolve => canvas.toBlob(resolve, 'image/png')))
@@ -597,6 +599,9 @@ function exportTuitionCardAsImage(captureEl, filename, btn) {
       link.href = url;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
+    })
+    .catch(() => {
+      alert('Không xuất được ảnh hoặc QR chưa tải xong. Vui lòng thử lại.');
     })
     .finally(() => {
       btn.disabled = false;
@@ -783,9 +788,7 @@ document.getElementById('btnCopyTuitionCard').addEventListener('click', function
   btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
   const qrImg = captureEl.querySelector('.tuition-qr-img');
-  const ready = qrImg && !qrImg.complete
-    ? new Promise(resolve => { qrImg.onload = resolve; qrImg.onerror = resolve; })
-    : Promise.resolve();
+  const ready = qrImg ? qrImg.decode() : Promise.resolve();
 
   ready.then(() => html2canvas(captureEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff' }))
     .then(canvas => new Promise(resolve => canvas.toBlob(resolve, 'image/png')))

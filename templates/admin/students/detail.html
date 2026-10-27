@@ -685,7 +685,9 @@
       {% if current_unpaid > 0 and active_bank_accounts %}
       <div class="tuition-transfer-box text-center">
         <div class="fw-bold text-primary mb-2">THÔNG TIN CHUYỂN KHOẢN</div>
-        <img src="{{ student_qr_by_account.get(active_bank_accounts[0].id, '') }}" alt="VietQR" class="tuition-qr-img mb-2" crossorigin="anonymous">
+        <img src="{{ student_qr_by_account.get(active_bank_accounts[0].id, '') }}" alt="VietQR" class="tuition-qr-img mb-2" crossorigin="anonymous"
+             onerror="this.nextElementSibling.classList.remove('d-none')" onload="this.nextElementSibling.classList.add('d-none')">
+        <div class="small text-danger d-none" role="alert">Không tải được QR. Vui lòng thử lại sau.</div>
         <div class="small mb-1">Ngân hàng: <strong>{{ active_bank_accounts[0].bank_name }}</strong></div>
         <div class="small mb-1">Số tài khoản: <strong>{{ active_bank_accounts[0].account_number }}</strong></div>
         <div class="small">Chủ TK: <strong>{{ active_bank_accounts[0].account_name }}</strong></div>
@@ -785,9 +787,7 @@ document.getElementById('btnStudentTuitionExport')?.addEventListener('click', fu
   btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
   const qrImg = captureEl.querySelector('.tuition-qr-img');
-  const ready = qrImg && !qrImg.complete
-    ? new Promise(resolve => { qrImg.onload = resolve; qrImg.onerror = resolve; })
-    : Promise.resolve();
+  const ready = qrImg ? qrImg.decode() : Promise.resolve();
 
   ready.then(() => html2canvas(captureEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff' }))
     .then(canvas => new Promise(resolve => canvas.toBlob(resolve, 'image/png')))
@@ -805,6 +805,9 @@ document.getElementById('btnStudentTuitionExport')?.addEventListener('click', fu
       link.href = url;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
+    })
+    .catch(() => {
+      alert('Không xuất được ảnh hoặc QR chưa tải xong. Vui lòng thử lại.');
     })
     .finally(() => {
       btn.disabled = false;

@@ -6,6 +6,19 @@
 
 ## 0. Gia dinh ve chi phi va gioi han
 
+### Anh VietQR trong thong bao hoc phi (27/10/2026)
+
+- Preview va xuat/sao chep anh dung `/admin/tuition/qr-image` cung origin
+  thay vi tai truc tiep tu VietQR, tranh loi khi upstream thieu header CORS.
+  URL nguon duoc server ky, chi admin co quyen hoc phi hoac hoc sinh moi
+  doc duoc; khong nhan URL tuy y va khong theo redirect.
+- Timeout ket noi/doc 3/8 giay, gioi han 2 MB va 4 trieu pixel, chi nhan
+  anh PNG/JPEG hop le. Loi upstream tra 502, ghi log khong kem URL/thong tin
+  tai khoan. Trinh duyet hien loi va chan xuat anh khi QR khong tai duoc.
+- Ap dung cho thong bao ca nhan/nhom tren trang hoc phi va anh hoc phi
+  trong ho so hoc sinh; khong thay doi tai khoan, so tien hay noi dung CK.
+  VietQR van la dich vu ngoai; can mang tu server den `img.vietqr.io`.
+
 ### Chuyen nam hoc va tai su dung hoc lieu (27/10/2026)
 
 - **MAC DINH TAT:** `ACADEMIC_ROLLOVER_ENABLED=0` (mac dinh khi khong dat).

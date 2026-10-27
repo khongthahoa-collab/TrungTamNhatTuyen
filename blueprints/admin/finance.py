@@ -17,6 +17,53 @@ from services.academic_year_service import FrozenPeriodError, is_period_writable
 from blueprints.pagination_utils import paginate_list
 
 
+@admin_bp.get('/tuition/qr-image')
+@login_required
+@require_admin
+def vietqr_image():
+    import io
+    import warnings
+    import requests
+    from flask import Response
+    from itsdangerous import BadSignature
+    from PIL import Image, UnidentifiedImageError
+    from services.vietqr_image import image_signer
+
+    if not (current_user.can_access('tuition') or current_user.can_access('students')):
+        abort(403)
+    try:
+        source = image_signer().loads(request.args.get('token', ''))
+    except BadSignature:
+        abort(400, description='Yêu cầu ảnh QR không hợp lệ.')
+    if not isinstance(source, str) or not source.startswith('https://img.vietqr.io/image/'):
+        abort(400, description='Nguồn ảnh QR không hợp lệ.')
+    try:
+        with requests.get(source, timeout=(3, 8), stream=True, allow_redirects=False) as upstream:
+            if upstream.status_code != 200:
+                raise ValueError(f'VietQR HTTP {upstream.status_code}')
+            content = bytearray()
+            for chunk in upstream.iter_content(64 * 1024):
+                content.extend(chunk)
+                if len(content) > 2 * 1024 * 1024:
+                    raise ValueError('VietQR image exceeds size limit')
+        with warnings.catch_warnings():
+            warnings.simplefilter('error', Image.DecompressionBombWarning)
+            with Image.open(io.BytesIO(content)) as image:
+                if image.format not in ('JPEG', 'PNG') or image.width * image.height > 4_000_000:
+                    raise ValueError('Invalid VietQR image format or dimensions')
+                mimetype = Image.MIME[image.format]
+                image.verify()
+    except (requests.RequestException, ValueError, OSError, UnidentifiedImageError,
+            Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
+        from flask import current_app
+        current_app.logger.warning('VietQR image unavailable (%s)', type(exc).__name__)
+        abort(502, description='Không tải được ảnh VietQR. Vui lòng thử lại sau.')
+    return Response(bytes(content), mimetype=mimetype, headers={
+        'Cache-Control': 'private, no-store',
+        'X-Content-Type-Options': 'nosniff',
+    })
+
+
 # ────────────────────────────────────────────────────────────────
 # Tuition
 # ────────────────────────────────────────────────────────────────
@@ -261,7 +308,8 @@ def tuition_class_detail(class_id):
     )
 
     from models import BankAccount
-    from services.tuition_service import build_vietqr_url, tuition_transfer_class_label
+    from services.tuition_service import tuition_transfer_class_label
+    from services.vietqr_image import build_vietqr_image_url as build_vietqr_url
     active_bank_accounts = BankAccount.query.filter_by(is_active=True).order_by(BankAccount.is_default.desc(), BankAccount.id).all()
     cls_transfer_name = tuition_transfer_class_label(cls)
     # 1 QR sẵn cho từng tài khoản đang bật — JS đổi hiển thị khi admin chọn

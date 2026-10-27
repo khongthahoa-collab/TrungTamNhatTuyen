@@ -516,7 +516,7 @@ def student_detail(student_id):
     )
 
     from models import BankAccount
-    from services.tuition_service import build_vietqr_url
+    from services.vietqr_image import build_vietqr_image_url as build_vietqr_url
     active_bank_accounts = BankAccount.query.filter_by(is_active=True).order_by(BankAccount.is_default.desc(), BankAccount.id).all()
     student_qr_by_account = {
         acc.id: build_vietqr_url(acc.bank_id, acc.account_number, acc.account_name,
