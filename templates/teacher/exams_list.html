@@ -56,7 +56,9 @@
         </select>
       </div>
       <div class="col-12 col-md-auto ms-md-auto d-flex gap-2 justify-content-end align-items-center">
-        <button type="submit" class="btn btn-primary btn-sm">Lọc</button>
+        <button type="submit" class="btn btn-sm action-icon-btn icon-action-plain" title="Lọc" aria-label="Lọc">
+          <i class="bi bi-funnel" aria-hidden="true"></i>
+        </button>
         <a aria-label="Xóa lọc" href="{{ url_for('teacher.exams_list', folder_id=current_folder.id) if current_folder else url_for('teacher.exams_list') }}"
            class="btn btn-outline-secondary btn-sm action-icon-btn" title="Xóa lọc"><i aria-hidden="true" class="bi bi-x"></i></a>
       </div>

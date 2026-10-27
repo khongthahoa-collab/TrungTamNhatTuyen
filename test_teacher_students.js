@@ -70,6 +70,14 @@ const icons = execFileSync('curl', ['-fsSL', '--max-time', '30',
         assert.equal(await card.evaluate(el => el === document.activeElement), true);
       } else if (path === '/teacher/exams') {
         assert.equal(await page.locator('.teacher-bottom-nav .bi-pc-display-fill').count(), 0);
+        const filter = page.getByRole('button', { name: 'Lọc', exact: true });
+        assert.equal(await filter.getAttribute('type'), 'submit');
+        assert.equal((await filter.textContent()).trim(), '');
+        assert.equal(await filter.locator('.bi-funnel').count(), 1);
+        assert.deepEqual(await filter.evaluate(el => ({
+          border: getComputedStyle(el).borderTopColor,
+          background: getComputedStyle(el).backgroundColor,
+        })), { border: 'rgba(0, 0, 0, 0)', background: 'rgba(0, 0, 0, 0)' });
       } else if (path !== '/teacher/students') {
         assert.equal(await page.locator('form[method="post"]').count(), 0);
         assert.ok((await page.locator('body').textContent()).includes('0.0/10.0'));

@@ -85,7 +85,7 @@
         <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
           <h2 class="h6 score-student-name mb-0">
             {% if r.student and r.student.id in learning_student_ids %}
-            <a href="{{ url_for('teacher.student_learning', student_id=r.student.id, class_id=class_.id) }}">{{ r.student.full_name }}</a>
+            <a class="text-decoration-none" href="{{ url_for('teacher.student_learning', student_id=r.student.id, class_id=class_.id) }}">{{ r.student.full_name }}</a>
             {% else %}{{ r.student.full_name if r.student else '—' }}{% endif %}
           </h2>
           <span class="small flex-shrink-0 {{ 'text-danger' if r.latest is not none and r.latest < pass_threshold else 'text-success' }}">
@@ -127,7 +127,7 @@
               data-failed="{{ 'true' if r.latest is not none and r.latest < pass_threshold else 'false' }}">
             <td class="ps-3 small fw-semibold text-nowrap">
               {% if r.student and r.student.id in learning_student_ids %}
-              <a href="{{ url_for('teacher.student_learning', student_id=r.student.id, class_id=class_.id) }}">{{ r.student.full_name }}</a>
+              <a class="text-decoration-none" href="{{ url_for('teacher.student_learning', student_id=r.student.id, class_id=class_.id) }}">{{ r.student.full_name }}</a>
               {% else %}{{ r.student.full_name if r.student else '—' }}{% endif %}
             </td>
             {% for key, label in matrix_columns %}
