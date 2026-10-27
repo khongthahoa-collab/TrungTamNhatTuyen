@@ -725,6 +725,14 @@ footer a:hover { color: #fff !important; }
   font-size: 0.88rem;
   font-weight: 500;
 }
+/* Keep collapse height measurements stable while the submenu is at height 0. */
+.sidebar .nav {
+  flex-wrap: nowrap;
+}
+.sidebar .nav-item,
+.sidebar > .nav {
+  flex-shrink: 0;
+}
 .sidebar .nav-link:hover {
   background: rgba(255,255,255,.12);
   color: #fff;
@@ -751,6 +759,12 @@ footer a:hover { color: #fff !important; }
    shorter duration means less time for the per-frame reflow to be noticeable. */
 .sidebar .collapsing {
   transition: height .18s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar .collapsing,
+  .sidebar .sidebar-caret {
+    transition: none;
+  }
 }
 @media (max-width:991px) {
   .sidebar { transform: translateX(-100%); }
