@@ -43,7 +43,7 @@ class AttendanceWarningTests(unittest.TestCase):
         self.class_ = Class(name='Synthetic class', course=course, sessions_per_week=2,
                             primary_teacher=self.teacher)
         self.student = Student(full_name='Synthetic student', level='secondary')
-        self.start = date(2026, 1, 25)
+        self.start = date(2026, 1, 1)
         self.enrollment = Enrollment(class_=self.class_, student=self.student,
                                      enrolled_at=datetime.combine(self.start, time(10)))
         db.session.add_all([self.teacher, self.class_, self.enrollment])
@@ -74,49 +74,52 @@ class AttendanceWarningTests(unittest.TestCase):
         db.session.commit()
         return schedule
 
-    def warnings(self, as_of=date(2026, 3, 1)):
+    def warnings(self, as_of=date(2026, 1, 31)):
         return get_absence_warnings([self.class_.id], as_of=as_of)
 
-    def test_exact_threshold_excused_and_late_across_calendar_month(self):
+    def test_exact_threshold_excused_and_late(self):
         self.session(0, 'absent')
         self.session(3, 'excused')
         self.session(6, 'late')
+        for offset in (9, 12, 15, 18, 21):
+            self.session(offset, None)
         self.assertEqual(self.warnings(), [])
-        self.session(9, 'absent')
+        schedule = Schedule.query.filter_by(date=self.start + timedelta(days=9)).one()
+        db.session.add(Attendance(schedule=schedule, student=self.student, status='absent'))
+        db.session.commit()
         warning, = self.warnings()
         self.assertEqual(warning['absence_count'], 3)
-        self.assertEqual(warning['cycle_size'], 8)
+        self.assertEqual(warning['monthly_sessions'], 8)
         self.assertEqual(warning['completed_sessions'], 4)
-        self.assertEqual(warning['start_date'], '25/01/2026')
-        self.assertEqual(warning['end_date'], '03/02/2026')
+        self.assertEqual(warning['start_date'], '01/01/2026')
+        self.assertEqual(warning['end_date'], '31/01/2026')
 
-    def test_eight_session_cycle_keeps_warning_at_eight_and_resets_at_nine(self):
+    def test_calendar_month_resets_not_session_count(self):
         for offset in range(8):
             self.session(offset, 'absent' if offset < 3 else 'present')
         warning, = self.warnings()
-        self.assertEqual((warning['completed_sessions'], warning['cycle_number']), (8, 1))
+        self.assertEqual((warning['completed_sessions'], warning['month_label']), (8, '01/2026'))
         self.session(8, 'absent')
-        self.assertEqual(self.warnings(), [])
-        self.session(9, 'absent')
-        self.assertEqual(self.warnings(), [])
-        self.session(10, 'excused')
         warning, = self.warnings()
-        self.assertEqual((warning['absence_count'], warning['cycle_number']), (3, 2))
-        self.assertEqual(warning['completed_sessions'], 3)
+        self.assertEqual((warning['absence_count'], warning['monthly_sessions']), (4, 9))
+        self.assertEqual(self.warnings(date(2026, 2, 1)), [])
+        self.session(31, 'excused')
+        warning, = self.warnings(date(2026, 2, 1))
+        self.assertEqual((warning['absence_count'], warning['month_label']), (1, '02/2026'))
 
-    def test_twelve_session_cycle_not_reset_after_eight(self):
+    def test_twelve_sessions_require_more_than_three_absences(self):
         self.class_.sessions_per_week = 3
         for offset in range(12):
             self.session(offset, 'absent' if offset in (0, 7, 8) else 'present')
-        warning, = self.warnings()
-        self.assertEqual(warning['cycle_size'], 12)
-        self.assertEqual(warning['completed_sessions'], 12)
-        self.assertEqual(warning['absence_count'], 3)
-        self.session(12, 'absent')
         self.assertEqual(self.warnings(), [])
+        Attendance.query.join(Schedule).filter(Schedule.date == self.start + timedelta(days=9)).one().status = 'absent'
+        db.session.commit()
+        warning, = self.warnings()
+        self.assertEqual(warning['monthly_sessions'], 12)
+        self.assertEqual(warning['absence_count'], 4)
 
     def test_personal_start_excludes_sessions_before_joining(self):
-        for offset in range(11):
+        for offset in range(12):
             self.session(offset, 'absent' if offset < 3 else 'present')
         other = Student(full_name='Later joiner', level='secondary')
         db.session.add(Enrollment(class_=self.class_, student=other,
@@ -127,7 +130,7 @@ class AttendanceWarningTests(unittest.TestCase):
         db.session.commit()
         warning, = self.warnings()
         self.assertEqual(warning['student_id'], other.id)
-        self.assertEqual((warning['completed_sessions'], warning['cycle_number']), (3, 1))
+        self.assertEqual((warning['completed_sessions'], warning['monthly_sessions']), (4, 12))
 
     def test_cancelled_unmarked_and_future_excluded_intensive_counted(self):
         for offset in range(3):
@@ -139,6 +142,37 @@ class AttendanceWarningTests(unittest.TestCase):
         self.session(50, 'absent')
         warning, = self.warnings()
         self.assertEqual((warning['absence_count'], warning['completed_sessions']), (3, 3))
+        self.assertEqual(warning['monthly_sessions'], 4)
+
+    def test_future_and_unmarked_sessions_in_month_in_denominator_only(self):
+        for offset in range(12):
+            self.session(offset, 'absent' if offset < 3 else None)
+        self.assertEqual(self.warnings(self.start + timedelta(days=2)), [])
+        Schedule.query.filter_by(date=self.start + timedelta(days=11)).one().is_cancelled = True
+        db.session.commit()
+        warning, = self.warnings(self.start + timedelta(days=2))
+        self.assertEqual((warning['absence_count'], warning['monthly_sessions']), (3, 11))
+
+    def test_month_end_handles_february_and_leap_year(self):
+        for year, last_day in ((2024, 29), (2026, 28)):
+            self.start = date(year, 2, last_day)
+            self.enrollment.enrolled_at = datetime(year, 2, 1)
+            self.session(0, 'absent')
+            warning, = self.warnings(self.start)
+            self.assertEqual(warning['end_date'], f'{last_day}/02/{year}')
+            self.assertEqual(self.warnings(date(year, 3, 1)), [])
+
+    def test_thirty_day_month_and_year_boundary(self):
+        for last_date, next_date in (
+            (date(2025, 11, 30), date(2025, 12, 1)),
+            (date(2025, 12, 31), date(2026, 1, 1)),
+        ):
+            self.start = last_date
+            self.enrollment.enrolled_at = datetime.combine(last_date.replace(day=1), time())
+            self.session(0, 'absent')
+            warning, = self.warnings(last_date)
+            self.assertEqual(warning['end_date'], last_date.strftime('%d/%m/%Y'))
+            self.assertEqual(self.warnings(next_date), [])
 
     def test_approved_leave_counts_once_only_on_completed_sessions(self):
         for offset in range(3):
@@ -156,6 +190,8 @@ class AttendanceWarningTests(unittest.TestCase):
     def test_correction_removes_warning_and_inactive_records_excluded(self):
         for offset in range(3):
             self.session(offset, 'absent')
+        for offset in range(3, 8):
+            self.session(offset, None)
         self.assertEqual(len(self.warnings()), 1)
         attendance = Attendance.query.first()
         attendance.status = 'late'
@@ -184,49 +220,58 @@ class AttendanceWarningTests(unittest.TestCase):
         self.assertEqual((warning['absence_count'], warning['completed_sessions']), (3, 3))
 
     def test_absences_do_not_combine_between_classes(self):
-        for offset in range(2):
-            self.session(offset, 'absent')
+        for offset in range(8):
+            self.session(offset, 'absent' if offset < 2 else 'present')
         other = Class(name='Other class', course=self.class_.course, sessions_per_week=3,
                       primary_teacher=self.teacher)
         db.session.add(Enrollment(class_=other, student=self.student,
                                   enrolled_at=datetime.combine(self.start, time())))
         db.session.flush()
-        for offset in range(2):
+        for offset in range(8):
             schedule = Schedule(class_=other, date=self.start + timedelta(days=offset),
                                 start_time=time(10), end_time=time(11))
-            db.session.add(Attendance(schedule=schedule, student=self.student, status='absent'))
+            db.session.add(Attendance(schedule=schedule, student=self.student,
+                                      status='absent' if offset < 2 else 'present'))
         db.session.commit()
-        self.assertEqual(get_absence_warnings([self.class_.id, other.id], as_of=date(2026, 3, 1)), [])
+        self.assertEqual(get_absence_warnings([self.class_.id, other.id], as_of=date(2026, 1, 31)), [])
 
-    def test_teacher_pages_and_saved_third_absence(self):
-        self.start = date.today() - timedelta(days=2)
+    def test_warning_only_on_student_detail_and_updates_after_save(self):
+        self.start = date.today()
         self.enrollment.enrolled_at = datetime.combine(self.start, time())
         self.session(0, 'absent')
-        self.session(1, 'excused')
-        current = self.session(2, None)
-        for path in ('/teacher/', '/teacher/attendance', f'/teacher/attendance/{current.id}'):
+        self.session(0, 'excused')
+        current = self.session(0, None)
+        for offset in range(3, 8):
+            self.session(0, None)
+        detail_path = f'/teacher/students/{self.student.id}'
+        self.assertNotIn('Cảnh báo học sinh nghỉ học', self.client.get(detail_path).get_data(as_text=True))
+        paths = ('/teacher/', '/teacher/attendance', f'/teacher/attendance/{current.id}',
+                 '/teacher/students', f'/teacher/students/class/{self.class_.id}')
+        for path in paths:
             response = self.client.get(path)
             self.assertEqual(response.status_code, 200)
-            self.assertNotIn('nghỉ 3 buổi'.encode(), response.data)
+            self.assertNotIn('Cảnh báo học sinh nghỉ học', response.get_data(as_text=True))
         response = self.client.post(f'/teacher/api/attendance/{current.id}/save',
                                     json={'attendance': [{'student_id': self.student.id, 'status': 'absent'}]})
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json['absence_warnings'][0]['absence_count'], 3)
-        for path in ('/teacher/', '/teacher/attendance', f'/teacher/attendance/{current.id}'):
+        self.assertNotIn('absence_warnings', response.json)
+        self.assertIn('nghỉ 3/8 buổi', self.client.get(detail_path).get_data(as_text=True))
+        for path in paths:
             response = self.client.get(path)
             self.assertEqual(response.status_code, 200)
-            self.assertIn('nghỉ 3 buổi'.encode(), response.data)
+            self.assertNotIn('Cảnh báo học sinh nghỉ học', response.get_data(as_text=True))
         response = self.client.post(f'/teacher/api/attendance/{current.id}/save',
                                     json={'attendance': [{'student_id': self.student.id, 'status': 'late'}]})
-        self.assertEqual(response.json['absence_warnings'], [])
+        self.assertTrue(response.json['success'])
+        self.assertNotIn('Cảnh báo học sinh nghỉ học', self.client.get(detail_path).get_data(as_text=True))
         html = self.client.get('/teacher/attendance').get_data(as_text=True)
         self.assertIn(f'data-student="{self.student.id}" data-status="late"', html)
 
     def test_other_teacher_cannot_see_class_warning(self):
-        self.start = date.today() - timedelta(days=2)
+        self.start = date.today()
         self.enrollment.enrolled_at = datetime.combine(self.start, time())
         for offset in range(3):
-            current = self.session(offset, 'absent')
+            current = self.session(0, 'absent')
         outsider = User(username='outsider', full_name='Other teacher', role='teacher', password_hash='test')
         db.session.add(Teacher(user=outsider))
         db.session.commit()
@@ -234,11 +279,12 @@ class AttendanceWarningTests(unittest.TestCase):
         for path in ('/teacher/', '/teacher/attendance'):
             response = self.client.get(path)
             self.assertEqual(response.status_code, 200)
-            self.assertNotIn('nghỉ 3 buổi'.encode(), response.data)
+            self.assertNotIn('nghỉ 3/3 buổi'.encode(), response.data)
         self.assertEqual(self.client.get(f'/teacher/attendance/{current.id}').status_code, 403)
         self.class_.assistant_teachers.append(outsider.teacher_profile)
         db.session.commit()
-        self.assertIn('nghỉ 3 buổi'.encode(), self.client.get('/teacher/').data)
+        self.assertIn('nghỉ 3/3 buổi'.encode(), self.client.get(f'/teacher/students/{self.student.id}').data)
+        self.assertNotIn('Cảnh báo học sinh nghỉ học', self.client.get('/teacher/').get_data(as_text=True))
 
 
 if __name__ == '__main__':

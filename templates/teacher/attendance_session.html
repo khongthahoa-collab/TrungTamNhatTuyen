@@ -11,9 +11,6 @@
      subtitle=schedule.class_.name ~ ' – ' ~ schedule.date.strftime('%d/%m/%Y') ~ ' · ' ~ schedule.start_time.strftime('%H:%M') ~ '–' ~ schedule.end_time.strftime('%H:%M') ~ ((' · Phòng ' ~ schedule.room) if schedule.room else ''),
      back_href=url_for('teacher.attendance_list'), back_label='danh sách điểm danh') }}
 
-  {% set absence_class_id = schedule.class_id %}
-  {% include 'teacher/_absence_warnings.html' %}
-
   {% if is_future %}
   <div class="alert alert-info small py-2">
     <i class="bi bi-eye me-1"></i>Buổi học trong tương lai — chỉ xem danh sách, chưa thể điểm danh trước.
@@ -214,7 +211,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/attendance-warnings.js') }}"></script>
 <script>
 const SAVE_URL = '{{ url_for("teacher.save_attendance", schedule_id=schedule.id) }}';
 const CSRF = '{{ csrf_token() }}';
@@ -288,7 +284,6 @@ document.getElementById('saveBtn')?.addEventListener('click', async function () 
     const data = await res.json();
 
     if (data.success) {
-      window.updateAbsenceWarnings({{ schedule.class_id }}, data.absence_warnings);
       const s = data.summary;
       // Modal title
       const teacherPart = s.teacher_display ? ` – ${s.teacher_display}` : '';

@@ -33,9 +33,6 @@
             <a href="{{ url_for('teacher.student_learning', student_id=student.id, class_id=class_id) }}" class="btn btn-outline-primary action-icon-btn" title="Xem học tập {{ student.name }}" aria-label="Xem học tập {{ student.name }}"><i class="bi bi-eye" aria-hidden="true"></i></a>
           </div>
           {% for name in student.classes %}<div class="small mt-2 text-break">{{ name }}</div>{% endfor %}
-          {% for warning in student.warnings %}
-          <div class="alert alert-warning small mt-2 mb-0">{{ warning.class_name }}: nghỉ {{ warning.absence_count }} buổi trong chu kỳ {{ warning.cycle_size }} buổi.</div>
-          {% endfor %}
         </div>
       </article>
     </div>

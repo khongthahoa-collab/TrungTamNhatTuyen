@@ -59,32 +59,32 @@
 - Quyen `students` dieu khien menu/trang; tung muc tiep tuc kiem tra quyen
   `attendance`, `scores`, `exams` tai server. Xem 50 ban ghi gan nhat moi muc:
   diem danh, diem trung tam, bai tap; chua ghi nhan khong coi la khong lam,
-  diem 0 khong coi la thieu diem. Canh bao nghi dung lai service chu ky 8/12.
+  diem 0 khong coi la thieu diem. Canh bao nghi dung service thang duong lich.
 - Thi online chi hien de da dang do chinh GV tao va giao cho hoc sinh trong
   pham vi lop phu trach; trang thai theo luot gan nhat, cho cham hien rieng.
   Link ket qua dung man hinh hien co de tranh hien diem luu cu/sai dap an moi.
 - Kiem thu: `python -m unittest test_teacher_students.TeacherStudentsTests`
   va `node test_teacher_students.js` (menu 6 muc, mobile, quyen va du lieu rieng).
 
-### Canh bao hoc sinh nghi qua 2 buoi (27/10/2026)
+### Canh bao hoc sinh nghi tren 25% so buoi trong thang (27/10/2026)
 
-- Moi hoc sinh co chu ky rieng tu ngay `Enrollment.enrolled_at` cua lop:
-  `sessions_per_week * 4` buoi (2 buoi/tuan = 8, 3 buoi/tuan = 12).
-  Khong chia theo thang duong lich; tinh ca buoi tang cuong, bo lich huy,
-  buoi tuong lai va buoi chua co bat ky ban ghi diem danh nao.
-- Tu buoi nghi thu 3 trong chu ky hien tai se canh bao: tinh `absent` va
+- Moi thang tinh rieng tu ngay 1 den ngay cuoi thang (ke ca thang 2,
+  nam nhuan). Mau so la toan bo lich hoc thuc te cua lop trong thang,
+  gom buoi tang cuong/chua diem danh/tuong lai, khong gom buoi huy.
+- Canh bao khi `absence_count * 4 > monthly_sessions`, khong canh bao
+  neu dung 25% (3/8 canh bao, 3/12 khong canh bao, 4/12 canh bao).
+  Tu so chi tinh buoi da diem danh den ngay xem va tu ngay vao lop:
+  tinh `absent` va
   `excused`, ke ca don nghi da duyet trung buoi da diem danh; khong dem
   trung don nghi/ban ghi diem danh, khong tinh `late`.
-- Chu ky du 8/12 buoi van giu canh bao cho den khi co buoi da diem danh
-  dau tien cua chu ky tiep theo. Sua diem danh se tinh lai canh bao.
-- Hien o tong quan GV chinh/tro giang cua lop dang hoat dong (neu co
-  quyen diem danh), danh sach diem danh va diem danh tung buoi. Trang
-  diem danh xem lich su tinh den ngay duoc xem, khong lay du lieu tuong lai.
-  Sau khi luu, API tra `absence_warnings` va giao dien cap nhat ngay.
+- Chi hien tren chi tiet hoc sinh cua teacher khi co quyen students va
+  attendance; khong hien o dashboard, danh sach hoc sinh hay diem danh.
+  Sua diem danh/lich hoc se tinh lai khi mo trang chi tiet hoc sinh.
+  API luu diem danh khong tinh/tra canh bao nua.
 - Chi tinh hoc sinh/dang ky con hoat dong va chua xoa. Khong tao cron,
   khong thay hoc phi, khong gui Zalo hay thong bao phu huynh tu dong.
   Kiem thu: `python -m unittest test_attendance_warnings` va
-  `node test_attendance_warnings.js` (hai man hinh diem danh cap nhat sau luu).
+  `node test_attendance_warnings.js` (dung vi tri, text an toan va mobile).
 
 ### Popup thong bao dung chung (27/10/2026)
 

@@ -1,16 +1,17 @@
-<section class="alert alert-warning mb-3{% if not absence_warnings %} d-none{% endif %}"
-         {% if absence_class_id is defined %}data-absence-class="{{ absence_class_id }}"{% endif %}
+{% if absence_warnings %}
+<section class="alert alert-warning mb-3"
          aria-label="Cảnh báo học sinh nghỉ học" aria-live="polite">
-  <div class="fw-bold mb-1"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>Học sinh nghỉ quá 2 buổi trong chu kỳ</div>
-  <p class="small mb-2">Tính cả nghỉ có phép và không phép, không tính đi trễ. Mỗi chu kỳ là số buổi/tuần × 4, từ ngày học sinh vào lớp; chỉ tính buổi đã điểm danh, không tính buổi hủy.</p>
-  <ul class="mb-0 ps-3" data-absence-warning-list>
+  <div class="fw-bold mb-1"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>Học sinh nghỉ trên 25% số buổi trong tháng</div>
+  <p class="small mb-2">Tính theo tháng dương lịch, bắt đầu lại từ ngày 1. Tổng số buổi là lịch học cả tháng của lớp, không gồm buổi hủy. Chỉ đếm nghỉ trong tháng hiện tại, ở buổi đã điểm danh từ khi vào lớp đến hôm nay; gồm nghỉ có phép và không phép, không tính đi trễ.</p>
+  <ul class="mb-0 ps-3">
     {% for warning in absence_warnings %}
     <li class="small mb-1">
       <strong>{{ warning.student_name }}</strong> · {{ warning.class_name }}:
-      nghỉ {{ warning.absence_count }} buổi trong chu kỳ {{ warning.cycle_number }}
-      (đã điểm danh {{ warning.completed_sessions }}/{{ warning.cycle_size }} buổi,
+      nghỉ {{ warning.absence_count }}/{{ warning.monthly_sessions }} buổi trong tháng {{ warning.month_label }}
+      (đã điểm danh {{ warning.completed_sessions }} buổi,
       {{ warning.start_date }} – {{ warning.end_date }}).
     </li>
     {% endfor %}
   </ul>
 </section>
+{% endif %}

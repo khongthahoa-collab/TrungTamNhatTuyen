@@ -79,13 +79,11 @@ def class_students(class_id):
     )
     ids = [row.id for row in pagination.items]
     memberships = _roster(selected).filter(Student.id.in_(ids)).order_by(Class.name).all()
-    warnings = get_absence_warnings(selected, as_of=date.today()) if current_user.can_access('attendance') else []
     students = []
     for row in pagination.items:
         students.append({
             'id': row.id, 'name': row.full_name, 'grade': row.current_grade,
             'classes': [member.class_name for member in memberships if member.id == row.id],
-            'warnings': [warning for warning in warnings if warning['student_id'] == row.id],
         })
     return render_template('teacher/students_list.html', students=students, selected_class=selected_class,
                            pagination=pagination, q=q, class_id=class_id)

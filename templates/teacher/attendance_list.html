@@ -11,10 +11,6 @@
     {% if pending_count > 0 %}<span class="badge bg-warning text-dark">{{ pending_count }} chưa điểm danh</span>{% endif %}
   {% endcall %}
 
-  {% for absence_class_id, absence_warnings in absence_warnings_by_class.items() %}
-    {% include 'teacher/_absence_warnings.html' %}
-  {% endfor %}
-
   <!-- Bộ lọc theo ngày / tuần / tháng -->
   <div class="card border-0 shadow-sm mb-3">
     <div class="card-body py-2">
@@ -311,7 +307,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/attendance-warnings.js') }}"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script>
 const ATT_CSRF = '{{ csrf_token() }}';
@@ -447,7 +442,6 @@ document.querySelectorAll('.btn-save').forEach(saveBtn => {
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || 'Lỗi khi lưu điểm danh.');
-      window.updateAbsenceWarnings(Number(saveBtn.dataset.class), result.absence_warnings);
       saveBtn.innerHTML = '<i class="bi bi-check-lg"></i>';
       setTimeout(() => { saveBtn.innerHTML = original; }, 1500);
     } catch (err) {
