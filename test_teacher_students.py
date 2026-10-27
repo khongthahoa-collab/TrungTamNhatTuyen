@@ -261,11 +261,13 @@ class TeacherStudentsTests(unittest.TestCase):
             'description': 'Keep settings', 'duration_minutes': '40', 'is_draft': 'draft',
             'section_points_0': '1', 'question_points_0_0': '1',
             'scoring_mode': 'question', 'class_ids': str(self.class_.id),
+            'exam_type': 'homework',
         }
         path = f'/teacher/exams/edit/{self.exam.id}?tab=settings'
         html = self.client.get(path).get_data(as_text=True)
         self.assertIn('id="examContentTab"', html)
         self.assertIn('id="examSettingsTab"', html)
+        self.assertIn('value="homework"', html)
         invalid = dict(data, duration_minutes='invalid')
         response = self.client.post('/teacher/exams/confirm', data=invalid)
         self.assertEqual(response.status_code, 200)
@@ -278,7 +280,16 @@ class TeacherStudentsTests(unittest.TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(self.exam.title, 'Updated exam')
         self.assertEqual(self.exam.description, 'Keep settings')
+        self.assertEqual(self.exam.exam_type, 'homework')
+        self.assertEqual(self.exam.type_label, 'Bài tập về nhà')
+        self.assertEqual(self.exam.duration_minutes, 40)
+        self.assertEqual(self.exam.allow_attempts, 0)
         self.assertEqual(self.exam.question_groups[0]['questions'][0]['text'], 'Updated content')
+        filtered = self.client.get('/teacher/exams?exam_type=homework').get_data(as_text=True)
+        self.assertIn('Updated exam', filtered)
+        self.assertIn('Bài tập về nhà', filtered)
+        other = self.client.get('/teacher/exams?exam_type=practice').get_data(as_text=True)
+        self.assertNotIn('Updated exam', other)
 
     def test_attendance_detail_only_lists_unexcused_before_limit(self):
         from models import Attendance

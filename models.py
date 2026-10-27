@@ -333,6 +333,7 @@ class Exam(db.Model):
     def type_label(self):
         labels = {
             'practice': 'Ôn tập',
+            'homework': 'Bài tập về nhà',
             'quiz_15': 'Kiểm tra 15 phút',
             'periodic': 'Kiểm tra định kì',
             'midterm_1': 'Giữa kì 1',

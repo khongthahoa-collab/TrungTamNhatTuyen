@@ -68,7 +68,7 @@
                      value="{{ form.get('subject_other','') if form else (existing.subject if (existing and not subject_matches_course) else '') }}">
             </div>
             <div class="col-md-6">
-              <label class="form-label fw-semibold">Loại bài thi</label>
+              <label class="form-label fw-semibold" for="examTypeSelect">Loại bài</label>
               <select name="exam_type" id="examTypeSelect" class="form-select">
                 {% for value, label in exam_types %}
                 <option value="{{ value }}"

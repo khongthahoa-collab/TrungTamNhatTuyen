@@ -41,6 +41,9 @@
 
 ### Kiem tra responsive (27/10/2026)
 
+- Loai bai them `homework` (Bai tap ve nha) ngay sau On tap, dung chung
+  cho admin/teacher, bo loc va nhan hien thi hoc sinh. Chi phan loai,
+  khong thay doi thoi luong, so lan lam, dong de hay them nghiep vu nop tre.
 - Teacher sua de gom hai tab Noi dung de/Cai dat de tren cung trang
   `/teacher/exams/edit/<id>`. Menu Cai dat di thang `?tab=settings`,
   khong mo popup cu. Doi tab giu DOM/input chua luu; luu tu ca hai tab
