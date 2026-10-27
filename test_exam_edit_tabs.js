@@ -50,6 +50,7 @@ const select2 = fetchAsset('https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist
     const settingsScript = [...fixture.stdout.matchAll(/<script>([\s\S]*?)<\/script>/g)]
       .map(m => m[1]).find(code => code.includes('syncSubjectOther'));
     await page.addScriptTag({ content: settingsScript });
+    await page.addScriptTag({ content: fs.readFileSync('static/js/exam-scoring-total.js', 'utf8') });
     await page.addScriptTag({ content: fs.readFileSync('static/js/exam-edit-tabs.js', 'utf8') });
     assert.equal(await page.locator('#examSettingsPane').isVisible(), true);
     await page.locator('[name="description"]').fill('Unsaved settings');
@@ -66,7 +67,7 @@ const select2 = fetchAsset('https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist
         window.savedForm = Object.fromEntries(new FormData(event.currentTarget));
       });
     });
-    for (const width of [320, 375, 768, 1440]) {
+    for (const width of [320, 375, 768, 992, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       await page.locator('#examSettingsTab').click();
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
@@ -91,7 +92,33 @@ const select2 = fetchAsset('https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist
       assert.equal(layout.headerAbove, true);
       assert.equal(layout.saveCount, 2);
       assert.deepEqual(layout.cards, [2, 3]);
+      const positions = await page.locator('[data-scoring-options] > div').evaluateAll(elements =>
+        elements.map(el => ({ x: el.getBoundingClientRect().x, y: el.getBoundingClientRect().y })));
+      if (width >= 992) {
+        assert.equal(positions[0].y, positions[1].y);
+        assert.equal(positions[2].y, positions[3].y);
+        assert.ok(positions[1].x > positions[0].x);
+        assert.ok(positions[2].y > positions[0].y);
+      } else {
+        assert.ok(positions.every(el => el.x === positions[0].x));
+      }
     }
+    for (const mode of ['question', 'section', 'question_custom', 'section_custom']) {
+      await page.locator(`[name="scoring_mode"][value="${mode}"]`).check();
+      assert.equal(await page.locator('[data-scoring-total]').textContent(),
+        mode.endsWith('_custom') ? '1 điểm' : '10 điểm');
+    }
+    await page.locator('[name="scoring_mode"][value="question_custom"]').check();
+    await page.locator('[name="question_points_0_0"]').fill('9.5');
+    assert.equal(await page.locator('[data-scoring-total]').textContent(), '9,5 điểm');
+    await page.locator('[name="question_points_0_0"]').fill('');
+    assert.equal(await page.locator('[data-scoring-total]').textContent(), 'Chưa đủ dữ liệu');
+    await page.locator('[name="question_points_0_0"]').fill('12');
+    assert.equal(await page.locator('[data-scoring-total]').textContent(), '12 điểm');
+    await page.locator('[name="scoring_mode"][value="section_custom"]').check();
+    await page.locator('[name="section_points_0"]').fill('7');
+    assert.equal(await page.locator('[data-scoring-total]').textContent(), '7 điểm');
+    await page.locator('[name="scoring_mode"][value="question"]').check();
     await page.locator('#examSettingsTab').click();
     await page.locator('#exam-settings-form button[type="submit"]').first().click();
     const saved = await page.evaluate(() => window.savedForm);
@@ -105,6 +132,8 @@ const select2 = fetchAsset('https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist
     await page.locator('#rawTextEditor').fill('## Essay {essay}\nCâu 1: Updated question\nCâu 2: Additional question');
     await page.locator('#examSettingsTab').click();
     assert.equal(await page.locator('[name="question_points_0_1"]').count(), 1);
+    await page.locator('[name="scoring_mode"][value="question_custom"]').check();
+    assert.equal(await page.locator('[data-scoring-total]').textContent(), '13 điểm');
     await page.locator('#examContentTab').click();
     await page.evaluate(() => { delete window.savedForm; });
     await page.locator('#exam-form button[name="quick_save"]').first().click();

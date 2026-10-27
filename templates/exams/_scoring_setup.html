@@ -1,23 +1,33 @@
 {% set current_scoring_config = existing.scoring_config if existing else {} %}
-<div class="form-check mb-2">
+<div class="row g-2 mb-2" data-scoring-options>
+<div class="col-12 col-lg-6">
+<div class="form-check">
   <input class="form-check-input scoring-mode" type="radio" name="scoring_mode" value="question" id="scoringQuestion"
          {% if (form and form.get('scoring_mode') == 'question') or (not form and (not existing or existing.scoring_mode == 'question')) %}checked{% endif %}>
-  <label class="form-check-label" for="scoringQuestion">Theo câu — các câu có trọng số bằng nhau</label>
+  <label class="form-check-label" for="scoringQuestion">Theo câu <span class="d-block small text-muted">(các câu có trọng số bằng nhau)</span></label>
 </div>
-<div class="form-check mb-2">
-  <input class="form-check-input scoring-mode" type="radio" name="scoring_mode" value="section" id="scoringSection"
-         {% if (form and form.get('scoring_mode') == 'section') or (not form and existing and existing.scoring_mode == 'section') %}checked{% endif %}>
-  <label class="form-check-label" for="scoringSection">Theo phần — các phần có trọng số bằng nhau</label>
 </div>
-<div class="form-check mb-2">
+<div class="col-12 col-lg-6">
+<div class="form-check">
   <input class="form-check-input scoring-mode" type="radio" name="scoring_mode" value="question_custom" id="scoringQuestionCustom"
          {% if (form and form.get('scoring_mode') == 'question_custom') or (not form and existing and existing.scoring_mode == 'question_custom') %}checked{% endif %}>
   <label class="form-check-label" for="scoringQuestionCustom">Tự nhập điểm cho từng câu</label>
 </div>
+</div>
+<div class="col-12 col-lg-6">
+<div class="form-check">
+  <input class="form-check-input scoring-mode" type="radio" name="scoring_mode" value="section" id="scoringSection"
+         {% if (form and form.get('scoring_mode') == 'section') or (not form and existing and existing.scoring_mode == 'section') %}checked{% endif %}>
+  <label class="form-check-label" for="scoringSection">Theo phần <span class="d-block small text-muted">(các phần có trọng số bằng nhau)</span></label>
+</div>
+</div>
+<div class="col-12 col-lg-6">
 <div class="form-check">
   <input class="form-check-input scoring-mode" type="radio" name="scoring_mode" value="section_custom" id="scoringSectionCustom"
          {% if (form and form.get('scoring_mode') == 'section_custom') or (not form and existing and existing.scoring_mode == 'section_custom') %}checked{% endif %}>
   <label class="form-check-label" for="scoringSectionCustom">Tự nhập điểm cho từng phần</label>
+</div>
+</div>
 </div>
 <div class="form-text mb-3">Điểm được quy đổi về thang 10. Với cách tính theo phần, điểm trong mỗi phần được chia đều cho các câu.</div>
 

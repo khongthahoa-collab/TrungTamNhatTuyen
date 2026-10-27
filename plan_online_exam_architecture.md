@@ -41,6 +41,11 @@
 
 ### Kiem tra responsive (27/10/2026)
 
+- Cach chia diem: desktop hien thi 2x2 (theo cau/tu nhap theo cau,
+  theo phan/tu nhap theo phan), mobile xep doc. Tieu de luon ghi
+  tong diem dang nhap theo che do tuy chinh, cap nhat khi nhap/doi cau;
+  che do chia deu hien 10 diem quy doi. Khong canh bao/chan luu theo tong,
+  khong thay doi cong thuc cham. O trong hien Chua du du lieu.
 - Loai bai them `homework` (Bai tap ve nha) ngay sau On tap, dung chung
   cho admin/teacher, bo loc va nhan hien thi hoc sinh. Chi phan loai,
   khong thay doi thoi luong, so lan lam, dong de hay them nghiep vu nop tre.

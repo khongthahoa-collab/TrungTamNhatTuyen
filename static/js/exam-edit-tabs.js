@@ -39,6 +39,7 @@
         container.append(row);
       });
     }
+    settingsForm.dispatchEvent(new Event('exam:points-updated'));
   }
   function syncContent() {
     const event = new Event('submit', { cancelable: true });
