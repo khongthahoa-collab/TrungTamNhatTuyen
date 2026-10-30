@@ -140,6 +140,19 @@ const bootstrapJs = execFileSync('curl', ['-fsSL', '--max-time', '30',
           'Markdown heading in explanation must not enlarge the text');
         }
       }
+      if (path === '/student/exams') {
+        await page.setViewportSize({ width: 375, height: 900 });
+        const navOffset = await page.evaluate(() => {
+          const nav = document.querySelector('body.has-bottom-nav > .navbar.fixed-bottom');
+          const spacer = document.createElement('div');
+          spacer.style.height = '2000px';
+          document.querySelector('main').append(spacer);
+          window.scrollTo(0, 200);
+          return new Promise(resolve => requestAnimationFrame(() =>
+            resolve(Math.abs(nav.getBoundingClientRect().bottom - innerHeight))));
+        });
+        assert.ok(navOffset <= 1, 'Student bottom navigation must stay pinned while scrolling on mobile');
+      }
       if (path === 'teacher-attempt-long-question') {
         await page.evaluate(() => {
           const original = document.querySelector('[data-attempt-state]');

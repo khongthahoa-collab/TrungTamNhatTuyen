@@ -33,6 +33,9 @@
 .action-icon-btn.dropdown-toggle::after { display: none; }
 .action-icon-btn > .bi { margin: 0; pointer-events: none; }
 .teacher-bottom-nav .flex-fill { min-height: 60px; }
+body.has-bottom-nav > .navbar.fixed-bottom {
+  transform: translate3d(0, 0, 0);
+}
 .btn.icon-action-plain,
 .btn.icon-action-plain:hover,
 .btn.icon-action-plain:active,
