@@ -6,6 +6,23 @@
 
 ## 0. Gia dinh ve chi phi va gioi han
 
+### Loi ket noi sau khi de trang lau (01/11/2026)
+
+- Khi SQLAlchemy xac nhan ket noi da bi ngat (`connection_invalidated`),
+  truy van doc tai khoan luc xac thuc duoc thu lai dung mot lan voi session
+  moi, kem warning log. Khong thu lai loi SQL khac, khong replay request
+  POST hay bat ky thao tac ghi nao. Loi lan hai van tra 500 va duoc ghi log.
+- Trang bao loi 500/502 khong doc SystemConfig hay chay context processor
+  co truy van DB, de khong sap tiep khi database dang loi. Hai trang nay
+  dung ten trung tam mac dinh; 403/404 van dung cau hinh hien co.
+- Production da co `pool_pre_ping=True` va `pool_recycle=280`; khong tang
+  pool/timeout hoac tat CSRF de che loi. Can traceback tai thoi diem su co
+  de phan biet mat ket noi, pooler, loi truy van va loi proxy/worker.
+- Kiem thu `python -m unittest test_database_disconnect`: mo diem danh,
+  POST buoc Cau hinh, luu de mot lan, mat ket noi lien tuc va loi SQL khac.
+  Suite mo phong disconnect voi SQLite; van can doi chieu log production
+  va kiem tra idle/reconnect tren PostgreSQL thuc te.
+
 ### Nut thao tac sua/xoa
 
 - Thao tac tung dong/the dung `.action-icon-btn` 44x44px: but xanh de sua,

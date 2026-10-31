@@ -2,6 +2,7 @@ import os
 import re
 from flask import Flask, jsonify, request
 from flask_wtf.csrf import CSRFError
+from sqlalchemy.exc import DBAPIError
 from config import config
 from extensions import db, login_manager, csrf, migrate
 
@@ -103,7 +104,15 @@ def create_app(config_name=None):
 
     @login_manager.user_loader
     def load_user(user_id):
-        return User.query.get(int(user_id))
+        try:
+            return db.session.get(User, int(user_id))
+        except DBAPIError as error:
+            if not error.connection_invalidated:
+                raise
+            # Retry only the authentication read, never the request's writes.
+            app.logger.warning('Database connection lost while loading account; reconnecting once.')
+            db.session.remove()
+            return db.session.get(User, int(user_id))
 
     # Register blueprints
     from blueprints.auth import auth_bp
@@ -260,6 +269,12 @@ def create_app(config_name=None):
     # this only covers a 502 the app itself explicitly returns.
     def _render_error(code, icon, title, message, show_retry=False):
         from flask import render_template
+        if code >= 500:
+            # Error reporting must work even when DB-backed context processors fail.
+            return app.jinja_env.get_template('errors/error.html').render(
+                code=code, icon=icon, title=title, message=message, show_retry=show_retry,
+                center_name='Trung tâm Nhật Tuyền',
+            ), code, {'Cache-Control': 'no-store'}
         return render_template(
             'errors/error.html',
             code=code, icon=icon, title=title, message=message, show_retry=show_retry,
