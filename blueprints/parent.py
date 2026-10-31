@@ -875,6 +875,13 @@ def _active_attempt_for_form(exam_id, student_id):
     return query.order_by(ExamAttempt.started_at.desc()).with_for_update().first()
 
 
+def _exam_submission_response(student_id, exam_id):
+    result_url = _exam_url('exam_result', student_id=student_id, exam_id=exam_id)
+    if request.headers.get('Accept') == 'application/json':
+        return jsonify({'redirect_url': result_url})
+    return redirect(result_url)
+
+
 @parent_bp.route('/students/<int:student_id>/exams/<int:exam_id>/submit', methods=['POST'])
 @login_required
 def exam_submit(student_id, exam_id):
@@ -887,7 +894,12 @@ def exam_submit(student_id, exam_id):
 
     attempt = _active_attempt_for_form(exam.id, student.id)
     if not attempt:
-        return redirect(_exam_url('exam_result', student_id=student.id, exam_id=exam.id))
+        if request.headers.get('Accept') == 'application/json' and not ExamAttempt.query.filter_by(
+            id=request.form.get('attempt_id', type=int), exam_id=exam.id,
+            student_id=student.id, status='submitted',
+        ).first():
+            return jsonify({'error': 'Lượt làm bài không còn hoạt động. Hãy liên hệ giáo viên; không đóng trang thi.'}), 409
+        return _exam_submission_response(student.id, exam.id)
 
     expired = (datetime.utcnow() - attempt.started_at).total_seconds() >= exam.duration_minutes * 60
     if expired:
@@ -931,7 +943,7 @@ def exam_submit(student_id, exam_id):
 
         notify_teacher_essay_to_grade(exam, attempt)
 
-    return redirect(_exam_url('exam_result', student_id=student.id, exam_id=exam.id))
+    return _exam_submission_response(student.id, exam.id)
 
 
 @parent_bp.route('/students/<int:student_id>/exams/<int:exam_id>/result')

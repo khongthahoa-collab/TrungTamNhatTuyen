@@ -5,6 +5,7 @@
 <div class="container py-3 exam-take-page">
 
   <form id="examForm" method="post" novalidate
+        data-csrf-url="{{ url_for('exam_images.refresh_exam_csrf', attempt_id=attempt.id) }}"
         action="{{ url_for('student.exam_submit', exam_id=exam.id) if current_user.is_student else url_for('parent.exam_submit', student_id=student.id, exam_id=exam.id) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="attempt_id" value="{{ attempt.id }}">
@@ -136,7 +137,7 @@
             <div class="essay-image-list d-flex flex-wrap gap-2">
               {% for image in essay_images.get(answer_key, []) %}
               <div class="essay-image-card border rounded p-2" data-image-id="{{ image.id }}">
-                <a href="{{ image.url }}" target="_blank" rel="noopener">
+                <a href="{{ image.url }}">
                   <img src="{{ image.thumbnail_url }}" alt="Ảnh bài làm" loading="lazy" width="120" height="120" style="object-fit:contain;">
                 </a>
                 <div class="essay-image-actions d-flex gap-1 mt-1"></div>
@@ -168,11 +169,6 @@
   </div>
   </div>
   </form>
-  <dialog id="essayImagePreview" class="border-0 rounded shadow p-3" style="max-width:95vw;" aria-label="Xem ảnh bài làm">
-    <div class="text-end mb-2"><button type="button" class="btn btn-outline-secondary btn-sm" data-close-image>Đóng ảnh</button></div>
-    <div class="small text-danger d-none" data-image-error>Không tải được ảnh. Hãy đóng và thử lại; không xóa ảnh nếu chưa kiểm tra kết nối.</div>
-    <img alt="Ảnh bài làm đầy đủ" style="max-width:100%; max-height:75vh; object-fit:contain;">
-  </dialog>
   <dialog id="timeWarning" class="exam-time-warning" aria-labelledby="timeWarningTitle" aria-describedby="timeWarningMessage">
     <h2 id="timeWarningTitle" class="h5 fw-bold text-warning">Sắp hết giờ làm bài</h2>
     <p id="timeWarningMessage">Bài thi còn không quá 5 phút. Em hãy kiểm tra các câu chưa làm và chuẩn bị nộp bài.</p>
@@ -188,6 +184,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/exam-request.js') }}"></script>
 <script src="{{ url_for('static', filename='js/essay-uploads.js') }}"></script>
 <script>
 const form = document.getElementById('examForm');
@@ -198,6 +195,8 @@ const timerDisplay = document.getElementById('timerDisplay');
 const CHEAT_LIMIT = {{ cheat_limit }};
 let cheatCount = 0;
 let submitted = false;
+let submitting = false;
+let submissionReason = null;
 let autosaveTimer;
 let autosaveRequest = null;
 let saveInProgress = false;
@@ -224,20 +223,50 @@ function formatTime(totalSeconds) {
 }
 
 async function autoSubmit(reason) {
-  if (submitted) return;
+  if (submitted || submissionReason) return;
+  submissionReason = reason;
   const incompleteImages = window.examEssayUploads.isBusy() || window.examEssayUploads.hasErrors();
   window.examEssayUploads.freeze();
-  submitted = true;
   cheatField.value = cheatCount;
   if (reason === 'cheat') {
-    await showMessage('Bài làm của bạn đã được tự động nộp do vi phạm quy định chống gian lận quá ' + CHEAT_LIMIT + ' lần.');
+    await showMessage('Hệ thống sẽ tự động gửi bài làm do vi phạm quy định chống gian lận quá ' + CHEAT_LIMIT + ' lần.');
   } else if (reason === 'timeout') {
-    await showMessage('Đã hết thời gian làm bài. Bài làm được tự động nộp.');
+    await showMessage('Đã hết thời gian làm bài. Hệ thống đang gửi bài làm.');
   }
   if (incompleteImages) {
     await showMessage('Ảnh đang tải hoặc tải lỗi không được bảo đảm có trong bài nộp. Chỉ ảnh đã lưu trên hệ thống trước khi nộp mới được giữ lại.');
   }
-  form.submit();
+  await submitExam();
+}
+
+async function submitExam() {
+  if (submitted || submitting) return;
+  submitting = true;
+  window.examEssayUploads.freeze();
+  const buttons = [document.getElementById('submitBtn'), document.getElementById('submitBtnTop')];
+  buttons.forEach(button => { button.disabled = true; });
+  saveStatus.textContent = 'Đang nộp bài… Không đóng trang thi.';
+  saveStatus.classList.remove('text-danger', 'text-success');
+  try {
+    if (autosaveRequest) await autosaveRequest;
+    const result = await window.examRequest(form.action, {
+      method: 'POST', body: new FormData(form),
+    }, true);
+    if (typeof result.redirect_url !== 'string' || !result.redirect_url.startsWith('/')) {
+      throw new Error('Hệ thống chưa xác nhận nộp bài. Hãy thử lại; không đóng trang thi.');
+    }
+    submitted = true;
+    window.location.assign(result.redirect_url);
+  } catch (error) {
+    console.error('Không thể nộp bài thi.', error);
+    saveStatus.textContent = 'Chưa xác nhận nộp bài. Bài làm vẫn ở trên trang; bấm Nộp bài để thử lại.';
+    saveStatus.classList.add('text-danger');
+    if (!submissionReason) window.examEssayUploads.unfreeze();
+    await showMessage(`${error.message} Bài làm chưa bị xóa; hãy bấm Nộp bài để thử lại.`);
+  } finally {
+    submitting = false;
+    buttons.forEach(button => { button.disabled = false; });
+  }
 }
 
 // ── Countdown timer ──
@@ -267,7 +296,7 @@ const timerInterval = setInterval(() => {
 
 // ── Anti-cheat: detect tab switch / window blur (treated as "leaving the exam screen") ──
 function flagViolation() {
-  if (!trackScreenExits || submitted || window.examEssayUploads.isChoosing()) return;
+  if (!trackScreenExits || submitted || submitting || submissionReason || window.examEssayUploads.isChoosing()) return;
   cheatCount += 1;
   cheatField.value = cheatCount;
   cheatDisplay.textContent = cheatCount;
@@ -333,6 +362,11 @@ let confirmationPending = false;
 form.addEventListener('submit', async e => {
   e.preventDefault();
   if (submitted || confirmationPending) return;
+  if (submitting) return;
+  if (submissionReason) {
+    await submitExam();
+    return;
+  }
   if (window.examEssayUploads.isBusy() || window.examEssayUploads.hasErrors()) {
     e.preventDefault();
     showMessage('Ảnh đang được xử lý hoặc còn lỗi tải ảnh. Hãy đợi tải xong, thử lại hoặc bỏ ảnh lỗi trước khi nộp.');
@@ -355,9 +389,7 @@ form.addEventListener('submit', async e => {
     showMessage('Ảnh đang được xử lý hoặc còn lỗi tải ảnh. Hãy đợi tải xong, thử lại hoặc bỏ ảnh lỗi trước khi nộp.');
     return;
   }
-  submitted = true;
-  window.examEssayUploads.freeze();
-  form.submit();
+  await submitExam();
 });
 
 form.addEventListener('input', event => {
@@ -373,7 +405,7 @@ form.addEventListener('input', event => {
 form.addEventListener('change', scheduleDraftSave);
 
 function scheduleDraftSave() {
-  if (submitted) return;
+  if (submitted || submitting || submissionReason) return;
   draftRevision += 1;
   draftDirty = true;
   saveStatus.textContent = 'Đang chờ lưu tiến độ…';
@@ -383,7 +415,7 @@ function scheduleDraftSave() {
 }
 
 async function saveDraft() {
-  if (submitted) return false;
+  if (submitted || submitting || submissionReason) return false;
   if (saveInProgress) {
     const saved = await autosaveRequest;
     return saved && (draftDirty ? saveDraft() : true);
@@ -392,12 +424,12 @@ async function saveDraft() {
   const revision = draftRevision;
   saveInProgress = true;
   saveStatus.textContent = 'Đang lưu tiến độ…';
-  autosaveRequest = fetch(saveProgressUrl, {
+  autosaveRequest = window.examRequest(saveProgressUrl, {
     method: 'POST',
     body: new FormData(form),
     credentials: 'same-origin',
-  }).then(response => {
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  }).then(result => {
+    if (result.saved !== true) throw new Error('Hệ thống chưa xác nhận lưu tiến độ.');
     return true;
   }).catch(error => {
     console.error('Không thể lưu tiến độ bài thi.', error);

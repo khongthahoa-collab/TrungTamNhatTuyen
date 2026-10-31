@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import re
 import tempfile
+import time
 from datetime import datetime, timedelta
 import unittest
 from unittest.mock import patch
@@ -152,6 +153,78 @@ class EssayImageTests(unittest.TestCase):
             session.clear()
         g.pop('_login_user', None)
         self.assertEqual(self.client.get(payload['url']).status_code, 302)
+
+    def test_expired_csrf_can_recover_without_resetting_attempt_or_images(self):
+        photo = self.upload().get_json()
+        data = {'csrf_token': self.csrf, 'attempt_id': str(self.attempt.id), 'g0_q1': 'Saved answer'}
+        save_url = f'/student/exams/{self.exam.id}/save'
+        submit_url = f'/student/exams/{self.exam.id}/submit'
+        self.assertEqual(self.client.post(save_url, data=data).status_code, 200)
+        started_at = self.attempt.started_at
+        with patch('itsdangerous.timed.TimestampSigner.get_timestamp',
+                   return_value=int(time.time()) + 7200):
+            for url in (save_url, submit_url):
+                response = self.client.post(url, data=data, headers={'Accept': 'application/json'})
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.get_json()['code'], 'csrf_expired')
+            self.assertEqual(self.upload().get_json()['code'], 'csrf_expired')
+            self.assertEqual(self.attempt.status, 'in_progress')
+            # This fixture shares an app context; real requests have a fresh g.
+            g.pop('csrf_token', None)
+            response = self.client.get(self.upload_url + '/csrf')
+            self.assertEqual(response.status_code, 200)
+            self.assertIn('no-store', response.headers['Cache-Control'])
+            self.csrf = response.get_json()['csrf_token']
+            self.assertNotEqual(self.csrf, data['csrf_token'])
+            second = self.upload().get_json()
+            headers = {'X-CSRFToken': self.csrf}
+            self.assertEqual(self.client.post(self.upload_url + '/order', json={
+                'answer_field': 'g0_q1', 'ids': [second['id'], photo['id']],
+            }, headers=headers).status_code, 200)
+            self.assertEqual(self.client.delete(second['url'], headers=headers).status_code, 200)
+            data['csrf_token'] = self.csrf
+            data['g0_q1'] = 'Recovered answer'
+            self.assertEqual(self.client.post(save_url, data=data).status_code, 200)
+            for _ in range(2):
+                response = self.client.post(submit_url, data=data, headers={'Accept': 'application/json'})
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.get_json()['redirect_url'], f'/student/exams/{self.exam.id}/result')
+        db.session.refresh(self.attempt)
+        self.assertEqual(ExamAttempt.query.count(), 1)
+        self.assertEqual(self.attempt.started_at, started_at)
+        self.assertEqual(self.attempt.status, 'submitted')
+        self.assertEqual(self.attempt.answers['g0_q1'], 'Recovered answer')
+        self.assertEqual(self.client.get(photo['url']).status_code, 200)
+
+    def test_csrf_refresh_checks_access_and_does_not_extend_exam(self):
+        url = self.upload_url + '/csrf'
+        for user, status in ((self.other_student, 403), (self.teacher, 403),
+                             (self.admin, 403), (self.parent, 200)):
+            self.login(user)
+            self.assertEqual(self.client.get(url).status_code, status)
+        self.login(self.student_user)
+        self.attempt.started_at = datetime.utcnow() - timedelta(hours=2)
+        db.session.commit()
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200, 'expired attempts still need a token to submit')
+        self.csrf = response.get_json()['csrf_token']
+        self.assertEqual(self.upload().status_code, 409)
+        with self.client.session_transaction() as session:
+            session.clear()
+        g.pop('_login_user', None)
+        self.assertEqual(self.client.get(url).status_code, 302)
+
+    def test_parent_json_submission_and_invalid_attempt(self):
+        self.login(self.parent)
+        csrf = self.client.get(self.upload_url + '/csrf').get_json()['csrf_token']
+        url = f'/parent/students/{self.student.id}/exams/{self.exam.id}/submit'
+        headers = {'Accept': 'application/json', 'X-CSRFToken': csrf}
+        response = self.client.post(url, data={'attempt_id': 9999}, headers=headers)
+        self.assertEqual(response.status_code, 409)
+        response = self.client.post(url, data={'attempt_id': self.attempt.id}, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()['redirect_url'],
+                         f'/parent/students/{self.student.id}/exams/{self.exam.id}/result')
 
     def test_submitted_image_and_result_stay_readable_after_assignment_ends(self):
         payload = self.upload().get_json()

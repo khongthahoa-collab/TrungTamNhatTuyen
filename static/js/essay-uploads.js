@@ -6,21 +6,6 @@
   let choosingTimer;
   const reservedUploads = new Map();
   let queue = Promise.resolve();
-  const csrf = form.querySelector('[name="csrf_token"]').value;
-  const preview = document.getElementById('essayImagePreview');
-  const previewImage = preview.querySelector('img');
-  const previewError = preview.querySelector('[data-image-error]');
-  preview.querySelector('[data-close-image]').addEventListener('click', () => preview.close());
-  previewImage.addEventListener('error', () => previewError.classList.remove('d-none'));
-  form.addEventListener('click', event => {
-    const link = event.target.closest('.essay-image-card a');
-    if (!link) return;
-    event.preventDefault();
-    previewError.classList.add('d-none');
-    previewImage.src = link.href;
-    preview.showModal();
-  });
-
   window.examEssayUploads = {
     isBusy: () => pending > 0,
     hasErrors: () => Boolean(form.querySelector('.essay-upload-error')),
@@ -30,6 +15,11 @@
       form.querySelectorAll('.essay-image-input, .essay-image-actions button').forEach(input => {
         input.disabled = true;
       });
+    },
+    unfreeze: () => {
+      frozen = false;
+      form.querySelectorAll('.essay-image-input').forEach(input => { input.disabled = false; });
+      form.querySelectorAll('.essay-upload').forEach(refreshActions);
     },
   };
 
@@ -50,16 +40,7 @@
   }
 
   async function request(url, options) {
-    const response = await fetch(url, {
-      ...options, credentials: 'same-origin',
-      headers: { ...options.headers, 'X-CSRFToken': csrf },
-    });
-    if (!response.headers.get('content-type')?.includes('application/json')) {
-      throw new Error('Không thể cập nhật ảnh. Phiên đăng nhập có thể đã hết hạn; hãy kiểm tra kết nối và đăng nhập.');
-    }
-    const body = await response.json();
-    if (!response.ok) throw new Error(body.error || `Không thể cập nhật ảnh (HTTP ${response.status}).`);
-    return body;
+    return window.examRequest(url, options);
   }
 
   async function compress(file) {
@@ -227,8 +208,6 @@
             card.dataset.imageId = image.id;
             const link = document.createElement('a');
             link.href = image.url;
-            link.target = '_blank';
-            link.rel = 'noopener';
             const preview = document.createElement('img');
             preview.src = image.thumbnail_url;
             preview.alt = 'Ảnh bài làm — bấm để xem ảnh lớn';

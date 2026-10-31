@@ -1,6 +1,7 @@
 import os
 import re
-from flask import Flask, request
+from flask import Flask, jsonify, request
+from flask_wtf.csrf import CSRFError
 from config import config
 from extensions import db, login_manager, csrf, migrate
 
@@ -56,6 +57,21 @@ def create_app(config_name=None):
     login_manager.init_app(app)
     csrf.init_app(app)
     migrate.init_app(app, db)
+
+    @app.errorhandler(CSRFError)
+    def exam_csrf_error(error):
+        endpoint = request.endpoint or ''
+        if endpoint.startswith(('exam_images.', 'exam_essay_images.')) or (
+            endpoint in {
+                'student.exam_save_progress', 'student.exam_submit',
+                'parent.exam_save_progress', 'parent.exam_submit',
+            } and request.headers.get('Accept') == 'application/json'
+        ):
+            return jsonify({
+                'code': 'csrf_expired',
+                'error': 'Phiên bảo mật đã hết hạn. Hãy thử lại; bài làm vẫn được giữ trên trang.',
+            }), 400
+        return error.get_response()
 
     # Auto-create database tables for local development when schema is missing.
     if config_name != 'production':

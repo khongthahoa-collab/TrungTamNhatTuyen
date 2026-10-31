@@ -8,6 +8,7 @@ import click
 from flask import Blueprint, abort, current_app, jsonify, request, send_file
 from flask.cli import with_appcontext
 from flask_login import current_user, login_required
+from flask_wtf.csrf import generate_csrf
 from sqlalchemy.exc import SQLAlchemyError
 
 from extensions import db
@@ -20,6 +21,18 @@ from services.essay_images import (
 
 exam_images_bp = Blueprint('exam_images', __name__, url_prefix='/exam-images')
 exam_essay_images_bp = Blueprint('exam_essay_images', __name__, url_prefix='/exam')
+
+
+@exam_images_bp.get('/attempts/<int:attempt_id>/csrf')
+@login_required
+def refresh_exam_csrf(attempt_id):
+    if get_active_role(current_user) not in ('student', 'parent'):
+        abort(403)
+    attempt = ExamAttempt.query.get_or_404(attempt_id)
+    _require_access(attempt)
+    response = jsonify({'csrf_token': generate_csrf()})
+    response.headers['Cache-Control'] = 'private, no-store, max-age=0'
+    return response
 
 
 def _require_access(attempt, write=False):

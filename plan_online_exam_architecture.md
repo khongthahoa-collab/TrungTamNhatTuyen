@@ -320,6 +320,21 @@
   (toi da 120 giay); dong ho lam bai van chay. Dong cua so chon anh bang
   chon file/huy se ket thuc mien tru. Neu van o ngoai trang sau 120 giay,
   luong chong gian lan se ghi nhan roi man hinh nhu binh thuong.
+- Token CSRF duoc lam moi qua `GET /exam-images/attempts/<attempt_id>/csrf`
+  (dang nhap, kiem tra quyen, `no-store`). Upload/xoa/sap xep va autosave
+  chi tu thu lai mot lan khi server tra loi CSRF; khong tu gui lai khi
+  loi mang/loi khac de tranh tai trung anh. Truoc nop bai luon lay token moi.
+  Khong tat CSRF, gia han dong ho hay tao lai luot thi.
+- Nop thu cong/het gio/chong gian lan dung cung luong JSON. Chi roi trang
+  khi server xac nhan da nop; loi hien thong bao va nut Nop bai cho thu lai,
+  giu nguyen noi dung tren trang. Het gio van dung dap an da autosave theo
+  quy tac hien co; token moi khong cho phep tai anh sau han.
+- Anh bai lam mo trong dialog tren cung trang cho hoc sinh, phu huynh,
+  giao vien va admin (ke ca PWA). Nut Dong anh luon nam ngoai vung cuon anh,
+  vung bam toi thieu 44 px; co the bam nen ngoai hoac Escape de dong.
+- Kiem thu: `python -m unittest test_essay_images`,
+  `node test_essay_uploads.js`, `node test_exam_request.js`,
+  `node test_exam_session.js`.
 
 Tai lieu nay gia dinh:
 

@@ -1,0 +1,45 @@
+.essay-image-preview {
+  width: min(960px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  padding: 0;
+  overflow: hidden;
+}
+
+.essay-image-preview[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.essay-image-preview::backdrop {
+  background: rgba(0, 0, 0, .65);
+}
+
+.essay-image-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  padding-top: max(12px, env(safe-area-inset-top));
+  flex-shrink: 0;
+  border-bottom: 1px solid #ddd;
+}
+
+.essay-image-preview-header button {
+  min-height: 44px;
+}
+
+.essay-image-preview-content {
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+}
+
+.essay-image-preview-content img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: auto;
+}
