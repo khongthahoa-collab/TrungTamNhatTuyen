@@ -214,6 +214,49 @@ class EssayImageTests(unittest.TestCase):
         g.pop('_login_user', None)
         self.assertEqual(self.client.get(url).status_code, 302)
 
+    def test_delayed_timeout_duration_is_bounded_on_all_teacher_and_admin_views(self):
+        from flask import template_rendered
+        self.attempt.started_at = datetime.utcnow() - timedelta(hours=401)
+        order = self.attempt.order_data
+        order['draft_answers'] = {'g0_q1': 'Previously saved answer'}
+        self.attempt.order_json = json.dumps(order)
+        db.session.commit()
+        response = self.client.get(f'/student/exams/{self.exam.id}')
+        self.assertEqual(response.status_code, 302)
+        db.session.refresh(self.attempt)
+        self.assertGreater((self.attempt.submitted_at - self.attempt.started_at).total_seconds(), 400 * 3600)
+        self.assertEqual(self.attempt.answers['g0_q1'], 'Previously saved answer')
+        self.attempt.result_json = json.dumps({'pending_essay_count': 0, 'score_10': 8})
+        db.session.commit()
+        contexts = []
+
+        def capture(sender, template, context, **extra):
+            contexts.append(context)
+
+        with template_rendered.connected_to(capture, self.app):
+            self.login(self.teacher)
+            self.assertEqual(self.client.get(f'/teacher/exams/{self.exam.id}/results').status_code, 200)
+            self.assertEqual(contexts[-1]['rows'][0]['duration_seconds'], 40 * 60)
+            self.assertEqual(self.client.get(f'/teacher/exams/{self.exam.id}/leaderboard').status_code, 200)
+            self.assertEqual(contexts[-1]['rows'][0]['duration'], 40 * 60)
+            self.assertEqual(self.client.get(
+                f'/teacher/exams/{self.exam.id}/attempts/{self.attempt.id}',
+            ).status_code, 200)
+            self.assertEqual(contexts[-1]['duration'], 40 * 60)
+            self.login(self.admin)
+            self.assertEqual(self.client.get(f'/admin/exam/{self.exam.id}/results').status_code, 200)
+            self.assertEqual(contexts[-1]['rows'][0]['duration_seconds'], 40 * 60)
+
+    def test_attempt_duration_preserves_early_submissions_and_handles_missing_timestamps(self):
+        self.attempt.submitted_at = self.attempt.started_at + timedelta(minutes=12, seconds=34)
+        self.assertEqual(self.attempt.duration_seconds, 754)
+        self.attempt.submitted_at = self.attempt.started_at - timedelta(seconds=1)
+        self.assertEqual(self.attempt.duration_seconds, 0)
+        self.attempt.submitted_at = None
+        self.assertIsNone(self.attempt.duration_seconds)
+        self.attempt.started_at = None
+        self.assertIsNone(self.attempt.duration_seconds)
+
     def test_parent_json_submission_and_invalid_attempt(self):
         self.login(self.parent)
         csrf = self.client.get(self.upload_url + '/csrf').get_json()['csrf_token']

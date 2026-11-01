@@ -208,6 +208,7 @@
             card.dataset.imageId = image.id;
             const link = document.createElement('a');
             link.href = image.url;
+            link.setAttribute('data-no-loading', '');
             const preview = document.createElement('img');
             preview.src = image.thumbnail_url;
             preview.alt = 'Ảnh bài làm — bấm để xem ảnh lớn';

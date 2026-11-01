@@ -244,9 +244,7 @@ def exams_results(exam_id):
     rows = []
     for data in by_student.values():
         latest = data['latest']
-        duration_seconds = None
-        if latest and latest.submitted_at and latest.started_at:
-            duration_seconds = int((latest.submitted_at - latest.started_at).total_seconds())
+        duration_seconds = latest.duration_seconds if latest else None
         rows.append({
             'student': data['student'],
             'attempt': latest,

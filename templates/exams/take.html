@@ -137,7 +137,7 @@
             <div class="essay-image-list d-flex flex-wrap gap-2">
               {% for image in essay_images.get(answer_key, []) %}
               <div class="essay-image-card border rounded p-2" data-image-id="{{ image.id }}">
-                <a href="{{ image.url }}">
+                <a href="{{ image.url }}" data-no-loading>
                   <img src="{{ image.thumbnail_url }}" alt="Ảnh bài làm" loading="lazy" width="120" height="120" style="object-fit:contain;">
                 </a>
                 <div class="essay-image-actions d-flex gap-1 mt-1"></div>

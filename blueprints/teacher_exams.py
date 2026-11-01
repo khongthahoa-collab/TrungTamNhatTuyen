@@ -511,15 +511,12 @@ def exams_leaderboard(exam_id):
         result = attempt.result
         if result.get('pending_essay_count', 0) or not attempt.student:
             continue
-        duration = (
-            (attempt.submitted_at - attempt.started_at).total_seconds()
-            if attempt.submitted_at and attempt.started_at else float('inf')
-        )
+        duration = attempt.duration_seconds
         candidate = {
             'student': attempt.student,
             'attempt': attempt,
             'score': result.get('score_10', 0),
-            'duration': duration if duration != float('inf') else None,
+            'duration': duration,
         }
         previous = best_by_student.get(attempt.student_id)
         candidate_duration = candidate['duration'] if candidate['duration'] is not None else float('inf')
@@ -579,10 +576,7 @@ def exams_attempt_detail(exam_id, attempt_id):
             if key:
                 question['essay_score'] = essay_scores.get(key)
                 question['essay_max'] = essay_max.get(key)
-    duration = (
-        int((attempt.submitted_at - attempt.started_at).total_seconds())
-        if attempt.submitted_at and attempt.started_at else None
-    )
+    duration = attempt.duration_seconds
     total = result.get('total') or 0
     scoring_labels = {
         'question': 'Mỗi câu 1 điểm',
@@ -735,9 +729,7 @@ def exams_results(exam_id):
     rows = []
     for data in by_student.values():
         latest = data['latest']
-        duration_seconds = None
-        if latest and latest.submitted_at and latest.started_at:
-            duration_seconds = int((latest.submitted_at - latest.started_at).total_seconds())
+        duration_seconds = latest.duration_seconds if latest else None
         rows.append({
             'student': data['student'],
             'attempt': latest,

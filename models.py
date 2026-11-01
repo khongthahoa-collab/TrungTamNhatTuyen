@@ -421,6 +421,14 @@ class ExamAttempt(db.Model):
     student = db.relationship('Student', foreign_keys=[student_id], backref='exam_attempts')
 
     @property
+    def duration_seconds(self):
+        """Exclude time after the deadline when an expired attempt is submitted later."""
+        if self.started_at is None or self.submitted_at is None:
+            return None
+        elapsed = int((self.submitted_at - self.started_at).total_seconds())
+        return max(0, min(elapsed, self.exam.duration_minutes * 60))
+
+    @property
     def answers(self):
         try:
             return json.loads(self.answers_json or '{}')

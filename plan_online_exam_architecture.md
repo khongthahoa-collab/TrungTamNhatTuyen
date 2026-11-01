@@ -352,6 +352,16 @@
 - Kiem thu: `python -m unittest test_essay_images`,
   `node test_essay_uploads.js`, `node test_exam_request.js`,
   `node test_exam_session.js`.
+- Thoi gian lam bai hien thi o ket qua teacher/admin, chi tiet bai lam
+  va xep hang dung chung `ExamAttempt.duration_seconds`: khoang tu bat dau
+  den nop, toi da thoi luong de. Luot het gio quay lai nhieu ngay sau
+  khong tinh thoi gian cho vao thoi gian lam bai. Giu nguyen timestamp nop
+  thuc te de doi chieu; khong sua diem, dap an hay du lieu lich su.
+  Gioi han dung thoi luong hien tai cua de (chua co snapshot thoi luong
+  rieng cho tung attempt), khong phai do thoi gian thao tac chuot/ban phim.
+- Link anh co `data-no-loading` (ca anh khoi phuc va anh moi tai) de khong
+  bat overlay chuyen trang khi mo dialog. Kiem thu browser dung JS app
+  that, dong anh va xac nhan overlay an ngay, khong doi timeout 20 giay.
 
 Tai lieu nay gia dinh:
 

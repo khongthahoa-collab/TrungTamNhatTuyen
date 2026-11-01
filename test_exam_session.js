@@ -49,7 +49,6 @@ const pages = JSON.parse(fixture.stdout);
       if (url.pathname.startsWith('/static/')) {
         const path = url.pathname.slice(1);
         const mocks = {
-          'static/js/app.js': '',
           'static/js/messages.js': '',
           'static/js/exam-math.js': 'window.scheduleExamMathTypeset = () => {};',
         };
@@ -76,6 +75,11 @@ const pages = JSON.parse(fixture.stdout);
         return route.fulfill({ json: { redirect_url: '/result' } });
       }
       if (url.pathname === '/result') return route.fulfill({ contentType: 'text/html', body: 'Submitted' });
+      if (request.method() === 'POST' && /\/exam-images\/attempts\/\d+$/.test(url.pathname)) {
+        return route.fulfill({ status: 201, json: {
+          id: 'new-photo', url: '/exam-images/new-photo', thumbnail_url: '/exam-images/new-photo?thumbnail=1',
+        } });
+      }
       if (url.pathname === pages.photo.url || url.pathname.includes('/exam-images/')) {
         return route.fulfill({
           contentType: 'image/svg+xml',
@@ -120,6 +124,11 @@ const pages = JSON.parse(fixture.stdout);
     await page.goto('http://exam.test/take');
     await page.locator('.essay-image-card a').first().click();
     await page.locator('[data-close-image]').click();
+    assert.equal(await page.locator('#page-loading-overlay').evaluate(
+      overlay => overlay.classList.contains('d-none')), true);
+    assert.equal(await page.locator('#page-loading-overlay').evaluate(
+      overlay => overlay.classList.contains('d-none')), true,
+    'opening an image must not leave the navigation overlay blocking the page');
     assert.equal(page.url(), 'http://exam.test/take');
     await page.locator('textarea').first().fill('Keep this answer');
     await page.waitForFunction(() => document.getElementById('saveStatus').textContent === 'Đã lưu tiến độ.');
@@ -127,11 +136,25 @@ const pages = JSON.parse(fixture.stdout);
     assert.equal(saves.length, 2);
     assert.equal(saves[1].token, 'fresh-token');
     assert.ok(saves[1].body.includes('Keep this answer'));
+    const png = await page.evaluate(() => {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 20;
+      return canvas.toDataURL('image/png').split(',')[1];
+    });
+    await page.locator('.essay-image-input').first().setInputFiles({
+      name: 'answer.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64'),
+    });
+    await page.locator('[data-image-id="new-photo"]').waitFor();
+    await page.locator('[data-image-id="new-photo"] a').click();
+    await page.locator('[data-close-image]').click();
+    assert.equal(await page.locator('#page-loading-overlay').evaluate(
+      overlay => overlay.classList.contains('d-none')), true,
+    'newly uploaded image links must also skip the navigation overlay');
     await page.locator('#submitBtnTop').click();
     await page.waitForFunction(() => window.lastMessage?.includes('temporary failure'));
     assert.equal(page.url(), 'http://exam.test/take');
     assert.equal(await page.locator('textarea').first().inputValue(), 'Keep this answer');
-    assert.equal(await page.locator('[data-image-id]').count(), 1);
+    assert.equal(await page.locator('[data-image-id]').count(), 2);
     assert.equal(await page.locator('.essay-image-input').first().isEnabled(), true);
     failSubmit = false;
     await page.locator('#submitBtnTop').click();
